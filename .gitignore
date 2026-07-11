@@ -33,6 +33,15 @@ coverage/
 
 # Build output
 dist/
+.next/
+out/
+
+# Vercel
+.vercel/
+
+# Generated Next.js types
+next-env.d.ts
+*.tsbuildinfo
 
 # Dependencies
 node_modules/
@@ -42,3 +51,7 @@ node_modules/
 
 # VS Code settings (optional)
 .vscode/settings.json
+
+# Agent files
+agents.md
+agents/
