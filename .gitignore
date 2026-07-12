@@ -1,5 +1,14 @@
+# Dependencies
+node_modules/
+
+# Other package managers (npm only — see agents/stack.md)
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,50 +16,56 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build / framework output
+dist/
+dist-ssr/
+.next/
+out/
+.vercel/
 *.local
+
+# Generated TypeScript / Next.js
+next-env.d.ts
+*.tsbuildinfo
+
+# Test / coverage (Vitest, Playwright)
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Tooling caches
+.eslintcache
+.prettiercache
+.turbo/
+.cache/
+
+# Certificates and private keys
+*.pem
+*.key
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Environment variables
-.env
-.env.local
-.env.*
-
-# Coverage reports
-coverage/
-
-# Build output
-dist/
-.next/
-out/
-
-# Vercel
-.vercel/
-
-# Generated Next.js types
-next-env.d.ts
-*.tsbuildinfo
-
-# Dependencies
-node_modules/
-
-# macOS
+# OS
 .DS_Store
+Thumbs.db
 
-# VS Code settings (optional)
-.vscode/settings.json
+# Local / secret tooling configs
+.sentryclirc
 
 # Agent files
 agents.md
