@@ -68,5 +68,11 @@ Thumbs.db
 .sentryclirc
 
 # Agent files
-agents.md
+AGENTS.md
 agents/
+
+# Documentation, primarily for AI agents
+docs/
+
+# Prompt writing before sending to AI
+zel.md
