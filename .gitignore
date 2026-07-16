@@ -50,6 +50,11 @@ playwright/.cache/
 *.pem
 *.key
 
+# Database backups
+backups/
+*.dump
+*.backup
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
