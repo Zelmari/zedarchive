@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  animeCatalogueItemIdSchema,
   animeCatalogueItemSchema,
-  animeCatalogueSourceSchema,
   animeFormatSchema,
   animeFormatValues,
   animeMaturitySchema,
@@ -13,10 +13,7 @@ import {
 
 function createCompleteAnimeCatalogueItem() {
   return {
-    source: {
-      provider: 'example_provider',
-      itemId: '1',
-    },
+    id: '550e8400-e29b-41d4-a716-446655440000',
     titles: {
       english: 'Cowboy Bebop',
       romaji: 'Cowboy Bebop',
@@ -27,7 +24,6 @@ function createCompleteAnimeCatalogueItem() {
     releaseStatus: 'finished',
     releaseYear: 1998,
     episodeCount: 26,
-    posterImageUrl: 'https://images.example.test/cowboy-bebop.jpg',
     maturity: 'safe',
   }
 }
@@ -133,86 +129,40 @@ describe('animeMaturitySchema', () => {
   })
 })
 
-describe('animeCatalogueSourceSchema', () => {
-  it('accepts and trims a provider key and opaque item ID', () => {
-    expect(
-      animeCatalogueSourceSchema.parse({
-        provider: ' example_provider ',
-        itemId: ' 1 ',
-      }),
-    ).toEqual({
-      provider: 'example_provider',
-      itemId: '1',
-    })
-  })
-
+describe('animeCatalogueItemIdSchema', () => {
   it.each([
     '550e8400-e29b-41d4-a716-446655440000',
-    'cowboy-bebop',
-    'anime_1:season_2',
-  ])('accepts the opaque item ID "%s"', (itemId) => {
-    expect(
-      animeCatalogueSourceSchema.parse({
-        provider: 'example_provider',
-        itemId,
-      }).itemId,
-    ).toBe(itemId)
+    '123e4567-e89b-42d3-a456-426614174000',
+  ])('accepts the UUID v4 catalogue item ID "%s"', (id) => {
+    expect(animeCatalogueItemIdSchema.parse(id)).toBe(id)
   })
 
   it.each([
     '',
-    '_provider',
-    '1provider',
-    'Example',
-    'example-provider',
-    'example provider',
-    'example.provider',
-  ])('rejects the invalid provider key "%s"', (provider) => {
-    expect(
-      animeCatalogueSourceSchema.safeParse({ provider, itemId: '1' }).success,
-    ).toBe(false)
+    ' ',
+    ' \n ',
+    '550e8400-e29b-41d4-a716-446655440000 ',
+    ' 550e8400-e29b-41d4-a716-446655440000',
+    '1',
+    'Q123',
+    'cowboy-bebop',
+    '550e8400e29b41d4a716446655440000',
+    '550e8400-e29b-11d4-a716-446655440000',
+    '01890f3e-8b4a-7cc2-98c3-7c8f5b2d6a11',
+    '550e8400-e29b-41d4-7716-446655440000',
+  ])('rejects the invalid catalogue item ID "%s"', (id) => {
+    expect(animeCatalogueItemIdSchema.safeParse(id).success).toBe(false)
   })
 
-  it.each(['', ' ', ' \n '])('rejects the empty item ID "%s"', (itemId) => {
-    expect(
-      animeCatalogueSourceSchema.safeParse({
-        provider: 'example_provider',
-        itemId,
-      }).success,
-    ).toBe(false)
-  })
-
-  it('rejects a numeric item ID', () => {
-    expect(
-      animeCatalogueSourceSchema.safeParse({
-        provider: 'example_provider',
-        itemId: 1,
-      }).success,
-    ).toBe(false)
-  })
-
-  it.each(['provider', 'itemId'])(
-    'rejects a source missing the required "%s" key',
-    (missingKey) => {
-      const source: Record<string, unknown> = {
-        provider: 'example_provider',
-        itemId: '1',
-      }
-
-      delete source[missingKey]
-
-      expect(animeCatalogueSourceSchema.safeParse(source).success).toBe(false)
-    },
-  )
-
-  it('rejects unexpected source fields', () => {
-    expect(
-      animeCatalogueSourceSchema.safeParse({
-        provider: 'example_provider',
-        itemId: '1',
-        numericId: 1,
-      }).success,
-    ).toBe(false)
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    ['number', 1],
+    ['boolean', true],
+    ['array', ['550e8400-e29b-41d4-a716-446655440000']],
+    ['object', { id: '550e8400-e29b-41d4-a716-446655440000' }],
+  ])('rejects a %s value', (_, id) => {
+    expect(animeCatalogueItemIdSchema.safeParse(id).success).toBe(false)
   })
 })
 
@@ -361,7 +311,7 @@ describe('animeTitlesSchema', () => {
 })
 
 describe('animeCatalogueItemSchema', () => {
-  it('accepts a complete provider-neutral anime catalogue item', () => {
+  it('accepts a complete first-party anime catalogue item', () => {
     const item = createCompleteAnimeCatalogueItem()
 
     expect(animeCatalogueItemSchema.parse(item)).toEqual(item)
@@ -369,10 +319,7 @@ describe('animeCatalogueItemSchema', () => {
 
   it('accepts a minimal item with explicit unknown and null metadata', () => {
     const item = {
-      source: {
-        provider: 'example_provider',
-        itemId: 'unknown-item',
-      },
+      id: '123e4567-e89b-42d3-a456-426614174000',
       titles: {
         english: null,
         romaji: 'Unknown Anime',
@@ -383,7 +330,6 @@ describe('animeCatalogueItemSchema', () => {
       releaseStatus: 'unknown',
       releaseYear: null,
       episodeCount: null,
-      posterImageUrl: null,
       maturity: 'unknown',
     }
 
@@ -452,42 +398,12 @@ describe('animeCatalogueItemSchema', () => {
   })
 
   it.each([
-    'https://images.example.test/poster.jpg',
-    'https://cdn.example.test/poster.webp?size=large',
-  ])('accepts the HTTPS poster URL "%s"', (posterImageUrl) => {
-    expect(
-      animeCatalogueItemSchema.safeParse({
-        ...createCompleteAnimeCatalogueItem(),
-        posterImageUrl,
-      }).success,
-    ).toBe(true)
-  })
-
-  it.each([
-    '',
-    'poster.jpg',
-    '/poster.jpg',
-    'http://images.example.test/poster.jpg',
-    'ftp://images.example.test/poster.jpg',
-    'data:image/png;base64,abc',
-    'javascript:alert(1)',
-  ])('rejects the invalid poster URL "%s"', (posterImageUrl) => {
-    expect(
-      animeCatalogueItemSchema.safeParse({
-        ...createCompleteAnimeCatalogueItem(),
-        posterImageUrl,
-      }).success,
-    ).toBe(false)
-  })
-
-  it.each([
-    'source',
+    'id',
     'titles',
     'format',
     'releaseStatus',
     'releaseYear',
     'episodeCount',
-    'posterImageUrl',
     'maturity',
   ])('rejects an item missing the required "%s" key', (missingKey) => {
     const item: Record<string, unknown> = createCompleteAnimeCatalogueItem()
@@ -497,7 +413,7 @@ describe('animeCatalogueItemSchema', () => {
     expect(animeCatalogueItemSchema.safeParse(item).success).toBe(false)
   })
 
-  it.each(['releaseYear', 'episodeCount', 'posterImageUrl'])(
+  it.each(['releaseYear', 'episodeCount'])(
     'rejects undefined instead of explicit null for "%s"',
     (key) => {
       expect(
@@ -514,6 +430,51 @@ describe('animeCatalogueItemSchema', () => {
       animeCatalogueItemSchema.safeParse({
         ...createCompleteAnimeCatalogueItem(),
         synopsis: 'A space western.',
+      }).success,
+    ).toBe(false)
+  })
+
+  it.each([
+    [
+      'the old source object',
+      {
+        source: {
+          provider: 'example_provider',
+          itemId: '1',
+        },
+      },
+    ],
+    ['a provider key', { provider: 'example_provider' }],
+    ['an external ID', { externalId: '1' }],
+    ['a Wikidata ID', { wikidataId: 'Q123' }],
+    [
+      'embedded provenance',
+      {
+        provenance: {
+          source: 'wikidata',
+          itemId: 'Q123',
+        },
+      },
+    ],
+    [
+      'a poster image URL',
+      {
+        posterImageUrl: 'https://images.example.test/poster.jpg',
+      },
+    ],
+    [
+      'an artwork object',
+      {
+        artwork: {
+          url: 'https://images.example.test/poster.jpg',
+        },
+      },
+    ],
+  ])('rejects %s', (_, extraFields) => {
+    expect(
+      animeCatalogueItemSchema.safeParse({
+        ...createCompleteAnimeCatalogueItem(),
+        ...extraFields,
       }).success,
     ).toBe(false)
   })

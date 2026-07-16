@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
-const animeProviderKeyPattern = /^[a-z][a-z0-9_]*$/
-const animeProviderKeySchema = z.string().trim().regex(animeProviderKeyPattern)
-const animeProviderItemIdSchema = z.string().trim().min(1)
 const animeTitleSchema = z.string().trim().min(1)
 const animeReleaseYearSchema = z.number().int().min(1).max(9999)
 const animeEpisodeCountSchema = z.number().int().positive()
-const animePosterImageUrlSchema = z.url({ protocol: /^https$/ })
+
+export const animeCatalogueItemIdSchema = z.uuidv4()
+
+export type AnimeCatalogueItemId = z.infer<typeof animeCatalogueItemIdSchema>
 
 export const animeFormatValues = [
   'tv',
@@ -42,13 +42,6 @@ export const animeMaturityValues = [
 export const animeMaturitySchema = z.enum(animeMaturityValues)
 
 export type AnimeMaturity = z.infer<typeof animeMaturitySchema>
-
-export const animeCatalogueSourceSchema = z.strictObject({
-  provider: animeProviderKeySchema,
-  itemId: animeProviderItemIdSchema,
-})
-
-export type AnimeCatalogueSource = z.infer<typeof animeCatalogueSourceSchema>
 
 export const animeTitlesSchema = z
   .strictObject({
@@ -89,13 +82,12 @@ export const animeTitlesSchema = z
 export type AnimeTitles = z.infer<typeof animeTitlesSchema>
 
 export const animeCatalogueItemSchema = z.strictObject({
-  source: animeCatalogueSourceSchema,
+  id: animeCatalogueItemIdSchema,
   titles: animeTitlesSchema,
   format: animeFormatSchema,
   releaseStatus: animeReleaseStatusSchema,
   releaseYear: animeReleaseYearSchema.nullable(),
   episodeCount: animeEpisodeCountSchema.nullable(),
-  posterImageUrl: animePosterImageUrlSchema.nullable(),
   maturity: animeMaturitySchema,
 })
 
