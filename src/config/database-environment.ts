@@ -56,10 +56,17 @@ const migrationEnvironmentSchema = z.strictObject({
   DATABASE_MIGRATION_URL: postgresConnectionUrlSchema,
 })
 
+const testEnvironmentSchema = z.strictObject({
+  DATABASE_TEST_URL: postgresConnectionUrlSchema,
+})
+
+type DatabaseEnvironmentVariable =
+  'DATABASE_URL' | 'DATABASE_MIGRATION_URL' | 'DATABASE_TEST_URL'
+
 function parseEnvironment<T>(
   schema: z.ZodType<T>,
   environment: Environment,
-  variableName: 'DATABASE_URL' | 'DATABASE_MIGRATION_URL',
+  variableName: DatabaseEnvironmentVariable,
 ): T {
   const result = schema.safeParse({
     [variableName]: environment[variableName],
@@ -97,5 +104,19 @@ export function readDatabaseMigrationEnvironment(
 
   return {
     databaseMigrationUrl: DATABASE_MIGRATION_URL,
+  }
+}
+
+export function readDatabaseTestEnvironment(
+  environment: Environment = process.env,
+): { databaseTestUrl: string } {
+  const { DATABASE_TEST_URL } = parseEnvironment(
+    testEnvironmentSchema,
+    environment,
+    'DATABASE_TEST_URL',
+  )
+
+  return {
+    databaseTestUrl: DATABASE_TEST_URL,
   }
 }

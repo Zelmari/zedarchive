@@ -1,1 +1,13 @@
-{ "version": "7", "dialect": "postgresql", "entries": [] }
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784240369482,
+      "tag": "0000_first_party_anime_catalogue",
+      "breakpoints": true
+    }
+  ]
+}

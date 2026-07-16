@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
@@ -9,7 +10,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    exclude: ['src/**/*.integration.test.ts'],
-    include: ['src/**/*.test.ts'],
+    fileParallelism: false,
+    globalSetup: ['./src/test/database/global-setup.ts'],
+    include: ['src/**/*.integration.test.ts'],
   },
 })
