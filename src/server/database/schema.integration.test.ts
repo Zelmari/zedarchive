@@ -21,6 +21,75 @@ const checkViolation = '23514'
 const foreignKeyViolation = '23503'
 const uniqueViolation = '23505'
 
+const catalogueReadIndexNames = [
+  'anime_catalogue_items_public_browse_idx',
+  'anime_catalogue_items_public_english_title_trgm_idx',
+  'anime_catalogue_items_public_romaji_title_trgm_idx',
+  'anime_catalogue_items_public_original_title_trgm_idx',
+  'anime_alternative_titles_title_trgm_idx',
+] as const
+
+type CatalogueReadIndexMetadata = {
+  indexName: (typeof catalogueReadIndexNames)[number]
+  tableName: string
+  accessMethod: string
+  predicate: string | null
+  expressions: string[]
+  opclasses: (string | null)[]
+}
+
+function expectPublicCatalogueIndexPredicate(predicate: string | null): void {
+  expect(predicate).toMatch(/catalogue_state\s*=\s*'published'/)
+  expect(predicate).toMatch(/maturity\s*<>\s*'adult'/)
+}
+
+async function queryCatalogueReadIndexMetadata(): Promise<
+  CatalogueReadIndexMetadata[]
+> {
+  const result = await pool.query<CatalogueReadIndexMetadata>(
+    `
+    select
+      idx.relname as "indexName",
+      tbl.relname as "tableName",
+      am.amname as "accessMethod",
+      pg_get_expr(ix.indpred, ix.indrelid) as "predicate",
+      array_agg(
+        pg_get_indexdef(idx.oid, keys.n, true)
+        order by keys.n
+      ) as "expressions",
+      array_agg(
+        opc.opcname::text
+        order by keys.n
+      ) as "opclasses"
+    from pg_index ix
+    join pg_class idx on idx.oid = ix.indexrelid
+    join pg_class tbl on tbl.oid = ix.indrelid
+    join pg_am am on am.oid = idx.relam
+    left join lateral generate_series(1, ix.indnkeyatts) as keys(n) on true
+    left join pg_opclass opc on opc.oid = ix.indclass[keys.n - 1]
+    where idx.relname = any($1::text[])
+    group by idx.relname, tbl.relname, am.amname, ix.indpred, ix.indrelid, idx.oid
+    order by idx.relname
+  `,
+    [catalogueReadIndexNames],
+  )
+
+  return result.rows
+}
+
+function findCatalogueReadIndex(
+  indexes: CatalogueReadIndexMetadata[],
+  indexName: (typeof catalogueReadIndexNames)[number],
+): CatalogueReadIndexMetadata {
+  const index = indexes.find((entry) => entry.indexName === indexName)
+
+  if (!index) {
+    throw new Error(`Expected catalogue read index "${indexName}" to exist`)
+  }
+
+  return index
+}
+
 const { databaseTestUrl } = readDatabaseTestEnvironment()
 const pool = new Pool({ connectionString: databaseTestUrl })
 const database = drizzle({ client: pool })
@@ -192,6 +261,85 @@ describe('database integration safety', () => {
     expect(indexResult.rows.map(({ indexName }) => indexName)).toContain(
       'anime_catalogue_sources_catalogue_item_id_idx',
     )
+  })
+})
+
+describe('catalogue read indexes and pg_trgm', () => {
+  it('installs the pg_trgm extension required by trigram search indexes', async () => {
+    const result = await pool.query<{ extensionName: string }>(`
+      select extname as "extensionName"
+      from pg_catalog.pg_extension
+      where extname = 'pg_trgm'
+    `)
+
+    expect(result.rows).toEqual([{ extensionName: 'pg_trgm' }])
+  })
+
+  it('creates the five planned catalogue read indexes with expected metadata', async () => {
+    const indexes = await queryCatalogueReadIndexMetadata()
+
+    expect(indexes.map(({ indexName }) => indexName)).toEqual(
+      expect.arrayContaining([...catalogueReadIndexNames]),
+    )
+
+    const browseIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_public_browse_idx',
+    )
+    expect(browseIndex.tableName).toBe('anime_catalogue_items')
+    expect(browseIndex.accessMethod).toBe('btree')
+    expectPublicCatalogueIndexPredicate(browseIndex.predicate)
+    expect(browseIndex.expressions).toHaveLength(3)
+    expect(browseIndex.expressions[0]).toMatch(
+      /lower\(coalesce\(english_title, romaji_title, original_title\)\)/i,
+    )
+    expect(browseIndex.expressions[1]).toMatch(
+      /coalesce\(english_title, romaji_title, original_title\)/i,
+    )
+    expect(browseIndex.expressions[2]).toMatch(/^id$/i)
+
+    const englishTitleIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_public_english_title_trgm_idx',
+    )
+    expect(englishTitleIndex.tableName).toBe('anime_catalogue_items')
+    expect(englishTitleIndex.accessMethod).toBe('gin')
+    expectPublicCatalogueIndexPredicate(englishTitleIndex.predicate)
+    expect(englishTitleIndex.predicate).toMatch(/english_title is not null/i)
+    expect(englishTitleIndex.expressions).toEqual(['english_title'])
+    expect(englishTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
+
+    const romajiTitleIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_public_romaji_title_trgm_idx',
+    )
+    expect(romajiTitleIndex.tableName).toBe('anime_catalogue_items')
+    expect(romajiTitleIndex.accessMethod).toBe('gin')
+    expectPublicCatalogueIndexPredicate(romajiTitleIndex.predicate)
+    expect(romajiTitleIndex.predicate).toMatch(/romaji_title is not null/i)
+    expect(romajiTitleIndex.expressions).toEqual(['romaji_title'])
+    expect(romajiTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
+
+    const originalTitleIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_public_original_title_trgm_idx',
+    )
+    expect(originalTitleIndex.tableName).toBe('anime_catalogue_items')
+    expect(originalTitleIndex.accessMethod).toBe('gin')
+    expectPublicCatalogueIndexPredicate(originalTitleIndex.predicate)
+    expect(originalTitleIndex.predicate).toMatch(/original_title is not null/i)
+    expect(originalTitleIndex.expressions).toEqual(['original_title'])
+    expect(originalTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
+
+    const alternativeTitleIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_alternative_titles_title_trgm_idx',
+    )
+    expect(alternativeTitleIndex.tableName).toBe('anime_alternative_titles')
+    expect(alternativeTitleIndex.accessMethod).toBe('gin')
+    expect(alternativeTitleIndex.predicate).toBeNull()
+    expect(alternativeTitleIndex.expressions).toEqual(['title'])
+    expect(alternativeTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
   })
 })
 

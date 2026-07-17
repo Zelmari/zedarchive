@@ -103,6 +103,30 @@ export const animeCatalogueItems = pgTable(
       'anime_catalogue_items_timestamp_order_check',
       sql`${table.updatedAt} >= ${table.createdAt}`,
     ),
+    index('anime_catalogue_items_public_browse_idx')
+      .on(
+        sql`lower(coalesce(${table.englishTitle}, ${table.romajiTitle}, ${table.originalTitle}))`,
+        sql`coalesce(${table.englishTitle}, ${table.romajiTitle}, ${table.originalTitle})`,
+        table.id,
+      )
+      .where(
+        sql`${table.catalogueState} = 'published' and ${table.maturity} <> 'adult'`,
+      ),
+    index('anime_catalogue_items_public_english_title_trgm_idx')
+      .using('gin', table.englishTitle.op('gin_trgm_ops'))
+      .where(
+        sql`${table.catalogueState} = 'published' and ${table.maturity} <> 'adult' and ${table.englishTitle} is not null`,
+      ),
+    index('anime_catalogue_items_public_romaji_title_trgm_idx')
+      .using('gin', table.romajiTitle.op('gin_trgm_ops'))
+      .where(
+        sql`${table.catalogueState} = 'published' and ${table.maturity} <> 'adult' and ${table.romajiTitle} is not null`,
+      ),
+    index('anime_catalogue_items_public_original_title_trgm_idx')
+      .using('gin', table.originalTitle.op('gin_trgm_ops'))
+      .where(
+        sql`${table.catalogueState} = 'published' and ${table.maturity} <> 'adult' and ${table.originalTitle} is not null`,
+      ),
   ],
 )
 
@@ -139,6 +163,10 @@ export const animeAlternativeTitles = pgTable(
     unique('anime_alternative_titles_catalogue_item_id_position_key').on(
       table.catalogueItemId,
       table.position,
+    ),
+    index('anime_alternative_titles_title_trgm_idx').using(
+      'gin',
+      table.title.op('gin_trgm_ops'),
     ),
   ],
 )
