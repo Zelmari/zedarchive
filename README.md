@@ -42,3 +42,13 @@ The write command verifies that its live database is named exactly
 builds, migrations, or production deployment. Repeating the command is safe:
 unchanged seed-owned records are not rewritten, and unrelated catalogue records
 are left alone.
+
+## License
+
+z-archive's original source code and supporting documentation are available
+under the [MIT License](LICENSE). Copyright (c) 2026 Zelmari.
+
+Catalogue data can have separate terms. Records sourced from Wikidata use its
+CC0 structured data and retain their Wikidata item identifiers as provenance.
+See [data licensing and provenance](data/README.md) for the current boundary.
+Dependencies and any future third-party assets retain their own licences.
