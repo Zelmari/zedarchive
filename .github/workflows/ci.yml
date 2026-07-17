@@ -65,6 +65,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Validate development catalogue seed
+        run: npm run db:seed:check
+
       - name: Verify migration is current
         run: |
           npm run db:generate

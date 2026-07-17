@@ -17,14 +17,7 @@ import type {
   AnimeMaturity,
   AnimeReleaseStatus,
 } from '@/features/anime/domain/anime-catalogue-item'
-
-export const animeCatalogueStateValues = [
-  'draft',
-  'published',
-  'hidden',
-] as const
-
-export type AnimeCatalogueState = (typeof animeCatalogueStateValues)[number]
+import type { AnimeCatalogueState } from '@/features/anime/catalogue/anime-catalogue-state'
 
 export const animeCatalogueItems = pgTable(
   'anime_catalogue_items',

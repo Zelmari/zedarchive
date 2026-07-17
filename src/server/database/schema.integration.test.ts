@@ -8,11 +8,11 @@ import {
   animeMaturityValues,
   animeReleaseStatusValues,
 } from '@/features/anime/domain/anime-catalogue-item'
+import { animeCatalogueStateValues } from '@/features/anime/catalogue/anime-catalogue-state'
 import {
   animeAlternativeTitles,
   animeCatalogueItems,
   animeCatalogueSources,
-  animeCatalogueStateValues,
 } from '@/server/database/schema'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'

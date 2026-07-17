@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "0652e18e-9316-43f8-b51f-a971c4cfdde9",
+      "titles": {
+        "english": "Cowboy Bebop",
+        "romaji": "Cowboy Bebop",
+        "original": "カウボーイビバップ",
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 1998,
+      "episodeCount": 26,
+      "maturity": "sensitive",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q101244908" }]
+    },
+    {
+      "id": "3f193409-1cb7-45b0-b9a5-c0f80a65397a",
+      "titles": {
+        "english": "Spirited Away",
+        "romaji": "Sen to Chihiro no Kamikakushi",
+        "original": "千と千尋の神隠し",
+        "alternatives": []
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 2001,
+      "episodeCount": null,
+      "maturity": "safe",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q155653" }]
+    },
+    {
+      "id": "c3631432-448a-4192-b5d7-900ab6816197",
+      "titles": {
+        "english": "FLCL",
+        "romaji": "Furi Kuri",
+        "original": "フリクリ",
+        "alternatives": ["Fooly Cooly"]
+      },
+      "format": "ova",
+      "releaseStatus": "finished",
+      "releaseYear": 2000,
+      "episodeCount": 6,
+      "maturity": "sensitive",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q111954103" }]
+    },
+    {
+      "id": "d7633df5-7c0c-4df6-917d-1eebf48f7226",
+      "titles": {
+        "english": "Cyberpunk: Edgerunners",
+        "romaji": "Cyberpunk: Edgerunners",
+        "original": "サイバーパンク エッジランナーズ",
+        "alternatives": ["Edgerunners"]
+      },
+      "format": "ona",
+      "releaseStatus": "finished",
+      "releaseYear": 2022,
+      "episodeCount": 10,
+      "maturity": "adult",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q96677963" }]
+    },
+    {
+      "id": "1e9f0f2f-0a69-4846-967a-ec7c1aedc804",
+      "titles": {
+        "english": "Pokémon Origins",
+        "romaji": "Pocket Monsters: The Origin",
+        "original": "ポケットモンスター THE ORIGIN",
+        "alternatives": ["Pokemon Origins"]
+      },
+      "format": "special",
+      "releaseStatus": "finished",
+      "releaseYear": 2013,
+      "episodeCount": 4,
+      "maturity": "safe",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q14870116" }]
+    },
+    {
+      "id": "49e3cb82-c826-4cda-85d3-be3c816bd53a",
+      "titles": {
+        "english": "One Piece",
+        "romaji": "One Piece",
+        "original": "ONE PIECE",
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "airing",
+      "releaseYear": 1999,
+      "episodeCount": null,
+      "maturity": "sensitive",
+      "catalogueState": "published",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q710324" }]
+    },
+    {
+      "id": "850c3e6b-15f6-4aea-99cc-3d8e5a84d008",
+      "titles": {
+        "english": null,
+        "romaji": "Katanagatari",
+        "original": "刀語",
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2010,
+      "episodeCount": 12,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q110420017" }]
+    },
+    {
+      "id": "e22aa50a-0efc-4c18-809d-feb75dab3b6a",
+      "titles": {
+        "english": "Perfect Blue",
+        "romaji": "Perfect Blue",
+        "original": "パーフェクトブルー",
+        "alternatives": ["PERFECT BLUE"]
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 1997,
+      "episodeCount": null,
+      "maturity": "sensitive",
+      "catalogueState": "hidden",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q1205051" }]
+    }
+  ]
+}
