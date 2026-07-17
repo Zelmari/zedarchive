@@ -1,14 +1,9 @@
-import { AnimeCatalogueCard } from '@/features/anime/catalogue/anime-catalogue-card'
-import { AnimeCataloguePagination } from '@/features/anime/catalogue/anime-catalogue-pagination'
+import { Suspense } from 'react'
+import { AnimeCatalogueResults } from '@/features/anime/catalogue/anime-catalogue-results'
 import {
   buildAnimeCataloguePageHref,
   parseAnimeCataloguePageQuery,
 } from '@/features/anime/catalogue/anime-catalogue-page-query'
-import {
-  browseAnimeCatalogue,
-  searchAnimeCatalogue,
-} from '@/server/database/anime-catalogue-service'
-import { database } from '@/server/database/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,18 +16,6 @@ const buttonClassName =
 const linkClassName =
   'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
-function formatBrowseSummary(totalItems: number): string {
-  return `${totalItems} anime`
-}
-
-function formatSearchSummary(totalItems: number, query: string): string {
-  if (totalItems === 1) {
-    return `1 result for "${query}"`
-  }
-
-  return `${totalItems} results for "${query}"`
-}
-
 export default async function HomePage({ searchParams }: PageProps<'/'>) {
   const resolvedSearchParams = await searchParams
   const pageQuery = parseAnimeCataloguePageQuery(resolvedSearchParams)
@@ -42,28 +25,19 @@ export default async function HomePage({ searchParams }: PageProps<'/'>) {
 
   let searchDefaultValue = ''
   let showBrowseClearLink = false
-  let activeQuery: string | undefined
 
   if (pageQuery.kind === 'validation-error') {
     searchDefaultValue = pageQuery.queryInput
   } else if (pageQuery.kind === 'search') {
     searchDefaultValue = pageQuery.query
     showBrowseClearLink = true
-    activeQuery = pageQuery.query
   }
 
-  const cataloguePage =
+  const resultsKey =
     pageQuery.kind === 'browse'
-      ? await browseAnimeCatalogue(database, {
-          page: pageQuery.page,
-          pageSize: pageQuery.pageSize,
-        })
+      ? `browse:${pageQuery.page}`
       : pageQuery.kind === 'search'
-        ? await searchAnimeCatalogue(database, {
-            query: pageQuery.query,
-            page: pageQuery.page,
-            pageSize: pageQuery.pageSize,
-          })
+        ? `search:${pageQuery.query}:${pageQuery.page}`
         : null
 
   return (
@@ -103,33 +77,13 @@ export default async function HomePage({ searchParams }: PageProps<'/'>) {
         ) : null}
       </header>
 
-      {cataloguePage === null ? null : (
-        <>
-          {pageQuery.kind === 'browse' ? (
-            <p>{formatBrowseSummary(cataloguePage.pagination.totalItems)}</p>
-          ) : null}
-          {pageQuery.kind === 'search' ? (
-            <p>
-              {formatSearchSummary(
-                cataloguePage.pagination.totalItems,
-                pageQuery.query,
-              )}
-            </p>
-          ) : null}
-
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {cataloguePage.items.map((item) => (
-              <li key={item.id}>
-                <AnimeCatalogueCard item={item} />
-              </li>
-            ))}
-          </ul>
-
-          <AnimeCataloguePagination
-            pagination={cataloguePage.pagination}
-            query={activeQuery}
-          />
-        </>
+      {pageQuery.kind === 'validation-error' ? null : (
+        <Suspense
+          fallback={<p role="status">Loading anime catalogue…</p>}
+          key={resultsKey}
+        >
+          <AnimeCatalogueResults pageQuery={pageQuery} />
+        </Suspense>
       )}
     </main>
   )
