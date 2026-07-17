@@ -71,6 +71,7 @@ Thumbs.db
 
 # Local / secret tooling configs
 .sentryclirc
+.local/
 
 # Agent files
 AGENTS.md

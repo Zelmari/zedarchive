@@ -1,0 +1,83 @@
+{
+  "retrieved": "2026-07-17",
+  "qid": "Q130377145",
+  "response": {
+    "entities": {
+      "Q130377145": {
+        "id": "Q130377145",
+        "type": "item",
+        "lastrevid": 1,
+        "labels": {
+          "en": { "language": "en", "value": "Frieren, season 1" },
+          "ja": { "language": "ja", "value": "葬送のフリーレン 第1期" }
+        },
+        "aliases": {
+          "en": [{ "language": "en", "value": "Frieren season 1" }],
+          "ja": []
+        },
+        "claims": {
+          "P31": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P31",
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": { "id": "Q100269041", "entity-type": "item" }
+                }
+              }
+            }
+          ],
+          "P1476": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P1476",
+                "datatype": "monolingualtext",
+                "datavalue": {
+                  "type": "monolingualtext",
+                  "value": { "text": "葬送のフリーレン", "language": "ja" }
+                }
+              }
+            }
+          ],
+          "P580": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P580",
+                "datatype": "time",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+2023-09-29T00:00:00Z",
+                    "precision": 11,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            }
+          ],
+          "P1113": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P1113",
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": { "amount": "+28", "unit": "1" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

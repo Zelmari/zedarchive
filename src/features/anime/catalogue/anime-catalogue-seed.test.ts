@@ -184,8 +184,11 @@ describe('anime catalogue state', () => {
 })
 
 describe('committed development seed', () => {
-  it('contains exactly the eight approved anime and metadata', () => {
-    expect(committedSeed).toEqual({ version: 1, items: approvedItems })
+  it('preserves the original eight approved anime before imported records', () => {
+    expect(committedSeed.items).toHaveLength(28)
+    expect(committedSeed.items.slice(0, approvedItems.length)).toEqual(
+      approvedItems,
+    )
   })
 
   it('preserves declared alternative-title order', () => {

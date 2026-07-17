@@ -185,7 +185,7 @@ describe('development anime catalogue seed command', () => {
     await expect(runSeedCommand(['--check'])).resolves.toBeUndefined()
 
     expect(log).toHaveBeenCalledOnce()
-    expect(log).toHaveBeenCalledWith('Validated 8 anime catalogue seed items.')
+    expect(log).toHaveBeenCalledWith('Validated 28 anime catalogue seed items.')
     expect(dependencySpies.poolConstructor).not.toHaveBeenCalled()
     expect(dependencySpies.synchronizeAnimeCatalogueSeed).not.toHaveBeenCalled()
     databaseVariableNames.forEach((variableName) => {

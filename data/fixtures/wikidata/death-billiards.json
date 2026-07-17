@@ -1,0 +1,66 @@
+{
+  "retrieved": "2026-07-17",
+  "qid": "Q66205775",
+  "response": {
+    "entities": {
+      "Q66205775": {
+        "id": "Q66205775",
+        "type": "item",
+        "lastrevid": 2,
+        "labels": {
+          "en": { "language": "en", "value": "Death Billiards" },
+          "ja": { "language": "ja", "value": "Death Billiards" }
+        },
+        "aliases": { "en": [], "ja": [] },
+        "claims": {
+          "P31": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P31",
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": { "id": "Q117209498", "entity-type": "item" }
+                }
+              }
+            }
+          ],
+          "P1476": [
+            {
+              "rank": "preferred",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P1476",
+                "datatype": "monolingualtext",
+                "datavalue": {
+                  "type": "monolingualtext",
+                  "value": { "text": "デス・ビリヤード", "language": "ja" }
+                }
+              }
+            }
+          ],
+          "P577": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P577",
+                "datatype": "time",
+                "datavalue": {
+                  "type": "time",
+                  "value": {
+                    "time": "+2013-03-02T00:00:00Z",
+                    "precision": 11,
+                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

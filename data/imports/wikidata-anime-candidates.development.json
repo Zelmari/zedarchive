@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "sourceKey": "wikidata",
+  "candidates": [
+    {
+      "catalogueItemId": "2bdfdaf5-e4be-4c6b-9863-a70bf21e1f40",
+      "sourceItemId": "Q130377145",
+      "expectedEnglishLabel": "Frieren, season 1",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Soso no Frieren, season 1",
+        "format": "tv",
+        "releaseYear": 2023,
+        "episodeCount": 28,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "ecabe629-1b47-4937-8b83-05fcfa378f54",
+      "sourceItemId": "Q130377146",
+      "expectedEnglishLabel": "Frieren, season 2",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Soso no Frieren, season 2",
+        "format": "tv",
+        "releaseYear": 2026,
+        "episodeCount": 10,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "fde56da2-5301-48ff-bde8-5fbca048477e",
+      "sourceItemId": "Q437808",
+      "expectedEnglishLabel": "Fullmetal Alchemist: Brotherhood",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Hagane no Renkinjutsushi: Fullmetal Alchemist",
+        "format": "tv",
+        "releaseYear": 2009,
+        "episodeCount": 64,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "719ecba8-9b8a-4434-a932-7df87006d026",
+      "sourceItemId": "Q662",
+      "expectedEnglishLabel": "Neon Genesis Evangelion",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Shin Seiki Evangelion",
+        "format": "tv",
+        "releaseYear": 1995,
+        "episodeCount": 26,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "d94f2563-8282-400a-a7a1-ad2645f379c6",
+      "sourceItemId": "Q20590069",
+      "expectedEnglishLabel": "Steins;Gate",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Steins;Gate",
+        "format": "tv",
+        "releaseYear": 2011,
+        "episodeCount": 24,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "cf6cc14f-fb87-4b5a-bf85-4b92f72b433b",
+      "sourceItemId": "Q53353",
+      "expectedEnglishLabel": "Puella Magi Madoka Magica",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Maho Shojo Madoka Magica",
+        "format": "tv",
+        "releaseYear": 2011,
+        "episodeCount": 12,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "6fa23a51-6e4a-4fc2-8b12-d34b675daae3",
+      "sourceItemId": "Q57390937",
+      "expectedEnglishLabel": "Violet Evergarden",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Violet Evergarden",
+        "format": "tv",
+        "releaseYear": 2018,
+        "episodeCount": 13,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "630bcc2e-37a5-41f7-9916-4949248deb7e",
+      "sourceItemId": "Q114009808",
+      "expectedEnglishLabel": "Mob Psycho 100, season 1",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Mob Psycho 100, season 1",
+        "format": "tv",
+        "releaseYear": 2016,
+        "episodeCount": 12,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "f8c0dd79-78b3-4918-b03a-8990a66fbc02",
+      "sourceItemId": "Q126598644",
+      "expectedEnglishLabel": "Delicious in Dungeon, season 1",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Dungeon Meshi, season 1",
+        "format": "tv",
+        "releaseYear": 2024,
+        "episodeCount": 24,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "5a9bd715-cbae-4871-939e-681e9f30d530",
+      "sourceItemId": "Q1905968",
+      "expectedEnglishLabel": "Akira",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Akira",
+        "format": "movie",
+        "releaseYear": 1988,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "adult"
+      }
+    },
+    {
+      "catalogueItemId": "c7ecdb11-35b1-4f9a-921c-1d360949707a",
+      "sourceItemId": "Q186572",
+      "expectedEnglishLabel": "Princess Mononoke",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Mononoke Hime",
+        "format": "movie",
+        "releaseYear": 1997,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "b8294d22-e501-49be-9dc2-0de4c5cbf982",
+      "sourceItemId": "Q21697406",
+      "expectedEnglishLabel": "Your Name",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Kimi no Na wa.",
+        "format": "movie",
+        "releaseYear": 2016,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "safe"
+      }
+    },
+    {
+      "catalogueItemId": "a40975d4-90d2-4a09-8ac6-f0f01f2cef34",
+      "sourceItemId": "Q1066948",
+      "expectedEnglishLabel": "Ghost in the Shell",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Kokaku Kidotai",
+        "format": "movie",
+        "releaseYear": 1995,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "adult"
+      }
+    },
+    {
+      "catalogueItemId": "bbe97a39-eb8c-4d4d-80cd-9cac7bebc92e",
+      "sourceItemId": "Q888136",
+      "expectedEnglishLabel": "The Tale of the Princess Kaguya",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Kaguya-hime no Monogatari",
+        "format": "movie",
+        "releaseYear": 2013,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "safe"
+      }
+    },
+    {
+      "catalogueItemId": "5b7a69af-8447-4a9a-ac79-13150be3be8a",
+      "sourceItemId": "Q20038487",
+      "expectedEnglishLabel": "Legend of the Galactic Heroes",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Ginga Eiyu Densetsu",
+        "format": "ova",
+        "releaseYear": 1988,
+        "episodeCount": 110,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "1841f52f-aea2-4d7e-afed-7502189757c1",
+      "sourceItemId": "Q1196284",
+      "expectedEnglishLabel": "Gunbuster",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Top wo Nerae!",
+        "format": "ova",
+        "releaseYear": 1988,
+        "episodeCount": 6,
+        "releaseStatus": "finished",
+        "maturity": "sensitive",
+        "excludedAlternativeTitles": ["ハワイ県", "トップ!"]
+      }
+    },
+    {
+      "catalogueItemId": "89690be8-ca7b-46e3-86ce-c87e846fba0b",
+      "sourceItemId": "Q116783101",
+      "expectedEnglishLabel": "Pluto",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Pluto",
+        "format": "ona",
+        "releaseYear": 2023,
+        "episodeCount": 8,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "5b482160-33a2-4df1-9ed5-de6f4c36aa9a",
+      "sourceItemId": "Q47087518",
+      "expectedEnglishLabel": "Devilman Crybaby",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Devilman Crybaby",
+        "format": "ona",
+        "releaseYear": 2018,
+        "episodeCount": 10,
+        "releaseStatus": "finished",
+        "maturity": "adult"
+      }
+    },
+    {
+      "catalogueItemId": "8167741c-2828-4d7b-835a-2e5a6b9ca564",
+      "sourceItemId": "Q66205775",
+      "expectedEnglishLabel": "Death Billiards",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Death Billiards",
+        "format": "special",
+        "releaseYear": 2013,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "sensitive"
+      }
+    },
+    {
+      "catalogueItemId": "c6597827-b52b-4f91-bca0-ab20c19b8240",
+      "sourceItemId": "Q113448921",
+      "expectedEnglishLabel": "Little Witch Academia",
+      "intent": "create",
+      "overrides": {
+        "romajiTitle": "Little Witch Academia",
+        "format": "movie",
+        "releaseYear": 2013,
+        "episodeCount": null,
+        "releaseStatus": "finished",
+        "maturity": "safe"
+      }
+    }
+  ]
+}

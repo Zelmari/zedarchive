@@ -68,6 +68,9 @@ jobs:
       - name: Validate development catalogue seed
         run: npm run db:seed:check
 
+      - name: Validate Wikidata import inputs
+        run: npm run catalogue:import:wikidata:check
+
       - name: Verify migration is current
         run: |
           npm run db:generate

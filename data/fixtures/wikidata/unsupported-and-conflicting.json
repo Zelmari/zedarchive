@@ -1,0 +1,70 @@
+{
+  "retrieved": "2026-07-17",
+  "response": {
+    "entities": {
+      "Q1": {
+        "id": "Q1",
+        "type": "item",
+        "labels": { "en": { "language": "en", "value": "Franchise" } },
+        "aliases": {},
+        "claims": {
+          "P31": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P31",
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": { "id": "Q196600", "entity-type": "item" }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Q2": {
+        "id": "Q2",
+        "type": "item",
+        "labels": { "en": { "language": "en", "value": "Conflicting" } },
+        "aliases": {},
+        "claims": {
+          "P1113": [
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P1113",
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": { "amount": "+12", "unit": "1" }
+                }
+              }
+            },
+            {
+              "rank": "normal",
+              "mainsnak": {
+                "snaktype": "value",
+                "property": "P1113",
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": { "amount": "+13", "unit": "1" }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "Q3": {
+        "id": "Q3",
+        "missing": true,
+        "labels": {},
+        "aliases": {},
+        "claims": {}
+      }
+    }
+  }
+}

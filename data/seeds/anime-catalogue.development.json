@@ -128,6 +128,351 @@
       "maturity": "sensitive",
       "catalogueState": "hidden",
       "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q1205051" }]
+    },
+    {
+      "id": "2bdfdaf5-e4be-4c6b-9863-a70bf21e1f40",
+      "titles": {
+        "english": "Frieren, season 1",
+        "romaji": "Soso no Frieren, season 1",
+        "original": "葬送のフリーレン 第1期",
+        "alternatives": ["Sōsō no Frieren, season 1", "Frieren (season 1)"]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2023,
+      "episodeCount": 28,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q130377145" }]
+    },
+    {
+      "id": "ecabe629-1b47-4937-8b83-05fcfa378f54",
+      "titles": {
+        "english": "Frieren, season 2",
+        "romaji": "Soso no Frieren, season 2",
+        "original": "葬送のフリーレン 第2期",
+        "alternatives": ["Sōsō no Frieren, season 2", "Frieren (season 2)"]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2026,
+      "episodeCount": 10,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q130377146" }]
+    },
+    {
+      "id": "fde56da2-5301-48ff-bde8-5fbca048477e",
+      "titles": {
+        "english": "Fullmetal Alchemist: Brotherhood",
+        "romaji": "Hagane no Renkinjutsushi: Fullmetal Alchemist",
+        "original": "鋼の錬金術師 FULLMETAL ALCHEMIST",
+        "alternatives": [
+          "FMA - B",
+          "FMAB",
+          "Fullmetal Alchemist - Brotherhood",
+          "Fullmetal Alchemist Brotherhood"
+        ]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2009,
+      "episodeCount": 64,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q437808" }]
+    },
+    {
+      "id": "719ecba8-9b8a-4434-a932-7df87006d026",
+      "titles": {
+        "english": "Neon Genesis Evangelion",
+        "romaji": "Shin Seiki Evangelion",
+        "original": "新世紀エヴァンゲリオン",
+        "alternatives": [
+          "Shinseiki Evangelion",
+          "Evangelion",
+          "NGE",
+          "エヴァンゲリオン",
+          "エヴァ"
+        ]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 1995,
+      "episodeCount": 26,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q662" }]
+    },
+    {
+      "id": "d94f2563-8282-400a-a7a1-ad2645f379c6",
+      "titles": {
+        "english": "Steins;Gate",
+        "romaji": "Steins;Gate",
+        "original": "STEINS;GATE",
+        "alternatives": ["シュタインズ・ゲート", "シュタゲ"]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2011,
+      "episodeCount": 24,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q20590069" }]
+    },
+    {
+      "id": "cf6cc14f-fb87-4b5a-bf85-4b92f72b433b",
+      "titles": {
+        "english": "Puella Magi Madoka Magica",
+        "romaji": "Maho Shojo Madoka Magica",
+        "original": "魔法少女まどか☆マギカ",
+        "alternatives": [
+          "Madoka Magica",
+          "MadoMagi",
+          "PMMM",
+          "Mahō Shōjo Madoka☆Magica",
+          "Puella Magi Madoka☆Magica",
+          "まどマギ"
+        ]
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2011,
+      "episodeCount": 12,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q53353" }]
+    },
+    {
+      "id": "6fa23a51-6e4a-4fc2-8b12-d34b675daae3",
+      "titles": {
+        "english": "Violet Evergarden",
+        "romaji": "Violet Evergarden",
+        "original": "ヴァイオレット・エヴァーガーデン",
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2018,
+      "episodeCount": 13,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q57390937" }]
+    },
+    {
+      "id": "630bcc2e-37a5-41f7-9916-4949248deb7e",
+      "titles": {
+        "english": "Mob Psycho 100, season 1",
+        "romaji": "Mob Psycho 100, season 1",
+        "original": null,
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2016,
+      "episodeCount": 12,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q114009808" }]
+    },
+    {
+      "id": "f8c0dd79-78b3-4918-b03a-8990a66fbc02",
+      "titles": {
+        "english": "Delicious in Dungeon, season 1",
+        "romaji": "Dungeon Meshi, season 1",
+        "original": "ダンジョン飯 第1期",
+        "alternatives": []
+      },
+      "format": "tv",
+      "releaseStatus": "finished",
+      "releaseYear": 2024,
+      "episodeCount": 24,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q126598644" }]
+    },
+    {
+      "id": "5a9bd715-cbae-4871-939e-681e9f30d530",
+      "titles": {
+        "english": "Akira",
+        "romaji": "Akira",
+        "original": "アキラ",
+        "alternatives": []
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 1988,
+      "episodeCount": null,
+      "maturity": "adult",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q1905968" }]
+    },
+    {
+      "id": "c7ecdb11-35b1-4f9a-921c-1d360949707a",
+      "titles": {
+        "english": "Princess Mononoke",
+        "romaji": "Mononoke Hime",
+        "original": "もののけ姫",
+        "alternatives": ["Mononoke-hime", "もののけひめ"]
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 1997,
+      "episodeCount": null,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q186572" }]
+    },
+    {
+      "id": "b8294d22-e501-49be-9dc2-0de4c5cbf982",
+      "titles": {
+        "english": "Your Name",
+        "romaji": "Kimi no Na wa.",
+        "original": "君の名は。",
+        "alternatives": ["Kimi no Na wa", "君の名は"]
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 2016,
+      "episodeCount": null,
+      "maturity": "safe",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q21697406" }]
+    },
+    {
+      "id": "a40975d4-90d2-4a09-8ac6-f0f01f2cef34",
+      "titles": {
+        "english": "Ghost in the Shell",
+        "romaji": "Kokaku Kidotai",
+        "original": "攻殻機動隊",
+        "alternatives": ["GHOST IN THE SHELL 攻殻機動隊"]
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 1995,
+      "episodeCount": null,
+      "maturity": "adult",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q1066948" }]
+    },
+    {
+      "id": "bbe97a39-eb8c-4d4d-80cd-9cac7bebc92e",
+      "titles": {
+        "english": "The Tale of the Princess Kaguya",
+        "romaji": "Kaguya-hime no Monogatari",
+        "original": "かぐや姫の物語",
+        "alternatives": ["Tale of the Princess Kaguya"]
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 2013,
+      "episodeCount": null,
+      "maturity": "safe",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q888136" }]
+    },
+    {
+      "id": "5b7a69af-8447-4a9a-ac79-13150be3be8a",
+      "titles": {
+        "english": "Legend of the Galactic Heroes",
+        "romaji": "Ginga Eiyu Densetsu",
+        "original": "銀河英雄伝説",
+        "alternatives": ["Ginga Eiyū Densetsu", "Ginga Eiyuu Densetsu"]
+      },
+      "format": "ova",
+      "releaseStatus": "finished",
+      "releaseYear": 1988,
+      "episodeCount": 110,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q20038487" }]
+    },
+    {
+      "id": "1841f52f-aea2-4d7e-afed-7502189757c1",
+      "titles": {
+        "english": "Gunbuster",
+        "romaji": "Top wo Nerae!",
+        "original": "トップをねらえ!",
+        "alternatives": [
+          "Top o Nerae!",
+          "Aim for the Top!",
+          "Top o Nerae! Gunbuster",
+          "Aim for the Top! Gunbuster",
+          "トップを狙え",
+          "トップをねらえ"
+        ]
+      },
+      "format": "ova",
+      "releaseStatus": "finished",
+      "releaseYear": 1988,
+      "episodeCount": 6,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q1196284" }]
+    },
+    {
+      "id": "89690be8-ca7b-46e3-86ce-c87e846fba0b",
+      "titles": {
+        "english": "Pluto",
+        "romaji": "Pluto",
+        "original": "PLUTO",
+        "alternatives": ["プルートウ"]
+      },
+      "format": "ona",
+      "releaseStatus": "finished",
+      "releaseYear": 2023,
+      "episodeCount": 8,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q116783101" }]
+    },
+    {
+      "id": "5b482160-33a2-4df1-9ed5-de6f4c36aa9a",
+      "titles": {
+        "english": "Devilman Crybaby",
+        "romaji": "Devilman Crybaby",
+        "original": "DEVILMAN crybaby",
+        "alternatives": []
+      },
+      "format": "ona",
+      "releaseStatus": "finished",
+      "releaseYear": 2018,
+      "episodeCount": 10,
+      "maturity": "adult",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q47087518" }]
+    },
+    {
+      "id": "8167741c-2828-4d7b-835a-2e5a6b9ca564",
+      "titles": {
+        "english": "Death Billiards",
+        "romaji": "Death Billiards",
+        "original": "デス・ビリヤード",
+        "alternatives": []
+      },
+      "format": "special",
+      "releaseStatus": "finished",
+      "releaseYear": 2013,
+      "episodeCount": null,
+      "maturity": "sensitive",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q66205775" }]
+    },
+    {
+      "id": "c6597827-b52b-4f91-bca0-ab20c19b8240",
+      "titles": {
+        "english": "Little Witch Academia",
+        "romaji": "Little Witch Academia",
+        "original": "リトルウィッチアカデミア",
+        "alternatives": []
+      },
+      "format": "movie",
+      "releaseStatus": "finished",
+      "releaseYear": 2013,
+      "episodeCount": null,
+      "maturity": "safe",
+      "catalogueState": "draft",
+      "sources": [{ "sourceKey": "wikidata", "sourceItemId": "Q113448921" }]
     }
   ]
 }
