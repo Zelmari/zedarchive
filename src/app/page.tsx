@@ -3,6 +3,7 @@ import { AnimeCatalogueResults } from '@/features/anime/catalogue/anime-catalogu
 import {
   buildAnimeCataloguePageHref,
   parseAnimeCataloguePageQuery,
+  type AnimeCataloguePageQueryInput,
 } from '@/features/anime/catalogue/anime-catalogue-page-query'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,11 @@ const buttonClassName =
 const linkClassName =
   'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
-export default async function HomePage({ searchParams }: PageProps<'/'>) {
+type HomePageProps = {
+  searchParams: Promise<AnimeCataloguePageQueryInput>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
   const resolvedSearchParams = await searchParams
   const pageQuery = parseAnimeCataloguePageQuery(resolvedSearchParams)
 
