@@ -197,7 +197,7 @@ describe('database integration safety', () => {
     )
   })
 
-  it('contains exactly the three approved public application tables', async () => {
+  it('contains exactly the eight approved public application tables', async () => {
     const result = await pool.query<{ tableName: string }>(`
       select tablename as "tableName"
       from pg_catalog.pg_tables
@@ -206,9 +206,14 @@ describe('database integration safety', () => {
     `)
 
     expect(result.rows.map(({ tableName }) => tableName)).toEqual([
+      'accounts',
       'anime_alternative_titles',
       'anime_catalogue_items',
       'anime_catalogue_sources',
+      'rate_limits',
+      'sessions',
+      'users',
+      'verifications',
     ])
   })
 

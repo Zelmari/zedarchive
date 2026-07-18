@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      BETTER_AUTH_SECRET: ci-disposable-better-auth-secret-32chars-min
+      BETTER_AUTH_URL: http://localhost:3000
+      DATABASE_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
       DATABASE_MIGRATION_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
       DATABASE_TEST_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
 
