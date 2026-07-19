@@ -147,9 +147,12 @@ describe('auth handler integration', () => {
   })
 
   it('supports a test-only credential signup, session, and revoke lifecycle', async () => {
-    const auth = createAuth(database, authEnvironment, {
-      allowCredentialSignUpForTesting: true,
-    })
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
 
     const signUpResponse = await auth.handler(
       createAuthRequest('/sign-up/email', {
@@ -200,9 +203,12 @@ describe('auth handler integration', () => {
     expect(sessionBody?.user.name).toBe('MediaFan')
     expect(sessionBody?.user).not.toHaveProperty('usernameIdentityKey')
 
-    const secondAuth = createAuth(database, authEnvironment, {
-      allowCredentialSignUpForTesting: true,
-    })
+    const secondAuth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
     const secondInstanceSessionResponse = await secondAuth.handler(
       createAuthRequest('/get-session', {
         method: 'GET',
@@ -266,9 +272,12 @@ describe('auth handler integration', () => {
   })
 
   it('rejects an untrusted origin on credential signup without writing users', async () => {
-    const auth = createAuth(database, authEnvironment, {
-      allowCredentialSignUpForTesting: true,
-    })
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
 
     const response = await auth.handler(
       createAuthRequest('/sign-up/email', {
@@ -296,9 +305,12 @@ describe('auth handler integration', () => {
   })
 
   it('normalizes mixed-case email for credential signup and sign-in lookup', async () => {
-    const auth = createAuth(database, authEnvironment, {
-      allowCredentialSignUpForTesting: true,
-    })
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
 
     const signUpResponse = await auth.handler(
       createAuthRequest('/sign-up/email', {
@@ -332,9 +344,12 @@ describe('auth handler integration', () => {
   })
 
   it('rejects authenticated username updates without changing stored identity', async () => {
-    const auth = createAuth(database, authEnvironment, {
-      allowCredentialSignUpForTesting: true,
-    })
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
     const { sessionCookie } = await signUpTestUser(auth)
 
     const response = await auth.handler(

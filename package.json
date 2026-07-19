@@ -17,6 +17,7 @@
     "db:seed:check": "tsx scripts/seed-development-anime-catalogue.ts --check",
     "catalogue:import:wikidata": "tsx scripts/wikidata-anime-import.ts",
     "catalogue:import:wikidata:check": "tsx scripts/wikidata-anime-import.ts check",
+    "auth:email:smoke": "node --conditions=react-server --import tsx scripts/smoke-auth-email-delivery.ts",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
@@ -32,6 +33,7 @@
     "postcss": "^8.5.19",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "resend": "6.17.2",
     "server-only": "0.0.1",
     "tailwindcss": "^4.3.3",
     "zod": "^4.4.3"

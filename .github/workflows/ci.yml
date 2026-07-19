@@ -24,6 +24,9 @@ jobs:
     env:
       BETTER_AUTH_SECRET: ci-disposable-better-auth-secret-32chars-min
       BETTER_AUTH_URL: http://localhost:3000
+      RESEND_API_KEY: re_ci_disposable_key_that_cannot_send
+      AUTH_EMAIL_FROM: accounts@auth.example.com
+      AUTH_EMAIL_REPLY_TO: reply@example.com
       DATABASE_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
       DATABASE_MIGRATION_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
       DATABASE_TEST_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test

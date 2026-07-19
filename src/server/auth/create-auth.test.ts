@@ -16,11 +16,17 @@ const authEnvironment = {
 } as const
 
 const database = {} as Parameters<typeof createAuthOptions>[0]
+const emailCallbacks = {
+  sendVerificationEmail: vi.fn(async () => undefined),
+  sendResetPassword: vi.fn(async () => undefined),
+  afterPasswordReset: vi.fn(async () => undefined),
+}
+const backgroundTaskHandler = vi.fn(() => undefined)
 
 function createOptions(
-  testOverrides: Parameters<typeof createAuthOptions>[2] = {},
+  testOverrides: Parameters<typeof createAuthOptions>[3] = {},
 ) {
-  return createAuthOptions(database, authEnvironment, testOverrides)
+  return createAuthOptions(database, authEnvironment, {}, testOverrides)
 }
 
 describe('createAuthOptions', () => {
@@ -41,6 +47,52 @@ describe('createAuthOptions', () => {
     expect(options.emailAndPassword?.enabled).toBe(true)
     expect(options.socialProviders).toBeUndefined()
     expect(options.plugins).toBeUndefined()
+  })
+
+  it('configures the approved verification and recovery policy when callbacks are supplied', () => {
+    const options = createAuthOptions(
+      database,
+      authEnvironment,
+      { emailCallbacks, backgroundTaskHandler },
+      {},
+    )
+
+    expect(options.emailVerification).toMatchObject({
+      sendOnSignUp: true,
+      sendOnSignIn: false,
+      autoSignInAfterVerification: false,
+      expiresIn: 60 * 60 * 24,
+    })
+    expect(typeof options.emailVerification?.sendVerificationEmail).toBe(
+      'function',
+    )
+    expect(options.emailAndPassword).toMatchObject({
+      requireEmailVerification: true,
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+    })
+    expect(typeof options.emailAndPassword?.sendResetPassword).toBe('function')
+    expect(typeof options.emailAndPassword?.onPasswordReset).toBe('function')
+    expect(options.advanced?.backgroundTasks?.handler).toBe(
+      backgroundTaskHandler,
+    )
+  })
+
+  it('allows only token lifetimes to be shortened through test overrides', () => {
+    const options = createAuthOptions(
+      database,
+      authEnvironment,
+      { emailCallbacks },
+      {
+        verificationExpiresInSeconds: 1,
+        resetExpiresInSeconds: 2,
+      },
+    )
+
+    expect(options.emailVerification?.expiresIn).toBe(1)
+    expect(options.emailAndPassword?.resetPasswordTokenExpiresIn).toBe(2)
+    expect(options.emailVerification?.sendOnSignUp).toBe(true)
+    expect(options.emailAndPassword?.requireEmailVerification).toBe(true)
   })
 
   it('applies the approved password, session, origin, and rate-limit settings', () => {

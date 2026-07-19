@@ -7,6 +7,10 @@ import {
   normalizeUsernameForIdentity,
   usernameSchema,
 } from '@/features/identity/domain/username'
+import type {
+  AuthEmailCallbackData,
+  AuthEmailCallbacks,
+} from '@/server/auth/auth-email-callbacks'
 import * as schema from '@/server/database/schema'
 
 export type AuthEnvironment = Readonly<{
@@ -16,10 +20,19 @@ export type AuthEnvironment = Readonly<{
 
 export type CreateAuthTestOverrides = Readonly<{
   allowCredentialSignUpForTesting?: boolean
+  verificationExpiresInSeconds?: number
+  resetExpiresInSeconds?: number
+}>
+
+export type CreateAuthDependencies = Readonly<{
+  emailCallbacks?: AuthEmailCallbacks
+  backgroundTaskHandler?: (promise: Promise<unknown>) => void
 }>
 
 const SESSION_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24
+const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60 * 24
+const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 const PASSWORD_MIN_LENGTH = 15
 const PASSWORD_MAX_LENGTH = 128
 
@@ -74,8 +87,11 @@ export function guardAgainstUsernameUpdate(
 export function createAuthOptions(
   database: DB,
   environment: AuthEnvironment,
+  dependencies: CreateAuthDependencies = {},
   testOverrides: CreateAuthTestOverrides = {},
 ): BetterAuthOptions {
+  const emailCallbacks = dependencies.emailCallbacks
+
   return {
     secret: environment.authSecret,
     baseURL: environment.authUrl,
@@ -90,7 +106,34 @@ export function createAuthOptions(
       disableSignUp: testOverrides.allowCredentialSignUpForTesting !== true,
       minPasswordLength: PASSWORD_MIN_LENGTH,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
+      ...(emailCallbacks === undefined
+        ? {}
+        : {
+            requireEmailVerification: true,
+            sendResetPassword: (data: AuthEmailCallbackData) =>
+              emailCallbacks.sendResetPassword(data),
+            resetPasswordTokenExpiresIn:
+              testOverrides.resetExpiresInSeconds ??
+              PASSWORD_RESET_EXPIRY_SECONDS,
+            revokeSessionsOnPasswordReset: true,
+            onPasswordReset: (data: { user: { id: string } }) =>
+              emailCallbacks.afterPasswordReset(data.user.id),
+          }),
     },
+    ...(emailCallbacks === undefined
+      ? {}
+      : {
+          emailVerification: {
+            sendVerificationEmail: (data: AuthEmailCallbackData) =>
+              emailCallbacks.sendVerificationEmail(data),
+            sendOnSignUp: true,
+            sendOnSignIn: false,
+            autoSignInAfterVerification: false,
+            expiresIn:
+              testOverrides.verificationExpiresInSeconds ??
+              EMAIL_VERIFICATION_EXPIRY_SECONDS,
+          },
+        }),
     session: {
       expiresIn: SESSION_EXPIRY_SECONDS,
       updateAge: SESSION_UPDATE_AGE_SECONDS,
@@ -124,6 +167,13 @@ export function createAuthOptions(
       database: {
         generateId: 'uuid',
       },
+      ...(dependencies.backgroundTaskHandler === undefined
+        ? {}
+        : {
+            backgroundTasks: {
+              handler: dependencies.backgroundTaskHandler,
+            },
+          }),
     },
     databaseHooks: {
       user: {
@@ -145,7 +195,10 @@ export function createAuthOptions(
 export function createAuth(
   database: DB,
   environment: AuthEnvironment,
+  dependencies: CreateAuthDependencies = {},
   testOverrides: CreateAuthTestOverrides = {},
 ) {
-  return betterAuth(createAuthOptions(database, environment, testOverrides))
+  return betterAuth(
+    createAuthOptions(database, environment, dependencies, testOverrides),
+  )
 }
