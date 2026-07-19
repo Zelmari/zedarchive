@@ -3,6 +3,7 @@ import type {
   CreateEmailRequestOptions,
   CreateEmailResponse,
 } from 'resend'
+import { productName } from '@/config/product-identity'
 import type { AuthEmailDelivery } from '@/server/email/email-delivery'
 
 export type ResendEmailClient = Readonly<{
@@ -50,7 +51,7 @@ export function createResendEmailDelivery(
       try {
         response = await client.emails.send(
           {
-            from: `z-archive <${configuration.fromAddress}>`,
+            from: `${productName} <${configuration.fromAddress}>`,
             replyTo: configuration.replyToAddress,
             to: message.to,
             subject: message.subject,

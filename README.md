@@ -1,4 +1,4 @@
-# Archive
+# zedarchive
 
 A Next.js, React, and TypeScript application for tracking things you watch and read.
 
@@ -16,9 +16,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Local database and catalogue
 
 Create a local `.env` from `.env.example`, keep its credentials private, and
-use separate PostgreSQL databases named `archive_dev` and `archive_test`.
+use separate PostgreSQL databases named `zedarchive_dev` and `zedarchive_test`.
 
-Apply the committed migrations to `archive_dev` before loading catalogue data:
+Apply the committed migrations to `zedarchive_dev` before loading catalogue data:
 
 ```bash
 npm run db:migrate
@@ -38,7 +38,7 @@ npm run db:seed
 ```
 
 The write command verifies that its live database is named exactly
-`archive_dev`. It is never run automatically by development startup, tests,
+`zedarchive_dev`. It is never run automatically by development startup, tests,
 builds, migrations, or production deployment. Repeating the command is safe:
 unchanged seed-owned records are not rewritten, and unrelated catalogue records
 are left alone.
@@ -58,7 +58,7 @@ Preparing a live review artifact is a separate, deliberate maintenance action:
 npm run catalogue:import:wikidata -- prepare
 ```
 
-Preparation requires the live database name `archive_dev`, reads it only for
+Preparation requires the live database name `zedarchive_dev`, reads it only for
 duplicate comparison, closes the database before contacting Wikidata, and
 writes an ignored strict JSON artifact plus a compact Markdown review under
 `.local/imports/`. Review the Markdown view for titles, aliases, metadata,
@@ -69,7 +69,7 @@ review and then loaded only with the existing guarded `npm run db:seed` command.
 
 ## License
 
-z-archive's original source code and supporting documentation are available
+zedarchive's original source code and supporting documentation are available
 under the [MIT License](LICENSE). Copyright (c) 2026 Zelmari.
 
 Catalogue data can have separate terms. Records sourced from Wikidata use its

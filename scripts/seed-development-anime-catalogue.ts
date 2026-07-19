@@ -6,7 +6,7 @@ import { readDatabaseMigrationEnvironment } from '@/config/database-environment'
 import { loadAnimeCatalogueSeed } from '@/features/anime/catalogue/anime-catalogue-seed'
 import type { AnimeCatalogueSeedSyncResult } from '@/server/database/seed-anime-catalogue'
 
-const expectedDevelopmentDatabaseName = 'archive_dev'
+const expectedDevelopmentDatabaseName = 'zedarchive_dev'
 const seedFilePath = fileURLToPath(
   new URL('../data/seeds/anime-catalogue.development.json', import.meta.url),
 )

@@ -54,7 +54,7 @@ const fixtureFilePaths = [
     ),
   ),
 ]
-const expectedDevelopmentDatabaseName = 'archive_dev'
+const expectedDevelopmentDatabaseName = 'zedarchive_dev'
 const usage =
   'Usage: npm run catalogue:import:wikidata -- prepare or npm run catalogue:import:wikidata:check'
 const fixtureFileSchema = z.object({ response: z.unknown() })
@@ -163,7 +163,7 @@ async function readDevelopmentCatalogueSnapshot(): Promise<CatalogueSnapshot> {
       readDatabaseMigrationEnvironment().databaseMigrationUrl
   } catch (error) {
     throw new PublicImportCommandError(
-      'DATABASE_MIGRATION_URL is missing or invalid. Configure the local archive_dev connection before preparing Wikidata data.',
+      'DATABASE_MIGRATION_URL is missing or invalid. Configure the local zedarchive_dev connection before preparing Wikidata data.',
       { cause: error },
     )
   }

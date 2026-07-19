@@ -17,11 +17,11 @@ describe('authentication email templates', () => {
       token: 'verification-token',
     })
 
-    expect(message.subject).toBe('Verify your email for z-archive')
+    expect(message.subject).toBe('Verify your email for zedarchive')
     expect(message.category).toBe('email_verification')
     expect(message.text).toContain(verificationUrl)
     expect(message.text).toContain('expires in 24 hours')
-    expect(message.text).toContain('did not create a z-archive account')
+    expect(message.text).toContain('did not create a zedarchive account')
     expect(message.html).toContain('>Verify email</a>')
     expect(message.html).toContain('expires in 24 hours')
     expect(message.html).not.toMatch(/<(?:img|script|style|link)\b/iu)
@@ -33,7 +33,7 @@ describe('authentication email templates', () => {
       token: 'reset-token',
     })
 
-    expect(message.subject).toBe('Reset your z-archive password')
+    expect(message.subject).toBe('Reset your zedarchive password')
     expect(message.category).toBe('password_reset')
     expect(message.text).toContain(resetUrl)
     expect(message.text).toContain('expires in one hour')

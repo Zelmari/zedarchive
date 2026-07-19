@@ -48,7 +48,7 @@ afterEach(async () => {
 describe('writeWikidataAnimeReviewArtifact', () => {
   it('creates parent directories and leaves only the complete final artifact', async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), 'archive-wikidata-artifact-'),
+      join(tmpdir(), 'zedarchive-wikidata-artifact-'),
     )
     temporaryDirectories.push(directory)
     const filePath = join(directory, 'nested', 'review.json')
@@ -62,7 +62,7 @@ describe('writeWikidataAnimeReviewArtifact', () => {
 
   it('validates before replacing an existing complete artifact', async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), 'archive-wikidata-artifact-'),
+      join(tmpdir(), 'zedarchive-wikidata-artifact-'),
     )
     temporaryDirectories.push(directory)
     const filePath = join(directory, 'review.json')
@@ -83,7 +83,7 @@ describe('writeWikidataAnimeReviewArtifact', () => {
 
   it('cleans its temporary sibling when the final rename fails', async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), 'archive-wikidata-artifact-'),
+      join(tmpdir(), 'zedarchive-wikidata-artifact-'),
     )
     temporaryDirectories.push(directory)
     const filePath = join(directory, 'review.json')
@@ -99,7 +99,7 @@ describe('writeWikidataAnimeReviewArtifact', () => {
 
   it('writes a human-readable companion from the same validated artifact', async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), 'archive-wikidata-artifact-'),
+      join(tmpdir(), 'zedarchive-wikidata-artifact-'),
     )
     temporaryDirectories.push(directory)
     const filePath = join(directory, 'review.md')

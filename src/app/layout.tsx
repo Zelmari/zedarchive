@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { productName } from '@/config/product-identity'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Archive',
+  title: productName,
   description: 'Track the things you watch and read.',
 }
 

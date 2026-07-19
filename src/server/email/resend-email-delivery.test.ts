@@ -9,7 +9,7 @@ import {
 
 const message: TransactionalEmail = {
   to: 'fan@example.com',
-  subject: 'Verify your email for z-archive',
+  subject: 'Verify your email for zedarchive',
   text: 'verification text with https://archive.example.com/private-token',
   html: '<p>verification html</p>',
   idempotencyKey: `auth-email/email_verification/${'a'.repeat(64)}`,
@@ -41,7 +41,7 @@ describe('createResendEmailDelivery', () => {
     expect(send).toHaveBeenCalledOnce()
     expect(send).toHaveBeenCalledWith(
       {
-        from: 'z-archive <accounts@auth.example.com>',
+        from: 'zedarchive <accounts@auth.example.com>',
         replyTo: 'reply@example.com',
         to: 'fan@example.com',
         subject: message.subject,

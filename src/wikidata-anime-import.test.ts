@@ -71,16 +71,22 @@ describe('Wikidata anime import command', () => {
     )
   })
 
-  it('requires exactly archive_dev before preparation', async () => {
+  it('requires exactly zedarchive_dev before preparation', async () => {
     const { assertImportDevelopmentDatabaseName } = await importCommand()
     expect(() =>
-      assertImportDevelopmentDatabaseName('archive_dev'),
+      assertImportDevelopmentDatabaseName('zedarchive_dev'),
     ).not.toThrow()
-    expect(() => assertImportDevelopmentDatabaseName('archive_test')).toThrow(
-      'expected "archive_dev"',
+    expect(() => assertImportDevelopmentDatabaseName('archive_dev')).toThrow(
+      'expected "zedarchive_dev"',
     )
+    expect(() => assertImportDevelopmentDatabaseName('archive_test')).toThrow(
+      'expected "zedarchive_dev"',
+    )
+    expect(() =>
+      assertImportDevelopmentDatabaseName('zedarchive_test'),
+    ).toThrow('expected "zedarchive_dev"')
     expect(() => assertImportDevelopmentDatabaseName(undefined)).toThrow(
-      'expected "archive_dev"',
+      'expected "zedarchive_dev"',
     )
   })
 

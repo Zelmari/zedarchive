@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { productName } from '@/config/product-identity'
 import type {
   AuthEmailCategory,
   TransactionalEmailContent,
@@ -35,16 +36,16 @@ export function renderEmailVerificationMessage({
 
   return {
     category: 'email_verification',
-    subject: 'Verify your email for z-archive',
+    subject: `Verify your email for ${productName}`,
     text: [
       'Verify your email',
       '',
-      'Verify this email address to finish creating your z-archive account.',
+      `Verify this email address to finish creating your ${productName} account.`,
       '',
       url,
       '',
       'This link expires in 24 hours.',
-      'If you did not create a z-archive account, you can ignore this email.',
+      `If you did not create a ${productName} account, you can ignore this email.`,
     ].join('\n'),
     html: [
       '<!doctype html>',
@@ -52,12 +53,12 @@ export function renderEmailVerificationMessage({
       '<body>',
       '<main>',
       '<h1>Verify your email</h1>',
-      '<p>Verify this email address to finish creating your z-archive account.</p>',
+      `<p>Verify this email address to finish creating your ${productName} account.</p>`,
       `<p><a href="${escapedUrl}">Verify email</a></p>`,
       '<p>If the link does not open, copy this address into your browser:</p>',
       `<p>${escapedUrl}</p>`,
       '<p>This link expires in 24 hours.</p>',
-      '<p>If you did not create a z-archive account, you can ignore this email.</p>',
+      `<p>If you did not create a ${productName} account, you can ignore this email.</p>`,
       '</main>',
       '</body>',
       '</html>',
@@ -74,11 +75,11 @@ export function renderPasswordResetMessage({
 
   return {
     category: 'password_reset',
-    subject: 'Reset your z-archive password',
+    subject: `Reset your ${productName} password`,
     text: [
       'Reset your password',
       '',
-      'A password reset was requested for a z-archive account.',
+      `A password reset was requested for a ${productName} account.`,
       '',
       url,
       '',
@@ -92,7 +93,7 @@ export function renderPasswordResetMessage({
       '<body>',
       '<main>',
       '<h1>Reset your password</h1>',
-      '<p>A password reset was requested for a z-archive account.</p>',
+      `<p>A password reset was requested for a ${productName} account.</p>`,
       `<p><a href="${escapedUrl}">Reset password</a></p>`,
       '<p>If the link does not open, copy this address into your browser:</p>',
       `<p>${escapedUrl}</p>`,

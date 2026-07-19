@@ -100,7 +100,7 @@ describe('readAuthEnvironment', () => {
       readAuthEnvironment({
         ...createValidEnvironment(),
         DATABASE_URL:
-          'postgresql://archive_app:password@localhost:5432/archive_dev',
+          'postgresql://zedarchive_app:password@localhost:5432/zedarchive_dev',
         HOME: '/Users/example',
         NODE_ENV: 'test',
         PATH: '/usr/bin',

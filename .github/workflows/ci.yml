@@ -27,17 +27,17 @@ jobs:
       RESEND_API_KEY: re_ci_disposable_key_that_cannot_send
       AUTH_EMAIL_FROM: accounts@auth.example.com
       AUTH_EMAIL_REPLY_TO: reply@example.com
-      DATABASE_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
-      DATABASE_MIGRATION_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
-      DATABASE_TEST_URL: postgresql://archive_app:archive_ci_password@localhost:5432/archive_test
+      DATABASE_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
+      DATABASE_MIGRATION_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
+      DATABASE_TEST_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
 
     services:
       postgres:
         image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
         env:
-          POSTGRES_DB: archive_test
-          POSTGRES_PASSWORD: archive_ci_password
-          POSTGRES_USER: archive_app
+          POSTGRES_DB: zedarchive_test
+          POSTGRES_PASSWORD: zedarchive_ci_password
+          POSTGRES_USER: zedarchive_app
         ports:
           - 5432:5432
         options: >-

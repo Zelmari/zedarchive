@@ -104,23 +104,25 @@ describe('development anime catalogue seed command', () => {
     )
   })
 
-  it('accepts exactly archive_dev as the live database name', async () => {
+  it('accepts exactly zedarchive_dev as the live database name', async () => {
     const { assertDevelopmentDatabaseName } = await importSeedCommand()
 
-    expect(() => assertDevelopmentDatabaseName('archive_dev')).not.toThrow()
+    expect(() => assertDevelopmentDatabaseName('zedarchive_dev')).not.toThrow()
   })
 
   it.each([
-    ['archive_test', 'archive_test'],
-    ['a similar prefix', 'archive_dev_backup'],
-    ['a similar suffix', 'my_archive_dev'],
-    ['different punctuation', 'archive-dev'],
+    ['the old development name', 'archive_dev'],
+    ['the test database', 'archive_test'],
+    ['the renamed test database', 'zedarchive_test'],
+    ['a similar prefix', 'zedarchive_dev_backup'],
+    ['a similar suffix', 'my_zedarchive_dev'],
+    ['different punctuation', 'zedarchive-dev'],
     ['an unavailable result', undefined],
   ])('rejects %s before writing', async (_, databaseName) => {
     const { assertDevelopmentDatabaseName } = await importSeedCommand()
 
     expect(() => assertDevelopmentDatabaseName(databaseName)).toThrow(
-      `Development seed refused to write to "${databaseName ?? 'unknown'}"; expected "archive_dev"`,
+      `Development seed refused to write to "${databaseName ?? 'unknown'}"; expected "zedarchive_dev"`,
     )
   })
 
@@ -162,7 +164,7 @@ describe('development anime catalogue seed command', () => {
       'Usage: npm run db:seed or npm run db:seed:check',
     )
     expect(formatSeedCommandError(databaseNameError)).toBe(
-      'Development seed refused to write to "archive_test"; expected "archive_dev"',
+      'Development seed refused to write to "archive_test"; expected "zedarchive_dev"',
     )
     expect(formatSeedCommandError(validationError)).toBe(
       'Anime catalogue seed validation failed. Correct the committed seed and run npm run db:seed:check.',

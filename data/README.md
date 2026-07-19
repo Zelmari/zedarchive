@@ -24,3 +24,22 @@ development seed.
 Future imported datasets and assets must document their own source, licence,
 attribution, and reuse restrictions. The root MIT License does not override or
 replace third-party terms.
+
+## Public catalogue boundary
+
+The shared development catalogue, reviewed candidate manifests, reduced test
+fixtures, and their source identifiers are intentionally public when committed
+to this repository. Catalogue states such as `draft` and `hidden` control what
+the application serves; they are not confidentiality controls for tracked
+files.
+
+This public boundary is useful for a portfolio project because it makes the
+catalogue model, source review, deterministic seed, and licensing decisions
+auditable and reproducible. It also means competitors can inspect or reuse
+eligible factual data, mistakes are visible in Git history, and repository size
+can grow as the catalogue grows.
+
+Never commit user accounts or archives, private custom items, credentials,
+database exports, unreviewed private curation notes, embargoed information, or
+assets whose terms do not permit redistribution. Those belong in protected
+application storage or ignored local review artifacts, as appropriate.

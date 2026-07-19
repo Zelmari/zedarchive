@@ -153,7 +153,7 @@ let committedSeed: AnimeCatalogueSeed
 let temporaryDirectory: string
 
 beforeAll(async () => {
-  temporaryDirectory = await mkdtemp(join(tmpdir(), 'archive-anime-seed-'))
+  temporaryDirectory = await mkdtemp(join(tmpdir(), 'zedarchive-anime-seed-'))
 
   try {
     committedSeed = await loadAnimeCatalogueSeed(committedSeedPath)

@@ -64,7 +64,7 @@ describe('readEmailEnvironment', () => {
         '',
         ' accounts@example.com',
         'accounts@example.com ',
-        'z-archive <accounts@example.com>',
+        'zedarchive <accounts@example.com>',
         'one@example.com,two@example.com',
         'accounts@example.com\nBcc: attacker@example.com',
         'not-an-email',
@@ -98,7 +98,7 @@ describe('readEmailEnvironment', () => {
       readEmailEnvironment({
         ...validEnvironment,
         NEXT_PUBLIC_RESEND_API_KEY: 'public-value-must-not-be-read',
-        DATABASE_URL: 'postgresql://example.invalid/archive_dev',
+        DATABASE_URL: 'postgresql://example.invalid/zedarchive_dev',
       }),
     ).toEqual({
       resendApiKey: validEnvironment.RESEND_API_KEY,

@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Pool } from 'pg'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 
-const expectedTestDatabaseName = 'archive_test'
+const expectedTestDatabaseName = 'zedarchive_test'
 
 export function assertSafeTestDatabaseName(
   databaseName: string | undefined,

@@ -6,16 +6,16 @@ import {
 } from '@/config/database-environment'
 
 const runtimeUrl =
-  'postgresql://archive_app:runtime-password@localhost:5432/archive_dev'
+  'postgresql://zedarchive_app:runtime-password@localhost:5432/zedarchive_dev'
 const migrationUrl =
-  'postgresql://archive_app:migration-password@localhost:5432/archive_dev'
+  'postgresql://zedarchive_app:migration-password@localhost:5432/zedarchive_dev'
 const testUrl =
-  'postgresql://archive_app:test-password@localhost:5432/archive_test'
+  'postgresql://zedarchive_app:test-password@localhost:5432/zedarchive_test'
 
 describe('readDatabaseRuntimeEnvironment', () => {
   it.each([
     runtimeUrl,
-    'postgres://archive_app:runtime-password@localhost:5432/archive_dev',
+    'postgres://zedarchive_app:runtime-password@localhost:5432/zedarchive_dev',
   ])('accepts the PostgreSQL connection URL %s', (databaseUrl) => {
     expect(
       readDatabaseRuntimeEnvironment({
@@ -30,10 +30,10 @@ describe('readDatabaseRuntimeEnvironment', () => {
     ['whitespace-only string', { DATABASE_URL: '   ' }],
     ['leading whitespace', { DATABASE_URL: ` ${runtimeUrl}` }],
     ['trailing whitespace', { DATABASE_URL: `${runtimeUrl} ` }],
-    ['HTTP URL', { DATABASE_URL: 'https://localhost/archive_dev' }],
-    ['file URL', { DATABASE_URL: 'file:///archive_dev' }],
-    ['relative text', { DATABASE_URL: 'localhost/archive_dev' }],
-    ['hostless PostgreSQL URL', { DATABASE_URL: 'postgresql:archive_dev' }],
+    ['HTTP URL', { DATABASE_URL: 'https://localhost/zedarchive_dev' }],
+    ['file URL', { DATABASE_URL: 'file:///zedarchive_dev' }],
+    ['relative text', { DATABASE_URL: 'localhost/zedarchive_dev' }],
+    ['hostless PostgreSQL URL', { DATABASE_URL: 'postgresql:zedarchive_dev' }],
     [
       'database-less PostgreSQL URL',
       { DATABASE_URL: 'postgresql://localhost' },
@@ -63,7 +63,7 @@ describe('readDatabaseRuntimeEnvironment', () => {
 
     expect(() =>
       readDatabaseRuntimeEnvironment({
-        DATABASE_URL: `https://archive_app:${secret}@localhost/archive_dev`,
+        DATABASE_URL: `https://zedarchive_app:${secret}@localhost/zedarchive_dev`,
       }),
     ).toThrowError(
       expect.objectContaining({
@@ -76,7 +76,7 @@ describe('readDatabaseRuntimeEnvironment', () => {
 describe('readDatabaseMigrationEnvironment', () => {
   it.each([
     migrationUrl,
-    'postgres://archive_app:migration-password@localhost:5432/archive_dev',
+    'postgres://zedarchive_app:migration-password@localhost:5432/zedarchive_dev',
   ])('accepts the PostgreSQL connection URL %s', (databaseMigrationUrl) => {
     expect(
       readDatabaseMigrationEnvironment({
@@ -101,12 +101,15 @@ describe('readDatabaseMigrationEnvironment', () => {
     ['whitespace-only string', { DATABASE_MIGRATION_URL: '   ' }],
     ['leading whitespace', { DATABASE_MIGRATION_URL: ` ${migrationUrl}` }],
     ['trailing whitespace', { DATABASE_MIGRATION_URL: `${migrationUrl} ` }],
-    ['HTTP URL', { DATABASE_MIGRATION_URL: 'https://localhost/archive_dev' }],
-    ['file URL', { DATABASE_MIGRATION_URL: 'file:///archive_dev' }],
-    ['relative text', { DATABASE_MIGRATION_URL: 'localhost/archive_dev' }],
+    [
+      'HTTP URL',
+      { DATABASE_MIGRATION_URL: 'https://localhost/zedarchive_dev' },
+    ],
+    ['file URL', { DATABASE_MIGRATION_URL: 'file:///zedarchive_dev' }],
+    ['relative text', { DATABASE_MIGRATION_URL: 'localhost/zedarchive_dev' }],
     [
       'hostless PostgreSQL URL',
-      { DATABASE_MIGRATION_URL: 'postgresql:archive_dev' },
+      { DATABASE_MIGRATION_URL: 'postgresql:zedarchive_dev' },
     ],
     [
       'database-less PostgreSQL URL',
@@ -137,7 +140,7 @@ describe('readDatabaseMigrationEnvironment', () => {
 
     expect(() =>
       readDatabaseMigrationEnvironment({
-        DATABASE_MIGRATION_URL: `https://archive_app:${secret}@localhost/archive_dev`,
+        DATABASE_MIGRATION_URL: `https://zedarchive_app:${secret}@localhost/zedarchive_dev`,
       }),
     ).toThrowError(
       expect.objectContaining({
@@ -150,7 +153,7 @@ describe('readDatabaseMigrationEnvironment', () => {
 describe('readDatabaseTestEnvironment', () => {
   it.each([
     testUrl,
-    'postgres://archive_app:test-password@localhost:5432/archive_test',
+    'postgres://zedarchive_app:test-password@localhost:5432/zedarchive_test',
   ])('accepts the PostgreSQL connection URL %s', (databaseTestUrl) => {
     expect(
       readDatabaseTestEnvironment({
@@ -174,12 +177,12 @@ describe('readDatabaseTestEnvironment', () => {
     ['whitespace-only string', { DATABASE_TEST_URL: '   ' }],
     ['leading whitespace', { DATABASE_TEST_URL: ` ${testUrl}` }],
     ['trailing whitespace', { DATABASE_TEST_URL: `${testUrl} ` }],
-    ['HTTP URL', { DATABASE_TEST_URL: 'https://localhost/archive_test' }],
-    ['file URL', { DATABASE_TEST_URL: 'file:///archive_test' }],
-    ['relative text', { DATABASE_TEST_URL: 'localhost/archive_test' }],
+    ['HTTP URL', { DATABASE_TEST_URL: 'https://localhost/zedarchive_test' }],
+    ['file URL', { DATABASE_TEST_URL: 'file:///zedarchive_test' }],
+    ['relative text', { DATABASE_TEST_URL: 'localhost/zedarchive_test' }],
     [
       'hostless PostgreSQL URL',
-      { DATABASE_TEST_URL: 'postgresql:archive_test' },
+      { DATABASE_TEST_URL: 'postgresql:zedarchive_test' },
     ],
     [
       'database-less PostgreSQL URL',
@@ -211,7 +214,7 @@ describe('readDatabaseTestEnvironment', () => {
 
     expect(() =>
       readDatabaseTestEnvironment({
-        DATABASE_TEST_URL: `https://archive_app:${secret}@localhost/archive_test`,
+        DATABASE_TEST_URL: `https://zedarchive_app:${secret}@localhost/zedarchive_test`,
       }),
     ).toThrowError(
       expect.objectContaining({

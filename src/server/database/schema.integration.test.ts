@@ -190,10 +190,16 @@ afterAll(async () => {
 describe('database integration safety', () => {
   it('rejects database names other than the dedicated test database', () => {
     expect(() => assertSafeTestDatabaseName('archive_dev')).toThrow(
-      'Database integration setup refused to reset "archive_dev"; expected "archive_test"',
+      'Database integration setup refused to reset "archive_dev"; expected "zedarchive_test"',
+    )
+    expect(() => assertSafeTestDatabaseName('archive_test')).toThrow(
+      'Database integration setup refused to reset "archive_test"; expected "zedarchive_test"',
+    )
+    expect(() => assertSafeTestDatabaseName('zedarchive_dev')).toThrow(
+      'Database integration setup refused to reset "zedarchive_dev"; expected "zedarchive_test"',
     )
     expect(() => assertSafeTestDatabaseName(undefined)).toThrow(
-      'Database integration setup refused to reset "unknown"; expected "archive_test"',
+      'Database integration setup refused to reset "unknown"; expected "zedarchive_test"',
     )
   })
 
