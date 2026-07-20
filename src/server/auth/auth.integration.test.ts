@@ -16,6 +16,11 @@ import { accounts, rateLimits, sessions, users } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 
 vi.mock('server-only', () => ({}))
+const hibpFetchMock = vi.hoisted(() => vi.fn())
+vi.mock('@better-fetch/fetch', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@better-fetch/fetch')>()),
+  betterFetch: hibpFetchMock,
+}))
 
 const authEnvironment = {
   authSecret: 'ci-disposable-better-auth-secret-32chars-min',
@@ -103,6 +108,8 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+  hibpFetchMock.mockReset()
+  hibpFetchMock.mockResolvedValue({ data: '', error: null })
   await pool.query(`
     truncate table
       rate_limits,
@@ -150,6 +157,7 @@ describe('auth handler integration', () => {
     const auth = createAuth(
       database,
       authEnvironment,
+      {},
       {},
       { allowCredentialSignUpForTesting: true },
     )
@@ -206,6 +214,7 @@ describe('auth handler integration', () => {
     const secondAuth = createAuth(
       database,
       authEnvironment,
+      {},
       {},
       { allowCredentialSignUpForTesting: true },
     )
@@ -276,6 +285,7 @@ describe('auth handler integration', () => {
       database,
       authEnvironment,
       {},
+      {},
       { allowCredentialSignUpForTesting: true },
     )
 
@@ -308,6 +318,7 @@ describe('auth handler integration', () => {
     const auth = createAuth(
       database,
       authEnvironment,
+      {},
       {},
       { allowCredentialSignUpForTesting: true },
     )
@@ -347,6 +358,7 @@ describe('auth handler integration', () => {
     const auth = createAuth(
       database,
       authEnvironment,
+      {},
       {},
       { allowCredentialSignUpForTesting: true },
     )

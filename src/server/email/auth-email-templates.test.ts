@@ -6,9 +6,9 @@ import {
 } from '@/server/email/auth-email-templates'
 
 const verificationUrl =
-  'https://archive.example.com/api/auth/verify-email?token=verification-token&callbackURL=%2F'
+  'https://zedarchive.example.com/verify-email#token=verification-token'
 const resetUrl =
-  'https://archive.example.com/api/auth/reset-password/reset-token?callbackURL=%2Freset-password'
+  'https://zedarchive.example.com/api/auth/reset-password/reset-token?callbackURL=%2Freset-password'
 
 describe('authentication email templates', () => {
   it('renders the approved verification meaning in text and minimal HTML', () => {
@@ -59,7 +59,7 @@ describe('authentication email templates', () => {
 
   it('escapes action URLs in HTML text and attribute contexts', () => {
     const unsafeUrl =
-      'https://archive.example.com/verify?next="/><script>alert(1)</script>&label=日本語'
+      'https://zedarchive.example.com/verify?next="/><script>alert(1)</script>&label=日本語'
     const message = renderEmailVerificationMessage({
       url: unsafeUrl,
       token: 'safe-token',

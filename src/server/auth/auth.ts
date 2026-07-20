@@ -21,9 +21,15 @@ const emailCallbacks = createAuthEmailCallbacks(
   emailDelivery,
   (userId) => deleteOutstandingPasswordResetTokens(database, userId),
   after,
+  authEnvironment.authUrl,
 )
 
-export const auth = createAuth(database, authEnvironment, {
-  emailCallbacks,
-  backgroundTaskHandler: after,
-})
+export const auth = createAuth(
+  database,
+  authEnvironment,
+  {
+    emailCallbacks,
+    backgroundTaskHandler: after,
+  },
+  { registrationMode: 'verified-email-required' },
+)

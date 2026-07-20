@@ -1,4 +1,5 @@
 import type { AuthEmailDelivery } from '@/server/email/email-delivery'
+import { buildVerificationAppLink } from '@/features/auth/domain/verification-app-link'
 import {
   renderEmailVerificationMessage,
   renderPasswordResetMessage,
@@ -23,6 +24,7 @@ export function createAuthEmailCallbacks(
   delivery: AuthEmailDelivery,
   deleteOutstandingPasswordResetTokens: (userId: string) => Promise<void>,
   backgroundTaskHandler: (promise: Promise<unknown>) => void,
+  authUrl: string,
 ): AuthEmailCallbacks {
   function scheduleDelivery(message: Parameters<AuthEmailDelivery['send']>[0]) {
     backgroundTaskHandler(delivery.send(message))
@@ -32,7 +34,10 @@ export function createAuthEmailCallbacks(
     async sendVerificationEmail(data) {
       scheduleDelivery({
         to: data.user.email,
-        ...renderEmailVerificationMessage(data),
+        ...renderEmailVerificationMessage({
+          ...data,
+          url: buildVerificationAppLink(authUrl, data.token),
+        }),
       })
     },
     async sendResetPassword(data) {

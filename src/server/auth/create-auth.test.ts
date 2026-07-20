@@ -24,9 +24,9 @@ const emailCallbacks = {
 const backgroundTaskHandler = vi.fn(() => undefined)
 
 function createOptions(
-  testOverrides: Parameters<typeof createAuthOptions>[3] = {},
+  testOverrides: Parameters<typeof createAuthOptions>[4] = {},
 ) {
-  return createAuthOptions(database, authEnvironment, {}, testOverrides)
+  return createAuthOptions(database, authEnvironment, {}, {}, testOverrides)
 }
 
 describe('createAuthOptions', () => {
@@ -46,7 +46,7 @@ describe('createAuthOptions', () => {
 
     expect(options.emailAndPassword?.enabled).toBe(true)
     expect(options.socialProviders).toBeUndefined()
-    expect(options.plugins).toBeUndefined()
+    expect(options.plugins).toHaveLength(1)
   })
 
   it('configures the approved verification and recovery policy when callbacks are supplied', () => {
@@ -54,6 +54,7 @@ describe('createAuthOptions', () => {
       database,
       authEnvironment,
       { emailCallbacks, backgroundTaskHandler },
+      {},
       {},
     )
 
@@ -83,6 +84,7 @@ describe('createAuthOptions', () => {
       database,
       authEnvironment,
       { emailCallbacks },
+      {},
       {
         verificationExpiresInSeconds: 1,
         resetExpiresInSeconds: 2,
@@ -109,9 +111,51 @@ describe('createAuthOptions', () => {
     expect(options.rateLimit).toEqual({
       enabled: true,
       storage: 'database',
+      customRules: {
+        '/sign-up/email': { window: 60, max: 3 },
+      },
     })
     expect(options.advanced?.disableOriginCheck).toBe(false)
     expect(options.advanced?.database?.generateId).toBe('uuid')
+  })
+
+  it('enables public signup only in verified-email mode with complete callbacks', () => {
+    expect(() =>
+      createAuthOptions(
+        database,
+        authEnvironment,
+        {},
+        {
+          registrationMode: 'verified-email-required',
+        },
+      ),
+    ).toThrow(
+      'Verified-email registration requires complete authentication email callbacks',
+    )
+
+    const options = createAuthOptions(
+      database,
+      authEnvironment,
+      { emailCallbacks },
+      { registrationMode: 'verified-email-required' },
+    )
+
+    expect(options.emailAndPassword?.disableSignUp).toBe(false)
+    expect(options.emailAndPassword?.requireEmailVerification).toBe(true)
+  })
+
+  it('does not let the test-only override bypass verified-email mode', () => {
+    expect(() =>
+      createAuthOptions(
+        database,
+        authEnvironment,
+        {},
+        { registrationMode: 'verified-email-required' },
+        { allowCredentialSignUpForTesting: true },
+      ),
+    ).toThrow(
+      'Verified-email registration requires complete authentication email callbacks',
+    )
   })
 
   it('maps the logical username field and registers the identity key', () => {

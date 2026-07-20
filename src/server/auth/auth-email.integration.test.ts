@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
@@ -12,7 +13,10 @@ import {
 } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import { createAuthEmailCallbacks } from '@/server/auth/auth-email-callbacks'
-import { createAuth } from '@/server/auth/create-auth'
+import {
+  createAuth,
+  type AuthRegistrationMode,
+} from '@/server/auth/create-auth'
 import { deleteOutstandingPasswordResetTokens } from '@/server/auth/password-reset-token-cleanup'
 import {
   rateLimits,
@@ -28,6 +32,11 @@ import { AuthEmailDeliveryError } from '@/server/email/resend-email-delivery'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 
 vi.mock('server-only', () => ({}))
+const hibpFetchMock = vi.hoisted(() => vi.fn())
+vi.mock('@better-fetch/fetch', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@better-fetch/fetch')>()),
+  betterFetch: hibpFetchMock,
+}))
 
 const authEnvironment = {
   authSecret: 'ci-disposable-better-auth-secret-32chars-min',
@@ -88,6 +97,7 @@ function createEmailAuth(
     verificationExpiresInSeconds?: number
     resetExpiresInSeconds?: number
     delivery?: AuthEmailDelivery
+    registrationMode?: AuthRegistrationMode
   } = {},
 ) {
   const messages: TransactionalEmail[] = []
@@ -106,6 +116,7 @@ function createEmailAuth(
     delivery,
     (userId) => deleteOutstandingPasswordResetTokens(database, userId),
     backgroundTaskHandler,
+    authEnvironment.authUrl,
   )
   const auth = createAuth(
     database,
@@ -114,6 +125,7 @@ function createEmailAuth(
       emailCallbacks,
       backgroundTaskHandler,
     },
+    { registrationMode: options.registrationMode },
     {
       allowCredentialSignUpForTesting: options.allowCredentialSignUpForTesting,
       verificationExpiresInSeconds: options.verificationExpiresInSeconds,
@@ -152,13 +164,12 @@ async function signUpAndVerifyTestUser(
   )
   expect(verificationMessage).toBeDefined()
 
-  const verifyResponse = await authFixture.auth.handler(
-    new Request(verificationMessage!.text.match(/https?:\/\/\S+/u)![0]!, {
-      headers: { Origin: authEnvironment.authUrl },
-    }),
+  const verifyResponse = await verifyEmailFromMessage(
+    authFixture.auth,
+    verificationMessage!,
   )
 
-  expect([200, 302]).toContain(verifyResponse.status)
+  expect(verifyResponse.status).toBe(200)
 }
 
 async function signIn(
@@ -183,6 +194,29 @@ function resetTokenFromMessage(message: TransactionalEmail): string {
   return token
 }
 
+function verificationUrlFromMessage(message: TransactionalEmail): URL {
+  return new URL(message.text.match(/https?:\/\/\S+/u)![0]!)
+}
+
+async function verifyEmailFromMessage(
+  auth: ReturnType<typeof createAuth>,
+  message: TransactionalEmail,
+): Promise<Response> {
+  const token = new URLSearchParams(
+    verificationUrlFromMessage(message).hash.slice(1),
+  ).get('token')
+
+  if (!token) {
+    throw new Error('Expected a verification token in the app URL')
+  }
+
+  return auth.handler(
+    createAuthRequest(`/verify-email?token=${encodeURIComponent(token)}`, {
+      method: 'GET',
+    }),
+  )
+}
+
 beforeAll(async () => {
   const result = await pool.query<{ databaseName: string }>(
     'select current_database() as "databaseName"',
@@ -192,6 +226,8 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+  hibpFetchMock.mockReset()
+  hibpFetchMock.mockResolvedValue({ data: '', error: null })
   await pool.query(`
     truncate table
       rate_limits,
@@ -228,9 +264,9 @@ describe('authentication email integration', () => {
     await expect(database.select().from(users)).resolves.toEqual([])
   })
 
-  it('verifies a test-only signup without creating a session or resending on sign-in', async () => {
+  it('registers in verified-email mode and requires explicit verification before sign-in', async () => {
     const fixture = createEmailAuth({
-      allowCredentialSignUpForTesting: true,
+      registrationMode: 'verified-email-required',
     })
 
     const signUpResponse = await fixture.auth.handler(
@@ -265,14 +301,16 @@ describe('authentication email integration', () => {
     const verificationUrl =
       fixture.messages[0]?.text.match(/https?:\/\/\S+/u)?.[0]
     expect(verificationUrl).toBeDefined()
+    expect(new URL(verificationUrl!).pathname).toBe('/verify-email')
+    expect(verificationUrl).not.toContain('/api/auth/verify-email')
+    expect((await database.select().from(users))[0]?.emailVerified).toBe(false)
 
-    const verifyResponse = await fixture.auth.handler(
-      new Request(verificationUrl!, {
-        headers: { Origin: authEnvironment.authUrl },
-      }),
+    const verifyResponse = await verifyEmailFromMessage(
+      fixture.auth,
+      fixture.messages[0]!,
     )
 
-    expect([200, 302]).toContain(verifyResponse.status)
+    expect(verifyResponse.status).toBe(200)
     expect(extractSessionCookie(verifyResponse)).toBeUndefined()
 
     const storedUsers = await database.select().from(users)
@@ -282,11 +320,194 @@ describe('authentication email integration', () => {
       emailVerified: true,
     })
 
+    const alreadyVerifiedResponse = await verifyEmailFromMessage(
+      fixture.auth,
+      fixture.messages[0]!,
+    )
+    expect(alreadyVerifiedResponse.status).toBe(200)
+    expect(extractSessionCookie(alreadyVerifiedResponse)).toBeUndefined()
+
     const verifiedSignInResponse = await signIn(fixture.auth, originalPassword)
     expect(verifiedSignInResponse.status).toBe(200)
     expect(extractSessionCookie(verifiedSignInResponse)).toMatch(
       /^better-auth\.session_token=/u,
     )
+  })
+
+  it('keeps duplicate email synthetic while the database rejects a normalized username conflict', async () => {
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    const firstResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'MediaFan',
+          email: 'fan@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+    const duplicateEmailResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'DifferentName',
+          email: 'FAN@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+    const duplicateUsernameResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'mediafan',
+          email: 'other@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+
+    expect(firstResponse.status).toBe(200)
+    expect(duplicateEmailResponse.status).toBe(200)
+    expect(duplicateUsernameResponse.status).toBe(422)
+    expect(await duplicateUsernameResponse.json()).toMatchObject({
+      code: 'FAILED_TO_CREATE_USER',
+    })
+    await expect(database.select().from(users)).resolves.toHaveLength(1)
+  })
+
+  it('shares the explicit three-per-minute signup limit across auth instances', async () => {
+    const firstFixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await firstFixture.auth.handler(
+        createAuthRequest('/sign-up/email', {
+          body: {
+            name: `MediaFan${attempt}`,
+            email: `fan${attempt}@example.com`,
+            password: originalPassword,
+          },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+    }
+
+    const secondFixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    const limitedResponse = await secondFixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'FourthFan',
+          email: 'fourth@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+
+    expect(limitedResponse.status).toBe(429)
+    expect(limitedResponse.headers.get('X-Retry-After')).toBeTruthy()
+    await expect(database.select().from(users)).resolves.toHaveLength(3)
+
+    await database.update(rateLimits).set({ lastRequest: Date.now() - 61_000 })
+
+    const afterWindowResponse = await secondFixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'AfterWindowFan',
+          email: 'after-window@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+
+    expect(afterWindowResponse.status).toBe(200)
+    await expect(database.select().from(users)).resolves.toHaveLength(4)
+  })
+
+  it('rejects a compromised password through the padded HIBP range check', async () => {
+    const passwordHash = createHash('sha1')
+      .update(originalPassword)
+      .digest('hex')
+      .toUpperCase()
+    hibpFetchMock.mockResolvedValue({
+      data: `${passwordHash.slice(5)}:42`,
+      error: null,
+    })
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+
+    const response = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'MediaFan',
+          email: 'fan@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+
+    expect(hibpFetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+    ])
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      code: 'PASSWORD_COMPROMISED',
+    })
+    expect(hibpFetchMock).toHaveBeenCalledWith(
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Add-Padding': 'true' }),
+      }),
+    )
+    await expect(database.select().from(users)).resolves.toEqual([])
+  })
+
+  it('fails closed without turning an HIBP outage into a duplicate-email oracle', async () => {
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    const initialResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'MediaFan',
+          email: 'fan@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+    expect(initialResponse.status).toBe(200)
+
+    hibpFetchMock.mockResolvedValue({
+      data: null,
+      error: { status: 503 },
+    })
+
+    const duplicateResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'DifferentName',
+          email: 'fan@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+    const newEmailResponse = await fixture.auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'AnotherFan',
+          email: 'another@example.com',
+          password: originalPassword,
+        },
+      }),
+    )
+
+    expect(duplicateResponse.status).toBe(500)
+    expect(newEmailResponse.status).toBe(500)
+    await expect(database.select().from(users)).resolves.toHaveLength(1)
   })
 
   it('gives unknown and verified verification-resend requests the same safe result', async () => {
@@ -331,17 +552,19 @@ describe('authentication email integration', () => {
     expect(invalidSignUpResponse.status).toBe(200)
     await invalidFixture.drainBackgroundTasks()
 
-    const invalidUrl = new URL(
-      invalidFixture.messages[0]!.text.match(/https?:\/\/\S+/u)![0]!,
-    )
-    invalidUrl.searchParams.set(
+    const invalidUrl = verificationUrlFromMessage(invalidFixture.messages[0]!)
+    const validToken = new URLSearchParams(invalidUrl.hash.slice(1)).get(
       'token',
-      `${invalidUrl.searchParams.get('token')}tampered`,
     )
+    expect(validToken).toBeTruthy()
+    const invalidToken = `${validToken}tampered`
     const invalidResponse = await invalidFixture.auth.handler(
-      new Request(invalidUrl, {
-        headers: { Origin: authEnvironment.authUrl },
-      }),
+      createAuthRequest(
+        `/verify-email?token=${encodeURIComponent(invalidToken)}`,
+        {
+          method: 'GET',
+        },
+      ),
     )
 
     expect(invalidResponse.status).not.toBe(200)
@@ -375,15 +598,12 @@ describe('authentication email integration', () => {
     await expiredFixture.drainBackgroundTasks()
     await new Promise((resolve) => setTimeout(resolve, 1_100))
 
-    const expiredUrl =
-      expiredFixture.messages[0]!.text.match(/https?:\/\/\S+/u)![0]!
-    const expiredResponse = await expiredFixture.auth.handler(
-      new Request(expiredUrl, {
-        headers: { Origin: authEnvironment.authUrl },
-      }),
+    const expiredResponse = await verifyEmailFromMessage(
+      expiredFixture.auth,
+      expiredFixture.messages[0]!,
     )
 
-    expect([302, 401]).toContain(expiredResponse.status)
+    expect(expiredResponse.status).toBe(401)
     expect((await database.select().from(users))[0]?.emailVerified).toBe(false)
   })
 
@@ -621,6 +841,111 @@ describe('authentication email integration', () => {
       }),
     )
     expect(reusedResponse.status).toBe(400)
+  })
+
+  it('rejects a compromised replacement password and consumes the single-attempt reset token', async () => {
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    await signUpAndVerifyTestUser(fixture)
+    fixture.messages.splice(0)
+
+    const requestResponse = await fixture.auth.handler(
+      createAuthRequest('/request-password-reset', {
+        body: {
+          email: 'fan@example.com',
+          redirectTo: '/reset-password/continue',
+        },
+      }),
+    )
+    expect(requestResponse.status).toBe(200)
+    await fixture.drainBackgroundTasks()
+
+    const resetMessage = fixture.messages.find(
+      (message) => message.category === 'password_reset',
+    )
+    expect(
+      new URL(
+        resetMessage!.text.match(/https?:\/\/\S+/u)![0]!,
+      ).searchParams.get('callbackURL'),
+    ).toBe('/reset-password/continue')
+    const passwordHash = createHash('sha1')
+      .update(replacementPassword)
+      .digest('hex')
+      .toUpperCase()
+    hibpFetchMock.mockResolvedValue({
+      data: `${passwordHash.slice(5)}:42`,
+      error: null,
+    })
+
+    const compromisedResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: replacementPassword,
+          token: resetTokenFromMessage(resetMessage!),
+        },
+      }),
+    )
+
+    expect(compromisedResponse.status).toBe(400)
+    expect(await compromisedResponse.json()).toMatchObject({
+      code: 'PASSWORD_COMPROMISED',
+    })
+    await expect(database.select().from(verifications)).resolves.toEqual([])
+
+    const reusedResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: 'another-safe-password-15',
+          token: resetTokenFromMessage(resetMessage!),
+        },
+      }),
+    )
+    expect(reusedResponse.status).toBe(400)
+    expect(await reusedResponse.json()).toMatchObject({ code: 'INVALID_TOKEN' })
+    await database.delete(rateLimits)
+    expect((await signIn(fixture.auth, originalPassword)).status).toBe(200)
+  })
+
+  it('fails a reset closed and consumes the single-attempt token when HIBP is unavailable', async () => {
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    await signUpAndVerifyTestUser(fixture)
+    fixture.messages.splice(0)
+
+    const requestResponse = await fixture.auth.handler(
+      createAuthRequest('/request-password-reset', {
+        body: {
+          email: 'fan@example.com',
+          redirectTo: '/reset-password/continue',
+        },
+      }),
+    )
+    expect(requestResponse.status).toBe(200)
+    await fixture.drainBackgroundTasks()
+
+    const resetMessage = fixture.messages.find(
+      (message) => message.category === 'password_reset',
+    )
+    hibpFetchMock.mockResolvedValue({
+      data: null,
+      error: { status: 503 },
+    })
+
+    const unavailableResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: replacementPassword,
+          token: resetTokenFromMessage(resetMessage!),
+        },
+      }),
+    )
+
+    expect(unavailableResponse.status).toBe(500)
+    await expect(database.select().from(verifications)).resolves.toEqual([])
+    await database.delete(rateLimits)
+    expect((await signIn(fixture.auth, originalPassword)).status).toBe(200)
   })
 
   it('rejects an expired reset token without changing the password', async () => {

@@ -13,5 +13,10 @@ export default defineConfig({
     fileParallelism: false,
     globalSetup: ['./src/test/database/global-setup.ts'],
     include: ['src/**/*.integration.test.ts'],
+    server: {
+      deps: {
+        inline: [/better-auth/u, /@better-fetch/u],
+      },
+    },
   },
 })

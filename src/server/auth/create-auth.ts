@@ -3,6 +3,7 @@ import 'server-only'
 import { drizzleAdapter, type DB } from '@better-auth/drizzle-adapter'
 import { APIError, betterAuth, type BetterAuthOptions } from 'better-auth'
 import { createAuthMiddleware } from 'better-auth/api'
+import { haveIBeenPwned } from 'better-auth/plugins'
 import {
   normalizeUsernameForIdentity,
   usernameSchema,
@@ -29,12 +30,20 @@ export type CreateAuthDependencies = Readonly<{
   backgroundTaskHandler?: (promise: Promise<unknown>) => void
 }>
 
+export type AuthRegistrationMode = 'disabled' | 'verified-email-required'
+
+export type CreateAuthConfiguration = Readonly<{
+  registrationMode?: AuthRegistrationMode
+}>
+
 const SESSION_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24
 const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60 * 24
 const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 const PASSWORD_MIN_LENGTH = 15
 const PASSWORD_MAX_LENGTH = 128
+const SIGN_UP_RATE_LIMIT_WINDOW_SECONDS = 60
+const SIGN_UP_RATE_LIMIT_MAX_REQUESTS = 3
 
 export const PENDING_USERNAME_IDENTITY_KEY_SENTINEL =
   '__pending_identity__' as const
@@ -84,13 +93,40 @@ export function guardAgainstUsernameUpdate(
   }
 }
 
+function hasCompleteEmailCallbacks(
+  callbacks: AuthEmailCallbacks | undefined,
+): callbacks is AuthEmailCallbacks {
+  return (
+    callbacks !== undefined &&
+    typeof callbacks.sendVerificationEmail === 'function' &&
+    typeof callbacks.sendResetPassword === 'function' &&
+    typeof callbacks.afterPasswordReset === 'function'
+  )
+}
+
 export function createAuthOptions(
   database: DB,
   environment: AuthEnvironment,
   dependencies: CreateAuthDependencies = {},
+  configuration: CreateAuthConfiguration = {},
   testOverrides: CreateAuthTestOverrides = {},
 ): BetterAuthOptions {
   const emailCallbacks = dependencies.emailCallbacks
+  const registrationMode = configuration.registrationMode ?? 'disabled'
+
+  if (
+    registrationMode === 'verified-email-required' &&
+    !hasCompleteEmailCallbacks(emailCallbacks)
+  ) {
+    throw new Error(
+      'Verified-email registration requires complete authentication email callbacks',
+    )
+  }
+
+  const credentialSignUpEnabled =
+    registrationMode === 'verified-email-required' ||
+    (registrationMode === 'disabled' &&
+      testOverrides.allowCredentialSignUpForTesting === true)
 
   return {
     secret: environment.authSecret,
@@ -103,7 +139,7 @@ export function createAuthOptions(
     }),
     emailAndPassword: {
       enabled: true,
-      disableSignUp: testOverrides.allowCredentialSignUpForTesting !== true,
+      disableSignUp: !credentialSignUpEnabled,
       minPasswordLength: PASSWORD_MIN_LENGTH,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       ...(emailCallbacks === undefined
@@ -161,7 +197,18 @@ export function createAuthOptions(
     rateLimit: {
       enabled: true,
       storage: 'database',
+      customRules: {
+        '/sign-up/email': {
+          window: SIGN_UP_RATE_LIMIT_WINDOW_SECONDS,
+          max: SIGN_UP_RATE_LIMIT_MAX_REQUESTS,
+        },
+      },
     },
+    plugins: [
+      haveIBeenPwned({
+        paths: ['/sign-up/email', '/reset-password'],
+      }),
+    ],
     advanced: {
       disableOriginCheck: false,
       database: {
@@ -196,9 +243,16 @@ export function createAuth(
   database: DB,
   environment: AuthEnvironment,
   dependencies: CreateAuthDependencies = {},
+  configuration: CreateAuthConfiguration = {},
   testOverrides: CreateAuthTestOverrides = {},
 ) {
   return betterAuth(
-    createAuthOptions(database, environment, dependencies, testOverrides),
+    createAuthOptions(
+      database,
+      environment,
+      dependencies,
+      configuration,
+      testOverrides,
+    ),
   )
 }

@@ -7,7 +7,7 @@ import type {
 
 const callbackData = {
   user: { id: 'user-id', email: 'fan@example.com' },
-  url: 'https://archive.example.com/api/auth/verify-email?token=private-token',
+  url: 'https://zedarchive.example.com/api/auth/verify-email?token=private-token',
   token: 'private-token',
 } as const
 
@@ -26,12 +26,13 @@ describe('createAuthEmailCallbacks', () => {
       delivery,
       vi.fn(async () => undefined),
       (promise) => backgroundTasks.push(promise),
+      'https://zedarchive.example.com',
     )
 
     await callbacks.sendVerificationEmail(callbackData)
     await callbacks.sendResetPassword({
       ...callbackData,
-      url: 'https://archive.example.com/api/auth/reset-password/reset-token',
+      url: 'https://zedarchive.example.com/api/auth/reset-password/reset-token',
       token: 'reset-token',
     })
 
@@ -55,11 +56,35 @@ describe('createAuthEmailCallbacks', () => {
       { send: vi.fn(async () => undefined) },
       deleteOutstandingTokens,
       vi.fn(),
+      'https://zedarchive.example.com',
     )
 
     await callbacks.afterPasswordReset('user-id')
 
     expect(deleteOutstandingTokens).toHaveBeenCalledOnce()
     expect(deleteOutstandingTokens).toHaveBeenCalledWith('user-id')
+  })
+
+  it('replaces the provider verification mutation URL with an inert app link', async () => {
+    const send = vi.fn(async () => undefined)
+    const callbacks = createAuthEmailCallbacks(
+      { send },
+      vi.fn(async () => undefined),
+      (promise) => void promise,
+      'https://zedarchive.example.com',
+    )
+
+    await callbacks.sendVerificationEmail(callbackData)
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          'https://zedarchive.example.com/verify-email#token=private-token',
+        ),
+      }),
+    )
+    expect(JSON.stringify(send.mock.calls)).not.toContain(
+      '/api/auth/verify-email',
+    )
   })
 })
