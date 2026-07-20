@@ -8,15 +8,15 @@ import {
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
 import { PasswordField } from '@/features/auth/components/password-field'
-import {
-  passwordMaximumLength,
-  passwordMinimumLength,
-  signInFormSchema,
-} from '@/features/auth/domain/auth-form-validation'
+import { signInFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
   AUTH_VALIDATION_ERROR_MESSAGE,
   translateAuthError,
 } from '@/features/auth/domain/auth-error-messages'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 
 const fieldClassName =
   'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'

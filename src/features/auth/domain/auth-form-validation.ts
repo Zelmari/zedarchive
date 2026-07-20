@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 import { usernameSchema } from '@/features/identity/domain/username'
-
-export const passwordMinimumLength = 15
-export const passwordMaximumLength = 128
 
 const trimmedStringSchema = z.string().transform((value) => value.trim())
 

@@ -4,20 +4,22 @@ import {
   authPasswordSchema,
   authUsernameSchema,
   forgotPasswordFormSchema,
-  passwordMaximumLength,
-  passwordMinimumLength,
   registrationFormSchema,
   resetPasswordFormSchema,
   signInFormSchema,
 } from '@/features/auth/domain/auth-form-validation'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 
-const validPassword = 'valid-password-15'
+const validPassword = 'abcdefg'
 const validEmail = 'fan@example.com'
 const validUsername = 'MediaFan'
 
 describe('auth password boundaries', () => {
   it('uses the confirmed password length boundaries', () => {
-    expect(passwordMinimumLength).toBe(15)
+    expect(passwordMinimumLength).toBe(7)
     expect(passwordMaximumLength).toBe(128)
   })
 })
@@ -55,8 +57,16 @@ describe('authUsernameSchema', () => {
 
 describe('authPasswordSchema', () => {
   it.each([
+    ['one below the minimum', 'a'.repeat(passwordMinimumLength - 1), false],
+    ['exactly at the minimum', 'a'.repeat(passwordMinimumLength), true],
+    ['one above the minimum', 'a'.repeat(passwordMinimumLength + 1), true],
+  ])('%s', (_, password, expectedSuccess) => {
+    expect(authPasswordSchema.safeParse(password).success).toBe(expectedSuccess)
+  })
+
+  it.each([
     validPassword,
-    ' fifteen-chars ',
+    ' sevench ',
     'a'.repeat(passwordMaximumLength),
     'pass phrase with spaces',
   ])('accepts the valid password boundary %j without mutation', (password) => {
@@ -71,7 +81,7 @@ describe('authPasswordSchema', () => {
 
   it.each([
     ['empty string', ''],
-    ['too short', 'short-password'],
+    ['too short', 'a'.repeat(passwordMinimumLength - 1)],
     ['too long', 'a'.repeat(passwordMaximumLength + 1)],
   ])('rejects %s', (_, password) => {
     expect(authPasswordSchema.safeParse(password).success).toBe(false)

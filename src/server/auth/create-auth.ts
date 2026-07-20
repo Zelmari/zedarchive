@@ -5,6 +5,10 @@ import { APIError, betterAuth, type BetterAuthOptions } from 'better-auth'
 import { createAuthMiddleware } from 'better-auth/api'
 import { haveIBeenPwned } from 'better-auth/plugins'
 import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
+import {
   normalizeUsernameForIdentity,
   usernameSchema,
 } from '@/features/identity/domain/username'
@@ -40,8 +44,6 @@ const SESSION_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24
 const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60 * 24
 const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
-const PASSWORD_MIN_LENGTH = 15
-const PASSWORD_MAX_LENGTH = 128
 const SIGN_UP_RATE_LIMIT_WINDOW_SECONDS = 60
 const SIGN_UP_RATE_LIMIT_MAX_REQUESTS = 3
 
@@ -140,8 +142,8 @@ export function createAuthOptions(
     emailAndPassword: {
       enabled: true,
       disableSignUp: !credentialSignUpEnabled,
-      minPasswordLength: PASSWORD_MIN_LENGTH,
-      maxPasswordLength: PASSWORD_MAX_LENGTH,
+      minPasswordLength: passwordMinimumLength,
+      maxPasswordLength: passwordMaximumLength,
       ...(emailCallbacks === undefined
         ? {}
         : {

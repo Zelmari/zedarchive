@@ -9,6 +9,10 @@ import {
   prepareUserCreateData,
   stripCallerUsernameIdentityKeyFromCredentialSignUp,
 } from '@/server/auth/create-auth'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 
 const authEnvironment = {
   authSecret: 'ci-disposable-better-auth-secret-32chars-min',
@@ -100,8 +104,12 @@ describe('createAuthOptions', () => {
   it('applies the approved password, session, origin, and rate-limit settings', () => {
     const options = createOptions()
 
-    expect(options.emailAndPassword?.minPasswordLength).toBe(15)
-    expect(options.emailAndPassword?.maxPasswordLength).toBe(128)
+    expect(options.emailAndPassword?.minPasswordLength).toBe(
+      passwordMinimumLength,
+    )
+    expect(options.emailAndPassword?.maxPasswordLength).toBe(
+      passwordMaximumLength,
+    )
     expect(options.emailAndPassword?.password).toBeUndefined()
     expect(options.session?.expiresIn).toBe(60 * 60 * 24 * 7)
     expect(options.session?.updateAge).toBe(60 * 60 * 24)
@@ -117,6 +125,19 @@ describe('createAuthOptions', () => {
     })
     expect(options.advanced?.disableOriginCheck).toBe(false)
     expect(options.advanced?.database?.generateId).toBe('uuid')
+  })
+
+  it('uses the same password length boundaries as the shared policy module', () => {
+    const options = createOptions()
+
+    expect(options.emailAndPassword?.minPasswordLength).toBe(
+      passwordMinimumLength,
+    )
+    expect(options.emailAndPassword?.maxPasswordLength).toBe(
+      passwordMaximumLength,
+    )
+    expect(passwordMinimumLength).toBe(7)
+    expect(passwordMaximumLength).toBe(128)
   })
 
   it('enables public signup only in verified-email mode with complete callbacks', () => {

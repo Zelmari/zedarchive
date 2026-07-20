@@ -7,16 +7,16 @@ import {
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
 import { PasswordField } from '@/features/auth/components/password-field'
-import {
-  passwordMaximumLength,
-  passwordMinimumLength,
-  resetPasswordFormSchema,
-} from '@/features/auth/domain/auth-form-validation'
+import { resetPasswordFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
   AUTH_INVALID_RESET_LINK_MESSAGE,
   AUTH_VALIDATION_ERROR_MESSAGE,
   translateAuthError,
 } from '@/features/auth/domain/auth-error-messages'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 import { parseVerifyEmailToken } from '@/features/auth/domain/verify-email-token'
 
 const buttonClassName =

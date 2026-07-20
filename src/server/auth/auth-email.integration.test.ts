@@ -12,6 +12,10 @@ import {
   vi,
 } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 import { createAuthEmailCallbacks } from '@/server/auth/auth-email-callbacks'
 import {
   createAuth,
@@ -45,6 +49,9 @@ const authEnvironment = {
 
 const originalPassword = 'valid-password-15'
 const replacementPassword = 'replacement-password-15'
+const belowMinimumPassword = 'b'.repeat(passwordMinimumLength - 1)
+const minimumBoundaryPassword = 'b'.repeat(passwordMinimumLength)
+const aboveMaximumPassword = 'b'.repeat(passwordMaximumLength + 1)
 
 const { databaseTestUrl } = readDatabaseTestEnvironment()
 const pool = new Pool({ connectionString: databaseTestUrl })
@@ -748,6 +755,99 @@ describe('authentication email integration', () => {
     )
     rejectDelivery?.()
     await failureExpectation
+  })
+
+  it('rejects reset outside the approved boundaries without consuming the token, then accepts the minimum on the same token', async () => {
+    const fixture = createEmailAuth({
+      registrationMode: 'verified-email-required',
+    })
+    await signUpAndVerifyTestUser(fixture)
+    fixture.messages.splice(0)
+    hibpFetchMock.mockClear()
+
+    const requestResponse = await fixture.auth.handler(
+      createAuthRequest('/request-password-reset', {
+        body: {
+          email: 'fan@example.com',
+          redirectTo: '/reset-password/continue',
+        },
+      }),
+    )
+    expect(requestResponse.status).toBe(200)
+    await fixture.drainBackgroundTasks()
+
+    const resetMessage = fixture.messages.find(
+      (message) => message.category === 'password_reset',
+    )
+    expect(resetMessage).toBeDefined()
+    const resetToken = resetTokenFromMessage(resetMessage!)
+
+    const tooLongResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: aboveMaximumPassword,
+          token: resetToken,
+        },
+      }),
+    )
+
+    expect(tooLongResponse.status).toBe(400)
+    expect(await tooLongResponse.json()).toMatchObject({
+      code: 'PASSWORD_TOO_LONG',
+    })
+    expect(hibpFetchMock).not.toHaveBeenCalled()
+    await expect(database.select().from(verifications)).resolves.toHaveLength(1)
+
+    const tooShortResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: belowMinimumPassword,
+          token: resetToken,
+        },
+      }),
+    )
+
+    expect(tooShortResponse.status).toBe(400)
+    expect(await tooShortResponse.json()).toMatchObject({
+      code: 'PASSWORD_TOO_SHORT',
+    })
+    expect(hibpFetchMock).not.toHaveBeenCalled()
+    await expect(database.select().from(verifications)).resolves.toHaveLength(1)
+
+    await database.delete(rateLimits)
+    expect((await signIn(fixture.auth, originalPassword)).status).toBe(200)
+
+    const passwordHash = createHash('sha1')
+      .update(minimumBoundaryPassword)
+      .digest('hex')
+      .toUpperCase()
+    const acceptedResponse = await fixture.auth.handler(
+      createAuthRequest('/reset-password', {
+        body: {
+          newPassword: minimumBoundaryPassword,
+          token: resetToken,
+        },
+      }),
+    )
+
+    expect(acceptedResponse.status).toBe(200)
+    expect(hibpFetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+    ])
+    expect(hibpFetchMock).toHaveBeenCalledWith(
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Add-Padding': 'true' }),
+      }),
+    )
+    await expect(database.select().from(verifications)).resolves.toEqual([])
+    await expect(database.select().from(sessions)).resolves.toEqual([])
+
+    await database.delete(rateLimits)
+    expect((await signIn(fixture.auth, originalPassword)).status).toBe(401)
+    expect((await signIn(fixture.auth, minimumBoundaryPassword)).status).toBe(
+      200,
+    )
   })
 
   it('resets a password once, revokes sessions, and removes only reset tokens', async () => {

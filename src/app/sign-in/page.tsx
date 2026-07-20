@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { SignInForm } from '@/features/auth/components/sign-in-form'
 import { SignOutButton } from '@/features/auth/components/sign-out-button'
+import { PublicUsername } from '@/features/identity/components/public-username'
 import { auth } from '@/server/auth/auth'
 
 export const metadata: Metadata = {
@@ -30,7 +31,11 @@ export default async function SignInPage() {
       {session?.user ? (
         <section className="space-y-4">
           <p>
-            Signed in as <strong>{session.user.name}</strong>.
+            Signed in as{' '}
+            <strong>
+              <PublicUsername username={session.user.name} />
+            </strong>
+            .
           </p>
           <SignOutButton />
           <p className="text-sm">

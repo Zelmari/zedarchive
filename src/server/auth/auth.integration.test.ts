@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
@@ -11,6 +12,10 @@ import {
   vi,
 } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
+import {
+  passwordMaximumLength,
+  passwordMinimumLength,
+} from '@/features/auth/domain/password-policy'
 import { createAuth } from '@/server/auth/create-auth'
 import { accounts, rateLimits, sessions, users } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -28,6 +33,9 @@ const authEnvironment = {
 } as const
 
 const validPassword = 'valid-password-15'
+const belowMinimumPassword = 'a'.repeat(passwordMinimumLength - 1)
+const minimumBoundaryPassword = 'a'.repeat(passwordMinimumLength)
+const aboveMaximumPassword = 'a'.repeat(passwordMaximumLength + 1)
 
 const { databaseTestUrl } = readDatabaseTestEnvironment()
 const pool = new Pool({ connectionString: databaseTestUrl })
@@ -126,6 +134,134 @@ afterAll(async () => {
 })
 
 describe('auth handler integration', () => {
+  it('rejects credential signup one character below the approved minimum without persisting users or accounts', async () => {
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+
+    const response = await auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'ShortPassFan',
+          email: 'short-pass@example.com',
+          password: belowMinimumPassword,
+        },
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      code: 'PASSWORD_TOO_SHORT',
+    })
+    expect(hibpFetchMock).not.toHaveBeenCalled()
+
+    const [userRows, accountRows] = await Promise.all([
+      database.select().from(users),
+      database.select().from(accounts),
+    ])
+
+    expect(userRows).toEqual([])
+    expect(accountRows).toEqual([])
+  })
+
+  it('accepts credential signup at the approved minimum and applies the HIBP range check', async () => {
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+    const passwordHash = createHash('sha1')
+      .update(minimumBoundaryPassword)
+      .digest('hex')
+      .toUpperCase()
+
+    const signUpResponse = await auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'MinPassFan',
+          email: 'min-pass@example.com',
+          password: minimumBoundaryPassword,
+        },
+      }),
+    )
+
+    expect(signUpResponse.status).toBe(200)
+    expect(hibpFetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+    ])
+    expect(hibpFetchMock).toHaveBeenCalledWith(
+      `https://api.pwnedpasswords.com/range/${passwordHash.slice(0, 5)}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Add-Padding': 'true' }),
+      }),
+    )
+    expect(extractSessionCookie(signUpResponse)).toMatch(
+      /^better-auth\.session_token=/,
+    )
+
+    const storedUsers = await database.select().from(users)
+    expect(storedUsers).toHaveLength(1)
+    expect(storedUsers[0]).toMatchObject({
+      username: 'MinPassFan',
+      email: 'min-pass@example.com',
+    })
+    await expect(database.select().from(accounts)).resolves.toHaveLength(1)
+
+    const signInResponse = await auth.handler(
+      createAuthRequest('/sign-in/email', {
+        body: {
+          email: 'min-pass@example.com',
+          password: minimumBoundaryPassword,
+        },
+      }),
+    )
+
+    expect(signInResponse.status).toBe(200)
+    expect(extractSessionCookie(signInResponse)).toMatch(
+      /^better-auth\.session_token=/,
+    )
+  })
+
+  it('rejects credential signup one character above the approved maximum without persisting users or accounts', async () => {
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+
+    const response = await auth.handler(
+      createAuthRequest('/sign-up/email', {
+        body: {
+          name: 'LongPassFan',
+          email: 'long-pass@example.com',
+          password: aboveMaximumPassword,
+        },
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      code: 'PASSWORD_TOO_LONG',
+    })
+    expect(hibpFetchMock).not.toHaveBeenCalled()
+
+    const [userRows, accountRows] = await Promise.all([
+      database.select().from(users),
+      database.select().from(accounts),
+    ])
+
+    expect(userRows).toEqual([])
+    expect(accountRows).toEqual([])
+  })
+
   it('rejects disabled signup without writing users or accounts', async () => {
     const auth = createAuth(database, authEnvironment)
 
