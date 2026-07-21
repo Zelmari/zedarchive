@@ -1,0 +1,72 @@
+import { sql } from 'drizzle-orm'
+import {
+  check,
+  foreignKey,
+  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core'
+import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import { users } from '@/server/database/schema/auth'
+import { animeCatalogueItems } from '@/server/database/schema/catalogue'
+
+export const animeEntries = pgTable(
+  'anime_entries',
+  {
+    id: uuid('id').defaultRandom().notNull(),
+    userId: uuid('user_id').notNull(),
+    catalogueItemId: uuid('catalogue_item_id').notNull(),
+    status: text('status').$type<EntryStatus>().notNull(),
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+      precision: 3,
+      mode: 'date',
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+      precision: 3,
+      mode: 'date',
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.id],
+      name: 'anime_entries_pkey',
+    }),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: 'anime_entries_user_id_fkey',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.catalogueItemId],
+      foreignColumns: [animeCatalogueItems.id],
+      name: 'anime_entries_catalogue_item_id_fkey',
+    }).onDelete('restrict'),
+    unique('anime_entries_user_id_catalogue_item_id_key').on(
+      table.userId,
+      table.catalogueItemId,
+    ),
+    check(
+      'anime_entries_id_uuid_v4_check',
+      sql`substring(${table.id}::text, 15, 1) = '4' and substring(${table.id}::text, 20, 1) in ('8', '9', 'a', 'b')`,
+    ),
+    check(
+      'anime_entries_status_check',
+      sql`${table.status} in ('planned', 'in_progress', 'on_hold', 'dropped', 'completed')`,
+    ),
+    check(
+      'anime_entries_timestamp_order_check',
+      sql`${table.updatedAt} >= ${table.createdAt}`,
+    ),
+    index('anime_entries_catalogue_item_id_idx').on(table.catalogueItemId),
+  ],
+)

@@ -115,6 +115,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await pool.query(`
     truncate table
+      anime_entries,
       anime_catalogue_sources,
       anime_alternative_titles,
       anime_catalogue_items

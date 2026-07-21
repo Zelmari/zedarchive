@@ -82,6 +82,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await pool.query(`
     truncate table
+      anime_entries,
       rate_limits,
       verifications,
       sessions,

@@ -120,6 +120,7 @@ beforeEach(async () => {
   hibpFetchMock.mockResolvedValue({ data: '', error: null })
   await pool.query(`
     truncate table
+      anime_entries,
       rate_limits,
       verifications,
       sessions,
