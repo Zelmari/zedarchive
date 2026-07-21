@@ -1,4 +1,9 @@
+import { headers } from 'next/headers'
 import { AnimeCatalogueCard } from '@/features/anime/catalogue/anime-catalogue-card'
+import {
+  getAnimeCatalogueArchivePresentation,
+  type AnimeCatalogueArchiveAccess,
+} from '@/features/anime/catalogue/anime-catalogue-archive-presentation'
 import {
   AnimeCatalogueEmptyStateView,
   getAnimeCatalogueEmptyState,
@@ -13,6 +18,8 @@ import {
   searchAnimeCatalogue,
 } from '@/server/database/anime-catalogue-service'
 import { database } from '@/server/database/client'
+import { auth } from '@/server/auth/auth'
+import { getAnimeEntryCatalogueMembership } from '@/server/database/anime-entry-service'
 
 type AnimeCatalogueResultsProps = {
   pageQuery: AnimeCatalogueBrowsePageQuery | AnimeCatalogueSearchPageQuery
@@ -55,6 +62,34 @@ export async function AnimeCatalogueResults({
     itemCount: cataloguePage.items.length,
   })
 
+  let archiveAccess: AnimeCatalogueArchiveAccess = { kind: 'signed-out' }
+
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (session?.user?.id) {
+      try {
+        const memberships = await getAnimeEntryCatalogueMembership(database, {
+          userId: session.user.id,
+          catalogueItemIds: cataloguePage.items.map(({ id }) => id),
+        })
+
+        archiveAccess = { kind: 'memberships', memberships }
+      } catch {
+        console.error('Anime catalogue archive controls lookup failed.')
+        archiveAccess = { kind: 'controls-unavailable' }
+      }
+    }
+  } catch {
+    console.error('Anime catalogue session lookup failed.')
+    archiveAccess = { kind: 'session-unavailable' }
+  }
+
+  const archivePresentation =
+    getAnimeCatalogueArchivePresentation(archiveAccess)
+
   return (
     <>
       <p>
@@ -65,12 +100,34 @@ export async function AnimeCatalogueResults({
               pageQuery.query,
             )}
       </p>
+      {archivePresentation.notice === 'sign-in' ? (
+        <p>
+          <a
+            className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            href="/sign-in"
+          >
+            Sign in
+          </a>{' '}
+          to add anime to your archive.
+        </p>
+      ) : null}
+      {archivePresentation.notice === 'controls-unavailable' ? (
+        <p role="status">
+          Archive controls are temporarily unavailable. Please try again.
+        </p>
+      ) : null}
 
       {emptyState === null ? (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cataloguePage.items.map((item) => (
             <li key={item.id}>
-              <AnimeCatalogueCard item={item} />
+              <AnimeCatalogueCard
+                archiveState={
+                  archivePresentation.cardStateByCatalogueItemId.get(item.id) ??
+                  archivePresentation.defaultCardState
+                }
+                item={item}
+              />
             </li>
           ))}
         </ul>

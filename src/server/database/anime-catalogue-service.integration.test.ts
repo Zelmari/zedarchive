@@ -1,7 +1,18 @@
 import { randomUUID } from 'node:crypto'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+
+vi.mock('server-only', () => ({}))
+
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import type { AnimeCatalogueItem } from '@/features/anime/domain/anime-catalogue-item'
 import {

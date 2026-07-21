@@ -2,10 +2,8 @@ import {
   and,
   asc,
   count,
-  eq,
   exists,
   inArray,
-  ne,
   or,
   type SQL,
   sql,
@@ -24,13 +22,9 @@ import {
   animeAlternativeTitles,
   animeCatalogueItems,
 } from '@/server/database/schema'
+import { publishedNonAdultAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
 
 type StoredCatalogueItem = typeof animeCatalogueItems.$inferSelect
-
-const publicCatalogueVisibility = and(
-  eq(animeCatalogueItems.catalogueState, 'published'),
-  ne(animeCatalogueItems.maturity, 'adult'),
-)
 
 const defaultTitleExpression = sql<string>`coalesce(${animeCatalogueItems.englishTitle}, ${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.originalTitle})`
 
@@ -213,9 +207,9 @@ async function readPublicAnimeCataloguePage(
   const offset = (page - 1) * pageSize
   const whereClause =
     normalizedQuery === undefined
-      ? publicCatalogueVisibility
+      ? publishedNonAdultAnimeCatalogueVisibility
       : and(
-          publicCatalogueVisibility,
+          publishedNonAdultAnimeCatalogueVisibility,
           buildTitleMatchCondition(normalizedQuery, 'contains'),
         )
 
