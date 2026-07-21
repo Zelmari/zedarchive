@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { RegisterForm } from '@/features/auth/components/register-form'
-import { SignOutButton } from '@/features/auth/components/sign-out-button'
 import { PublicUsername } from '@/features/identity/components/public-username'
 import { auth } from '@/server/auth/auth'
 
@@ -19,7 +18,11 @@ export default async function RegisterPage() {
   })
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-4 sm:p-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto max-w-md space-y-6 p-4 sm:p-6"
+    >
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Register</h1>
         <p className="text-sm text-gray-700">
@@ -36,7 +39,6 @@ export default async function RegisterPage() {
             </strong>
             .
           </p>
-          <SignOutButton />
           <p className="text-sm">
             <a className={linkClassName} href="/sign-in">
               Go to sign in

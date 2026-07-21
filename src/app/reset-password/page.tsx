@@ -8,7 +8,11 @@ export const metadata: Metadata = {
 
 export default function ResetPasswordPage() {
   return (
-    <main className="mx-auto max-w-md space-y-6 p-4 sm:p-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto max-w-md space-y-6 p-4 sm:p-6"
+    >
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Reset password</h1>
         <p className="text-sm text-gray-700">

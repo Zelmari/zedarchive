@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { SignInForm } from '@/features/auth/components/sign-in-form'
-import { SignOutButton } from '@/features/auth/components/sign-out-button'
 import { PublicUsername } from '@/features/identity/components/public-username'
 import { auth } from '@/server/auth/auth'
 
@@ -20,7 +19,11 @@ export default async function SignInPage() {
   })
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-4 sm:p-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto max-w-md space-y-6 p-4 sm:p-6"
+    >
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Sign in</h1>
         <p className="text-sm text-gray-700">
@@ -37,7 +40,6 @@ export default async function SignInPage() {
             </strong>
             .
           </p>
-          <SignOutButton />
           <p className="text-sm">
             <Link className={linkClassName} href="/">
               Back to catalogue
