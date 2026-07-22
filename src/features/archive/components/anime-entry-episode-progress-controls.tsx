@@ -10,6 +10,8 @@ import {
   parseEpisodeTotalControlInput,
   reconcileProgressEditorValue,
   reconcileTotalEditorValue,
+  shouldEnableProgressSave,
+  shouldEnableTotalSave,
   shouldOfferCompletionFromMutation,
 } from '@/features/archive/components/anime-entry-episode-progress-controls-state'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
@@ -415,6 +417,7 @@ export function AnimeEntryEpisodeProgressControls({
       <form
         aria-busy={isPending}
         className="space-y-2"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault()
           const requested = getTotalSaveInput(totalValue, personalTotal)
@@ -453,7 +456,7 @@ export function AnimeEntryEpisodeProgressControls({
           <button
             className={buttonClassName}
             disabled={
-              isPending || getTotalSaveInput(totalValue, personalTotal) === null
+              isPending || !shouldEnableTotalSave(totalValue, personalTotal)
             }
             type="submit"
           >
@@ -502,6 +505,7 @@ export function AnimeEntryEpisodeProgressControls({
     <div className="space-y-2">
       <form
         aria-busy={isPending}
+        noValidate
         onSubmit={(event) => {
           event.preventDefault()
           const requested = getProgressSaveInput(value, progress)
@@ -538,9 +542,7 @@ export function AnimeEntryEpisodeProgressControls({
         <div className="flex flex-wrap gap-2">
           <button
             className={buttonClassName}
-            disabled={
-              isPending || getProgressSaveInput(value, progress) === null
-            }
+            disabled={isPending || !shouldEnableProgressSave(value, progress)}
             type="submit"
           >
             {isSavingProgress ? 'Saving progress…' : 'Save progress'}

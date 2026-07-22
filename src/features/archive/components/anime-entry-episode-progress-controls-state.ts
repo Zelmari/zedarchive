@@ -43,6 +43,14 @@ export function getProgressSaveInput(
     : requested
 }
 
+export function shouldEnableProgressSave(
+  value: string,
+  authoritativeProgress: EpisodeProgress,
+): boolean {
+  const requested = parseEpisodeProgressControlInput(value)
+  return requested === null ? value !== '' : requested !== authoritativeProgress
+}
+
 export function getTotalSaveInput(
   value: string,
   authoritativePersonalTotal: EpisodeTotal | null,
@@ -51,6 +59,16 @@ export function getTotalSaveInput(
   return requested === null || requested === authoritativePersonalTotal
     ? null
     : requested
+}
+
+export function shouldEnableTotalSave(
+  value: string,
+  authoritativePersonalTotal: EpisodeTotal | null,
+): boolean {
+  const requested = parseEpisodeTotalControlInput(value)
+  return requested === null
+    ? value !== ''
+    : requested !== authoritativePersonalTotal
 }
 
 export function getPersonalTotalEditorInitialValue(

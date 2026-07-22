@@ -82,7 +82,10 @@ describe('AnimeEntryEpisodeProgressControls', () => {
     expect(markup).toContain(
       'Enter a whole personal total of at least 1 episode.',
     )
-    expect(markup).toContain('disabled="" type="submit">Save personal total')
+    expect(markup).toContain(
+      '<form aria-busy="false" class="space-y-2" noValidate="">',
+    )
+    expect(markup).toContain('type="submit">Save personal total')
   })
 
   it('disables Save progress for a numerically equivalent leading-zero value', () => {
@@ -93,6 +96,17 @@ describe('AnimeEntryEpisodeProgressControls', () => {
     )
 
     expect(markup).toContain('disabled="" type="submit">Save progress')
+  })
+
+  it('allows changed invalid progress through the form for inline validation', () => {
+    mockControlState('progress', '-1', '12', null, false)
+
+    const markup = renderToStaticMarkup(
+      createElement(AnimeEntryEpisodeProgressControls, props),
+    )
+
+    expect(markup).toContain('<form aria-busy="false" noValidate="">')
+    expect(markup).toContain('type="submit">Save progress')
   })
 
   it('keeps a completion retry open while rendering failure feedback as an alert', () => {

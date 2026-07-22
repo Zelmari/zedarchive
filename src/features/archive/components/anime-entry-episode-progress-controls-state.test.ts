@@ -7,6 +7,8 @@ import {
   parseEpisodeTotalControlInput,
   reconcileProgressEditorValue,
   reconcileTotalEditorValue,
+  shouldEnableProgressSave,
+  shouldEnableTotalSave,
   shouldOfferCompletionFromMutation,
 } from '@/features/archive/components/anime-entry-episode-progress-controls-state'
 
@@ -39,13 +41,32 @@ describe('anime entry episode progress control state', () => {
     expect(parseEpisodeTotalControlInput(value)).toBe(expected)
   })
 
-  it('enables saves only for valid values numerically distinct from authority', () => {
+  it('returns mutations only for valid values numerically distinct from authority', () => {
     expect(getProgressSaveInput('00', 0)).toBeNull()
     expect(getProgressSaveInput('0012', 7)).toBe(12)
     expect(getProgressSaveInput('1e2', 7)).toBeNull()
     expect(getTotalSaveInput('012', 12)).toBeNull()
     expect(getTotalSaveInput('12', null)).toBe(12)
     expect(getTotalSaveInput('0', null)).toBeNull()
+  })
+
+  it('enables saves for changed invalid inputs so inline validation can explain them', () => {
+    expect(shouldEnableProgressSave('00', 0)).toBe(false)
+    expect(shouldEnableProgressSave('007', 7)).toBe(false)
+    expect(shouldEnableProgressSave('12', 7)).toBe(true)
+    expect(shouldEnableProgressSave('-1', 7)).toBe(true)
+    expect(shouldEnableProgressSave('1.2', 7)).toBe(true)
+    expect(shouldEnableProgressSave('1e2', 7)).toBe(true)
+    expect(shouldEnableProgressSave('9007199254740992', 7)).toBe(true)
+
+    expect(shouldEnableTotalSave('012', 12)).toBe(false)
+    expect(shouldEnableTotalSave('', null)).toBe(false)
+    expect(shouldEnableTotalSave('13', 12)).toBe(true)
+    expect(shouldEnableTotalSave('0', 12)).toBe(true)
+    expect(shouldEnableTotalSave('-1', 12)).toBe(true)
+    expect(shouldEnableTotalSave('1.2', 12)).toBe(true)
+    expect(shouldEnableTotalSave('1e2', 12)).toBe(true)
+    expect(shouldEnableTotalSave('9007199254740992', 12)).toBe(true)
   })
 
   it('prefills a new personal-total editor from a known catalogue total', () => {
