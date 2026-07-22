@@ -17,6 +17,7 @@ import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 
 const checkViolation = '23514'
 const foreignKeyViolation = '23503'
+const invalidTextRepresentation = '22P02'
 const notNullViolation = '23502'
 const uniqueViolation = '23505'
 const statuses = [
@@ -206,6 +207,12 @@ describe('anime_entries schema', () => {
         isNullable: 'YES',
         columnDefault: null,
       }),
+      expect.objectContaining({
+        columnName: 'rating',
+        dataType: 'numeric',
+        isNullable: 'YES',
+        columnDefault: null,
+      }),
     ])
     expect(columns.rows[0]?.columnDefault).toMatch(/gen_random_uuid\(\)/)
     expect(columns.rows[4]?.columnDefault).toMatch(/now\(\)/)
@@ -223,6 +230,7 @@ describe('anime_entries schema', () => {
       'anime_entries_episode_total_override_check',
       'anime_entries_id_uuid_v4_check',
       'anime_entries_pkey',
+      'anime_entries_rating_check',
       'anime_entries_status_check',
       'anime_entries_timestamp_order_check',
       'anime_entries_user_id_catalogue_item_id_key',
@@ -410,6 +418,67 @@ describe('anime_entries schema', () => {
       () => insertEntry({ episodeTotalOverride: episodeProgressMaximum + 1 }),
       checkViolation,
       'anime_entries_episode_total_override_check',
+    )
+  })
+
+  it('round-trips every nullable exact tenth-step rating without a default or rounding', async () => {
+    const defaultEntry = await insertEntry()
+    expect(defaultEntry.rating).toBeNull()
+
+    for (const rating of Array.from({ length: 91 }, (_, index) =>
+      Number(((10 + index) / 10).toFixed(1)),
+    )) {
+      const entry = await insertEntry({ rating })
+      expect(entry.rating).toBe(rating)
+    }
+
+    await expectConstraintViolation(
+      () => insertEntry({ rating: 0.9 }),
+      checkViolation,
+      'anime_entries_rating_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ rating: 10.1 }),
+      checkViolation,
+      'anime_entries_rating_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ rating: 7.55 }),
+      checkViolation,
+      'anime_entries_rating_check',
+    )
+  })
+
+  it('rejects special numeric literals at the check boundary and malformed numeric casts before insertion', async () => {
+    const user = await insertUser()
+    const item = await insertCatalogueItem()
+
+    for (const ratingLiteral of ['NaN', 'Infinity', '-Infinity']) {
+      const cast = await pool.query<{ rating: string }>(
+        'select $1::numeric::text as rating',
+        [ratingLiteral],
+      )
+      expect(cast.rows).toEqual([{ rating: ratingLiteral }])
+      await expectConstraintViolation(
+        () =>
+          pool.query(
+            `insert into anime_entries (user_id, catalogue_item_id, status, rating)
+             values ($1, $2, 'planned', $3::numeric)`,
+            [user.id, item.id, ratingLiteral],
+          ),
+        checkViolation,
+        'anime_entries_rating_check',
+      )
+    }
+
+    await expectConstraintViolation(
+      () =>
+        pool.query(
+          `insert into anime_entries (user_id, catalogue_item_id, status, rating)
+           values ($1, $2, 'planned', $3::numeric)`,
+          [user.id, item.id, 'not-a-rating'],
+        ),
+      invalidTextRepresentation,
     )
   })
 

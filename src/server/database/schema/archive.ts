@@ -4,6 +4,7 @@ import {
   check,
   foreignKey,
   index,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -27,6 +28,7 @@ export const animeEntries = pgTable(
       .default(0)
       .notNull(),
     episodeTotalOverride: bigint('episode_total_override', { mode: 'number' }),
+    rating: numeric('rating', { mode: 'number' }),
     createdAt: timestamp('created_at', {
       withTimezone: true,
       precision: 3,
@@ -76,6 +78,10 @@ export const animeEntries = pgTable(
     check(
       'anime_entries_episode_total_override_check',
       sql`${table.episodeTotalOverride} is null or ${table.episodeTotalOverride} between 1 and ${sql.raw(String(episodeProgressMaximum))}`,
+    ),
+    check(
+      'anime_entries_rating_check',
+      sql`${table.rating} is null or (${table.rating} between 1 and 10 and ${table.rating} * 10 = trunc(${table.rating} * 10))`,
     ),
     check(
       'anime_entries_timestamp_order_check',

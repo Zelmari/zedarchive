@@ -2,6 +2,7 @@ import type { AnimeReleaseStatus } from '@/features/anime/domain/anime-catalogue
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import type { EpisodeProgress } from '@/features/archive/domain/episode-progress'
 import type { EpisodeTotal } from '@/features/archive/domain/episode-total'
+import type { Rating } from '@/features/archive/domain/rating'
 
 export const ANIME_PRIVATE_LIST_PAGE_SIZE = 24 as const
 export const ANIME_PRIVATE_LIST_MAX_PAGE = 10_000 as const
@@ -24,6 +25,7 @@ export type AnimePrivateListVisibleEntry = {
   episodeCount: number | null
   releaseStatus: AnimeReleaseStatus
   archiveStatus: EntryStatus
+  rating: Rating | null
   progressState: AnimeEpisodeProgressState
 }
 

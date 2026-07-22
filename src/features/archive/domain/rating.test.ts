@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatRating,
+  parseRatingFormValue,
   ratingIncrement,
   ratingMaximum,
   ratingMinimum,
+  ratingNoneSentinel,
   ratingSchema,
 } from '@/features/archive/domain/rating'
 
@@ -59,5 +62,48 @@ describe('ratingSchema', () => {
     ['object', { rating: 7.5 }],
   ])('rejects a %s value', (_, rating) => {
     expect(ratingSchema.safeParse(rating).success).toBe(false)
+  })
+})
+
+describe('rating form helpers', () => {
+  it.each([
+    [1, '1.0'],
+    [7.5, '7.5'],
+    [10, '10.0'],
+  ])('formats %s with exactly one decimal place', (rating, expected) => {
+    expect(formatRating(rating)).toBe(expected)
+  })
+
+  it('uses an exact sentinel for an absent expected rating', () => {
+    expect(ratingNoneSentinel).toBe('none')
+  })
+
+  it.each([
+    ['1', 1],
+    ['1.0', 1],
+    ['7', 7],
+    ['7.5', 7.5],
+    ['10', 10],
+    ['10.0', 10],
+  ])('parses strict form value %s', (value, expected) => {
+    expect(parseRatingFormValue(value)).toBe(expected)
+  })
+
+  it.each([
+    '',
+    ' 7.5',
+    '7.5 ',
+    '+7.5',
+    '-7.5',
+    '07.5',
+    '.5',
+    '7.50',
+    '7.55',
+    '1e1',
+    '0.9',
+    '10.1',
+    'none',
+  ])('rejects malformed form value %s', (value) => {
+    expect(parseRatingFormValue(value)).toBeNull()
   })
 })

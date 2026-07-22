@@ -70,6 +70,7 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
         <AnimeEntryTrackingCoordinator
           animeTitle={entry.title}
           entryId={entry.entryId}
+          initialRating={entry.rating}
           initialStatus={entry.archiveStatus}
           progressState={entry.progressState}
         />

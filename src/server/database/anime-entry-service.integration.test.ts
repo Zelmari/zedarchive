@@ -390,8 +390,8 @@ describe('readAnimeArchivePage', () => {
       ])
 
     await Promise.all([
-      insertEntry(owner.id, sharedItem.id, 'planned'),
-      insertEntry(owner.id, ownerOnlyItem.id, 'completed'),
+      insertEntry(owner.id, sharedItem.id, 'planned', { rating: 7 }),
+      insertEntry(owner.id, ownerOnlyItem.id, 'completed', { rating: 8.5 }),
       insertEntry(otherUser.id, sharedItem.id, 'dropped'),
       insertEntry(otherUser.id, otherOnlyItem.id, 'on_hold'),
     ])
@@ -409,12 +409,14 @@ describe('readAnimeArchivePage', () => {
         entryId: expect.any(String),
         title: 'Owner Anime',
         archiveStatus: 'completed',
+        rating: 8.5,
       }),
       expect.objectContaining({
         kind: 'displayable',
         entryId: expect.any(String),
         title: 'Shared Anime',
         archiveStatus: 'planned',
+        rating: 7,
       }),
     ])
     expect(JSON.stringify(page)).not.toContain(ownerOnlyItem.id)
@@ -429,6 +431,7 @@ describe('readAnimeArchivePage', () => {
         'episodeCount',
         'kind',
         'progressState',
+        'rating',
         'releaseStatus',
         'releaseYear',
         'title',
@@ -654,6 +657,7 @@ describe('readAnimeArchivePage', () => {
             episodeCount: 12,
             releaseStatus: 'airing',
             archiveStatus: 'on_hold',
+            rating: null,
             progressState: {
               kind: 'trackable',
               progress: 0,
@@ -780,7 +784,9 @@ describe('readAnimeArchivePage', () => {
     await Promise.all([
       ...visibleItems.map((item) => insertEntry(owner.id, item.id)),
       ...adultItems.map((item, index) =>
-        insertEntry(owner.id, item.id, adultFixtures[index]!.status),
+        insertEntry(owner.id, item.id, adultFixtures[index]!.status, {
+          rating: 9.7,
+        }),
       ),
     ])
 
@@ -846,6 +852,7 @@ describe('readAnimeArchivePage', () => {
     expect(serializedPage).not.toMatch(
       /adult private sentinel|changed sentinel|1999|2026|99|1000|airing|upcoming/,
     )
+    expect(serializedPage).not.toContain('9.7')
   })
 
   it('does not mutate archive or catalogue rows', async () => {

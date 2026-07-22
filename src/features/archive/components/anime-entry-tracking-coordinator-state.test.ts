@@ -11,6 +11,7 @@ const initial = () =>
     progress: 7,
     personalTotal: null,
     catalogueTotal: 12,
+    rating: null,
   })
 describe('anime entry tracking coordinator', () => {
   it('allows exactly one synchronous mutation and gives it a revision', () => {
@@ -80,6 +81,22 @@ describe('anime entry tracking coordinator', () => {
         status: 'completed',
       }),
     ).toMatchObject({ status: 'completed', progress: 7 })
+  })
+  it('reconciles a rating result without changing sibling state', () => {
+    const pending = beginAnimeEntryTrackingOperation(initial(), 'rating')
+
+    expect(
+      reconcileAnimeEntryTrackingOperation(pending, 1, {
+        operation: 'rating',
+        rating: 7.5,
+      }),
+    ).toMatchObject({
+      status: 'in_progress',
+      progress: 7,
+      personalTotal: null,
+      rating: 7.5,
+      activeOperation: null,
+    })
   })
   it('offers completion only after a qualifying mutation snapshot', () => {
     expect(shouldOfferCompletion({ ...initial(), progress: 12 })).toBe(true)

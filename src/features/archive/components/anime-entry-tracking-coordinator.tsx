@@ -4,7 +4,9 @@ import { useRef, useState, useTransition } from 'react'
 import { updateAnimeEntryEpisodeProgress } from '@/features/archive/actions/update-anime-entry-episode-progress'
 import { updateAnimeEntryEpisodeTotalOverride } from '@/features/archive/actions/update-anime-entry-episode-total-override'
 import { updateAnimeEntryStatus } from '@/features/archive/actions/update-anime-entry-status'
+import { updateAnimeEntryRating } from '@/features/archive/actions/update-anime-entry-rating'
 import { AnimeEntryEpisodeProgressControls } from '@/features/archive/components/anime-entry-episode-progress-controls'
+import { AnimeEntryRatingForm } from '@/features/archive/components/anime-entry-rating-form'
 import {
   beginAnimeEntryTrackingOperation,
   createAnimeEntryTrackingCoordinatorState,
@@ -19,11 +21,14 @@ import type { UpdateAnimeEntryEpisodeProgressActionState } from '@/features/arch
 import type { UpdateAnimeEntryEpisodeTotalActionState } from '@/features/archive/domain/update-anime-entry-episode-total'
 import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import type { UpdateAnimeEntryRatingActionState } from '@/features/archive/domain/update-anime-entry-rating'
+import type { Rating } from '@/features/archive/domain/rating'
 
 type Props = {
   entryId: string
   animeTitle: string
   initialStatus: EntryStatus
+  initialRating: Rating | null
   progressState: AnimeEpisodeProgressState
 }
 
@@ -79,10 +84,25 @@ function getTotalReconciliation(
   }
 }
 
+function getRatingReconciliation(
+  result: UpdateAnimeEntryRatingActionState,
+): AnimeEntryTrackingReconciliation | null {
+  switch (result.kind) {
+    case 'updated':
+    case 'unchanged':
+      return { operation: 'rating', rating: result.rating }
+    case 'conflict':
+      return { operation: 'rating', rating: result.currentRating }
+    default:
+      return null
+  }
+}
+
 export function AnimeEntryTrackingCoordinator({
   entryId,
   animeTitle,
   initialStatus,
+  initialRating,
   progressState,
 }: Props) {
   const [state, setState] = useState(() =>
@@ -95,6 +115,7 @@ export function AnimeEntryTrackingCoordinator({
         progressState.kind === 'trackable'
           ? progressState.catalogueTotal
           : null,
+      rating: initialRating,
     }),
   )
   const activeOperationRef = useRef<ActiveOperation | null>(null)
@@ -179,6 +200,25 @@ export function AnimeEntryTrackingCoordinator({
         entryId={entryId}
         isPending={isPending}
         onSubmit={submitStatus}
+      />
+      <AnimeEntryRatingForm
+        animeTitle={animeTitle}
+        entryId={entryId}
+        isPending={isPending}
+        onSubmit={(formData) =>
+          runMutation(
+            'rating',
+            async () => {
+              try {
+                return await updateAnimeEntryRating({ kind: 'idle' }, formData)
+              } catch {
+                return { kind: 'retry' } as const
+              }
+            },
+            getRatingReconciliation,
+          )
+        }
+        rating={state.rating}
       />
       {progressState.kind === 'trackable' ? (
         <AnimeEntryEpisodeProgressControls

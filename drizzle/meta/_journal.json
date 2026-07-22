@@ -43,6 +43,13 @@
       "when": 1784732438658,
       "tag": "0005_anime_entry_episode_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784742947874,
+      "tag": "0006_anime_entry_rating",
+      "breakpoints": true
     }
   ]
 }

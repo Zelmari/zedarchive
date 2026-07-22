@@ -15,6 +15,9 @@ vi.mock(
   '@/features/archive/actions/update-anime-entry-episode-total-override',
   () => ({ updateAnimeEntryEpisodeTotalOverride: vi.fn() }),
 )
+vi.mock('@/features/archive/actions/update-anime-entry-rating', () => ({
+  updateAnimeEntryRating: vi.fn(),
+}))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
   AnimePrivateListResults,
@@ -53,6 +56,7 @@ describe('AnimePrivateListResults', () => {
       episodeCount: 12,
       releaseStatus: 'finished',
       archiveStatus: 'planned',
+      rating: null,
       progressState: {
         kind: 'trackable',
         progress: 0,
@@ -92,6 +96,7 @@ describe('AnimePrivateListResults', () => {
           episodeCount: 26,
           releaseStatus: 'finished',
           archiveStatus: 'completed',
+          rating: 7.5,
           progressState: {
             kind: 'trackable',
             progress: 26,
@@ -107,6 +112,7 @@ describe('AnimePrivateListResults', () => {
           episodeCount: null,
           releaseStatus: 'unknown',
           archiveStatus: 'on_hold',
+          rating: null,
           progressState: { kind: 'format_unknown' },
         },
         { kind: 'restricted', archiveStatus: 'planned' },
@@ -136,8 +142,12 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('href="/archive/anime?page=3"')
     expect(markup).toContain('Progress — 26 episodes')
     expect(markup).toContain('Total — 26 episodes')
+    expect(markup).toContain('Rating — 7.5/10')
+    expect(markup).toContain('Rating — Not rated')
     expect(markup).not.toContain('Edit progress')
     expect(markup).not.toContain('Edit status')
+    expect(markup).not.toContain('Edit rating')
+    expect(markup).not.toContain('Set rating')
     expect(markup).not.toContain('<form')
     expect(markup).toContain(
       'Episode tracking isn’t available until this anime’s format is known.',

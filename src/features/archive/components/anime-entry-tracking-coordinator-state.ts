@@ -1,14 +1,16 @@
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import type { EpisodeTotal } from '@/features/archive/domain/episode-total'
+import type { Rating } from '@/features/archive/domain/rating'
 
 export type AnimeEntryTrackingSnapshot = {
   status: EntryStatus
   progress: number
   personalTotal: EpisodeTotal | null
   catalogueTotal: EpisodeTotal | null
+  rating: Rating | null
 }
 export type AnimeEntryTrackingOperation =
-  'status' | 'progress' | 'total' | 'reset' | 'completion'
+  'status' | 'progress' | 'total' | 'reset' | 'completion' | 'rating'
 export type AnimeEntryTrackingCoordinatorState = AnimeEntryTrackingSnapshot & {
   activeOperation: {
     kind: AnimeEntryTrackingOperation
@@ -29,6 +31,10 @@ export type AnimeEntryTrackingReconciliation =
   | {
       operation: 'total'
       personalTotal: EpisodeTotal | null
+    }
+  | {
+      operation: 'rating'
+      rating: Rating | null
     }
 export function createAnimeEntryTrackingCoordinatorState(
   snapshot: AnimeEntryTrackingSnapshot,
@@ -70,6 +76,8 @@ export function reconcileAnimeEntryTrackingOperation(
         personalTotal: update.personalTotal,
         activeOperation: null,
       }
+    case 'rating':
+      return { ...state, rating: update.rating, activeOperation: null }
   }
 }
 export function finishAnimeEntryTrackingOperation(
@@ -81,7 +89,10 @@ export function finishAnimeEntryTrackingOperation(
     : state
 }
 export function shouldOfferCompletion(
-  snapshot: AnimeEntryTrackingSnapshot,
+  snapshot: Pick<
+    AnimeEntryTrackingSnapshot,
+    'status' | 'progress' | 'personalTotal' | 'catalogueTotal'
+  >,
 ): boolean {
   const total = snapshot.personalTotal ?? snapshot.catalogueTotal
   return (

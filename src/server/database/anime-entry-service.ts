@@ -8,6 +8,7 @@ import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { getAnimeEpisodeProgressSupport } from '@/features/archive/domain/anime-episode-progress-support'
 import { episodeProgressSchema } from '@/features/archive/domain/episode-progress'
 import { episodeTotalSchema } from '@/features/archive/domain/episode-total'
+import { ratingSchema } from '@/features/archive/domain/rating'
 import type { UpdateAnimeEntryStatusInput } from '@/features/archive/domain/update-anime-entry-status'
 import {
   ANIME_PRIVATE_LIST_MAX_PAGE,
@@ -78,6 +79,7 @@ function mapStoredAnimeArchiveEntry(row: {
   format: string | null
   episodeProgress: number | null
   episodeTotalOverride: number | null
+  rating: number | null
   releaseStatus: AnimeReleaseStatus | null
   archiveStatus: EntryStatus
 }): AnimePrivateListEntry {
@@ -94,6 +96,13 @@ function mapStoredAnimeArchiveEntry(row: {
     throw new Error('Stored private anime archive item failed integrity checks')
   }
 
+  const rating = ratingSchema.nullable().safeParse(row.rating)
+  if (!rating.success) {
+    throw new Error(
+      'Stored private anime archive rating failed integrity checks',
+    )
+  }
+
   return {
     kind: row.kind,
     entryId: row.entryId,
@@ -102,6 +111,7 @@ function mapStoredAnimeArchiveEntry(row: {
     episodeCount: row.episodeCount,
     releaseStatus: row.releaseStatus,
     archiveStatus: row.archiveStatus,
+    rating: rating.data,
     progressState: (() => {
       const support = getAnimeEpisodeProgressSupport(row.format ?? 'unknown')
 
@@ -319,6 +329,11 @@ export async function readAnimeArchivePage(
             number | null
           >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.episodeTotalOverride} end`.mapWith(
             animeEntries.episodeTotalOverride,
+          ),
+          rating: sql<
+            number | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.rating} end`.mapWith(
+            animeEntries.rating,
           ),
           releaseStatus: sql<AnimeReleaseStatus | null>`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.releaseStatus} end`,
           archiveStatus: animeEntries.status,
