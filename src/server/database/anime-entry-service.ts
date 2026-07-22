@@ -9,6 +9,7 @@ import { getAnimeEpisodeProgressSupport } from '@/features/archive/domain/anime-
 import { episodeProgressSchema } from '@/features/archive/domain/episode-progress'
 import { episodeTotalSchema } from '@/features/archive/domain/episode-total'
 import { ratingSchema } from '@/features/archive/domain/rating'
+import { calendarDateSchema } from '@/features/archive/domain/entry-date-range'
 import type { UpdateAnimeEntryStatusInput } from '@/features/archive/domain/update-anime-entry-status'
 import {
   ANIME_PRIVATE_LIST_MAX_PAGE,
@@ -80,6 +81,9 @@ function mapStoredAnimeArchiveEntry(row: {
   episodeProgress: number | null
   episodeTotalOverride: number | null
   rating: number | null
+  isFavourite: boolean | null
+  startDate: string | null
+  finishDate: string | null
   releaseStatus: AnimeReleaseStatus | null
   archiveStatus: EntryStatus
 }): AnimePrivateListEntry {
@@ -103,6 +107,21 @@ function mapStoredAnimeArchiveEntry(row: {
     )
   }
 
+  const isFavourite = z.boolean().safeParse(row.isFavourite)
+  if (!isFavourite.success) {
+    throw new Error(
+      'Stored private anime archive favourite failed integrity checks',
+    )
+  }
+
+  const startDate = calendarDateSchema.nullable().safeParse(row.startDate)
+  const finishDate = calendarDateSchema.nullable().safeParse(row.finishDate)
+  if (!startDate.success || !finishDate.success) {
+    throw new Error(
+      'Stored private anime archive dates failed integrity checks',
+    )
+  }
+
   return {
     kind: row.kind,
     entryId: row.entryId,
@@ -112,6 +131,9 @@ function mapStoredAnimeArchiveEntry(row: {
     releaseStatus: row.releaseStatus,
     archiveStatus: row.archiveStatus,
     rating: rating.data,
+    isFavourite: isFavourite.data,
+    startDate: startDate.data,
+    finishDate: finishDate.data,
     progressState: (() => {
       const support = getAnimeEpisodeProgressSupport(row.format ?? 'unknown')
 
@@ -334,6 +356,21 @@ export async function readAnimeArchivePage(
             number | null
           >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.rating} end`.mapWith(
             animeEntries.rating,
+          ),
+          isFavourite: sql<
+            boolean | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.isFavourite} end`.mapWith(
+            animeEntries.isFavourite,
+          ),
+          startDate: sql<
+            string | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.startDate} end`.mapWith(
+            animeEntries.startDate,
+          ),
+          finishDate: sql<
+            string | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.finishDate} end`.mapWith(
+            animeEntries.finishDate,
           ),
           releaseStatus: sql<AnimeReleaseStatus | null>`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.releaseStatus} end`,
           archiveStatus: animeEntries.status,

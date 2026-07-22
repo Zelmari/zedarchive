@@ -253,7 +253,12 @@ describe('episode progress and total services', () => {
   it('preserves unrelated fields across real changes, no-ops, replay, reset, and clear', async () => {
     const owner = await insertUser()
     const item = await insertCatalogueItem({ episodeCount: 12 })
-    const entry = await insertEntry(owner.id, item.id, { status: 'on_hold' })
+    const entry = await insertEntry(owner.id, item.id, {
+      status: 'on_hold',
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
+    })
 
     await expect(
       updateAnimeEntryEpisodeTotalOverride(database, {
@@ -278,6 +283,9 @@ describe('episode progress and total services', () => {
       status: 'on_hold',
       episodeProgress: 8,
       episodeTotalOverride: 5,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
     expect(afterProgress?.updatedAt.getTime()).toBeGreaterThan(
@@ -332,6 +340,9 @@ describe('episode progress and total services', () => {
       status: 'on_hold',
       episodeProgress: 0,
       episodeTotalOverride: null,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
     })
   })
 

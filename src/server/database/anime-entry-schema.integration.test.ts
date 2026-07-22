@@ -18,6 +18,7 @@ import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 const checkViolation = '23514'
 const foreignKeyViolation = '23503'
 const invalidTextRepresentation = '22P02'
+const datetimeFieldOverflow = '22008'
 const notNullViolation = '23502'
 const uniqueViolation = '23505'
 const statuses = [
@@ -213,6 +214,24 @@ describe('anime_entries schema', () => {
         isNullable: 'YES',
         columnDefault: null,
       }),
+      expect.objectContaining({
+        columnName: 'is_favourite',
+        dataType: 'boolean',
+        isNullable: 'NO',
+        columnDefault: 'false',
+      }),
+      expect.objectContaining({
+        columnName: 'start_date',
+        dataType: 'date',
+        isNullable: 'YES',
+        columnDefault: null,
+      }),
+      expect.objectContaining({
+        columnName: 'finish_date',
+        dataType: 'date',
+        isNullable: 'YES',
+        columnDefault: null,
+      }),
     ])
     expect(columns.rows[0]?.columnDefault).toMatch(/gen_random_uuid\(\)/)
     expect(columns.rows[4]?.columnDefault).toMatch(/now\(\)/)
@@ -226,6 +245,7 @@ describe('anime_entries schema', () => {
       constraints.rows.map(({ constraintName }) => constraintName).sort(),
     ).toEqual([
       'anime_entries_catalogue_item_id_fkey',
+      'anime_entries_date_range_check',
       'anime_entries_episode_progress_check',
       'anime_entries_episode_total_override_check',
       'anime_entries_id_uuid_v4_check',
@@ -479,6 +499,88 @@ describe('anime_entries schema', () => {
           [user.id, item.id, 'not-a-rating'],
         ),
       invalidTextRepresentation,
+    )
+  })
+
+  it('round-trips default favourite state and independently nullable native calendar dates', async () => {
+    const defaultEntry = await insertEntry()
+    expect(defaultEntry).toMatchObject({
+      isFavourite: false,
+      startDate: null,
+      finishDate: null,
+    })
+
+    await expect(
+      insertEntry({
+        isFavourite: true,
+        startDate: '2024-02-29',
+        finishDate: '2024-02-29',
+      }),
+    ).resolves.toMatchObject({
+      isFavourite: true,
+      startDate: '2024-02-29',
+      finishDate: '2024-02-29',
+    })
+    await expect(
+      insertEntry({ startDate: '2024-12-31' }),
+    ).resolves.toMatchObject({
+      startDate: '2024-12-31',
+      finishDate: null,
+    })
+    await expect(
+      insertEntry({ finishDate: '2025-01-01' }),
+    ).resolves.toMatchObject({
+      startDate: null,
+      finishDate: '2025-01-01',
+    })
+  })
+
+  it('rejects reversed and infinite dates through the named range constraint', async () => {
+    const user = await insertUser()
+    const item = await insertCatalogueItem()
+
+    await expectConstraintViolation(
+      () =>
+        pool.query(
+          `insert into anime_entries (user_id, catalogue_item_id, status, start_date, finish_date)
+           values ($1, $2, 'planned', '2025-01-02'::date, '2025-01-01'::date)`,
+          [user.id, item.id],
+        ),
+      checkViolation,
+      'anime_entries_date_range_check',
+    )
+
+    for (const dateLiteral of ['infinity', '-infinity']) {
+      await expectConstraintViolation(
+        () =>
+          pool.query(
+            `insert into anime_entries (user_id, catalogue_item_id, status, start_date)
+             values ($1, $2, 'planned', $3::date)`,
+            [user.id, item.id, dateLiteral],
+          ),
+        checkViolation,
+        'anime_entries_date_range_check',
+      )
+      await expectConstraintViolation(
+        () =>
+          pool.query(
+            `insert into anime_entries (user_id, catalogue_item_id, status, finish_date)
+             values ($1, $2, 'planned', $3::date)`,
+            [user.id, item.id, dateLiteral],
+          ),
+        checkViolation,
+        'anime_entries_date_range_check',
+      )
+    }
+
+    await expectConstraintViolation(
+      () =>
+        pool.query(
+          `insert into anime_entries (user_id, catalogue_item_id, status, start_date)
+           values ($1, $2, 'planned', '2025-02-30'::date)`,
+          [user.id, item.id],
+        ),
+      datetimeFieldOverflow,
     )
   })
 

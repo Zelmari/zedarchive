@@ -12,6 +12,9 @@ const initial = () =>
     personalTotal: null,
     catalogueTotal: 12,
     rating: null,
+    isFavourite: false,
+    startDate: null,
+    finishDate: null,
   })
 describe('anime entry tracking coordinator', () => {
   it('allows exactly one synchronous mutation and gives it a revision', () => {
@@ -95,6 +98,32 @@ describe('anime entry tracking coordinator', () => {
       progress: 7,
       personalTotal: null,
       rating: 7.5,
+      activeOperation: null,
+    })
+  })
+  it('reconciles favourite and date results without changing sibling state', () => {
+    const favourite = reconcileAnimeEntryTrackingOperation(
+      beginAnimeEntryTrackingOperation(initial(), 'favourite'),
+      1,
+      { operation: 'favourite', isFavourite: true },
+    )
+    const dates = reconcileAnimeEntryTrackingOperation(
+      beginAnimeEntryTrackingOperation(favourite, 'dates'),
+      2,
+      {
+        operation: 'dates',
+        startDate: '2024-01-02',
+        finishDate: '2024-01-03',
+      },
+    )
+
+    expect(dates).toMatchObject({
+      status: 'in_progress',
+      progress: 7,
+      rating: null,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       activeOperation: null,
     })
   })

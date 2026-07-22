@@ -50,6 +50,13 @@
       "when": 1784742947874,
       "tag": "0006_anime_entry_rating",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784749049881,
+      "tag": "0007_anime_entry_favourite_dates",
+      "breakpoints": true
     }
   ]
 }

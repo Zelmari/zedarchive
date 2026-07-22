@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm'
 import {
   bigint,
+  boolean,
   check,
+  date,
   foreignKey,
   index,
   numeric,
@@ -29,6 +31,9 @@ export const animeEntries = pgTable(
       .notNull(),
     episodeTotalOverride: bigint('episode_total_override', { mode: 'number' }),
     rating: numeric('rating', { mode: 'number' }),
+    isFavourite: boolean('is_favourite').default(false).notNull(),
+    startDate: date('start_date', { mode: 'string' }),
+    finishDate: date('finish_date', { mode: 'string' }),
     createdAt: timestamp('created_at', {
       withTimezone: true,
       precision: 3,
@@ -82,6 +87,10 @@ export const animeEntries = pgTable(
     check(
       'anime_entries_rating_check',
       sql`${table.rating} is null or (${table.rating} between 1 and 10 and ${table.rating} * 10 = trunc(${table.rating} * 10))`,
+    ),
+    check(
+      'anime_entries_date_range_check',
+      sql`(${table.startDate} is null or isfinite(${table.startDate})) and (${table.finishDate} is null or isfinite(${table.finishDate})) and (${table.startDate} is null or ${table.finishDate} is null or ${table.finishDate} >= ${table.startDate})`,
     ),
     check(
       'anime_entries_timestamp_order_check',

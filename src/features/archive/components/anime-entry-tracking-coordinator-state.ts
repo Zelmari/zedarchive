@@ -1,6 +1,7 @@
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import type { EpisodeTotal } from '@/features/archive/domain/episode-total'
 import type { Rating } from '@/features/archive/domain/rating'
+import type { CalendarDate } from '@/features/archive/domain/entry-date-range'
 
 export type AnimeEntryTrackingSnapshot = {
   status: EntryStatus
@@ -8,9 +9,19 @@ export type AnimeEntryTrackingSnapshot = {
   personalTotal: EpisodeTotal | null
   catalogueTotal: EpisodeTotal | null
   rating: Rating | null
+  isFavourite: boolean
+  startDate: CalendarDate | null
+  finishDate: CalendarDate | null
 }
 export type AnimeEntryTrackingOperation =
-  'status' | 'progress' | 'total' | 'reset' | 'completion' | 'rating'
+  | 'status'
+  | 'progress'
+  | 'total'
+  | 'reset'
+  | 'completion'
+  | 'rating'
+  | 'favourite'
+  | 'dates'
 export type AnimeEntryTrackingCoordinatorState = AnimeEntryTrackingSnapshot & {
   activeOperation: {
     kind: AnimeEntryTrackingOperation
@@ -35,6 +46,15 @@ export type AnimeEntryTrackingReconciliation =
   | {
       operation: 'rating'
       rating: Rating | null
+    }
+  | {
+      operation: 'favourite'
+      isFavourite: boolean
+    }
+  | {
+      operation: 'dates'
+      startDate: CalendarDate | null
+      finishDate: CalendarDate | null
     }
 export function createAnimeEntryTrackingCoordinatorState(
   snapshot: AnimeEntryTrackingSnapshot,
@@ -78,6 +98,19 @@ export function reconcileAnimeEntryTrackingOperation(
       }
     case 'rating':
       return { ...state, rating: update.rating, activeOperation: null }
+    case 'favourite':
+      return {
+        ...state,
+        isFavourite: update.isFavourite,
+        activeOperation: null,
+      }
+    case 'dates':
+      return {
+        ...state,
+        startDate: update.startDate,
+        finishDate: update.finishDate,
+        activeOperation: null,
+      }
   }
 }
 export function finishAnimeEntryTrackingOperation(

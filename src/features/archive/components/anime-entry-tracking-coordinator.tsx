@@ -5,6 +5,10 @@ import { updateAnimeEntryEpisodeProgress } from '@/features/archive/actions/upda
 import { updateAnimeEntryEpisodeTotalOverride } from '@/features/archive/actions/update-anime-entry-episode-total-override'
 import { updateAnimeEntryStatus } from '@/features/archive/actions/update-anime-entry-status'
 import { updateAnimeEntryRating } from '@/features/archive/actions/update-anime-entry-rating'
+import { updateAnimeEntryFavourite } from '@/features/archive/actions/update-anime-entry-favourite'
+import { updateAnimeEntryDateRange } from '@/features/archive/actions/update-anime-entry-date-range'
+import { AnimeEntryFavouriteControl } from '@/features/archive/components/anime-entry-favourite-control'
+import { AnimeEntryDateRangeForm } from '@/features/archive/components/anime-entry-date-range-form'
 import { AnimeEntryEpisodeProgressControls } from '@/features/archive/components/anime-entry-episode-progress-controls'
 import { AnimeEntryRatingForm } from '@/features/archive/components/anime-entry-rating-form'
 import {
@@ -23,12 +27,18 @@ import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domai
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import type { UpdateAnimeEntryRatingActionState } from '@/features/archive/domain/update-anime-entry-rating'
 import type { Rating } from '@/features/archive/domain/rating'
+import type { CalendarDate } from '@/features/archive/domain/entry-date-range'
+import type { UpdateAnimeEntryFavouriteActionState } from '@/features/archive/domain/update-anime-entry-favourite'
+import type { UpdateAnimeEntryDateRangeActionState } from '@/features/archive/domain/update-anime-entry-date-range'
 
 type Props = {
   entryId: string
   animeTitle: string
   initialStatus: EntryStatus
   initialRating: Rating | null
+  initialFavourite: boolean
+  initialStartDate: CalendarDate | null
+  initialFinishDate: CalendarDate | null
   progressState: AnimeEpisodeProgressState
 }
 
@@ -98,11 +108,50 @@ function getRatingReconciliation(
   }
 }
 
+function getFavouriteReconciliation(
+  result: UpdateAnimeEntryFavouriteActionState,
+): AnimeEntryTrackingReconciliation | null {
+  switch (result.kind) {
+    case 'updated':
+    case 'unchanged':
+      return { operation: 'favourite', isFavourite: result.isFavourite }
+    case 'conflict':
+      return { operation: 'favourite', isFavourite: result.currentFavourite }
+    default:
+      return null
+  }
+}
+
+function getDateRangeReconciliation(
+  result: UpdateAnimeEntryDateRangeActionState,
+): AnimeEntryTrackingReconciliation | null {
+  switch (result.kind) {
+    case 'updated':
+    case 'unchanged':
+      return {
+        operation: 'dates',
+        startDate: result.startDate,
+        finishDate: result.finishDate,
+      }
+    case 'conflict':
+      return {
+        operation: 'dates',
+        startDate: result.currentStartDate,
+        finishDate: result.currentFinishDate,
+      }
+    default:
+      return null
+  }
+}
+
 export function AnimeEntryTrackingCoordinator({
   entryId,
   animeTitle,
   initialStatus,
   initialRating,
+  initialFavourite,
+  initialStartDate,
+  initialFinishDate,
   progressState,
 }: Props) {
   const [state, setState] = useState(() =>
@@ -116,12 +165,17 @@ export function AnimeEntryTrackingCoordinator({
           ? progressState.catalogueTotal
           : null,
       rating: initialRating,
+      isFavourite: initialFavourite,
+      startDate: initialStartDate,
+      finishDate: initialFinishDate,
     }),
   )
   const activeOperationRef = useRef<ActiveOperation | null>(null)
   const nextRevisionRef = useRef(1)
   const [isTransitionPending, startTransition] = useTransition()
   const isPending = isTransitionPending || state.activeOperation !== null
+  const isFavouritePending = state.activeOperation?.kind === 'favourite'
+  const isDateRangePending = state.activeOperation?.kind === 'dates'
 
   function runMutation<Result>(
     kind: AnimeEntryTrackingOperation,
@@ -219,6 +273,52 @@ export function AnimeEntryTrackingCoordinator({
           )
         }
         rating={state.rating}
+      />
+      <AnimeEntryFavouriteControl
+        entryId={entryId}
+        isFavourite={state.isFavourite}
+        isOwnOperationPending={isFavouritePending}
+        isPending={isPending}
+        onSubmit={(formData) =>
+          runMutation(
+            'favourite',
+            async () => {
+              try {
+                return await updateAnimeEntryFavourite(
+                  { kind: 'idle' },
+                  formData,
+                )
+              } catch {
+                return { kind: 'retry' } as const
+              }
+            },
+            getFavouriteReconciliation,
+          )
+        }
+      />
+      <AnimeEntryDateRangeForm
+        animeTitle={animeTitle}
+        entryId={entryId}
+        finishDate={state.finishDate}
+        isOwnOperationPending={isDateRangePending}
+        isPending={isPending}
+        onSubmit={(formData) =>
+          runMutation(
+            'dates',
+            async () => {
+              try {
+                return await updateAnimeEntryDateRange(
+                  { kind: 'idle' },
+                  formData,
+                )
+              } catch {
+                return { kind: 'retry' } as const
+              }
+            },
+            getDateRangeReconciliation,
+          )
+        }
+        startDate={state.startDate}
       />
       {progressState.kind === 'trackable' ? (
         <AnimeEntryEpisodeProgressControls

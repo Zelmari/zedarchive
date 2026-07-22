@@ -390,8 +390,15 @@ describe('readAnimeArchivePage', () => {
       ])
 
     await Promise.all([
-      insertEntry(owner.id, sharedItem.id, 'planned', { rating: 7 }),
-      insertEntry(owner.id, ownerOnlyItem.id, 'completed', { rating: 8.5 }),
+      insertEntry(owner.id, sharedItem.id, 'planned', {
+        rating: 7,
+        isFavourite: true,
+        startDate: '2024-01-01',
+      }),
+      insertEntry(owner.id, ownerOnlyItem.id, 'completed', {
+        rating: 8.5,
+        finishDate: '2024-01-02',
+      }),
       insertEntry(otherUser.id, sharedItem.id, 'dropped'),
       insertEntry(otherUser.id, otherOnlyItem.id, 'on_hold'),
     ])
@@ -410,6 +417,9 @@ describe('readAnimeArchivePage', () => {
         title: 'Owner Anime',
         archiveStatus: 'completed',
         rating: 8.5,
+        isFavourite: false,
+        startDate: null,
+        finishDate: '2024-01-02',
       }),
       expect.objectContaining({
         kind: 'displayable',
@@ -417,6 +427,9 @@ describe('readAnimeArchivePage', () => {
         title: 'Shared Anime',
         archiveStatus: 'planned',
         rating: 7,
+        isFavourite: true,
+        startDate: '2024-01-01',
+        finishDate: null,
       }),
     ])
     expect(JSON.stringify(page)).not.toContain(ownerOnlyItem.id)
@@ -429,11 +442,14 @@ describe('readAnimeArchivePage', () => {
         'archiveStatus',
         'entryId',
         'episodeCount',
+        'finishDate',
+        'isFavourite',
         'kind',
         'progressState',
         'rating',
         'releaseStatus',
         'releaseYear',
+        'startDate',
         'title',
       ])
     }
@@ -658,6 +674,9 @@ describe('readAnimeArchivePage', () => {
             releaseStatus: 'airing',
             archiveStatus: 'on_hold',
             rating: null,
+            isFavourite: false,
+            startDate: null,
+            finishDate: null,
             progressState: {
               kind: 'trackable',
               progress: 0,
@@ -786,6 +805,9 @@ describe('readAnimeArchivePage', () => {
       ...adultItems.map((item, index) =>
         insertEntry(owner.id, item.id, adultFixtures[index]!.status, {
           rating: 9.7,
+          isFavourite: true,
+          startDate: '1999-01-01',
+          finishDate: '1999-12-31',
         }),
       ),
     ])
@@ -849,6 +871,9 @@ describe('readAnimeArchivePage', () => {
     for (const item of adultItems) {
       expect(serializedPage).not.toContain(item.id)
     }
+    expect(serializedPage).not.toContain('1999-01-01')
+    expect(serializedPage).not.toContain('1999-12-31')
+    expect(serializedPage).not.toContain('isFavourite')
     expect(serializedPage).not.toMatch(
       /adult private sentinel|changed sentinel|1999|2026|99|1000|airing|upcoming/,
     )

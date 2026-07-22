@@ -18,6 +18,12 @@ vi.mock(
 vi.mock('@/features/archive/actions/update-anime-entry-rating', () => ({
   updateAnimeEntryRating: vi.fn(),
 }))
+vi.mock('@/features/archive/actions/update-anime-entry-favourite', () => ({
+  updateAnimeEntryFavourite: vi.fn(),
+}))
+vi.mock('@/features/archive/actions/update-anime-entry-date-range', () => ({
+  updateAnimeEntryDateRange: vi.fn(),
+}))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
   AnimePrivateListResults,
@@ -57,6 +63,9 @@ describe('AnimePrivateListResults', () => {
       releaseStatus: 'finished',
       archiveStatus: 'planned',
       rating: null,
+      isFavourite: false,
+      startDate: null,
+      finishDate: null,
       progressState: {
         kind: 'trackable',
         progress: 0,
@@ -97,6 +106,9 @@ describe('AnimePrivateListResults', () => {
           releaseStatus: 'finished',
           archiveStatus: 'completed',
           rating: 7.5,
+          isFavourite: true,
+          startDate: '2024-01-02',
+          finishDate: '2024-01-03',
           progressState: {
             kind: 'trackable',
             progress: 26,
@@ -113,6 +125,9 @@ describe('AnimePrivateListResults', () => {
           releaseStatus: 'unknown',
           archiveStatus: 'on_hold',
           rating: null,
+          isFavourite: false,
+          startDate: null,
+          finishDate: null,
           progressState: { kind: 'format_unknown' },
         },
         { kind: 'restricted', archiveStatus: 'planned' },
@@ -144,10 +159,20 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('Total — 26 episodes')
     expect(markup).toContain('Rating — 7.5/10')
     expect(markup).toContain('Rating — Not rated')
+    expect(markup).toContain('Favourite — Yes')
+    expect(markup).toContain('Favourite — No')
+    expect(markup).toContain('Start date — 2024-01-02')
+    expect(markup).toContain('Finish date — 2024-01-03')
+    expect(markup).toContain('Start date — Not set')
+    expect(markup).toContain('Finish date — Not set')
     expect(markup).not.toContain('Edit progress')
     expect(markup).not.toContain('Edit status')
     expect(markup).not.toContain('Edit rating')
     expect(markup).not.toContain('Set rating')
+    expect(markup).not.toContain('Add to favourites')
+    expect(markup).not.toContain('Remove from favourites')
+    expect(markup).not.toContain('Set dates')
+    expect(markup).not.toContain('Edit dates')
     expect(markup).not.toContain('<form')
     expect(markup).toContain(
       'Episode tracking isn’t available until this anime’s format is known.',

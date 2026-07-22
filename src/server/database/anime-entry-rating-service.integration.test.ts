@@ -184,6 +184,9 @@ describe('anime entry rating service', () => {
       status: 'on_hold',
       episodeProgress: 4,
       episodeTotalOverride: 12,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
     })
 
     await expect(
@@ -201,6 +204,9 @@ describe('anime entry rating service', () => {
       status: 'on_hold',
       episodeProgress: 4,
       episodeTotalOverride: 12,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
     expect(afterSet?.updatedAt.getTime()).toBeGreaterThan(
@@ -222,6 +228,9 @@ describe('anime entry rating service', () => {
       status: 'on_hold',
       episodeProgress: 4,
       episodeTotalOverride: 12,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
     expect(afterChange?.updatedAt.getTime()).toBeGreaterThan(
@@ -243,6 +252,9 @@ describe('anime entry rating service', () => {
       status: 'on_hold',
       episodeProgress: 4,
       episodeTotalOverride: 12,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
     expect(afterRemove?.updatedAt.getTime()).toBeGreaterThan(

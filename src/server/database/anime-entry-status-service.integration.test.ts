@@ -233,6 +233,9 @@ describe('updateAnimeEntryStatus', () => {
         status: 'planned',
         episodeProgress: 7,
         episodeTotalOverride: 13,
+        isFavourite: true,
+        startDate: '2024-01-02',
+        finishDate: '2024-01-03',
         createdAt: baselineCreatedAt,
         updatedAt: baselineUpdatedAt,
       })
@@ -252,6 +255,9 @@ describe('updateAnimeEntryStatus', () => {
       status: 'completed',
       episodeProgress: 7,
       episodeTotalOverride: 13,
+      isFavourite: true,
+      startDate: '2024-01-02',
+      finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
   })
