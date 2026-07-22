@@ -404,11 +404,13 @@ describe('readAnimeArchivePage', () => {
     expect(page.entries).toEqual([
       expect.objectContaining({
         kind: 'displayable',
+        entryId: expect.any(String),
         title: 'Owner Anime',
         archiveStatus: 'completed',
       }),
       expect.objectContaining({
         kind: 'displayable',
+        entryId: expect.any(String),
         title: 'Shared Anime',
         archiveStatus: 'planned',
       }),
@@ -421,6 +423,7 @@ describe('readAnimeArchivePage', () => {
     for (const entry of page.entries) {
       expect(Object.keys(entry).sort()).toEqual([
         'archiveStatus',
+        'entryId',
         'episodeCount',
         'kind',
         'releaseStatus',
@@ -606,6 +609,11 @@ describe('readAnimeArchivePage', () => {
     ]) {
       expect(serializedPage).not.toContain(item.id)
     }
+    expect(
+      page.entries.every(
+        (entry) => entry.kind === 'restricted' || entry.entryId.length > 0,
+      ),
+    ).toBe(true)
   })
 
   it.each(['hidden', 'draft'] as const)(
@@ -633,6 +641,7 @@ describe('readAnimeArchivePage', () => {
         entries: [
           {
             kind: 'unavailable_in_catalogue',
+            entryId: expect.any(String),
             title: `${catalogueState} title`,
             releaseYear: 2001,
             episodeCount: 12,

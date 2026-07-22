@@ -6,6 +6,7 @@ export const ANIME_PRIVATE_LIST_MAX_PAGE = 10_000 as const
 
 export type AnimePrivateListVisibleEntry = {
   kind: 'displayable' | 'unavailable_in_catalogue'
+  entryId: string
   title: string
   releaseYear: number | null
   episodeCount: number | null

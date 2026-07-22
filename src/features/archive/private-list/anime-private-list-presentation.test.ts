@@ -1,10 +1,15 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/features/archive/actions/update-anime-entry-status', () => ({
+  updateAnimeEntryStatus: vi.fn(),
+}))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
   AnimePrivateListResults,
   AnimePrivateListRouteContent,
+  getAnimePrivateListEntryKey,
 } from '@/features/archive/private-list/anime-private-list-presentation'
 import type { AnimePrivateListPage } from '@/features/archive/private-list/anime-private-list-model'
 
@@ -29,11 +34,43 @@ function renderResults(page: AnimePrivateListPage): string {
 }
 
 describe('AnimePrivateListResults', () => {
+  it('uses stable entry identity for ordinary editor state boundaries only', () => {
+    const firstEntry: AnimePrivateListPage['entries'][number] = {
+      kind: 'displayable',
+      entryId: '550e8400-e29b-41d4-a716-446655440000',
+      title: 'First anime',
+      releaseYear: 2001,
+      episodeCount: 12,
+      releaseStatus: 'finished',
+      archiveStatus: 'planned',
+    }
+    const secondEntry: AnimePrivateListPage['entries'][number] = {
+      ...firstEntry,
+      entryId: '550e8400-e29b-41d4-a716-446655440001',
+      title: 'Second anime',
+    }
+
+    expect(getAnimePrivateListEntryKey(firstEntry, 0)).toBe(firstEntry.entryId)
+    expect(getAnimePrivateListEntryKey(secondEntry, 0)).toBe(
+      secondEntry.entryId,
+    )
+    expect(getAnimePrivateListEntryKey(firstEntry, 0)).not.toBe(
+      getAnimePrivateListEntryKey(secondEntry, 0),
+    )
+    expect(
+      getAnimePrivateListEntryKey(
+        { kind: 'restricted', archiveStatus: 'planned' },
+        4,
+      ),
+    ).toBe('restricted-4')
+  })
+
   it('renders each approved card treatment without archive controls', () => {
     const markup = renderResults(
       pageWith([
         {
           kind: 'displayable',
+          entryId: '550e8400-e29b-41d4-a716-446655440000',
           title: 'Cowboy Bebop',
           releaseYear: 1998,
           episodeCount: 26,
@@ -42,6 +79,7 @@ describe('AnimePrivateListResults', () => {
         },
         {
           kind: 'unavailable_in_catalogue',
+          entryId: '550e8400-e29b-41d4-a716-446655440001',
           title: 'Hidden archive anime',
           releaseYear: null,
           episodeCount: null,
@@ -64,10 +102,18 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('Not currently available in the catalogue')
     expect(markup).toContain('Restricted anime')
     expect(markup).toContain('Plan to watch')
+    expect(markup).toContain(
+      'Status editing isn’t available for restricted anime yet.',
+    )
+    expect(markup).toContain(
+      '<noscript><p>Status editing requires JavaScript.</p></noscript>',
+    )
     expect(markup).toContain('Anime archive pagination')
     expect(markup).toContain('href="/archive/anime"')
     expect(markup).toContain('href="/archive/anime?page=3"')
     expect(markup).not.toMatch(/Add|Edit|Remove/)
+    expect(markup).not.toContain('550e8400-e29b-41d4-a716-446655440000')
+    expect(markup).not.toContain('550e8400-e29b-41d4-a716-446655440001')
   })
 
   it('distinguishes a true empty archive from a valid page beyond the final page', () => {

@@ -5,6 +5,7 @@ import {
   formatAnimeReleaseYear,
 } from '@/features/anime/catalogue/anime-catalogue-display'
 import { getAnimeCatalogueTitleInitials } from '@/features/anime/catalogue/anime-catalogue-title-initials'
+import { UpdateAnimeEntryStatusForm } from '@/features/archive/components/update-anime-entry-status-form'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
 import {
   buildAnimePrivateListPageHref,
@@ -24,6 +25,13 @@ function formatArchiveSummary(totalItems: number): string {
     : `${totalItems} anime in your archive`
 }
 
+export function getAnimePrivateListEntryKey(
+  entry: AnimePrivateListEntry,
+  index: number,
+): string {
+  return entry.kind === 'restricted' ? `restricted-${index}` : entry.entryId
+}
+
 function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
   const archiveStatus = `In your archive — ${getEntryStatusDisplayLabel(entry.archiveStatus)}`
 
@@ -33,6 +41,7 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
         <div className="space-y-2">
           <h2 className="text-lg font-medium">Restricted anime</h2>
           <p>{archiveStatus}</p>
+          <p>Status editing isn’t available for restricted anime yet.</p>
         </div>
       </article>
     )
@@ -59,7 +68,11 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
             <p>Not currently available in the catalogue</p>
           ) : null}
         </div>
-        <p>{archiveStatus}</p>
+        <UpdateAnimeEntryStatusForm
+          animeTitle={entry.title}
+          currentStatus={entry.archiveStatus}
+          entryId={entry.entryId}
+        />
       </div>
     </article>
   )
@@ -165,15 +178,12 @@ export function AnimePrivateListResults({
   return (
     <>
       <p>{formatArchiveSummary(pagination.totalItems)}</p>
+      <noscript>
+        <p>Status editing requires JavaScript.</p>
+      </noscript>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry, index) => (
-          <li
-            key={
-              entry.kind === 'restricted'
-                ? `restricted-${index}`
-                : `visible-${index}`
-            }
-          >
+          <li key={getAnimePrivateListEntryKey(entry, index)}>
             <AnimePrivateListCard entry={entry} />
           </li>
         ))}
