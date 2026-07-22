@@ -582,23 +582,27 @@ describe('readAnimeArchivePage', () => {
       pageSize: 24,
     })
 
-    expect(
-      page.entries.map((entry) =>
-        entry.kind === 'restricted' ? 'Restricted anime' : entry.title,
-      ),
-    ).toEqual([
+    const orderedTitles = page.entries.map((entry) =>
+      entry.kind === 'restricted' ? 'Restricted anime' : entry.title,
+    )
+
+    expect(orderedTitles.slice(0, 5)).toEqual([
       'alpha',
       'Beta',
       'Delta English',
       'Gamma Romaji',
       'Omega Original',
-      'tie',
-      'Tie',
-      'Tie',
     ])
-    expect(
-      page.entries.slice(-3).map(({ archiveStatus }) => archiveStatus),
-    ).toEqual(['dropped', 'planned', 'completed'])
+    expect(orderedTitles.slice(-3).sort()).toEqual(['Tie', 'Tie', 'tie'].sort())
+
+    const tieEntries = page.entries.slice(-3)
+    const identicalRawTitleStatuses = tieEntries
+      .filter((entry) => entry.kind !== 'restricted' && entry.title === 'Tie')
+      .map(({ archiveStatus }) => archiveStatus)
+
+    // PostgreSQL's database collation owns the case-only order of `Tie` and
+    // `tie`; identical raw titles must still use the UUID tie-breaker.
+    expect(identicalRawTitleStatuses).toEqual(['planned', 'completed'])
     const serializedPage = JSON.stringify(page)
     for (const item of [
       beta,
