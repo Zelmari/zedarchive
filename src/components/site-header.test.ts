@@ -20,6 +20,10 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
 }))
 
+vi.mock('@/features/auth/components/sign-out-button', () => ({
+  SignOutButton: () => 'Sign out',
+}))
+
 import { SiteHeader } from '@/components/site-header'
 
 describe('SiteHeader', () => {
@@ -51,5 +55,34 @@ describe('SiteHeader', () => {
     expect(markup).toContain('Sign in')
     expect(markup).toContain('Register')
     expect(markup).not.toContain('Sign out')
+    expect(markup).not.toContain('My anime')
+    expect(markup).not.toContain('aria-label="Primary"')
+  })
+
+  it('shows My anime in a primary landmark separate from account controls when signed in', async () => {
+    getSession.mockResolvedValue({
+      user: { id: 'user-id', name: 'Zelmari' },
+    })
+
+    const markup = renderToStaticMarkup(await SiteHeader())
+
+    expect(markup).toContain('aria-label="Primary"')
+    expect(markup).toContain('aria-label="Account"')
+    expect(markup).toContain('href="/archive/anime"')
+    expect(markup).toContain('My anime')
+    expect(markup).toContain('@Zelmari')
+    expect(markup).toContain('Sign out')
+  })
+
+  it('does not expose primary archive navigation when signed out', async () => {
+    getSession.mockResolvedValue(null)
+
+    const markup = renderToStaticMarkup(await SiteHeader())
+
+    expect(markup).toContain('aria-label="Account"')
+    expect(markup).toContain('Sign in')
+    expect(markup).toContain('Register')
+    expect(markup).not.toContain('My anime')
+    expect(markup).not.toContain('aria-label="Primary"')
   })
 })

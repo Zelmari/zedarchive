@@ -27,6 +27,16 @@ export async function SiteHeader() {
         <Link className={linkClassName} href="/">
           {productName}
         </Link>
+        {signedInUsername ? (
+          <nav
+            aria-label="Primary"
+            className="flex min-w-0 flex-wrap items-center gap-4"
+          >
+            <Link className={linkClassName} href="/archive/anime">
+              My anime
+            </Link>
+          </nav>
+        ) : null}
         <nav
           aria-label="Account"
           className="flex min-w-0 flex-wrap items-center gap-4"
