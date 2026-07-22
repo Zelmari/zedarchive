@@ -5,7 +5,7 @@ import {
   formatAnimeReleaseYear,
 } from '@/features/anime/catalogue/anime-catalogue-display'
 import { getAnimeCatalogueTitleInitials } from '@/features/anime/catalogue/anime-catalogue-title-initials'
-import { UpdateAnimeEntryStatusForm } from '@/features/archive/components/update-anime-entry-status-form'
+import { AnimeEntryTrackingCoordinator } from '@/features/archive/components/anime-entry-tracking-coordinator'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
 import {
   buildAnimePrivateListPageHref,
@@ -49,7 +49,6 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
 
   const titleInitials = getAnimeCatalogueTitleInitials(entry.title)
   const episodeTotal = formatAnimeEpisodeTotal(entry.episodeCount)
-
   return (
     <article className="overflow-hidden rounded border border-gray-300">
       <div
@@ -68,10 +67,11 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
             <p>Not currently available in the catalogue</p>
           ) : null}
         </div>
-        <UpdateAnimeEntryStatusForm
+        <AnimeEntryTrackingCoordinator
           animeTitle={entry.title}
-          currentStatus={entry.archiveStatus}
           entryId={entry.entryId}
+          initialStatus={entry.archiveStatus}
+          progressState={entry.progressState}
         />
       </div>
     </article>
@@ -179,7 +179,7 @@ export function AnimePrivateListResults({
     <>
       <p>{formatArchiveSummary(pagination.totalItems)}</p>
       <noscript>
-        <p>Status editing requires JavaScript.</p>
+        <p>Archive editing requires JavaScript.</p>
       </noscript>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry, index) => (

@@ -7,26 +7,21 @@ import {
   type UpdateAnimeEntryStatusFormState,
 } from '@/features/archive/components/update-anime-entry-status-form-state'
 
-const { useActionState, useReducer, useSyncExternalStore } = vi.hoisted(() => ({
-  useActionState: vi.fn(),
+const { useReducer, useSyncExternalStore } = vi.hoisted(() => ({
   useReducer: vi.fn(),
   useSyncExternalStore: vi.fn(),
 }))
 
 vi.mock('react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react')>()),
-  useActionState,
   useReducer,
   useSyncExternalStore,
-}))
-
-vi.mock('@/features/archive/actions/update-anime-entry-status', () => ({
-  updateAnimeEntryStatus: vi.fn(),
 }))
 
 import { UpdateAnimeEntryStatusForm } from '@/features/archive/components/update-anime-entry-status-form'
 
 const entryId = '550e8400-e29b-41d4-a716-446655440000'
+let renderPending = false
 
 function renderForm(): string {
   return renderToStaticMarkup(
@@ -34,6 +29,8 @@ function renderForm(): string {
       entryId,
       animeTitle: 'Cowboy Bebop',
       currentStatus: 'in_progress',
+      isPending: renderPending,
+      onSubmit: async () => null,
     }),
   )
 }
@@ -42,18 +39,15 @@ function mockState(
   state: UpdateAnimeEntryStatusFormState,
   options: { hydrated?: boolean; pending?: boolean } = {},
 ) {
+  renderPending = options.pending ?? false
   useReducer.mockReturnValue([state, vi.fn()])
   useSyncExternalStore.mockReturnValue(options.hydrated ?? true)
-  useActionState.mockReturnValue([
-    { kind: 'idle' },
-    vi.fn(),
-    options.pending ?? false,
-  ])
 }
 
 describe('UpdateAnimeEntryStatusForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    renderPending = false
   })
 
   it('server-renders the readable status without a dead edit control', () => {
@@ -77,6 +71,16 @@ describe('UpdateAnimeEntryStatusForm', () => {
     expect(markup).toContain('In your archive — In progress')
     expect(markup).toContain('type="button">Edit status</button>')
     expect(markup).not.toContain(entryId)
+  })
+
+  it('disables Edit while a sibling card mutation is pending', () => {
+    mockState(createInitialUpdateAnimeEntryStatusFormState('in_progress'), {
+      pending: true,
+    })
+
+    const markup = renderForm()
+
+    expect(markup).toContain('disabled="" type="button">Edit status</button>')
   })
 
   it('renders the deliberate form with exact mutation fields and all statuses', () => {

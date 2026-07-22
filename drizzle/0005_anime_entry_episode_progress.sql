@@ -1,0 +1,4 @@
+ALTER TABLE "anime_entries" ADD COLUMN "episode_progress" bigint DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "anime_entries" ADD COLUMN "episode_total_override" bigint;--> statement-breakpoint
+ALTER TABLE "anime_entries" ADD CONSTRAINT "anime_entries_episode_progress_check" CHECK ("anime_entries"."episode_progress" between 0 and 9007199254740991);--> statement-breakpoint
+ALTER TABLE "anime_entries" ADD CONSTRAINT "anime_entries_episode_total_override_check" CHECK ("anime_entries"."episode_total_override" is null or "anime_entries"."episode_total_override" between 1 and 9007199254740991);

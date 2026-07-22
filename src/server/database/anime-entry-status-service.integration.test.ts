@@ -112,6 +112,33 @@ async function readStoredEntry(entryId: string) {
   return entry
 }
 
+async function waitForEntryUpdateLock(entryId: string): Promise<void> {
+  const probe = await pool.connect()
+
+  try {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        await probe.query('begin')
+        await probe.query(
+          'select id from anime_entries where id = $1 for update nowait',
+          [entryId],
+        )
+        await probe.query('rollback')
+      } catch (error) {
+        await probe.query('rollback').catch(() => undefined)
+        if ((error as { code?: string }).code === '55P03') return
+        throw error
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+  } finally {
+    probe.release()
+  }
+
+  throw new Error('Status mutation did not acquire the entry lock')
+}
+
 beforeAll(async () => {
   const result = await pool.query<{ databaseName: string }>(
     'select current_database() as "databaseName"',
@@ -192,6 +219,42 @@ describe('updateAnimeEntryStatus', () => {
       await expect(readStoredEntry(entry.id)).resolves.toEqual(before)
     },
   )
+
+  it('preserves episode progress and personal total through a status mutation', async () => {
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem(),
+    ])
+    const [entry] = await database
+      .insert(animeEntries)
+      .values({
+        userId: owner.id,
+        catalogueItemId: item.id,
+        status: 'planned',
+        episodeProgress: 7,
+        episodeTotalOverride: 13,
+        createdAt: baselineCreatedAt,
+        updatedAt: baselineUpdatedAt,
+      })
+      .returning()
+
+    if (entry === undefined) throw new Error('Expected anime entry fixture')
+
+    await expect(
+      updateAnimeEntryStatus(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedStatus: 'planned',
+        requestedStatus: 'completed',
+      }),
+    ).resolves.toEqual({ kind: 'updated', status: 'completed' })
+    await expect(readStoredEntry(entry.id)).resolves.toMatchObject({
+      status: 'completed',
+      episodeProgress: 7,
+      episodeTotalOverride: 13,
+      createdAt: baselineCreatedAt,
+    })
+  })
 
   it('treats a lost-response replay as updated without advancing the first write timestamp', async () => {
     const [owner, item] = await Promise.all([
@@ -390,5 +453,37 @@ describe('updateAnimeEntryStatus', () => {
     expect((await readStoredEntry(entry.id))?.status).toBe(
       losingRequestedStatus,
     )
+  })
+
+  it('rechecks a winning safe-to-adult curation update before changing status', async () => {
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem(),
+    ])
+    const entry = await insertEntry(owner.id, item.id, 'planned')
+    const before = await readStoredEntry(entry.id)
+    const curator = await pool.connect()
+
+    try {
+      await curator.query('begin')
+      await curator.query(
+        "update anime_catalogue_items set maturity = 'adult' where id = $1",
+        [item.id],
+      )
+      const mutation = updateAnimeEntryStatus(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedStatus: 'planned',
+        requestedStatus: 'completed',
+      })
+      await waitForEntryUpdateLock(entry.id)
+      await curator.query('commit')
+
+      await expect(mutation).resolves.toEqual({ kind: 'unavailable' })
+      await expect(readStoredEntry(entry.id)).resolves.toEqual(before)
+    } finally {
+      await curator.query('rollback').catch(() => undefined)
+      curator.release()
+    }
   })
 })

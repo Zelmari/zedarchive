@@ -5,6 +5,7 @@ import { Pool } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import { episodeProgressMaximum } from '@/features/archive/domain/episode-progress'
 import {
   animeAlternativeTitles,
   animeCatalogueItems,
@@ -193,6 +194,18 @@ describe('anime_entries schema', () => {
         isNullable: 'NO',
         datetimePrecision: 3,
       }),
+      expect.objectContaining({
+        columnName: 'episode_progress',
+        dataType: 'bigint',
+        isNullable: 'NO',
+        columnDefault: '0',
+      }),
+      expect.objectContaining({
+        columnName: 'episode_total_override',
+        dataType: 'bigint',
+        isNullable: 'YES',
+        columnDefault: null,
+      }),
     ])
     expect(columns.rows[0]?.columnDefault).toMatch(/gen_random_uuid\(\)/)
     expect(columns.rows[4]?.columnDefault).toMatch(/now\(\)/)
@@ -206,6 +219,8 @@ describe('anime_entries schema', () => {
       constraints.rows.map(({ constraintName }) => constraintName).sort(),
     ).toEqual([
       'anime_entries_catalogue_item_id_fkey',
+      'anime_entries_episode_progress_check',
+      'anime_entries_episode_total_override_check',
       'anime_entries_id_uuid_v4_check',
       'anime_entries_pkey',
       'anime_entries_status_check',
@@ -350,6 +365,51 @@ describe('anime_entries schema', () => {
           [user.id, item.id],
         ),
       notNullViolation,
+    )
+  })
+
+  it('stores checked number-mode episode progress and nullable personal totals', async () => {
+    const defaultEntry = await insertEntry()
+    expect(defaultEntry).toMatchObject({
+      episodeProgress: 0,
+      episodeTotalOverride: null,
+    })
+    expect(typeof defaultEntry.episodeProgress).toBe('number')
+
+    await expect(
+      insertEntry({
+        episodeProgress: episodeProgressMaximum,
+        episodeTotalOverride: episodeProgressMaximum,
+      }),
+    ).resolves.toMatchObject({
+      episodeProgress: episodeProgressMaximum,
+      episodeTotalOverride: episodeProgressMaximum,
+    })
+
+    await expectConstraintViolation(
+      () => insertEntry({ episodeProgress: -1 }),
+      checkViolation,
+      'anime_entries_episode_progress_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ episodeProgress: episodeProgressMaximum + 1 }),
+      checkViolation,
+      'anime_entries_episode_progress_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ episodeTotalOverride: 0 }),
+      checkViolation,
+      'anime_entries_episode_total_override_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ episodeTotalOverride: -1 }),
+      checkViolation,
+      'anime_entries_episode_total_override_check',
+    )
+    await expectConstraintViolation(
+      () => insertEntry({ episodeTotalOverride: episodeProgressMaximum + 1 }),
+      checkViolation,
+      'anime_entries_episode_total_override_check',
     )
   })
 

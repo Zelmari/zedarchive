@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   check,
   foreignKey,
   index,
@@ -11,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import { episodeProgressMaximum } from '@/features/archive/domain/episode-progress'
 import { users } from '@/server/database/schema/auth'
 import { animeCatalogueItems } from '@/server/database/schema/catalogue'
 
@@ -21,6 +23,10 @@ export const animeEntries = pgTable(
     userId: uuid('user_id').notNull(),
     catalogueItemId: uuid('catalogue_item_id').notNull(),
     status: text('status').$type<EntryStatus>().notNull(),
+    episodeProgress: bigint('episode_progress', { mode: 'number' })
+      .default(0)
+      .notNull(),
+    episodeTotalOverride: bigint('episode_total_override', { mode: 'number' }),
     createdAt: timestamp('created_at', {
       withTimezone: true,
       precision: 3,
@@ -62,6 +68,14 @@ export const animeEntries = pgTable(
     check(
       'anime_entries_status_check',
       sql`${table.status} in ('planned', 'in_progress', 'on_hold', 'dropped', 'completed')`,
+    ),
+    check(
+      'anime_entries_episode_progress_check',
+      sql`${table.episodeProgress} between 0 and ${sql.raw(String(episodeProgressMaximum))}`,
+    ),
+    check(
+      'anime_entries_episode_total_override_check',
+      sql`${table.episodeTotalOverride} is null or ${table.episodeTotalOverride} between 1 and ${sql.raw(String(episodeProgressMaximum))}`,
     ),
     check(
       'anime_entries_timestamp_order_check',

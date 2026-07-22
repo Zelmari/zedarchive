@@ -1,8 +1,20 @@
 import type { AnimeReleaseStatus } from '@/features/anime/domain/anime-catalogue-item'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import type { EpisodeProgress } from '@/features/archive/domain/episode-progress'
+import type { EpisodeTotal } from '@/features/archive/domain/episode-total'
 
 export const ANIME_PRIVATE_LIST_PAGE_SIZE = 24 as const
 export const ANIME_PRIVATE_LIST_MAX_PAGE = 10_000 as const
+
+export type AnimeEpisodeProgressState =
+  | {
+      kind: 'trackable'
+      progress: EpisodeProgress
+      catalogueTotal: EpisodeTotal | null
+      personalTotal: EpisodeTotal | null
+    }
+  | { kind: 'not_applicable' }
+  | { kind: 'format_unknown' }
 
 export type AnimePrivateListVisibleEntry = {
   kind: 'displayable' | 'unavailable_in_catalogue'
@@ -12,6 +24,7 @@ export type AnimePrivateListVisibleEntry = {
   episodeCount: number | null
   releaseStatus: AnimeReleaseStatus
   archiveStatus: EntryStatus
+  progressState: AnimeEpisodeProgressState
 }
 
 export type AnimePrivateListRestrictedEntry = {

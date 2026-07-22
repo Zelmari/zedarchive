@@ -20,6 +20,8 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+.envrc
+.direnv/
 
 # Build / framework output
 dist/
@@ -39,6 +41,7 @@ playwright-report/
 test-results/
 blob-report/
 playwright/.cache/
+playwright/.auth/
 
 # Tooling caches
 .eslintcache
@@ -49,11 +52,24 @@ playwright/.cache/
 # Certificates and private keys
 *.pem
 *.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
 
-# Database backups
+# Database credentials, backups, and accidental local databases
+.pgpass
+.pg_service.conf
 backups/
 *.dump
 *.backup
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Editor directories and files
 .vscode/*
@@ -77,6 +93,8 @@ Thumbs.db
 # Agent files
 AGENTS.md
 agents/
+.agents/
+.codex/
 
 # Documentation, primarily for AI agents
 docs/

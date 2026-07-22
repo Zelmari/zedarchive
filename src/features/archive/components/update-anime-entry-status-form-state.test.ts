@@ -92,6 +92,19 @@ describe('updateAnimeEntryStatusFormReducer', () => {
     })
   })
 
+  it('keeps an active selection while accepting a sibling status reconciliation', () => {
+    const state = updateAnimeEntryStatusFormReducer(editingState(), {
+      kind: 'authoritative_status',
+      status: 'on_hold',
+    })
+
+    expect(state).toMatchObject({
+      mode: 'edit',
+      authoritativeStatus: 'on_hold',
+      selectedStatus: 'completed',
+    })
+  })
+
   it.each<[UpdateAnimeEntryStatusActionState, string, boolean]>([
     [{ kind: 'invalid_status' }, 'Choose a valid status before saving.', true],
     [

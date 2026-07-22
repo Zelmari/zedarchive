@@ -21,6 +21,7 @@ export type UpdateAnimeEntryStatusFormEvent =
   | { kind: 'open' }
   | { kind: 'select'; status: EntryStatus }
   | { kind: 'cancel' }
+  | { kind: 'authoritative_status'; status: EntryStatus }
   | {
       kind: 'action_result'
       result: UpdateAnimeEntryStatusActionState
@@ -78,6 +79,13 @@ export function updateAnimeEntryStatusFormReducer(
         feedback: null,
         focusTarget: 'edit',
         focusVersion: state.focusVersion + 1,
+      }
+    case 'authoritative_status':
+      return {
+        ...state,
+        authoritativeStatus: event.status,
+        selectedStatus:
+          state.mode === 'edit' ? state.selectedStatus : event.status,
       }
     case 'action_result': {
       const result = event.result

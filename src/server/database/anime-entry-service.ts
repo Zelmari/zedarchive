@@ -1,10 +1,13 @@
 import 'server-only'
 
-import { and, asc, count, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { z } from 'zod'
 import type { AddAnimeEntryInput } from '@/features/archive/domain/add-anime-entry'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import { getAnimeEpisodeProgressSupport } from '@/features/archive/domain/anime-episode-progress-support'
+import { episodeProgressSchema } from '@/features/archive/domain/episode-progress'
+import { episodeTotalSchema } from '@/features/archive/domain/episode-total'
 import type { UpdateAnimeEntryStatusInput } from '@/features/archive/domain/update-anime-entry-status'
 import {
   ANIME_PRIVATE_LIST_MAX_PAGE,
@@ -72,6 +75,9 @@ function mapStoredAnimeArchiveEntry(row: {
   title: string | null
   releaseYear: number | null
   episodeCount: number | null
+  format: string | null
+  episodeProgress: number | null
+  episodeTotalOverride: number | null
   releaseStatus: AnimeReleaseStatus | null
   archiveStatus: EntryStatus
 }): AnimePrivateListEntry {
@@ -96,6 +102,32 @@ function mapStoredAnimeArchiveEntry(row: {
     episodeCount: row.episodeCount,
     releaseStatus: row.releaseStatus,
     archiveStatus: row.archiveStatus,
+    progressState: (() => {
+      const support = getAnimeEpisodeProgressSupport(row.format ?? 'unknown')
+
+      if (support === 'not_applicable') {
+        return { kind: 'not_applicable' }
+      }
+
+      if (support === 'format_unknown') {
+        return { kind: 'format_unknown' }
+      }
+
+      if (row.episodeProgress === null) {
+        throw new Error(
+          'Stored private anime archive progress failed integrity checks',
+        )
+      }
+
+      return {
+        kind: 'trackable',
+        progress: episodeProgressSchema.parse(row.episodeProgress),
+        catalogueTotal: episodeTotalSchema.nullable().parse(row.episodeCount),
+        personalTotal: episodeTotalSchema
+          .nullable()
+          .parse(row.episodeTotalOverride),
+      }
+    })(),
   }
 }
 
@@ -175,74 +207,73 @@ export async function getAnimeEntryCatalogueMembership(
     )
 }
 
-async function readEligibleOwnedAnimeEntryStatus(
-  database: NodePgDatabase,
-  request: Pick<UpdateAnimeEntryStatusRequest, 'entryId' | 'userId'>,
-): Promise<EntryStatus | null> {
-  const [entry] = await database
-    .select({ status: animeEntries.status })
-    .from(animeEntries)
-    .innerJoin(
-      animeCatalogueItems,
-      eq(animeCatalogueItems.id, animeEntries.catalogueItemId),
-    )
-    .where(
-      and(
-        eq(animeEntries.id, request.entryId),
-        eq(animeEntries.userId, request.userId),
-        ne(animeCatalogueItems.maturity, 'adult'),
-      ),
-    )
-    .limit(1)
-
-  return entry?.status ?? null
-}
-
 export async function updateAnimeEntryStatus(
   database: NodePgDatabase,
   request: UpdateAnimeEntryStatusRequest,
 ): Promise<UpdateAnimeEntryStatusResult> {
-  if (request.expectedStatus !== request.requestedStatus) {
-    const [updatedEntry] = await database
+  return database.transaction(async (transaction) => {
+    const [entry] = await transaction
+      .select({
+        id: animeEntries.id,
+        catalogueItemId: animeEntries.catalogueItemId,
+        status: animeEntries.status,
+      })
+      .from(animeEntries)
+      .where(
+        and(
+          eq(animeEntries.id, request.entryId),
+          eq(animeEntries.userId, request.userId),
+        ),
+      )
+      .for('update')
+      .limit(1)
+
+    if (entry === undefined) {
+      return { kind: 'unavailable' }
+    }
+
+    const [catalogueItem] = await transaction
+      .select({ maturity: animeCatalogueItems.maturity })
+      .from(animeCatalogueItems)
+      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+      .for('share')
+      .limit(1)
+
+    if (catalogueItem === undefined || catalogueItem.maturity === 'adult') {
+      return { kind: 'unavailable' }
+    }
+
+    if (entry.status === request.requestedStatus) {
+      return request.expectedStatus === request.requestedStatus
+        ? { kind: 'unchanged', status: entry.status }
+        : { kind: 'updated', status: entry.status }
+    }
+
+    if (entry.status !== request.expectedStatus) {
+      return { kind: 'conflict', currentStatus: entry.status }
+    }
+
+    const [updatedEntry] = await transaction
       .update(animeEntries)
       .set({
         status: request.requestedStatus,
         updatedAt: sql`current_timestamp`,
       })
-      .from(animeCatalogueItems)
       .where(
         and(
-          eq(animeEntries.id, request.entryId),
+          eq(animeEntries.id, entry.id),
           eq(animeEntries.userId, request.userId),
           eq(animeEntries.status, request.expectedStatus),
-          ne(animeEntries.status, request.requestedStatus),
-          eq(animeCatalogueItems.id, animeEntries.catalogueItemId),
-          ne(animeCatalogueItems.maturity, 'adult'),
         ),
       )
       .returning({ status: animeEntries.status })
 
-    if (updatedEntry) {
-      return { kind: 'updated', status: updatedEntry.status }
+    if (updatedEntry === undefined) {
+      return { kind: 'conflict', currentStatus: entry.status }
     }
-  }
 
-  const currentStatus = await readEligibleOwnedAnimeEntryStatus(database, {
-    entryId: request.entryId,
-    userId: request.userId,
+    return { kind: 'updated', status: updatedEntry.status }
   })
-
-  if (currentStatus === null) {
-    return { kind: 'unavailable' }
-  }
-
-  if (currentStatus === request.requestedStatus) {
-    return request.expectedStatus === request.requestedStatus
-      ? { kind: 'unchanged', status: currentStatus }
-      : { kind: 'updated', status: currentStatus }
-  }
-
-  return { kind: 'conflict', currentStatus }
 }
 
 export async function readAnimeArchivePage(
@@ -276,6 +307,19 @@ export async function readAnimeArchivePage(
           episodeCount: sql<
             number | null
           >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.episodeCount} end`,
+          format: sql<
+            string | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.format} end`,
+          episodeProgress: sql<
+            number | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.episodeProgress} end`.mapWith(
+            animeEntries.episodeProgress,
+          ),
+          episodeTotalOverride: sql<
+            number | null
+          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.episodeTotalOverride} end`.mapWith(
+            animeEntries.episodeTotalOverride,
+          ),
           releaseStatus: sql<AnimeReleaseStatus | null>`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.releaseStatus} end`,
           archiveStatus: animeEntries.status,
         })

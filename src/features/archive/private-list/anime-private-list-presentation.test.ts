@@ -5,6 +5,16 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/features/archive/actions/update-anime-entry-status', () => ({
   updateAnimeEntryStatus: vi.fn(),
 }))
+vi.mock(
+  '@/features/archive/actions/update-anime-entry-episode-progress',
+  () => ({
+    updateAnimeEntryEpisodeProgress: vi.fn(),
+  }),
+)
+vi.mock(
+  '@/features/archive/actions/update-anime-entry-episode-total-override',
+  () => ({ updateAnimeEntryEpisodeTotalOverride: vi.fn() }),
+)
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
   AnimePrivateListResults,
@@ -43,6 +53,12 @@ describe('AnimePrivateListResults', () => {
       episodeCount: 12,
       releaseStatus: 'finished',
       archiveStatus: 'planned',
+      progressState: {
+        kind: 'trackable',
+        progress: 0,
+        catalogueTotal: 12,
+        personalTotal: null,
+      },
     }
     const secondEntry: AnimePrivateListPage['entries'][number] = {
       ...firstEntry,
@@ -76,6 +92,12 @@ describe('AnimePrivateListResults', () => {
           episodeCount: 26,
           releaseStatus: 'finished',
           archiveStatus: 'completed',
+          progressState: {
+            kind: 'trackable',
+            progress: 26,
+            catalogueTotal: 26,
+            personalTotal: null,
+          },
         },
         {
           kind: 'unavailable_in_catalogue',
@@ -85,6 +107,7 @@ describe('AnimePrivateListResults', () => {
           episodeCount: null,
           releaseStatus: 'unknown',
           archiveStatus: 'on_hold',
+          progressState: { kind: 'format_unknown' },
         },
         { kind: 'restricted', archiveStatus: 'planned' },
       ]),
@@ -106,12 +129,19 @@ describe('AnimePrivateListResults', () => {
       'Status editing isn’t available for restricted anime yet.',
     )
     expect(markup).toContain(
-      '<noscript><p>Status editing requires JavaScript.</p></noscript>',
+      '<noscript><p>Archive editing requires JavaScript.</p></noscript>',
     )
     expect(markup).toContain('Anime archive pagination')
     expect(markup).toContain('href="/archive/anime"')
     expect(markup).toContain('href="/archive/anime?page=3"')
-    expect(markup).not.toMatch(/Add|Edit|Remove/)
+    expect(markup).toContain('Progress — 26 episodes')
+    expect(markup).toContain('Total — 26 episodes')
+    expect(markup).not.toContain('Edit progress')
+    expect(markup).not.toContain('Edit status')
+    expect(markup).not.toContain('<form')
+    expect(markup).toContain(
+      'Episode tracking isn’t available until this anime’s format is known.',
+    )
     expect(markup).not.toContain('550e8400-e29b-41d4-a716-446655440000')
     expect(markup).not.toContain('550e8400-e29b-41d4-a716-446655440001')
   })

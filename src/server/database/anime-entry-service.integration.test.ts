@@ -16,6 +16,7 @@ vi.mock('server-only', () => ({}))
 
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import { entryStatusValues } from '@/features/archive/domain/entry-status'
+import { episodeProgressMaximum } from '@/features/archive/domain/episode-progress'
 import {
   createAnimeEntry,
   getAnimeEntryCatalogueMembership,
@@ -81,10 +82,11 @@ async function insertEntry(
   userId: string,
   catalogueItemId: string,
   status: (typeof entryStatusValues)[number] = 'planned',
+  overrides: Partial<typeof animeEntries.$inferInsert> = {},
 ) {
   const [entry] = await database
     .insert(animeEntries)
-    .values({ userId, catalogueItemId, status })
+    .values({ userId, catalogueItemId, status, ...overrides })
     .returning()
 
   if (!entry) {
@@ -426,6 +428,7 @@ describe('readAnimeArchivePage', () => {
         'entryId',
         'episodeCount',
         'kind',
+        'progressState',
         'releaseStatus',
         'releaseYear',
         'title',
@@ -647,6 +650,12 @@ describe('readAnimeArchivePage', () => {
             episodeCount: 12,
             releaseStatus: 'airing',
             archiveStatus: 'on_hold',
+            progressState: {
+              kind: 'trackable',
+              progress: 0,
+              catalogueTotal: 12,
+              personalTotal: null,
+            },
           },
         ],
         pagination: {
@@ -669,6 +678,62 @@ describe('readAnimeArchivePage', () => {
       ).not.toContain(item.id)
     },
   )
+
+  it('returns the ordinary-only progress support union with number-mode maximum values', async () => {
+    const owner = await insertUser()
+    const formats = ['tv', 'ova', 'ona', 'special', 'movie', 'unknown'] as const
+    const items = await Promise.all(
+      formats.map((format) =>
+        insertCatalogueItem({
+          englishTitle: `Format ${format}`,
+          format,
+          episodeCount: format === 'unknown' ? null : 12,
+        }),
+      ),
+    )
+    await Promise.all(
+      items.map((item) =>
+        insertEntry(owner.id, item.id, 'planned', {
+          episodeProgress: episodeProgressMaximum,
+          episodeTotalOverride: episodeProgressMaximum,
+        }),
+      ),
+    )
+
+    const page = await readAnimeArchivePage(database, {
+      userId: owner.id,
+      page: 1,
+      pageSize: 24,
+    })
+
+    const visibleEntries = page.entries.filter(
+      (entry): entry is Exclude<typeof entry, { kind: 'restricted' }> =>
+        entry.kind !== 'restricted',
+    )
+    for (const format of ['tv', 'ova', 'ona', 'special'] as const) {
+      const entry = visibleEntries.find(
+        (candidate) => candidate.title === `Format ${format}`,
+      )
+      expect(entry?.progressState).toEqual({
+        kind: 'trackable',
+        progress: episodeProgressMaximum,
+        catalogueTotal: 12,
+        personalTotal: episodeProgressMaximum,
+      })
+      if (entry?.progressState.kind === 'trackable') {
+        expect(typeof entry.progressState.progress).toBe('number')
+        expect(typeof entry.progressState.personalTotal).toBe('number')
+      }
+    }
+    expect(
+      visibleEntries.find((entry) => entry.title === 'Format movie')
+        ?.progressState,
+    ).toEqual({ kind: 'not_applicable' })
+    expect(
+      visibleEntries.find((entry) => entry.title === 'Format unknown')
+        ?.progressState,
+    ).toEqual({ kind: 'format_unknown' })
+  })
 
   it('counts adult rows but returns only restricted status and allocates them by UUID, never concealed metadata', async () => {
     const owner = await insertUser()

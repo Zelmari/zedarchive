@@ -1,19 +1,17 @@
 'use client'
 
 import {
-  useActionState,
   useEffect,
   useId,
   useReducer,
   useRef,
   useSyncExternalStore,
 } from 'react'
-import { updateAnimeEntryStatus } from '@/features/archive/actions/update-anime-entry-status'
 import {
   createInitialUpdateAnimeEntryStatusFormState,
   updateAnimeEntryStatusFormReducer,
 } from '@/features/archive/components/update-anime-entry-status-form-state'
-import { initialUpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
+import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { entryStatusValues } from '@/features/archive/domain/entry-status'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
@@ -30,17 +28,19 @@ type UpdateAnimeEntryStatusFormProps = {
   entryId: string
   animeTitle: string
   currentStatus: EntryStatus
+  isPending: boolean
+  onSubmit: (
+    formData: FormData,
+  ) => Promise<UpdateAnimeEntryStatusActionState | null>
 }
 
 export function UpdateAnimeEntryStatusForm({
   entryId,
   animeTitle,
   currentStatus,
+  isPending,
+  onSubmit,
 }: UpdateAnimeEntryStatusFormProps) {
-  const [actionState, formAction, isPending] = useActionState(
-    updateAnimeEntryStatus,
-    initialUpdateAnimeEntryStatusActionState,
-  )
   const [formState, dispatch] = useReducer(
     updateAnimeEntryStatusFormReducer,
     currentStatus,
@@ -59,8 +59,8 @@ export function UpdateAnimeEntryStatusForm({
   const handledFocusVersionRef = useRef(0)
 
   useEffect(() => {
-    dispatch({ kind: 'action_result', result: actionState })
-  }, [actionState])
+    dispatch({ kind: 'authoritative_status', status: currentStatus })
+  }, [currentStatus])
 
   useEffect(() => {
     if (formState.focusVersion === handledFocusVersionRef.current) {
@@ -99,6 +99,7 @@ export function UpdateAnimeEntryStatusForm({
           {hasHydrated ? (
             <button
               className={buttonClassName}
+              disabled={isPending}
               onClick={() => dispatch({ kind: 'open' })}
               ref={editButtonRef}
               type="button"
@@ -109,10 +110,14 @@ export function UpdateAnimeEntryStatusForm({
         </>
       ) : (
         <form
-          action={formAction}
           aria-busy={isPending}
           aria-label={`Update status for ${animeTitle}`}
           className="space-y-2"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            const result = await onSubmit(new FormData(event.currentTarget))
+            if (result !== null) dispatch({ kind: 'action_result', result })
+          }}
         >
           <input name="entryId" type="hidden" value={entryId} />
           <input
