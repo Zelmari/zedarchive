@@ -11,6 +11,8 @@ import {
   buildAnimePrivateListPageHref,
   type AnimePrivateListPageQuery,
 } from '@/features/archive/private-list/anime-private-list-query'
+import { AnimePrivateListSortControl } from '@/features/archive/private-list/anime-private-list-sort-control'
+import type { AnimePrivateListSort } from '@/features/archive/private-list/anime-private-list-sort'
 import type {
   AnimePrivateListEntry,
   AnimePrivateListPage,
@@ -23,6 +25,18 @@ function formatArchiveSummary(totalItems: number): string {
   return totalItems === 1
     ? '1 anime in your archive'
     : `${totalItems} anime in your archive`
+}
+
+export function getAnimePrivateListSortControlViewKey({
+  sort,
+  isSortExplicit,
+  page,
+}: {
+  sort: AnimePrivateListSort
+  isSortExplicit: boolean
+  page: number
+}): string {
+  return `${sort}:${isSortExplicit ? 'explicit' : 'bootstrap'}:${page}`
 }
 
 export function getAnimePrivateListEntryKey(
@@ -84,8 +98,10 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
 
 function AnimePrivateListPagination({
   page,
+  sort,
 }: {
   page: AnimePrivateListPage['pagination']
+  sort: AnimePrivateListSort
 }) {
   if (page.totalPages <= 1) {
     return null
@@ -99,7 +115,10 @@ function AnimePrivateListPagination({
       {page.hasPreviousPage ? (
         <Link
           className={linkClassName}
-          href={buildAnimePrivateListPageHref(page.page - 1)}
+          href={buildAnimePrivateListPageHref({
+            page: page.page - 1,
+            sort,
+          })}
         >
           Previous
         </Link>
@@ -110,7 +129,10 @@ function AnimePrivateListPagination({
       {page.hasNextPage ? (
         <Link
           className={linkClassName}
-          href={buildAnimePrivateListPageHref(page.page + 1)}
+          href={buildAnimePrivateListPageHref({
+            page: page.page + 1,
+            sort,
+          })}
         >
           Next
         </Link>
@@ -140,10 +162,19 @@ export function AnimePrivateListSignedOutGate() {
 
 export function AnimePrivateListResults({
   page,
+  sort,
+  isSortExplicit,
 }: {
   page: AnimePrivateListPage
+  sort: AnimePrivateListSort
+  isSortExplicit: boolean
 }) {
   const { entries, pagination } = page
+  const sortControlViewKey = getAnimePrivateListSortControlViewKey({
+    isSortExplicit,
+    page: pagination.page,
+    sort,
+  })
 
   if (pagination.totalItems === 0) {
     return (
@@ -164,10 +195,21 @@ export function AnimePrivateListResults({
           There are no anime on this page
         </h2>
         <p>Your archive has saved anime on another page.</p>
+        <AnimePrivateListSortControl
+          isSortExplicit={isSortExplicit}
+          sort={sort}
+          viewKey={sortControlViewKey}
+        />
+        <noscript>
+          <p>
+            Archive editing requires JavaScript. Sorting works without it, but
+            your sort preference cannot be saved on this device.
+          </p>
+        </noscript>
         <div className="flex flex-wrap gap-4">
           <Link
             className={linkClassName}
-            href={buildAnimePrivateListPageHref(1)}
+            href={buildAnimePrivateListPageHref({ page: 1, sort })}
           >
             Go to the first page
           </Link>
@@ -182,8 +224,16 @@ export function AnimePrivateListResults({
   return (
     <>
       <p>{formatArchiveSummary(pagination.totalItems)}</p>
+      <AnimePrivateListSortControl
+        isSortExplicit={isSortExplicit}
+        sort={sort}
+        viewKey={sortControlViewKey}
+      />
       <noscript>
-        <p>Archive editing requires JavaScript.</p>
+        <p>
+          Archive editing requires JavaScript. Sorting works without it, but
+          your sort preference cannot be saved on this device.
+        </p>
       </noscript>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry, index) => (
@@ -192,7 +242,7 @@ export function AnimePrivateListResults({
           </li>
         ))}
       </ul>
-      <AnimePrivateListPagination page={pagination} />
+      <AnimePrivateListPagination page={pagination} sort={sort} />
     </>
   )
 }
@@ -203,7 +253,12 @@ export function AnimePrivateListRouteContent({
   model:
     | Extract<AnimePrivateListPageQuery, { kind: 'validation-error' }>
     | { kind: 'signed-out' }
-    | { kind: 'archive'; page: AnimePrivateListPage }
+    | {
+        kind: 'archive'
+        page: AnimePrivateListPage
+        sort: AnimePrivateListSort
+        isSortExplicit: boolean
+      }
 }) {
   if (model.kind === 'validation-error') {
     return <AnimePrivateListValidationError message={model.message} />
@@ -213,5 +268,11 @@ export function AnimePrivateListRouteContent({
     return <AnimePrivateListSignedOutGate />
   }
 
-  return <AnimePrivateListResults page={model.page} />
+  return (
+    <AnimePrivateListResults
+      isSortExplicit={model.isSortExplicit}
+      page={model.page}
+      sort={model.sort}
+    />
+  )
 }

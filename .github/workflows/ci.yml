@@ -20,7 +20,7 @@ jobs:
   quality:
     name: Quality checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       BETTER_AUTH_SECRET: ci-disposable-better-auth-secret-32chars-min
       BETTER_AUTH_URL: http://localhost:3000
@@ -88,5 +88,21 @@ jobs:
       - name: Database integration test
         run: npm run test:integration
 
-      - name: Build
-        run: npm run build
+      - name: Apply migrations for browser testing
+        run: npm run db:migrate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser test
+        run: npm run test:browser
+
+      - name: Upload browser-test artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/**/test-failed-*.png
+          if-no-files-found: ignore
+          retention-days: 7

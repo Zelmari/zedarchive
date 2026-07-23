@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { AnimePrivateListPage } from '@/features/archive/private-list/anime-private-list-model'
+import type { AnimePrivateListSort } from '@/features/archive/private-list/anime-private-list-sort'
 import {
   parseAnimePrivateListPageQuery,
   type AnimePrivateListPageQueryInput,
@@ -11,7 +12,12 @@ type Session = { user?: { id?: string } } | null
 export type AnimePrivateListRouteModel =
   | { kind: 'validation-error'; message: string }
   | { kind: 'signed-out' }
-  | { kind: 'archive'; page: AnimePrivateListPage }
+  | {
+      kind: 'archive'
+      page: AnimePrivateListPage
+      sort: AnimePrivateListSort
+      isSortExplicit: boolean
+    }
 
 type AnimePrivateListCoordinatorDependencies = {
   getSession: () => Promise<Session>
@@ -19,6 +25,7 @@ type AnimePrivateListCoordinatorDependencies = {
     userId: string
     page: number
     pageSize: 24
+    sort: AnimePrivateListSort
   }) => Promise<AnimePrivateListPage>
 }
 
@@ -62,9 +69,15 @@ export function createAnimePrivateListCoordinator({
         userId,
         page: parsedQuery.page,
         pageSize: parsedQuery.pageSize,
+        sort: parsedQuery.sort,
       })
 
-      return { kind: 'archive', page }
+      return {
+        kind: 'archive',
+        page,
+        sort: parsedQuery.sort,
+        isSortExplicit: parsedQuery.isSortExplicit,
+      }
     } catch {
       console.error('Private anime archive read failed.')
       throw new AnimePrivateListUnavailableError()

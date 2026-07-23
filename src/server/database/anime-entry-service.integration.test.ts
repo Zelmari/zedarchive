@@ -407,20 +407,11 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     expect(page.pagination).toMatchObject({ totalItems: 2, totalPages: 1 })
     expect(page.entries).toEqual([
-      expect.objectContaining({
-        kind: 'displayable',
-        entryId: expect.any(String),
-        title: 'Owner Anime',
-        archiveStatus: 'completed',
-        rating: 8.5,
-        isFavourite: false,
-        startDate: null,
-        finishDate: '2024-01-02',
-      }),
       expect.objectContaining({
         kind: 'displayable',
         entryId: expect.any(String),
@@ -430,6 +421,16 @@ describe('readAnimeArchivePage', () => {
         isFavourite: true,
         startDate: '2024-01-01',
         finishDate: null,
+      }),
+      expect.objectContaining({
+        kind: 'displayable',
+        entryId: expect.any(String),
+        title: 'Owner Anime',
+        archiveStatus: 'completed',
+        rating: 8.5,
+        isFavourite: false,
+        startDate: null,
+        finishDate: '2024-01-02',
       }),
     ])
     expect(JSON.stringify(page)).not.toContain(ownerOnlyItem.id)
@@ -455,6 +456,88 @@ describe('readAnimeArchivePage', () => {
     }
   })
 
+  it('orders complete ordinary favourite groups by every selected sort before pagination', async () => {
+    const owner = await insertUser()
+    const [
+      favouriteEarly,
+      favouriteLate,
+      nonFavouriteHigh,
+      nonFavouriteUnrated,
+    ] = await Promise.all([
+      insertCatalogueItem({ englishTitle: 'Favourite early' }),
+      insertCatalogueItem({ englishTitle: 'Favourite late' }),
+      insertCatalogueItem({ englishTitle: 'Non-favourite high' }),
+      insertCatalogueItem({ englishTitle: 'Non-favourite unrated' }),
+    ])
+
+    await Promise.all([
+      insertEntry(owner.id, favouriteEarly.id, 'planned', {
+        isFavourite: true,
+        rating: null,
+        createdAt: new Date('2024-01-03T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-03T00:00:00.000Z'),
+      }),
+      insertEntry(owner.id, favouriteLate.id, 'planned', {
+        isFavourite: true,
+        rating: 8,
+        createdAt: new Date('2024-01-02T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-04T00:00:00.000Z'),
+      }),
+      insertEntry(owner.id, nonFavouriteHigh.id, 'planned', {
+        isFavourite: false,
+        rating: 10,
+        createdAt: new Date('2024-01-04T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-04T00:00:00.000Z'),
+      }),
+      insertEntry(owner.id, nonFavouriteUnrated.id, 'planned', {
+        isFavourite: false,
+        rating: null,
+        createdAt: new Date('2024-01-02T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-05T00:00:00.000Z'),
+      }),
+    ])
+
+    const titlesFor = async (
+      sort: Parameters<typeof readAnimeArchivePage>[1]['sort'],
+    ) => {
+      const page = await readAnimeArchivePage(database, {
+        userId: owner.id,
+        page: 1,
+        pageSize: 24,
+        sort,
+      })
+
+      return page.entries.map((entry) =>
+        entry.kind === 'restricted' ? 'Restricted anime' : entry.title,
+      )
+    }
+
+    await expect(titlesFor('alphabetical')).resolves.toEqual([
+      'Favourite early',
+      'Favourite late',
+      'Non-favourite high',
+      'Non-favourite unrated',
+    ])
+    await expect(titlesFor('recently-updated')).resolves.toEqual([
+      'Favourite late',
+      'Favourite early',
+      'Non-favourite unrated',
+      'Non-favourite high',
+    ])
+    await expect(titlesFor('recently-added')).resolves.toEqual([
+      'Favourite early',
+      'Favourite late',
+      'Non-favourite high',
+      'Non-favourite unrated',
+    ])
+    await expect(titlesFor('highest-rated')).resolves.toEqual([
+      'Favourite late',
+      'Favourite early',
+      'Non-favourite high',
+      'Non-favourite unrated',
+    ])
+  })
+
   it('returns every canonical archive status', async () => {
     const owner = await insertUser()
     const items = await Promise.all(
@@ -473,6 +556,7 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     expect(
@@ -489,27 +573,39 @@ describe('readAnimeArchivePage', () => {
         }),
       ),
     )
-    await Promise.all(items.map((item) => insertEntry(owner.id, item.id)))
+    await Promise.all(
+      items.map((item) =>
+        insertEntry(owner.id, item.id, 'planned', {
+          rating: 7,
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+        }),
+      ),
+    )
 
     const firstPage = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
     const secondPage = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 2,
       pageSize: 24,
+      sort: 'alphabetical',
     })
     const beyondFinalPage = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 3,
       pageSize: 24,
+      sort: 'alphabetical',
     })
     const emptyPage = await readAnimeArchivePage(database, {
       userId: emptyOwner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     expect(firstPage.entries).toHaveLength(24)
@@ -548,6 +644,32 @@ describe('readAnimeArchivePage', () => {
         hasNextPage: false,
       },
     })
+
+    const expectedTitles = items.map(
+      (_, index) => `Page Item ${String(index + 1).padStart(2, '0')}`,
+    )
+    for (const sort of [
+      'alphabetical',
+      'recently-updated',
+      'recently-added',
+      'highest-rated',
+    ] as const) {
+      const [first, second] = await Promise.all(
+        [1, 2].map((page) =>
+          readAnimeArchivePage(database, {
+            userId: owner.id,
+            page,
+            pageSize: 24,
+            sort,
+          }),
+        ),
+      )
+      const titles = [...first.entries, ...second.entries].map((entry) =>
+        entry.kind === 'restricted' ? 'Restricted anime' : entry.title,
+      )
+
+      expect(titles).toEqual(expectedTitles)
+    }
   })
 
   it('orders by casefolded fallback title, resolved title, and catalogue id', async () => {
@@ -588,17 +710,18 @@ describe('readAnimeArchivePage', () => {
     ])
     await Promise.all([
       ...[beta, alpha, englishPreferred, romaji, original].map((item) =>
-        insertEntry(owner.id, item.id),
+        insertEntry(owner.id, item.id, 'planned', { rating: 7 }),
       ),
-      insertEntry(owner.id, firstTie.id, 'planned'),
-      insertEntry(owner.id, secondTie.id, 'completed'),
-      insertEntry(owner.id, lowerTie.id, 'dropped'),
+      insertEntry(owner.id, firstTie.id, 'planned', { rating: 7 }),
+      insertEntry(owner.id, secondTie.id, 'completed', { rating: 7 }),
+      insertEntry(owner.id, lowerTie.id, 'dropped', { rating: 7 }),
     ])
 
     const page = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     const orderedTitles = page.entries.map((entry) =>
@@ -640,6 +763,18 @@ describe('readAnimeArchivePage', () => {
         (entry) => entry.kind === 'restricted' || entry.entryId.length > 0,
       ),
     ).toBe(true)
+
+    const highestRatedPage = await readAnimeArchivePage(database, {
+      userId: owner.id,
+      page: 1,
+      pageSize: 24,
+      sort: 'highest-rated',
+    })
+    expect(
+      highestRatedPage.entries.map((entry) =>
+        entry.kind === 'restricted' ? 'Restricted anime' : entry.title,
+      ),
+    ).toEqual(orderedTitles)
   })
 
   it.each(['hidden', 'draft'] as const)(
@@ -662,6 +797,7 @@ describe('readAnimeArchivePage', () => {
           userId: owner.id,
           page: 1,
           pageSize: 24,
+          sort: 'alphabetical',
         }),
       ).resolves.toEqual({
         entries: [
@@ -700,6 +836,7 @@ describe('readAnimeArchivePage', () => {
             userId: owner.id,
             page: 1,
             pageSize: 24,
+            sort: 'alphabetical',
           }),
         ),
       ).not.toContain(item.id)
@@ -731,6 +868,7 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     const visibleEntries = page.entries.filter(
@@ -816,11 +954,13 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
     const restrictedPageBefore = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 2,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     await Promise.all(
@@ -845,11 +985,13 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
     const restrictedPageAfter = await readAnimeArchivePage(database, {
       userId: owner.id,
       page: 2,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     expect(firstPageBefore).toEqual(firstPageAfter)
@@ -878,6 +1020,59 @@ describe('readAnimeArchivePage', () => {
       /adult private sentinel|changed sentinel|1999|2026|99|1000|airing|upcoming/,
     )
     expect(serializedPage).not.toContain('9.7')
+
+    const restrictedSnapshotsBefore = await Promise.all(
+      [
+        'alphabetical',
+        'recently-updated',
+        'recently-added',
+        'highest-rated',
+      ].map((sort) =>
+        readAnimeArchivePage(database, {
+          userId: owner.id,
+          page: 2,
+          pageSize: 24,
+          sort: sort as Parameters<typeof readAnimeArchivePage>[1]['sort'],
+        }),
+      ),
+    )
+
+    await Promise.all(
+      adultItems.map((item, index) =>
+        database
+          .update(animeEntries)
+          .set({
+            isFavourite: index % 2 === 0,
+            rating: [1, null, 10][index],
+            createdAt: new Date(`2025-01-0${index + 1}T00:00:00.000Z`),
+            updatedAt: new Date(`2025-02-0${index + 1}T00:00:00.000Z`),
+          })
+          .where(
+            and(
+              eq(animeEntries.userId, owner.id),
+              eq(animeEntries.catalogueItemId, item.id),
+            ),
+          ),
+      ),
+    )
+
+    const restrictedSnapshotsAfter = await Promise.all(
+      [
+        'alphabetical',
+        'recently-updated',
+        'recently-added',
+        'highest-rated',
+      ].map((sort) =>
+        readAnimeArchivePage(database, {
+          userId: owner.id,
+          page: 2,
+          pageSize: 24,
+          sort: sort as Parameters<typeof readAnimeArchivePage>[1]['sort'],
+        }),
+      ),
+    )
+
+    expect(restrictedSnapshotsAfter).toEqual(restrictedSnapshotsBefore)
   })
 
   it('does not mutate archive or catalogue rows', async () => {
@@ -895,6 +1090,7 @@ describe('readAnimeArchivePage', () => {
       userId: owner.id,
       page: 1,
       pageSize: 24,
+      sort: 'alphabetical',
     })
 
     const after = await Promise.all([

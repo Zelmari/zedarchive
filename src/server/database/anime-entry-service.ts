@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { z } from 'zod'
 import type { AddAnimeEntryInput } from '@/features/archive/domain/add-anime-entry'
@@ -18,6 +18,10 @@ import {
   type AnimePrivateListEntry,
   type AnimePrivateListPage,
 } from '@/features/archive/private-list/anime-private-list-model'
+import {
+  animePrivateListSortSchema,
+  type AnimePrivateListSort,
+} from '@/features/archive/private-list/anime-private-list-sort'
 import type { AnimeReleaseStatus } from '@/features/anime/domain/anime-catalogue-item'
 import { publishedNonAdultAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
@@ -50,6 +54,7 @@ const animeArchivePageRequestSchema = z.strictObject({
   userId: z.uuidv4(),
   page: z.number().int().min(1).max(ANIME_PRIVATE_LIST_MAX_PAGE),
   pageSize: z.literal(ANIME_PRIVATE_LIST_PAGE_SIZE),
+  sort: animePrivateListSortSchema,
 })
 
 export type ReadAnimeArchivePageRequest = z.input<
@@ -64,12 +69,70 @@ const visibleTitleLowerOrderExpression = sql<
 const visibleTitleOrderExpression = sql<
   string | null
 >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${resolvedTitleExpression} end`
+const ordinaryFavouriteOrderExpression = sql<number | null>`case
+  when ${animeCatalogueItems.maturity} = 'adult' then null
+  when ${animeEntries.isFavourite} then 0
+  else 1
+end`
+const visibleUpdatedAtOrderExpression = sql<Date | null>`case
+  when ${animeCatalogueItems.maturity} = 'adult' then null
+  else ${animeEntries.updatedAt}
+end`
+const visibleCreatedAtOrderExpression = sql<Date | null>`case
+  when ${animeCatalogueItems.maturity} = 'adult' then null
+  else ${animeEntries.createdAt}
+end`
+const visibleUnratedOrderExpression = sql<number | null>`case
+  when ${animeCatalogueItems.maturity} = 'adult' then null
+  when ${animeEntries.rating} is null then 1
+  else 0
+end`
+const visibleRatingOrderExpression = sql<number | null>`case
+  when ${animeCatalogueItems.maturity} = 'adult' then null
+  else ${animeEntries.rating}
+end`
 
 const archiveAvailabilityExpression = sql<AnimePrivateListEntry['kind']>`case
   when ${animeCatalogueItems.maturity} = 'adult' then 'restricted'
   when ${animeCatalogueItems.catalogueState} = 'published' then 'displayable'
   else 'unavailable_in_catalogue'
 end`
+
+function buildAnimeArchiveOrder(sort: AnimePrivateListSort) {
+  const sharedOrder = [
+    asc(restrictedOrderExpression),
+    asc(ordinaryFavouriteOrderExpression),
+  ] as const
+  const titleOrder = [
+    asc(visibleTitleLowerOrderExpression),
+    asc(visibleTitleOrderExpression),
+    asc(animeCatalogueItems.id),
+  ] as const
+
+  switch (sort) {
+    case 'alphabetical':
+      return [...sharedOrder, ...titleOrder]
+    case 'recently-updated':
+      return [
+        ...sharedOrder,
+        desc(visibleUpdatedAtOrderExpression),
+        ...titleOrder,
+      ]
+    case 'recently-added':
+      return [
+        ...sharedOrder,
+        desc(visibleCreatedAtOrderExpression),
+        ...titleOrder,
+      ]
+    case 'highest-rated':
+      return [
+        ...sharedOrder,
+        asc(visibleUnratedOrderExpression),
+        desc(visibleRatingOrderExpression),
+        ...titleOrder,
+      ]
+  }
+}
 
 function mapStoredAnimeArchiveEntry(row: {
   kind: AnimePrivateListEntry['kind']
@@ -312,7 +375,7 @@ export async function readAnimeArchivePage(
   database: NodePgDatabase,
   request: ReadAnimeArchivePageRequest,
 ): Promise<AnimePrivateListPage> {
-  const { userId, page, pageSize } =
+  const { userId, page, pageSize, sort } =
     animeArchivePageRequestSchema.parse(request)
   const offset = (page - 1) * pageSize
 
@@ -381,12 +444,7 @@ export async function readAnimeArchivePage(
           eq(animeCatalogueItems.id, animeEntries.catalogueItemId),
         )
         .where(eq(animeEntries.userId, userId))
-        .orderBy(
-          asc(restrictedOrderExpression),
-          asc(visibleTitleLowerOrderExpression),
-          asc(visibleTitleOrderExpression),
-          asc(animeCatalogueItems.id),
-        )
+        .orderBy(...buildAnimeArchiveOrder(sort))
         .limit(pageSize)
         .offset(offset)
 

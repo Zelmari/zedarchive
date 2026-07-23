@@ -24,13 +24,18 @@ vi.mock('@/features/archive/actions/update-anime-entry-favourite', () => ({
 vi.mock('@/features/archive/actions/update-anime-entry-date-range', () => ({
   updateAnimeEntryDateRange: vi.fn(),
 }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
   AnimePrivateListResults,
   AnimePrivateListRouteContent,
+  getAnimePrivateListSortControlViewKey,
   getAnimePrivateListEntryKey,
 } from '@/features/archive/private-list/anime-private-list-presentation'
 import type { AnimePrivateListPage } from '@/features/archive/private-list/anime-private-list-model'
+import type { AnimePrivateListSort } from '@/features/archive/private-list/anime-private-list-sort'
 
 function pageWith(
   entries: AnimePrivateListPage['entries'],
@@ -48,11 +53,47 @@ function pageWith(
   }
 }
 
-function renderResults(page: AnimePrivateListPage): string {
-  return renderToStaticMarkup(createElement(AnimePrivateListResults, { page }))
+function renderResults(
+  page: AnimePrivateListPage,
+  sort: AnimePrivateListSort = 'alphabetical',
+  isSortExplicit = true,
+): string {
+  return renderToStaticMarkup(
+    createElement(AnimePrivateListResults, { page, sort, isSortExplicit }),
+  )
 }
 
 describe('AnimePrivateListResults', () => {
+  it('keys each server-described sort-control view distinctly', () => {
+    const firstExplicitView = getAnimePrivateListSortControlViewKey({
+      isSortExplicit: true,
+      page: 1,
+      sort: 'highest-rated',
+    })
+
+    expect(firstExplicitView).toBe(
+      getAnimePrivateListSortControlViewKey({
+        isSortExplicit: true,
+        page: 1,
+        sort: 'highest-rated',
+      }),
+    )
+    expect(firstExplicitView).not.toBe(
+      getAnimePrivateListSortControlViewKey({
+        isSortExplicit: true,
+        page: 2,
+        sort: 'highest-rated',
+      }),
+    )
+    expect(firstExplicitView).not.toBe(
+      getAnimePrivateListSortControlViewKey({
+        isSortExplicit: false,
+        page: 1,
+        sort: 'highest-rated',
+      }),
+    )
+  })
+
   it('uses stable entry identity for ordinary editor state boundaries only', () => {
     const firstEntry: AnimePrivateListPage['entries'][number] = {
       kind: 'displayable',
@@ -150,11 +191,22 @@ describe('AnimePrivateListResults', () => {
       'Status editing isn’t available for restricted anime yet.',
     )
     expect(markup).toContain(
-      '<noscript><p>Archive editing requires JavaScript.</p></noscript>',
+      '<noscript><p>Archive editing requires JavaScript. Sorting works without it, but your sort preference cannot be saved on this device.</p></noscript>',
     )
+    expect(markup).toContain('Sort by')
+    expect(markup).toContain('Apply sort')
+    expect(markup).toContain('action="/archive/anime"')
+    expect(markup).toContain('method="get"')
+    expect(markup).toContain('name="sort"')
+    expect(markup).toContain('value="alphabetical" selected=""')
+    expect(markup).toContain('value="recently-updated"')
+    expect(markup).toContain('value="recently-added"')
+    expect(markup).toContain('value="highest-rated"')
     expect(markup).toContain('Anime archive pagination')
-    expect(markup).toContain('href="/archive/anime"')
-    expect(markup).toContain('href="/archive/anime?page=3"')
+    expect(markup).toContain('href="/archive/anime?sort=alphabetical"')
+    expect(markup).toContain(
+      'href="/archive/anime?sort=alphabetical&amp;page=3"',
+    )
     expect(markup).toContain('Progress — 26 episodes')
     expect(markup).toContain('Total — 26 episodes')
     expect(markup).toContain('Rating — 7.5/10')
@@ -173,7 +225,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).not.toContain('Remove from favourites')
     expect(markup).not.toContain('Set dates')
     expect(markup).not.toContain('Edit dates')
-    expect(markup).not.toContain('<form')
+    expect(markup.match(/<form/g)).toHaveLength(1)
     expect(markup).toContain(
       'Episode tracking isn’t available until this anime’s format is known.',
     )
@@ -193,24 +245,32 @@ describe('AnimePrivateListResults', () => {
         hasNextPage: false,
       },
     })
-    const beyondFinalMarkup = renderResults({
-      entries: [],
-      pagination: {
-        page: 4,
-        pageSize: 24,
-        totalItems: 25,
-        totalPages: 2,
-        hasPreviousPage: true,
-        hasNextPage: false,
+    const beyondFinalMarkup = renderResults(
+      {
+        entries: [],
+        pagination: {
+          page: 4,
+          pageSize: 24,
+          totalItems: 25,
+          totalPages: 2,
+          hasPreviousPage: true,
+          hasNextPage: false,
+        },
       },
-    })
+      'highest-rated',
+    )
 
     expect(emptyMarkup).toContain('Your anime archive is empty')
     expect(emptyMarkup).toContain('Browse anime catalogue')
     expect(beyondFinalMarkup).not.toContain('Your anime archive is empty')
     expect(beyondFinalMarkup).toContain('There are no anime on this page')
+    expect(beyondFinalMarkup).toContain('Sort by')
+    expect(beyondFinalMarkup).toContain('value="highest-rated" selected=""')
     expect(beyondFinalMarkup).toContain('Go to the first page')
-    expect(beyondFinalMarkup).toContain('href="/archive/anime"')
+    expect(beyondFinalMarkup).toContain(
+      'href="/archive/anime?sort=highest-rated"',
+    )
+    expect(emptyMarkup).not.toContain('Sort by')
   })
 })
 
@@ -229,6 +289,7 @@ describe('AnimePrivateListRouteContent', () => {
     expect(markup).toContain('Page must be a whole number from 1 to 10000')
     expect(markup).not.toContain('Restricted anime')
     expect(markup).not.toContain('Browse anime catalogue')
+    expect(markup).not.toContain('Sort by')
   })
 
   it('renders the contextual signed-out gate without a return URL or archive content', () => {
@@ -243,6 +304,7 @@ describe('AnimePrivateListRouteContent', () => {
     expect(markup).not.toContain('returnTo')
     expect(markup).not.toContain('Restricted anime')
     expect(markup).not.toContain('Browse anime catalogue')
+    expect(markup).not.toContain('Sort by')
   })
 })
 

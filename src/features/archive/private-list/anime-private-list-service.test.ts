@@ -36,6 +36,12 @@ describe('readAnimeArchivePage request and transaction boundary', () => {
       userId: '11111111-1111-4111-8111-111111111111',
       page: 1,
       pageSize: 24,
+    },
+    {
+      userId: '11111111-1111-4111-8111-111111111111',
+      page: 1,
+      pageSize: 24,
+      sort: 'forged-sort',
       ownerId: 'forged-extra-owner',
     },
   ])(
@@ -74,6 +80,7 @@ describe('readAnimeArchivePage request and transaction boundary', () => {
         userId: '11111111-1111-4111-8111-111111111111',
         page: 1,
         pageSize: 24,
+        sort: 'alphabetical',
       }),
     ).resolves.toBe(expectedPage)
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {

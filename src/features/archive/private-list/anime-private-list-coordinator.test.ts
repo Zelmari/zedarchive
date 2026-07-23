@@ -33,9 +33,30 @@ describe('createAnimePrivateListCoordinator', () => {
       readArchivePage,
     })
 
-    await expect(coordinate({ page: ['2', '3'] })).resolves.toEqual({
+    await expect(
+      coordinate({ page: ['2', '3'], sort: 'forged-sort' }),
+    ).resolves.toEqual({
       kind: 'validation-error',
       message: 'Page must be provided only once',
+    })
+    expect(getSession).not.toHaveBeenCalled()
+    expect(readArchivePage).not.toHaveBeenCalled()
+  })
+
+  it('does not discard an invalid sort beside a singleton page array', async () => {
+    const getSession = vi.fn()
+    const readArchivePage = vi.fn()
+    const coordinate = createAnimePrivateListCoordinator({
+      getSession,
+      readArchivePage,
+    })
+
+    await expect(
+      coordinate({ page: ['2'], sort: 'forged-sort' }),
+    ).resolves.toEqual({
+      kind: 'validation-error',
+      message:
+        'Sort must be alphabetical, recently-updated, recently-added, or highest-rated',
     })
     expect(getSession).not.toHaveBeenCalled()
     expect(readArchivePage).not.toHaveBeenCalled()
@@ -52,7 +73,7 @@ describe('createAnimePrivateListCoordinator', () => {
     expect(readArchivePage).not.toHaveBeenCalled()
   })
 
-  it('forwards exactly the session owner and parsed bounded page', async () => {
+  it('forwards exactly the session owner and parsed bounded page and sort', async () => {
     const readArchivePage = vi.fn().mockResolvedValue(archivePage)
     const coordinate = createAnimePrivateListCoordinator({
       getSession: vi.fn().mockResolvedValue({
@@ -62,12 +83,23 @@ describe('createAnimePrivateListCoordinator', () => {
     })
 
     await expect(
-      coordinate({ page: '2', userId: 'forged-owner', owner: 'forged-owner' }),
-    ).resolves.toEqual({ kind: 'archive', page: archivePage })
+      coordinate({
+        page: '2',
+        sort: 'recently-updated',
+        userId: 'forged-owner',
+        owner: 'forged-owner',
+      }),
+    ).resolves.toEqual({
+      kind: 'archive',
+      page: archivePage,
+      sort: 'recently-updated',
+      isSortExplicit: true,
+    })
     expect(readArchivePage).toHaveBeenCalledExactlyOnceWith({
       userId: 'authoritative-session-owner',
       page: 2,
       pageSize: 24,
+      sort: 'recently-updated',
     })
   })
 
