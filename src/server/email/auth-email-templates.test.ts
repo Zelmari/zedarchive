@@ -3,6 +3,7 @@ import {
   createAuthEmailIdempotencyKey,
   renderEmailVerificationMessage,
   renderPasswordResetMessage,
+  renderUsernameChangeCodeMessage,
 } from '@/server/email/auth-email-templates'
 
 const verificationUrl =
@@ -41,6 +42,25 @@ describe('authentication email templates', () => {
     expect(message.text).toContain('did not request this')
     expect(message.html).toContain('>Reset password</a>')
     expect(message.html).not.toMatch(/<(?:img|script|style|link)\b/iu)
+  })
+
+  it('renders a data-minimal username-change code without a completion link', () => {
+    const message = renderUsernameChangeCodeMessage({
+      challengeId: '11111111-1111-4111-8111-111111111111',
+      code: '00000001',
+    })
+
+    expect(message.category).toBe('username_change')
+    expect(message.subject).toBe('Your zedarchive username change code')
+    expect(message.text).toContain('00000001')
+    expect(message.text).toContain('expires in 10 minutes')
+    expect(message.text).not.toContain('MediaFan')
+    expect(message.text).not.toContain('fan@example.com')
+    expect(message.html).not.toContain('href=')
+    expect(message.idempotencyKey).not.toContain('00000001')
+    expect(message.idempotencyKey).toMatch(
+      /^auth-email\/username_change\/[a-f0-9]{64}$/u,
+    )
   })
 
   it('does not introduce recipient or account metadata', () => {

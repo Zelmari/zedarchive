@@ -1,4 +1,5 @@
-export type AuthEmailCategory = 'email_verification' | 'password_reset'
+export type AuthEmailCategory =
+  'email_verification' | 'password_reset' | 'username_change'
 
 export type TransactionalEmail = Readonly<{
   to: string

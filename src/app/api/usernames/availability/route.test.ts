@@ -46,7 +46,7 @@ describe('handleUsernameAvailabilityGet', () => {
   })
 
   it('returns allowlisted available JSON with no-store headers', async () => {
-    const { database, select } = createTrackingDatabase([])
+    const { database, select, from, where, limit } = createTrackingDatabase([])
 
     const response = await handleUsernameAvailabilityGet(
       createAvailabilityRequest('?username=FreeName'),
@@ -57,7 +57,10 @@ describe('handleUsernameAvailabilityGet', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(response.headers.get('Content-Type')).toContain('application/json')
     expect(await readJson(response)).toEqual({ status: 'available' })
-    expect(select).toHaveBeenCalledTimes(1)
+    expect(select).toHaveBeenCalledTimes(2)
+    expect(from).toHaveBeenCalledTimes(2)
+    expect(where).toHaveBeenCalledTimes(2)
+    expect(limit).toHaveBeenCalledTimes(2)
   })
 
   it('returns unavailable for an occupied identity without leaking account data', async () => {
@@ -81,7 +84,7 @@ describe('handleUsernameAvailabilityGet', () => {
   })
 
   it('returns unavailable for a capitalization variant of an occupied identity', async () => {
-    const { database, where } = createTrackingDatabase([
+    const { database, select, from, where, limit } = createTrackingDatabase([
       { id: '00000000-0000-4000-8000-000000000001' },
     ])
 
@@ -92,7 +95,10 @@ describe('handleUsernameAvailabilityGet', () => {
 
     expect(response.status).toBe(200)
     expect(await readJson(response)).toEqual({ status: 'unavailable' })
-    expect(where).toHaveBeenCalledTimes(1)
+    expect(select).toHaveBeenCalledTimes(2)
+    expect(from).toHaveBeenCalledTimes(2)
+    expect(where).toHaveBeenCalledTimes(2)
+    expect(limit).toHaveBeenCalledTimes(2)
   })
 
   it('rejects a missing username query without database work', async () => {

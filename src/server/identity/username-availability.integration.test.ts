@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
-import { users } from '@/server/database/schema'
+import { usernameChangeRecords, users } from '@/server/database/schema'
 import {
   checkUsernameAvailability,
   usernameAvailabilityInputMaximumCodeUnits,
@@ -74,6 +74,48 @@ describe('checkUsernameAvailability', () => {
     await expect(
       checkUsernameAvailability(database, 'MediaFan'),
     ).resolves.toEqual({ status: 'unavailable' })
+  })
+
+  it('reports a currently reserved former username as unavailable', async () => {
+    const user = await insertUser()
+    const changedAt = new Date()
+
+    await database.insert(usernameChangeRecords).values({
+      userId: user.id,
+      changedAt,
+      previousUsernameIdentityKey: 'formername',
+      previousUsernameReservedUntil: new Date(
+        changedAt.getTime() + 14 * 24 * 60 * 60 * 1000,
+      ),
+    })
+
+    await expect(
+      checkUsernameAvailability(database, 'FormerName'),
+    ).resolves.toEqual({ status: 'unavailable' })
+  })
+
+  it('releases an expired reservation to availability and permits registration', async () => {
+    const user = await insertUser()
+    const changedAt = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)
+
+    await database.insert(usernameChangeRecords).values({
+      userId: user.id,
+      changedAt,
+      previousUsernameIdentityKey: 'formername',
+      previousUsernameReservedUntil: new Date(
+        changedAt.getTime() + 14 * 24 * 60 * 60 * 1000,
+      ),
+    })
+
+    await expect(
+      checkUsernameAvailability(database, 'FormerName'),
+    ).resolves.toEqual({ status: 'available' })
+    await expect(
+      insertUser({
+        username: 'FormerName',
+        usernameIdentityKey: 'formername',
+      }),
+    ).resolves.toMatchObject({ username: 'FormerName' })
   })
 
   it('treats capitalization variants as one identity', async () => {

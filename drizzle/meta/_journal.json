@@ -71,6 +71,13 @@
       "when": 1784908425334,
       "tag": "0009_catalogue_preference_read_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784919927285,
+      "tag": "0010_username_change",
+      "breakpoints": true
     }
   ]
 }

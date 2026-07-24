@@ -121,6 +121,7 @@ describe('createAuthOptions', () => {
       storage: 'database',
       customRules: {
         '/sign-up/email': { window: 60, max: 3 },
+        '/verify-password': { window: 60, max: 5 },
       },
     })
     expect(options.advanced?.disableOriginCheck).toBe(false)

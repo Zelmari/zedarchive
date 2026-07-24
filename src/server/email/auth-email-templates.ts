@@ -107,3 +107,44 @@ export function renderPasswordResetMessage({
     idempotencyKey: createAuthEmailIdempotencyKey('password_reset', token),
   }
 }
+
+export function renderUsernameChangeCodeMessage({
+  challengeId,
+  code,
+}: Readonly<{
+  challengeId: string
+  code: string
+}>): TransactionalEmailContent {
+  return {
+    category: 'username_change',
+    subject: `Your ${productName} username change code`,
+    text: [
+      'Confirm your username change',
+      '',
+      `A username change was requested for your ${productName} account.`,
+      '',
+      `Verification code: ${code}`,
+      '',
+      'This code expires in 10 minutes. If you requested another code, only the newest code works.',
+      `If you did not request this, you can ignore this email.`,
+    ].join('\n'),
+    html: [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<body>',
+      '<main>',
+      '<h1>Confirm your username change</h1>',
+      `<p>A username change was requested for your ${productName} account.</p>`,
+      `<p>Your verification code: <strong>${escapeHtml(code)}</strong></p>`,
+      '<p>This code expires in 10 minutes. If you requested another code, only the newest code works.</p>',
+      '<p>If you did not request this, you can ignore this email.</p>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    idempotencyKey: createAuthEmailIdempotencyKey(
+      'username_change',
+      challengeId,
+    ),
+  }
+}

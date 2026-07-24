@@ -46,6 +46,8 @@ const EMAIL_VERIFICATION_EXPIRY_SECONDS = 60 * 60 * 24
 const PASSWORD_RESET_EXPIRY_SECONDS = 60 * 60
 const SIGN_UP_RATE_LIMIT_WINDOW_SECONDS = 60
 const SIGN_UP_RATE_LIMIT_MAX_REQUESTS = 3
+const VERIFY_PASSWORD_RATE_LIMIT_WINDOW_SECONDS = 60
+const VERIFY_PASSWORD_RATE_LIMIT_MAX_REQUESTS = 5
 
 export const PENDING_USERNAME_IDENTITY_KEY_SENTINEL =
   '__pending_identity__' as const
@@ -203,6 +205,10 @@ export function createAuthOptions(
         '/sign-up/email': {
           window: SIGN_UP_RATE_LIMIT_WINDOW_SECONDS,
           max: SIGN_UP_RATE_LIMIT_MAX_REQUESTS,
+        },
+        '/verify-password': {
+          window: VERIFY_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
+          max: VERIFY_PASSWORD_RATE_LIMIT_MAX_REQUESTS,
         },
       },
     },

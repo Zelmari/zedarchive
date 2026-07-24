@@ -1,11 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { UsernameAvailability } from '@/features/identity/domain/username-availability'
 import {
   normalizeUsernameForIdentity,
   usernameSchema,
 } from '@/features/identity/domain/username'
-import { users } from '@/server/database/schema'
+import { usernameChangeRecords, users } from '@/server/database/schema'
 
 export const usernameAvailabilityInputMaximumCodeUnits = 256
 
@@ -28,13 +28,28 @@ export async function checkUsernameAvailability(
 
   const usernameIdentityKey = normalizeUsernameForIdentity(parsedUsername.data)
 
-  const matches = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.usernameIdentityKey, usernameIdentityKey))
-    .limit(1)
+  const [activeUsers, reservations] = await Promise.all([
+    database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.usernameIdentityKey, usernameIdentityKey))
+      .limit(1),
+    database
+      .select({ userId: usernameChangeRecords.userId })
+      .from(usernameChangeRecords)
+      .where(
+        and(
+          eq(
+            usernameChangeRecords.previousUsernameIdentityKey,
+            usernameIdentityKey,
+          ),
+          sql`${usernameChangeRecords.previousUsernameReservedUntil} > clock_timestamp()`,
+        ),
+      )
+      .limit(1),
+  ])
 
-  return matches.length > 0
+  return activeUsers.length > 0 || reservations.length > 0
     ? { status: 'unavailable' }
     : { status: 'available' }
 }

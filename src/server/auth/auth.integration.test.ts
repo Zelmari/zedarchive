@@ -17,7 +17,13 @@ import {
   passwordMinimumLength,
 } from '@/features/auth/domain/password-policy'
 import { createAuth } from '@/server/auth/create-auth'
-import { accounts, rateLimits, sessions, users } from '@/server/database/schema'
+import {
+  accounts,
+  rateLimits,
+  sessions,
+  usernameChangeRecords,
+  users,
+} from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 
 vi.mock('server-only', () => ({}))
@@ -48,11 +54,13 @@ function createAuthRequest(
     body?: Record<string, unknown>
     cookie?: string
     origin?: string
+    omitOrigin?: boolean
   } = {},
 ) {
-  const headers = new Headers({
-    Origin: options.origin ?? authEnvironment.authUrl,
-  })
+  const headers = new Headers()
+  if (!options.omitOrigin) {
+    headers.set('Origin', options.origin ?? authEnvironment.authUrl)
+  }
 
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json')
@@ -522,6 +530,157 @@ describe('auth handler integration', () => {
       username: 'MediaFan',
       usernameIdentityKey: 'mediafan',
     })
+  })
+
+  it('enforces verify-password session and same-origin semantics without rotating the session', async () => {
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+    const { sessionCookie } = await signUpTestUser(auth)
+    const verifyBody = { password: validPassword }
+
+    const success = await auth.handler(
+      createAuthRequest('/verify-password', {
+        body: verifyBody,
+        cookie: sessionCookie,
+      }),
+    )
+    expect(success.status).toBe(200)
+    expect(success.headers.get('set-cookie')).toBeNull()
+
+    const wrongPassword = await auth.handler(
+      createAuthRequest('/verify-password', {
+        body: { password: 'wrong-password-15' },
+        cookie: sessionCookie,
+      }),
+    )
+    expect(wrongPassword.status).toBe(400)
+    expect(wrongPassword.headers.get('set-cookie')).toBeNull()
+
+    const missingOrigin = await auth.handler(
+      createAuthRequest('/verify-password', {
+        body: verifyBody,
+        cookie: sessionCookie,
+        omitOrigin: true,
+      }),
+    )
+    expect(missingOrigin.status).toBe(403)
+    expect(missingOrigin.headers.get('set-cookie')).toBeNull()
+
+    const mismatchedOrigin = await auth.handler(
+      createAuthRequest('/verify-password', {
+        body: verifyBody,
+        cookie: sessionCookie,
+        origin: 'https://attacker.example',
+      }),
+    )
+    expect(mismatchedOrigin.status).toBe(403)
+    expect(mismatchedOrigin.headers.get('set-cookie')).toBeNull()
+
+    const [session] = await database.select().from(sessions)
+    expect(session).toBeDefined()
+    await database
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(sessions.id, session!.id))
+    const expiredSession = await auth.handler(
+      createAuthRequest('/verify-password', {
+        body: verifyBody,
+        cookie: sessionCookie,
+      }),
+    )
+    expect(expiredSession.status).toBe(401)
+    expect(expiredSession.headers.get('set-cookie')).toBeNull()
+    await expect(database.select().from(sessions)).resolves.toEqual([])
+  })
+
+  it('shares the five-per-sixty-second verify-password limiter through the database', async () => {
+    const firstAuth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+    const { sessionCookie } = await signUpTestUser(firstAuth)
+    const requestOptions = {
+      body: { password: 'wrong-password-15' },
+      cookie: sessionCookie,
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await firstAuth.handler(
+        createAuthRequest('/verify-password', requestOptions),
+      )
+      expect(response.status).toBe(400)
+    }
+    const limitedResponse = await firstAuth.handler(
+      createAuthRequest('/verify-password', requestOptions),
+    )
+    expect(limitedResponse.status).toBe(429)
+    expect(limitedResponse.headers.get('X-Retry-After')).toBeTruthy()
+
+    const persistedRows = await database.select().from(rateLimits)
+    expect(persistedRows.some(({ count }) => count >= 5)).toBe(true)
+    const secondAuth = createAuth(database, authEnvironment)
+    const persistedLimit = await secondAuth.handler(
+      createAuthRequest('/verify-password', requestOptions),
+    )
+    expect(persistedLimit.status).toBe(429)
+  })
+
+  it('rejects credential registration for an unexpired reserved former username', async () => {
+    const changedAt = new Date()
+    const [changedUser] = await database
+      .insert(users)
+      .values({
+        username: 'CurrentName',
+        usernameIdentityKey: 'currentname',
+        email: 'current@example.com',
+        emailVerified: true,
+      })
+      .returning()
+    expect(changedUser).toBeDefined()
+    await database.insert(usernameChangeRecords).values({
+      userId: changedUser!.id,
+      changedAt,
+      previousUsernameIdentityKey: 'mediafan',
+      previousUsernameReservedUntil: new Date(
+        changedAt.getTime() + 14 * 24 * 60 * 60 * 1000,
+      ),
+    })
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+
+    let response: Response | undefined
+    try {
+      response = await auth.handler(
+        createAuthRequest('/sign-up/email', {
+          body: {
+            name: 'MediaFan',
+            email: 'reserved@example.com',
+            password: validPassword,
+          },
+        }),
+      )
+    } catch {
+      // Database invariants may surface as a rejected handler promise rather
+      // than a provider-shaped response; persistence is authoritative here.
+    }
+
+    expect(response?.status).not.toBe(200)
+    await expect(database.select().from(users)).resolves.toHaveLength(1)
+    await expect(database.select().from(accounts)).resolves.toEqual([])
+    await expect(database.select().from(sessions)).resolves.toEqual([])
   })
 
   it('persists database rate limits across a new auth instance', async () => {

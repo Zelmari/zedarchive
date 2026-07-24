@@ -47,6 +47,14 @@ function expectPublishedCatalogueIndexPredicate(
   expect(predicate).not.toMatch(/maturity/i)
 }
 
+function normalizeDatabaseDefinition(definition: string): string {
+  return definition
+    .replaceAll('"', '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .toLowerCase()
+}
+
 async function queryCatalogueReadIndexMetadata(): Promise<
   CatalogueReadIndexMetadata[]
 > {
@@ -208,7 +216,7 @@ describe('database integration safety', () => {
     )
   })
 
-  it('contains exactly the ten approved public application tables', async () => {
+  it('contains exactly the twelve approved public application tables', async () => {
     const result = await pool.query<{ tableName: string }>(`
       select tablename as "tableName"
       from pg_catalog.pg_tables
@@ -225,6 +233,8 @@ describe('database integration safety', () => {
       'rate_limits',
       'sessions',
       'user_catalogue_preferences',
+      'username_change_challenges',
+      'username_change_records',
       'users',
       'verifications',
     ])
@@ -279,6 +289,146 @@ describe('database integration safety', () => {
     expect(indexResult.rows.map(({ indexName }) => indexName)).toContain(
       'anime_catalogue_sources_catalogue_item_id_idx',
     )
+  })
+
+  it('installs the complete username-change constraint, index, function, and trigger inventory', async () => {
+    const constraints = await pool.query<{ name: string }>(`
+      select conname as name
+      from pg_catalog.pg_constraint
+      where conrelid in (
+        'username_change_challenges'::regclass,
+        'username_change_records'::regclass
+      )
+      order by conname
+    `)
+    const indexes = await pool.query<{ name: string }>(`
+      select idx.relname as name
+      from pg_catalog.pg_index ix
+      join pg_catalog.pg_class idx on idx.oid = ix.indexrelid
+      where ix.indrelid in (
+        'username_change_challenges'::regclass,
+        'username_change_records'::regclass
+      )
+        and not exists (
+          select 1
+          from pg_catalog.pg_constraint con
+          where con.conindid = ix.indexrelid
+        )
+      order by idx.relname
+    `)
+    const functions = await pool.query<{ name: string; definition: string }>(`
+      select
+        proname as name,
+        pg_get_functiondef(oid) as definition
+      from pg_catalog.pg_proc
+      where pronamespace = 'public'::regnamespace
+        and proname = any(array[
+          'enforce_user_username_reservation',
+          'enforce_username_change_record_reservation',
+          'lock_username_identity_key',
+          'reject_username_change_record_update'
+        ])
+      order by proname
+    `)
+    const triggers = await pool.query<{
+      name: string
+      relation: string
+      enabled: string
+      definition: string
+    }>(`
+      select
+        tgname as name,
+        tgrelid::regclass::text as relation,
+        tgenabled as enabled,
+        pg_get_triggerdef(oid, true) as definition
+      from pg_catalog.pg_trigger
+      where not tgisinternal
+        and tgrelid in (
+          'users'::regclass,
+          'username_change_records'::regclass
+        )
+      order by tgname
+    `)
+
+    expect(constraints.rows.map(({ name }) => name)).toEqual([
+      'username_change_challenges_challenge_id_key',
+      'username_change_challenges_digest_check',
+      'username_change_challenges_expiry_check',
+      'username_change_challenges_failed_attempts_check',
+      'username_change_challenges_pkey',
+      'username_change_challenges_proposed_key_check',
+      'username_change_challenges_proposed_username_check',
+      'username_change_challenges_send_count_check',
+      'username_change_challenges_session_id_fkey',
+      'username_change_challenges_timestamp_order_check',
+      'username_change_challenges_user_id_fkey',
+      'username_change_records_pkey',
+      'username_change_records_previous_key_check',
+      'username_change_records_reservation_interval_check',
+      'username_change_records_reservation_order_check',
+      'username_change_records_reservation_pair_check',
+      'username_change_records_user_id_fkey',
+    ])
+    expect(indexes.rows.map(({ name }) => name)).toEqual([
+      'username_change_challenges_session_id_idx',
+      'username_change_records_previous_key_reserved_until_idx',
+    ])
+    expect(functions.rows.map(({ name }) => name)).toEqual([
+      'enforce_user_username_reservation',
+      'enforce_username_change_record_reservation',
+      'lock_username_identity_key',
+      'reject_username_change_record_update',
+    ])
+    const functionDefinitions = Object.fromEntries(
+      functions.rows.map(({ name, definition }) => [
+        name,
+        normalizeDatabaseDefinition(definition),
+      ]),
+    )
+    expect(functionDefinitions.lock_username_identity_key).toMatch(
+      /returns void language plpgsql.*pg_advisory_xact_lock\s*\(\s*hashtextextended\s*\(.*'zedarchive\/username-change\/v1:'.*\|\|\s*identity_key.*,\s*0\s*\)/u,
+    )
+    expect(functionDefinitions.enforce_user_username_reservation).toMatch(
+      /returns trigger language plpgsql.*lock_username_identity_key\s*\(\s*new\.username_identity_key\s*\).*from username_change_records.*previous_username_identity_key\s*=\s*new\.username_identity_key.*previous_username_reserved_until\s*>\s*clock_timestamp\s*\(\s*\).*errcode\s*=\s*'23505'.*constraint\s*=\s*'username_identity_key_reserved'/u,
+    )
+    expect(
+      functionDefinitions.enforce_username_change_record_reservation,
+    ).toMatch(
+      /returns trigger language plpgsql.*new\.previous_username_identity_key is null.*lock_username_identity_key\s*\(\s*new\.previous_username_identity_key\s*\).*from users.*username_identity_key\s*=\s*new\.previous_username_identity_key.*errcode\s*=\s*'23505'.*constraint\s*=\s*'username_change_records_previous_key_active'/u,
+    )
+    expect(functionDefinitions.reject_username_change_record_update).toMatch(
+      /returns trigger language plpgsql.*errcode\s*=\s*'55000'.*constraint\s*=\s*'username_change_records_immutable'/u,
+    )
+    expect(
+      triggers.rows.map(({ name, relation, enabled, definition }) => ({
+        name,
+        relation,
+        enabled,
+        definition: normalizeDatabaseDefinition(definition),
+      })),
+    ).toEqual([
+      {
+        name: 'username_change_records_immutable_trigger',
+        relation: 'username_change_records',
+        enabled: 'O',
+        definition:
+          'create trigger username_change_records_immutable_trigger before update on username_change_records for each row execute function reject_username_change_record_update()',
+      },
+      {
+        name: 'username_change_records_reservation_trigger',
+        relation: 'username_change_records',
+        enabled: 'O',
+        definition:
+          'create trigger username_change_records_reservation_trigger before insert on username_change_records for each row execute function enforce_username_change_record_reservation()',
+      },
+      {
+        name: 'users_username_reservation_trigger',
+        relation: 'users',
+        enabled: 'O',
+        definition:
+          'create trigger users_username_reservation_trigger before insert or update of username_identity_key on users for each row execute function enforce_user_username_reservation()',
+      },
+    ])
   })
 })
 
