@@ -24,8 +24,11 @@ vi.mock('@/features/archive/actions/update-anime-entry-favourite', () => ({
 vi.mock('@/features/archive/actions/update-anime-entry-date-range', () => ({
   updateAnimeEntryDateRange: vi.fn(),
 }))
+vi.mock('@/features/archive/actions/remove-anime-entry', () => ({
+  removeAnimeEntry: vi.fn(),
+}))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
@@ -59,7 +62,12 @@ function renderResults(
   isSortExplicit = true,
 ): string {
   return renderToStaticMarkup(
-    createElement(AnimePrivateListResults, { page, sort, isSortExplicit }),
+    createElement(AnimePrivateListResults, {
+      page,
+      sort,
+      isSortExplicit,
+      renderRevision: 'test-render-revision',
+    }),
   )
 }
 
@@ -188,7 +196,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('Restricted anime')
     expect(markup).toContain('Plan to watch')
     expect(markup).toContain(
-      'Status editing isn’t available for restricted anime yet.',
+      'Tracking controls aren’t available for restricted anime yet.',
     )
     expect(markup).toContain(
       '<noscript><p>Archive editing requires JavaScript. Sorting works without it, but your sort preference cannot be saved on this device.</p></noscript>',
@@ -225,6 +233,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).not.toContain('Remove from favourites')
     expect(markup).not.toContain('Set dates')
     expect(markup).not.toContain('Edit dates')
+    expect(markup).not.toContain('Remove from archive')
     expect(markup.match(/<form/g)).toHaveLength(1)
     expect(markup).toContain(
       'Episode tracking isn’t available until this anime’s format is known.',
@@ -278,6 +287,7 @@ describe('AnimePrivateListRouteContent', () => {
   it('renders a local validation alert without archive content', () => {
     const markup = renderToStaticMarkup(
       createElement(AnimePrivateListRouteContent, {
+        renderRevision: 'test-render-revision',
         model: {
           kind: 'validation-error',
           message: 'Page must be a whole number from 1 to 10000',
@@ -295,6 +305,7 @@ describe('AnimePrivateListRouteContent', () => {
   it('renders the contextual signed-out gate without a return URL or archive content', () => {
     const markup = renderToStaticMarkup(
       createElement(AnimePrivateListRouteContent, {
+        renderRevision: 'test-render-revision',
         model: { kind: 'signed-out' },
       }),
     )

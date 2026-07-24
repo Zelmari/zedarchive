@@ -22,6 +22,12 @@ describe('anime entry tracking coordinator', () => {
     expect(pending.activeOperation).toEqual({ kind: 'progress', revision: 1 })
     expect(beginAnimeEntryTrackingOperation(pending, 'total')).toBe(pending)
   })
+  it('serializes removal with every sibling tracking mutation', () => {
+    const removal = beginAnimeEntryTrackingOperation(initial(), 'removal')
+
+    expect(removal.activeOperation).toEqual({ kind: 'removal', revision: 1 })
+    expect(beginAnimeEntryTrackingOperation(removal, 'status')).toBe(removal)
+  })
   it('rejects stale results and reconciles only the field owned by the operation', () => {
     const pending = beginAnimeEntryTrackingOperation(initial(), 'progress')
     expect(

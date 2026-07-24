@@ -7,9 +7,11 @@ import { updateAnimeEntryStatus } from '@/features/archive/actions/update-anime-
 import { updateAnimeEntryRating } from '@/features/archive/actions/update-anime-entry-rating'
 import { updateAnimeEntryFavourite } from '@/features/archive/actions/update-anime-entry-favourite'
 import { updateAnimeEntryDateRange } from '@/features/archive/actions/update-anime-entry-date-range'
+import { removeAnimeEntry } from '@/features/archive/actions/remove-anime-entry'
 import { AnimeEntryFavouriteControl } from '@/features/archive/components/anime-entry-favourite-control'
 import { AnimeEntryDateRangeForm } from '@/features/archive/components/anime-entry-date-range-form'
 import { AnimeEntryEpisodeProgressControls } from '@/features/archive/components/anime-entry-episode-progress-controls'
+import { AnimeEntryRemovalControl } from '@/features/archive/components/anime-entry-removal-control'
 import { AnimeEntryRatingForm } from '@/features/archive/components/anime-entry-rating-form'
 import {
   beginAnimeEntryTrackingOperation,
@@ -30,6 +32,8 @@ import type { Rating } from '@/features/archive/domain/rating'
 import type { CalendarDate } from '@/features/archive/domain/entry-date-range'
 import type { UpdateAnimeEntryFavouriteActionState } from '@/features/archive/domain/update-anime-entry-favourite'
 import type { UpdateAnimeEntryDateRangeActionState } from '@/features/archive/domain/update-anime-entry-date-range'
+import type { RemoveAnimeEntryActionState } from '@/features/archive/domain/remove-anime-entry'
+import { useAnimePrivateListRemovalSuccess } from '@/features/archive/private-list/anime-private-list-removal-boundary'
 
 type Props = {
   entryId: string
@@ -154,6 +158,7 @@ export function AnimeEntryTrackingCoordinator({
   initialFinishDate,
   progressState,
 }: Props) {
+  const reportRemoval = useAnimePrivateListRemovalSuccess()
   const [state, setState] = useState(() =>
     createAnimeEntryTrackingCoordinatorState({
       status: initialStatus,
@@ -176,6 +181,7 @@ export function AnimeEntryTrackingCoordinator({
   const isPending = isTransitionPending || state.activeOperation !== null
   const isFavouritePending = state.activeOperation?.kind === 'favourite'
   const isDateRangePending = state.activeOperation?.kind === 'dates'
+  const isRemovalPending = state.activeOperation?.kind === 'removal'
 
   function runMutation<Result>(
     kind: AnimeEntryTrackingOperation,
@@ -367,6 +373,26 @@ export function AnimeEntryTrackingCoordinator({
           Episode tracking isn’t available until this anime’s format is known.
         </p>
       ) : null}
+      <AnimeEntryRemovalControl
+        animeTitle={animeTitle}
+        entryId={entryId}
+        isOwnOperationPending={isRemovalPending}
+        isPending={isPending}
+        onRemoved={reportRemoval}
+        onSubmit={(formData) =>
+          runMutation<RemoveAnimeEntryActionState>(
+            'removal',
+            async () => {
+              try {
+                return await removeAnimeEntry({ kind: 'idle' }, formData)
+              } catch {
+                return { kind: 'retry' } as const
+              }
+            },
+            () => null,
+          )
+        }
+      />
     </div>
   )
 }

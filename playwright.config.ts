@@ -10,6 +10,7 @@ export default defineConfig({
   outputDir: 'test-results/playwright',
   reporter: process.env.CI ? 'github' : 'list',
   retries: 0,
+  workers: 1,
   use: {
     ...devices['Desktop Chrome'],
     baseURL,

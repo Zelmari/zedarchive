@@ -12,6 +12,7 @@ import {
   type AnimePrivateListPageQuery,
 } from '@/features/archive/private-list/anime-private-list-query'
 import { AnimePrivateListSortControl } from '@/features/archive/private-list/anime-private-list-sort-control'
+import { AnimePrivateListRemovalBoundary } from '@/features/archive/private-list/anime-private-list-removal-boundary'
 import type { AnimePrivateListSort } from '@/features/archive/private-list/anime-private-list-sort'
 import type {
   AnimePrivateListEntry,
@@ -55,7 +56,7 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
         <div className="space-y-2">
           <h2 className="text-lg font-medium">Restricted anime</h2>
           <p>{archiveStatus}</p>
-          <p>Status editing isn’t available for restricted anime yet.</p>
+          <p>Tracking controls aren’t available for restricted anime yet.</p>
         </div>
       </article>
     )
@@ -164,6 +165,28 @@ export function AnimePrivateListResults({
   page,
   sort,
   isSortExplicit,
+  renderRevision,
+}: {
+  page: AnimePrivateListPage
+  sort: AnimePrivateListSort
+  isSortExplicit: boolean
+  renderRevision: string
+}) {
+  return (
+    <AnimePrivateListRemovalBoundary renderRevision={renderRevision}>
+      <AnimePrivateListResultsContent
+        isSortExplicit={isSortExplicit}
+        page={page}
+        sort={sort}
+      />
+    </AnimePrivateListRemovalBoundary>
+  )
+}
+
+function AnimePrivateListResultsContent({
+  page,
+  sort,
+  isSortExplicit,
 }: {
   page: AnimePrivateListPage
   sort: AnimePrivateListSort
@@ -249,6 +272,7 @@ export function AnimePrivateListResults({
 
 export function AnimePrivateListRouteContent({
   model,
+  renderRevision,
 }: {
   model:
     | Extract<AnimePrivateListPageQuery, { kind: 'validation-error' }>
@@ -259,6 +283,7 @@ export function AnimePrivateListRouteContent({
         sort: AnimePrivateListSort
         isSortExplicit: boolean
       }
+  renderRevision: string
 }) {
   if (model.kind === 'validation-error') {
     return <AnimePrivateListValidationError message={model.message} />
@@ -272,6 +297,7 @@ export function AnimePrivateListRouteContent({
     <AnimePrivateListResults
       isSortExplicit={model.isSortExplicit}
       page={model.page}
+      renderRevision={renderRevision}
       sort={model.sort}
     />
   )

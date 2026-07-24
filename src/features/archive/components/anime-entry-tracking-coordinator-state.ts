@@ -22,6 +22,7 @@ export type AnimeEntryTrackingOperation =
   | 'rating'
   | 'favourite'
   | 'dates'
+  | 'removal'
 export type AnimeEntryTrackingCoordinatorState = AnimeEntryTrackingSnapshot & {
   activeOperation: {
     kind: AnimeEntryTrackingOperation

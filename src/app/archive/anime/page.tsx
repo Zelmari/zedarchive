@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { headers } from 'next/headers'
 import { AnimePrivateListRouteContent } from '@/features/archive/private-list/anime-private-list-presentation'
 import { createAnimePrivateListCoordinator } from '@/features/archive/private-list/anime-private-list-coordinator'
@@ -30,7 +31,10 @@ export default async function AnimeArchivePage({
       className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6"
     >
       <h1 className="text-2xl font-semibold">Your anime archive</h1>
-      <AnimePrivateListRouteContent model={model} />
+      <AnimePrivateListRouteContent
+        model={model}
+        renderRevision={randomUUID()}
+      />
     </main>
   )
 }
