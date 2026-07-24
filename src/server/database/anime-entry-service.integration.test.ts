@@ -25,6 +25,7 @@ import {
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -76,6 +77,42 @@ async function insertCatalogueItem(
 async function countEntries() {
   const rows = await database.select().from(animeEntries)
   return rows.length
+}
+
+async function enableAdultContent(userId: string) {
+  await database
+    .insert(userCataloguePreferences)
+    .values({ userId, adultContentEnabled: true })
+}
+
+async function waitForDatabaseLock(
+  predicate: { pid: number } | { queryPrefix: string },
+): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result =
+      'pid' in predicate
+        ? await pool.query<{ waiting: boolean }>(
+            `select coalesce(
+              (select wait_event_type = 'Lock' from pg_stat_activity where pid = $1),
+              false
+            ) as waiting`,
+            [predicate.pid],
+          )
+        : await pool.query<{ waiting: boolean }>(
+            `select exists (
+              select 1 from pg_stat_activity
+              where datname = current_database()
+                and wait_event_type = 'Lock'
+                and query like $1
+            ) as waiting`,
+            [`${predicate.queryPrefix}%`],
+          )
+
+    if (result.rows[0]?.waiting === true) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  throw new Error('Expected database lock wait was not observed')
 }
 
 async function insertEntry(
@@ -246,7 +283,7 @@ describe('createAnimeEntry', () => {
     expect(afterDuplicate).toEqual(beforeDuplicate)
   })
 
-  it('finds an owned entry after its catalogue item is later hidden', async () => {
+  it('rejects a replay after its catalogue item is later hidden', async () => {
     const [user, item] = await Promise.all([
       insertUser(),
       insertCatalogueItem(),
@@ -267,7 +304,269 @@ describe('createAnimeEntry', () => {
         catalogueItemId: item.id,
         status: 'completed',
       }),
-    ).resolves.toEqual({ kind: 'already_exists', status: 'on_hold' })
+    ).resolves.toEqual({ kind: 'unavailable' })
+  })
+
+  it('adds a published adult item only for its currently enabled owner', async () => {
+    const [enabledOwner, disabledOwner, adultItem, hiddenAdultItem] =
+      await Promise.all([
+        insertUser(),
+        insertUser(),
+        insertCatalogueItem({ maturity: 'adult' }),
+        insertCatalogueItem({
+          maturity: 'adult',
+          catalogueState: 'hidden',
+        }),
+      ])
+    await enableAdultContent(enabledOwner.id)
+
+    await expect(
+      createAnimeEntry(database, {
+        userId: disabledOwner.id,
+        catalogueItemId: adultItem.id,
+        status: 'planned',
+      }),
+    ).resolves.toEqual({ kind: 'unavailable' })
+    await expect(
+      createAnimeEntry(database, {
+        userId: enabledOwner.id,
+        catalogueItemId: hiddenAdultItem.id,
+        status: 'planned',
+      }),
+    ).resolves.toEqual({ kind: 'unavailable' })
+    await expect(
+      createAnimeEntry(database, {
+        userId: enabledOwner.id,
+        catalogueItemId: adultItem.id,
+        status: 'in_progress',
+      }),
+    ).resolves.toEqual({ kind: 'created', status: 'in_progress' })
+    expect(await countEntries()).toBe(1)
+  })
+
+  it('rechecks adult preference after a winning safe-to-adult curation update', async () => {
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'safe' }),
+    ])
+    const curator = await pool.connect()
+
+    try {
+      await curator.query('begin')
+      await curator.query(
+        "update anime_catalogue_items set maturity = 'adult' where id = $1",
+        [item.id],
+      )
+      const creation = createAnimeEntry(database, {
+        userId: owner.id,
+        catalogueItemId: item.id,
+        status: 'planned',
+      })
+      await waitForDatabaseLock({
+        queryPrefix: 'select "catalogue_state", "maturity"',
+      })
+      await curator.query('commit')
+
+      await expect(creation).resolves.toEqual({ kind: 'unavailable' })
+      expect(await countEntries()).toBe(0)
+    } finally {
+      await curator.query('rollback').catch(() => undefined)
+      curator.release()
+    }
+  })
+
+  it('writes nothing when adult disablement commits before Add authorization', async () => {
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'adult' }),
+    ])
+    await enableAdultContent(owner.id)
+    const disabler = await pool.connect()
+
+    try {
+      await disabler.query('begin')
+      await disabler.query(
+        'update user_catalogue_preferences set adult_content_enabled = false where user_id = $1',
+        [owner.id],
+      )
+      const creation = createAnimeEntry(database, {
+        userId: owner.id,
+        catalogueItemId: item.id,
+        status: 'planned',
+      })
+      await waitForDatabaseLock({
+        queryPrefix: 'select "adult_content_enabled"',
+      })
+      await disabler.query('commit')
+
+      await expect(creation).resolves.toEqual({ kind: 'unavailable' })
+      expect(await countEntries()).toBe(0)
+    } finally {
+      await disabler.query('rollback').catch(() => undefined)
+      disabler.release()
+    }
+  })
+
+  it('lets adult Add finish before waiting disablement governs later Add attempts', async () => {
+    const advisoryLockKey = 310032
+    const triggerName = 'm31_test_pause_adult_entry_insert'
+    const [owner, firstItem, laterItem] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'adult' }),
+      insertCatalogueItem({ maturity: 'adult' }),
+    ])
+    await enableAdultContent(owner.id)
+    const gate = await pool.connect()
+    const disabler = await pool.connect()
+    let disablePromise: Promise<unknown> | undefined
+
+    try {
+      await pool.query(`
+        create function ${triggerName}() returns trigger language plpgsql as $$
+        begin
+          perform pg_advisory_xact_lock(${advisoryLockKey});
+          return new;
+        end
+        $$
+      `)
+      await pool.query(`
+        create trigger ${triggerName}
+        before insert on anime_entries
+        for each row execute function ${triggerName}()
+      `)
+      await gate.query('select pg_advisory_lock($1)', [advisoryLockKey])
+
+      const creation = createAnimeEntry(database, {
+        userId: owner.id,
+        catalogueItemId: firstItem.id,
+        status: 'in_progress',
+      })
+      await waitForDatabaseLock({
+        queryPrefix: 'insert into "anime_entries"',
+      })
+
+      await disabler.query('begin')
+      const disablerBackend = await disabler.query<{ pid: number }>(
+        'select pg_backend_pid() as pid',
+      )
+      disablePromise = disabler.query(
+        'update user_catalogue_preferences set adult_content_enabled = false where user_id = $1',
+        [owner.id],
+      )
+      await waitForDatabaseLock({ pid: disablerBackend.rows[0]!.pid })
+
+      await gate.query('select pg_advisory_unlock($1)', [advisoryLockKey])
+      await expect(creation).resolves.toEqual({
+        kind: 'created',
+        status: 'in_progress',
+      })
+      await disablePromise
+      await disabler.query('commit')
+
+      await expect(
+        createAnimeEntry(database, {
+          userId: owner.id,
+          catalogueItemId: laterItem.id,
+          status: 'planned',
+        }),
+      ).resolves.toEqual({ kind: 'unavailable' })
+      expect(await countEntries()).toBe(1)
+    } finally {
+      await gate
+        .query('select pg_advisory_unlock($1)', [advisoryLockKey])
+        .catch(() => undefined)
+      if (disablePromise !== undefined) {
+        await disablePromise.catch(() => undefined)
+      }
+      await disabler.query('rollback').catch(() => undefined)
+      disabler.release()
+      gate.release()
+      await pool
+        .query(`drop trigger if exists ${triggerName} on anime_entries`)
+        .catch(() => undefined)
+      await pool
+        .query(`drop function if exists ${triggerName}()`)
+        .catch(() => undefined)
+    }
+  })
+
+  it('lets safe Add finish while a later safe-to-adult curation update waits', async () => {
+    const advisoryLockKey = 310033
+    const triggerName = 'm31_test_pause_safe_entry_insert'
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'safe' }),
+    ])
+    const gate = await pool.connect()
+    const curator = await pool.connect()
+    let curationPromise: Promise<unknown> | undefined
+
+    try {
+      await pool.query(`
+        create function ${triggerName}() returns trigger language plpgsql as $$
+        begin
+          perform pg_advisory_xact_lock(${advisoryLockKey});
+          return new;
+        end
+        $$
+      `)
+      await pool.query(`
+        create trigger ${triggerName}
+        before insert on anime_entries
+        for each row execute function ${triggerName}()
+      `)
+      await gate.query('select pg_advisory_lock($1)', [advisoryLockKey])
+
+      const creation = createAnimeEntry(database, {
+        userId: owner.id,
+        catalogueItemId: item.id,
+        status: 'planned',
+      })
+      await waitForDatabaseLock({
+        queryPrefix: 'insert into "anime_entries"',
+      })
+
+      await curator.query('begin')
+      const curatorBackend = await curator.query<{ pid: number }>(
+        'select pg_backend_pid() as pid',
+      )
+      curationPromise = curator.query(
+        "update anime_catalogue_items set maturity = 'adult' where id = $1",
+        [item.id],
+      )
+      await waitForDatabaseLock({ pid: curatorBackend.rows[0]!.pid })
+
+      await gate.query('select pg_advisory_unlock($1)', [advisoryLockKey])
+      await expect(creation).resolves.toEqual({
+        kind: 'created',
+        status: 'planned',
+      })
+      await curationPromise
+      await curator.query('commit')
+
+      expect(await countEntries()).toBe(1)
+      const [storedItem] = await database
+        .select({ maturity: animeCatalogueItems.maturity })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, item.id))
+      expect(storedItem?.maturity).toBe('adult')
+    } finally {
+      await gate
+        .query('select pg_advisory_unlock($1)', [advisoryLockKey])
+        .catch(() => undefined)
+      if (curationPromise !== undefined) {
+        await curationPromise.catch(() => undefined)
+      }
+      await curator.query('rollback').catch(() => undefined)
+      curator.release()
+      gate.release()
+      await pool
+        .query(`drop trigger if exists ${triggerName} on anime_entries`)
+        .catch(() => undefined)
+      await pool
+        .query(`drop function if exists ${triggerName}()`)
+        .catch(() => undefined)
+    }
   })
 
   it('allows two owners to add the same item independently', async () => {
@@ -444,6 +743,7 @@ describe('readAnimeArchivePage', () => {
         'entryId',
         'episodeCount',
         'finishDate',
+        'isAdult',
         'isFavourite',
         'kind',
         'progressState',
@@ -805,6 +1105,7 @@ describe('readAnimeArchivePage', () => {
             kind: 'unavailable_in_catalogue',
             entryId: expect.any(String),
             title: `${catalogueState} title`,
+            isAdult: false,
             releaseYear: 2001,
             episodeCount: 12,
             releaseStatus: 'airing',
@@ -898,6 +1199,72 @@ describe('readAnimeArchivePage', () => {
       visibleEntries.find((entry) => entry.title === 'Format unknown')
         ?.progressState,
     ).toEqual({ kind: 'format_unknown' })
+  })
+
+  it('uses preferred titles and exposes enabled published and unavailable adult entries as full cards', async () => {
+    const owner = await insertUser()
+    await database.insert(userCataloguePreferences).values({
+      userId: owner.id,
+      titleLanguage: 'original',
+      adultContentEnabled: true,
+    })
+    const [publishedAdult, safeItem, hiddenAdult] = await Promise.all([
+      insertCatalogueItem({
+        englishTitle: 'English Zulu',
+        romajiTitle: 'Romaji Zulu',
+        originalTitle: 'Original Alpha',
+        maturity: 'adult',
+      }),
+      insertCatalogueItem({
+        englishTitle: 'English Alpha',
+        romajiTitle: 'Romaji Alpha',
+        originalTitle: 'Original Bravo',
+      }),
+      insertCatalogueItem({
+        englishTitle: 'English Bravo',
+        romajiTitle: 'Romaji Bravo',
+        originalTitle: 'Original Charlie',
+        maturity: 'adult',
+        catalogueState: 'hidden',
+      }),
+    ])
+    const [publishedAdultEntry, safeEntry, hiddenAdultEntry] =
+      await Promise.all([
+        insertEntry(owner.id, publishedAdult.id, 'completed', { rating: 8.5 }),
+        insertEntry(owner.id, safeItem.id, 'planned'),
+        insertEntry(owner.id, hiddenAdult.id, 'on_hold'),
+      ])
+
+    await expect(
+      readAnimeArchivePage(database, {
+        userId: owner.id,
+        page: 1,
+        pageSize: 24,
+        sort: 'alphabetical',
+      }),
+    ).resolves.toMatchObject({
+      entries: [
+        {
+          kind: 'displayable',
+          entryId: publishedAdultEntry.id,
+          title: 'Original Alpha',
+          isAdult: true,
+          rating: 8.5,
+        },
+        {
+          kind: 'displayable',
+          entryId: safeEntry.id,
+          title: 'Original Bravo',
+          isAdult: false,
+        },
+        {
+          kind: 'unavailable_in_catalogue',
+          entryId: hiddenAdultEntry.id,
+          title: 'Original Charlie',
+          isAdult: true,
+        },
+      ],
+    })
   })
 
   it('counts adult rows but returns only restricted status and allocates them by UUID, never concealed metadata', async () => {

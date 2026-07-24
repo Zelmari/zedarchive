@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { getDefaultAnimeTitle } from '@/features/anime/catalogue/anime-title-fallback'
+import {
+  getDefaultAnimeTitle,
+  getPreferredAnimeTitle,
+} from '@/features/anime/catalogue/anime-title-fallback'
 import type { AnimeTitles } from '@/features/anime/domain/anime-catalogue-item'
+import type { AnimeTitleLanguage } from '@/features/settings/domain/catalogue-preferences'
 
 function createTitles(overrides: Partial<AnimeTitles> = {}): AnimeTitles {
   return {
@@ -75,4 +79,115 @@ describe('getDefaultAnimeTitle', () => {
       ),
     ).toThrow('Anime catalogue item requires at least one primary title')
   })
+})
+
+describe('getPreferredAnimeTitle', () => {
+  const titleCombinations = [
+    {
+      english: 'English',
+      romaji: 'Romaji',
+      original: 'Original',
+      expected: {
+        english: 'English',
+        romaji: 'Romaji',
+        original: 'Original',
+      },
+    },
+    {
+      english: 'English',
+      romaji: 'Romaji',
+      original: null,
+      expected: { english: 'English', romaji: 'Romaji', original: 'Romaji' },
+    },
+    {
+      english: 'English',
+      romaji: null,
+      original: 'Original',
+      expected: {
+        english: 'English',
+        romaji: 'English',
+        original: 'Original',
+      },
+    },
+    {
+      english: null,
+      romaji: 'Romaji',
+      original: 'Original',
+      expected: {
+        english: 'Romaji',
+        romaji: 'Romaji',
+        original: 'Original',
+      },
+    },
+    {
+      english: 'English',
+      romaji: null,
+      original: null,
+      expected: { english: 'English', romaji: 'English', original: 'English' },
+    },
+    {
+      english: null,
+      romaji: 'Romaji',
+      original: null,
+      expected: { english: 'Romaji', romaji: 'Romaji', original: 'Romaji' },
+    },
+    {
+      english: null,
+      romaji: null,
+      original: 'Original',
+      expected: {
+        english: 'Original',
+        romaji: 'Original',
+        original: 'Original',
+      },
+    },
+  ] satisfies {
+    english: string | null
+    romaji: string | null
+    original: string | null
+    expected: Record<AnimeTitleLanguage, string>
+  }[]
+
+  it.each(
+    titleCombinations.flatMap((titles) =>
+      (['english', 'romaji', 'original'] as const).map((titleLanguage) => ({
+        ...titles,
+        titleLanguage,
+        expectedTitle: titles.expected[titleLanguage],
+      })),
+    ),
+  )(
+    'resolves $titleLanguage from English=$english Romaji=$romaji Original=$original',
+    ({ english, romaji, original, titleLanguage, expectedTitle }) => {
+      expect(
+        getPreferredAnimeTitle(
+          createTitles({ english, romaji, original }),
+          titleLanguage,
+        ),
+      ).toBe(expectedTitle)
+    },
+  )
+
+  it.each(['english', 'romaji', 'original'] as const)(
+    'never uses alternatives for %s display',
+    (titleLanguage) => {
+      expect(
+        getPreferredAnimeTitle(
+          createTitles({
+            english: titleLanguage === 'english' ? 'English' : null,
+            romaji: titleLanguage === 'romaji' ? 'Romaji' : null,
+            original: titleLanguage === 'original' ? 'Original' : null,
+            alternatives: ['Alternative'],
+          }),
+          titleLanguage,
+        ),
+      ).toBe(
+        {
+          english: 'English',
+          romaji: 'Romaji',
+          original: 'Original',
+        }[titleLanguage],
+      )
+    },
+  )
 })

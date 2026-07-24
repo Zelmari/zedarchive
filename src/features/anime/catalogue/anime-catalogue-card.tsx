@@ -3,15 +3,14 @@ import {
   formatAnimeReleaseStatus,
   formatAnimeReleaseYear,
 } from '@/features/anime/catalogue/anime-catalogue-display'
-import { getDefaultAnimeTitle } from '@/features/anime/catalogue/anime-title-fallback'
 import { getAnimeCatalogueTitleInitials } from '@/features/anime/catalogue/anime-catalogue-title-initials'
 import type { AnimeCatalogueCardArchiveState } from '@/features/anime/catalogue/anime-catalogue-archive-presentation'
-import type { AnimeCatalogueItem } from '@/features/anime/domain/anime-catalogue-item'
+import type { AnimeCataloguePageItem } from '@/features/anime/catalogue/anime-catalogue-query'
 import { AddAnimeEntryForm } from '@/features/archive/components/add-anime-entry-form'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
 
 type AnimeCatalogueCardProps = {
-  item: AnimeCatalogueItem
+  item: AnimeCataloguePageItem
   archiveState: AnimeCatalogueCardArchiveState
 }
 
@@ -19,7 +18,7 @@ export function AnimeCatalogueCard({
   item,
   archiveState,
 }: AnimeCatalogueCardProps) {
-  const title = getDefaultAnimeTitle(item.titles)
+  const title = item.displayTitle
   const titleInitials = getAnimeCatalogueTitleInitials(title)
   const episodeTotal = formatAnimeEpisodeTotal(item.episodeCount)
 
@@ -33,6 +32,7 @@ export function AnimeCatalogueCard({
       </div>
       <div className="space-y-2 p-4">
         <h2 className="text-lg font-medium">{title}</h2>
+        {item.maturity === 'adult' ? <p>Adult content</p> : null}
         <div className="space-y-1 text-sm">
           <p>{formatAnimeReleaseYear(item.releaseYear)}</p>
           {episodeTotal !== null ? <p>{episodeTotal}</p> : null}

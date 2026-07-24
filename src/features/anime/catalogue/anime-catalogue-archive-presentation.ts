@@ -30,7 +30,7 @@ export type AnimeCatalogueArchivePresentation = {
 export function getAnimeCatalogueArchivePresentation(
   access: AnimeCatalogueArchiveAccess,
 ): AnimeCatalogueArchivePresentation {
-  if (access.kind === 'signed-out' || access.kind === 'session-unavailable') {
+  if (access.kind === 'signed-out') {
     return {
       notice: 'sign-in',
       defaultCardState: { kind: 'signed-out' },
@@ -38,7 +38,10 @@ export function getAnimeCatalogueArchivePresentation(
     }
   }
 
-  if (access.kind === 'controls-unavailable') {
+  if (
+    access.kind === 'controls-unavailable' ||
+    access.kind === 'session-unavailable'
+  ) {
     return {
       notice: 'controls-unavailable',
       defaultCardState: { kind: 'controls-unavailable' },

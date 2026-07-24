@@ -20,6 +20,7 @@ function createCompleteAnimeCatalogueItem() {
     releaseYear: 1998,
     episodeCount: 26,
     maturity: 'safe' as const,
+    displayTitle: 'Cowboy Bebop',
   }
 }
 

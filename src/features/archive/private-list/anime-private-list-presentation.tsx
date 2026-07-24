@@ -75,6 +75,7 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
       <div className="space-y-2 p-4">
         <h2 className="text-lg font-medium">{entry.title}</h2>
         <div className="space-y-1 text-sm">
+          {entry.isAdult ? <p>Adult content</p> : null}
           <p>{formatAnimeReleaseYear(entry.releaseYear)}</p>
           {episodeTotal === null ? null : <p>{episodeTotal}</p>}
           <p>{formatAnimeReleaseStatus(entry.releaseStatus)}</p>

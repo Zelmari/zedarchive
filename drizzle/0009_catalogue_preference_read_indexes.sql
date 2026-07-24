@@ -1,0 +1,10 @@
+DROP INDEX "anime_catalogue_items_public_browse_idx";--> statement-breakpoint
+DROP INDEX "anime_catalogue_items_public_english_title_trgm_idx";--> statement-breakpoint
+DROP INDEX "anime_catalogue_items_public_romaji_title_trgm_idx";--> statement-breakpoint
+DROP INDEX "anime_catalogue_items_public_original_title_trgm_idx";--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_published_english_browse_idx" ON "anime_catalogue_items" USING btree (lower(coalesce("english_title", "romaji_title", "original_title")),coalesce("english_title", "romaji_title", "original_title"),"id") WHERE "anime_catalogue_items"."catalogue_state" = 'published';--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_published_romaji_browse_idx" ON "anime_catalogue_items" USING btree (lower(coalesce("romaji_title", "english_title", "original_title")),coalesce("romaji_title", "english_title", "original_title"),"id") WHERE "anime_catalogue_items"."catalogue_state" = 'published';--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_published_original_browse_idx" ON "anime_catalogue_items" USING btree (lower(coalesce("original_title", "romaji_title", "english_title")),coalesce("original_title", "romaji_title", "english_title"),"id") WHERE "anime_catalogue_items"."catalogue_state" = 'published';--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_public_english_title_trgm_idx" ON "anime_catalogue_items" USING gin ("english_title" gin_trgm_ops) WHERE "anime_catalogue_items"."catalogue_state" = 'published' and "anime_catalogue_items"."english_title" is not null;--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_public_romaji_title_trgm_idx" ON "anime_catalogue_items" USING gin ("romaji_title" gin_trgm_ops) WHERE "anime_catalogue_items"."catalogue_state" = 'published' and "anime_catalogue_items"."romaji_title" is not null;--> statement-breakpoint
+CREATE INDEX "anime_catalogue_items_public_original_title_trgm_idx" ON "anime_catalogue_items" USING gin ("original_title" gin_trgm_ops) WHERE "anime_catalogue_items"."catalogue_state" = 'published' and "anime_catalogue_items"."original_title" is not null;

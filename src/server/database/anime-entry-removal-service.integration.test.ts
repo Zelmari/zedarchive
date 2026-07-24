@@ -23,6 +23,7 @@ import {
   animeCatalogueItems,
   animeCatalogueSources,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -282,6 +283,17 @@ describe('anime entry removal service', () => {
     ).resolves.toEqual({ kind: 'unavailable' })
     await expect(readEntry(safeEntry.id)).resolves.toEqual(safeEntry)
     await expect(readEntry(adultEntry.id)).resolves.toEqual(adultBefore)
+
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    await expect(
+      removeAnimeEntry(database, {
+        userId: owner.id,
+        entryId: adultEntry.id,
+      }),
+    ).resolves.toEqual({ kind: 'removed' })
+    await expect(readEntry(adultEntry.id)).resolves.toBeUndefined()
 
     await expect(
       removeAnimeEntry(database, {

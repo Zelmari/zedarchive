@@ -23,6 +23,7 @@ import { updateAnimeEntryStatus } from '@/server/database/anime-entry-service'
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -137,6 +138,36 @@ async function waitForEntryUpdateLock(entryId: string): Promise<void> {
   }
 
   throw new Error('Status mutation did not acquire the entry lock')
+}
+
+async function waitForDatabaseWait(
+  predicate: { pid: number } | { waitEvent: string; queryPrefix: string },
+): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result =
+      'pid' in predicate
+        ? await pool.query<{ waiting: boolean }>(
+            `select coalesce(
+              (select wait_event_type = 'Lock' from pg_stat_activity where pid = $1),
+              false
+            ) as waiting`,
+            [predicate.pid],
+          )
+        : await pool.query<{ waiting: boolean }>(
+            `select exists (
+              select 1 from pg_stat_activity
+              where datname = current_database()
+                and wait_event = $1
+                and query like $2
+            ) as waiting`,
+            [predicate.waitEvent, `${predicate.queryPrefix}%`],
+          )
+
+    if (result.rows[0]?.waiting === true) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  throw new Error('Expected database lock wait was not observed')
 }
 
 beforeAll(async () => {
@@ -379,6 +410,18 @@ describe('updateAnimeEntryStatus', () => {
       ).resolves.toEqual({ kind: 'unavailable' })
     }
     await expect(readStoredEntry(entry.id)).resolves.toEqual(before)
+
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    await expect(
+      updateAnimeEntryStatus(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedStatus: 'planned',
+        requestedStatus: 'completed',
+      }),
+    ).resolves.toEqual({ kind: 'updated', status: 'completed' })
   })
 
   it('blocks an entry reclassified as adult before submission', async () => {
@@ -490,6 +533,127 @@ describe('updateAnimeEntryStatus', () => {
     } finally {
       await curator.query('rollback').catch(() => undefined)
       curator.release()
+    }
+  })
+
+  it('writes nothing when adult disablement commits before preference authorization', async () => {
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'adult' }),
+    ])
+    const entry = await insertEntry(owner.id, item.id, 'planned')
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    const disabler = await pool.connect()
+
+    try {
+      await disabler.query('begin')
+      await disabler.query(
+        'update user_catalogue_preferences set adult_content_enabled = false where user_id = $1',
+        [owner.id],
+      )
+      const mutation = updateAnimeEntryStatus(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedStatus: 'planned',
+        requestedStatus: 'completed',
+      })
+      await waitForEntryUpdateLock(entry.id)
+      await disabler.query('commit')
+
+      await expect(mutation).resolves.toEqual({ kind: 'unavailable' })
+      expect((await readStoredEntry(entry.id))?.status).toBe('planned')
+    } finally {
+      await disabler.query('rollback').catch(() => undefined)
+      disabler.release()
+    }
+  })
+
+  it('lets an authorized adult mutation finish before waiting disablement takes effect', async () => {
+    const advisoryLockKey = 310031
+    const triggerName = 'm31_test_pause_adult_status_update'
+    const [owner, item] = await Promise.all([
+      insertUser(),
+      insertCatalogueItem({ maturity: 'adult' }),
+    ])
+    const entry = await insertEntry(owner.id, item.id, 'planned')
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    const gate = await pool.connect()
+    const disabler = await pool.connect()
+    let disablePromise: Promise<unknown> | undefined
+
+    try {
+      await pool.query(`
+        create function ${triggerName}() returns trigger language plpgsql as $$
+        begin
+          perform pg_advisory_xact_lock(${advisoryLockKey});
+          return new;
+        end
+        $$
+      `)
+      await pool.query(`
+        create trigger ${triggerName}
+        before update on anime_entries
+        for each row execute function ${triggerName}()
+      `)
+      await gate.query('select pg_advisory_lock($1)', [advisoryLockKey])
+
+      const mutation = updateAnimeEntryStatus(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedStatus: 'planned',
+        requestedStatus: 'completed',
+      })
+      await waitForDatabaseWait({
+        waitEvent: 'advisory',
+        queryPrefix: 'update "anime_entries"',
+      })
+
+      await disabler.query('begin')
+      const disablerBackend = await disabler.query<{ pid: number }>(
+        'select pg_backend_pid() as pid',
+      )
+      disablePromise = disabler.query(
+        'update user_catalogue_preferences set adult_content_enabled = false where user_id = $1',
+        [owner.id],
+      )
+      await waitForDatabaseWait({ pid: disablerBackend.rows[0]!.pid })
+
+      await gate.query('select pg_advisory_unlock($1)', [advisoryLockKey])
+      await expect(mutation).resolves.toEqual({
+        kind: 'updated',
+        status: 'completed',
+      })
+      await disablePromise
+      await disabler.query('commit')
+
+      expect((await readStoredEntry(entry.id))?.status).toBe('completed')
+      const [preference] = await database
+        .select({
+          adultContentEnabled: userCataloguePreferences.adultContentEnabled,
+        })
+        .from(userCataloguePreferences)
+        .where(eq(userCataloguePreferences.userId, owner.id))
+      expect(preference?.adultContentEnabled).toBe(false)
+    } finally {
+      await gate
+        .query('select pg_advisory_unlock($1)', [advisoryLockKey])
+        .catch(() => undefined)
+      if (disablePromise !== undefined) {
+        await disablePromise.catch(() => undefined)
+      }
+      await disabler.query('rollback').catch(() => undefined)
+      disabler.release()
+      gate.release()
+      await pool
+        .query(`drop trigger if exists ${triggerName} on anime_entries`)
+        .catch(() => undefined)
+      await pool
+        .query(`drop function if exists ${triggerName}()`)
+        .catch(() => undefined)
     }
   })
 })

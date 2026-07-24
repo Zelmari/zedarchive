@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  eq,
   exists,
   inArray,
   or,
@@ -12,23 +13,29 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { z } from 'zod'
 import {
   animeCatalogueBrowseRequestSchema,
+  animeCataloguePageItemSchema,
   animeCataloguePageSchema,
   animeCatalogueSearchRequestSchema,
   type AnimeCataloguePage,
   type AnimeCataloguePagination,
 } from '@/features/anime/catalogue/anime-catalogue-query'
+import { getPreferredAnimeTitle } from '@/features/anime/catalogue/anime-title-fallback'
 import { animeCatalogueItemSchema } from '@/features/anime/domain/anime-catalogue-item'
+import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import {
+  defaultUserCataloguePreferences,
+  type AnimeTitleLanguage,
+} from '@/features/settings/domain/catalogue-preferences'
 import {
   animeAlternativeTitles,
   animeCatalogueItems,
+  animeEntries,
 } from '@/server/database/schema'
-import { publishedNonAdultAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
+import { buildPreferredAnimeTitleExpression } from '@/server/database/anime-catalogue-title-expression'
+import { buildPublishedAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
+import { readUserCataloguePreferences } from '@/server/database/user-catalogue-preferences-service'
 
 type StoredCatalogueItem = typeof animeCatalogueItems.$inferSelect
-
-const defaultTitleExpression = sql<string>`coalesce(${animeCatalogueItems.englishTitle}, ${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.originalTitle})`
-
-const defaultTitleLowerExpression = sql`lower(${defaultTitleExpression})`
 
 export class StoredAnimeCatalogueTitleIntegrityError extends Error {
   constructor() {
@@ -149,8 +156,15 @@ function assertTrimmedStoredTitle(value: string | null): void {
 function mapStoredItemToDomain(
   item: StoredCatalogueItem,
   alternatives: readonly string[],
+  options: {
+    titleLanguage: AnimeTitleLanguage
+    canViewAdult: boolean
+  },
 ) {
-  if (item.catalogueState !== 'published' || item.maturity === 'adult') {
+  if (
+    item.catalogueState !== 'published' ||
+    (item.maturity === 'adult' && !options.canViewAdult)
+  ) {
     throw new StoredAnimeCatalogueVisibilityError()
   }
 
@@ -162,7 +176,7 @@ function mapStoredItemToDomain(
     assertTrimmedStoredTitle(alternative)
   }
 
-  return animeCatalogueItemSchema.parse({
+  const domainItem = animeCatalogueItemSchema.parse({
     id: item.id,
     titles: {
       english: item.englishTitle,
@@ -175,6 +189,14 @@ function mapStoredItemToDomain(
     releaseYear: item.releaseYear,
     episodeCount: item.episodeCount,
     maturity: item.maturity,
+  })
+
+  return animeCataloguePageItemSchema.parse({
+    ...domainItem,
+    displayTitle: getPreferredAnimeTitle(
+      domainItem.titles,
+      options.titleLanguage,
+    ),
   })
 }
 
@@ -201,20 +223,33 @@ async function readPublicAnimeCataloguePage(
     page: number
     pageSize: number
     normalizedQuery?: string
+    userId: string | null
   },
-): Promise<AnimeCataloguePage> {
-  const { page, pageSize, normalizedQuery } = options
+): Promise<AnimeCatalogueViewerPage> {
+  const { page, pageSize, normalizedQuery, userId } = options
   const offset = (page - 1) * pageSize
-  const whereClause =
-    normalizedQuery === undefined
-      ? publishedNonAdultAnimeCatalogueVisibility
-      : and(
-          publishedNonAdultAnimeCatalogueVisibility,
-          buildTitleMatchCondition(normalizedQuery, 'contains'),
-        )
 
   return database.transaction(
     async (transaction) => {
+      const preferences =
+        userId === null
+          ? defaultUserCataloguePreferences
+          : await readUserCataloguePreferences(transaction, { userId })
+      const visibility = buildPublishedAnimeCatalogueVisibility(
+        preferences.adultContentEnabled,
+      )
+      const whereClause =
+        normalizedQuery === undefined
+          ? visibility
+          : and(
+              visibility,
+              buildTitleMatchCondition(normalizedQuery, 'contains'),
+            )
+      const preferredTitleExpression = buildPreferredAnimeTitleExpression(
+        preferences.titleLanguage,
+      )
+      const preferredTitleLowerExpression = sql`lower(${preferredTitleExpression})`
+
       const [countRow] = await transaction
         .select({ totalItems: count() })
         .from(animeCatalogueItems)
@@ -232,22 +267,25 @@ async function readPublicAnimeCataloguePage(
       const orderedParents =
         normalizedQuery === undefined
           ? await parentQuery.orderBy(
-              asc(defaultTitleLowerExpression),
-              asc(defaultTitleExpression),
+              asc(preferredTitleLowerExpression),
+              asc(preferredTitleExpression),
               asc(animeCatalogueItems.id),
             )
           : await parentQuery.orderBy(
               asc(buildSearchRankExpression(normalizedQuery)),
-              asc(defaultTitleLowerExpression),
-              asc(defaultTitleExpression),
+              asc(preferredTitleLowerExpression),
+              asc(preferredTitleExpression),
               asc(animeCatalogueItems.id),
             )
 
       if (orderedParents.length === 0) {
-        return animeCataloguePageSchema.parse({
-          items: [],
-          pagination: buildPagination(page, pageSize, totalItems),
-        })
+        return {
+          cataloguePage: animeCataloguePageSchema.parse({
+            items: [],
+            pagination: buildPagination(page, pageSize, totalItems),
+          }),
+          memberships: userId === null ? null : [],
+        }
       }
 
       const itemIds = orderedParents.map(({ id }) => id)
@@ -273,16 +311,97 @@ async function readPublicAnimeCataloguePage(
       }
 
       const items = orderedParents.map((item) =>
-        mapStoredItemToDomain(item, alternativesByItemId.get(item.id) ?? []),
+        mapStoredItemToDomain(item, alternativesByItemId.get(item.id) ?? [], {
+          titleLanguage: preferences.titleLanguage,
+          canViewAdult: preferences.adultContentEnabled,
+        }),
       )
 
-      return animeCataloguePageSchema.parse({
-        items,
-        pagination: buildPagination(page, pageSize, totalItems),
-      })
+      const memberships =
+        userId === null
+          ? null
+          : await transaction
+              .select({
+                catalogueItemId: animeEntries.catalogueItemId,
+                status: animeEntries.status,
+              })
+              .from(animeEntries)
+              .where(
+                and(
+                  eq(animeEntries.userId, userId),
+                  inArray(animeEntries.catalogueItemId, itemIds),
+                ),
+              )
+
+      return {
+        cataloguePage: animeCataloguePageSchema.parse({
+          items,
+          pagination: buildPagination(page, pageSize, totalItems),
+        }),
+        memberships,
+      }
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' },
   )
+}
+
+export type AnimeCatalogueViewerMembership = {
+  catalogueItemId: string
+  status: EntryStatus
+}
+
+export type AnimeCatalogueViewerPage = {
+  cataloguePage: AnimeCataloguePage
+  memberships: AnimeCatalogueViewerMembership[] | null
+}
+
+export type ReadAnimeCatalogueForViewerRequest =
+  | {
+      kind: 'browse'
+      userId: string | null
+      page: number
+      pageSize: number
+    }
+  | {
+      kind: 'search'
+      userId: string | null
+      query: string
+      page: number
+      pageSize: number
+    }
+
+export async function readAnimeCatalogueForViewer(
+  database: NodePgDatabase,
+  request: ReadAnimeCatalogueForViewerRequest,
+): Promise<AnimeCatalogueViewerPage> {
+  const userId =
+    request.userId === null ? null : z.uuidv4().parse(request.userId)
+
+  if (request.kind === 'browse') {
+    const { page, pageSize } = animeCatalogueBrowseRequestSchema.parse({
+      page: request.page,
+      pageSize: request.pageSize,
+    })
+
+    return readPublicAnimeCataloguePage(database, {
+      page,
+      pageSize,
+      userId,
+    })
+  }
+
+  const { page, pageSize, query } = animeCatalogueSearchRequestSchema.parse({
+    query: request.query,
+    page: request.page,
+    pageSize: request.pageSize,
+  })
+
+  return readPublicAnimeCataloguePage(database, {
+    page,
+    pageSize,
+    normalizedQuery: query,
+    userId,
+  })
 }
 
 type AnimeCatalogueBrowseRequestInput = z.input<
@@ -301,7 +420,13 @@ export async function browseAnimeCatalogue(
     request ?? {},
   )
 
-  return readPublicAnimeCataloguePage(database, { page, pageSize })
+  return (
+    await readPublicAnimeCataloguePage(database, {
+      page,
+      pageSize,
+      userId: null,
+    })
+  ).cataloguePage
 }
 
 export async function searchAnimeCatalogue(
@@ -311,9 +436,12 @@ export async function searchAnimeCatalogue(
   const { page, pageSize, query } =
     animeCatalogueSearchRequestSchema.parse(request)
 
-  return readPublicAnimeCataloguePage(database, {
-    page,
-    pageSize,
-    normalizedQuery: query,
-  })
+  return (
+    await readPublicAnimeCataloguePage(database, {
+      page,
+      pageSize,
+      normalizedQuery: query,
+      userId: null,
+    })
+  ).cataloguePage
 }

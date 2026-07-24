@@ -19,6 +19,7 @@ import { updateAnimeEntryRating } from '@/server/database/anime-entry-rating-ser
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -326,6 +327,19 @@ describe('anime entry rating service', () => {
     ).resolves.toEqual({ kind: 'unavailable' })
     await expect(readEntry(entry.id)).resolves.toEqual(before)
     await expect(readEntry(adultEntry.id)).resolves.toEqual(adultBefore)
+
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    await expect(
+      updateAnimeEntryRating(database, {
+        userId: owner.id,
+        entryId: adultEntry.id,
+        ratingOperation: 'save',
+        expectedRating: 9,
+        requestedRating: 6,
+      }),
+    ).resolves.toEqual({ kind: 'updated', rating: 6 })
   })
 
   it('keeps timestamps unchanged for exact no-ops and lost-response replays', async () => {

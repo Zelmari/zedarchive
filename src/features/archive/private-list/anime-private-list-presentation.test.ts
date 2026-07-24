@@ -107,6 +107,7 @@ describe('AnimePrivateListResults', () => {
       kind: 'displayable',
       entryId: '550e8400-e29b-41d4-a716-446655440000',
       title: 'First anime',
+      isAdult: false,
       releaseYear: 2001,
       episodeCount: 12,
       releaseStatus: 'finished',
@@ -150,6 +151,7 @@ describe('AnimePrivateListResults', () => {
           kind: 'displayable',
           entryId: '550e8400-e29b-41d4-a716-446655440000',
           title: 'Cowboy Bebop',
+          isAdult: false,
           releaseYear: 1998,
           episodeCount: 26,
           releaseStatus: 'finished',
@@ -169,6 +171,7 @@ describe('AnimePrivateListResults', () => {
           kind: 'unavailable_in_catalogue',
           entryId: '550e8400-e29b-41d4-a716-446655440001',
           title: 'Hidden archive anime',
+          isAdult: true,
           releaseYear: null,
           episodeCount: null,
           releaseStatus: 'unknown',
@@ -190,6 +193,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('Finished')
     expect(markup).toContain('Completed')
     expect(markup).toContain('Hidden archive anime')
+    expect(markup).toContain('Adult content')
     expect(markup).toContain('Year unknown')
     expect(markup).toContain('Status unknown')
     expect(markup).toContain('Not currently available in the catalogue')

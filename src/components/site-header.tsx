@@ -46,6 +46,9 @@ export async function SiteHeader() {
               <span className="min-w-0 break-all">
                 <PublicUsername username={signedInUsername} />
               </span>
+              <Link className={linkClassName} href="/settings">
+                Settings
+              </Link>
               <SignOutButton />
             </>
           ) : (

@@ -7,6 +7,7 @@ import type {
   RemoveAnimeEntryResult,
 } from '@/features/archive/domain/remove-anime-entry'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type RemoveAnimeEntryRequest = RemoveAnimeEntryInput & {
   userId: string
@@ -41,7 +42,14 @@ export async function removeAnimeEntry(
       .for('share')
       .limit(1)
 
-    if (catalogueItem === undefined || catalogueItem.maturity === 'adult') {
+    if (catalogueItem === undefined) {
+      return { kind: 'unavailable' }
+    }
+
+    if (
+      catalogueItem.maturity === 'adult' &&
+      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+    ) {
       return { kind: 'unavailable' }
     }
 

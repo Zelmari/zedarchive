@@ -22,11 +22,13 @@ const foreignKeyViolation = '23503'
 const uniqueViolation = '23505'
 
 const catalogueReadIndexNames = [
-  'anime_catalogue_items_public_browse_idx',
-  'anime_catalogue_items_public_english_title_trgm_idx',
-  'anime_catalogue_items_public_romaji_title_trgm_idx',
-  'anime_catalogue_items_public_original_title_trgm_idx',
   'anime_alternative_titles_title_trgm_idx',
+  'anime_catalogue_items_public_english_title_trgm_idx',
+  'anime_catalogue_items_public_original_title_trgm_idx',
+  'anime_catalogue_items_public_romaji_title_trgm_idx',
+  'anime_catalogue_items_published_english_browse_idx',
+  'anime_catalogue_items_published_original_browse_idx',
+  'anime_catalogue_items_published_romaji_browse_idx',
 ] as const
 
 type CatalogueReadIndexMetadata = {
@@ -38,9 +40,11 @@ type CatalogueReadIndexMetadata = {
   opclasses: (string | null)[]
 }
 
-function expectPublicCatalogueIndexPredicate(predicate: string | null): void {
+function expectPublishedCatalogueIndexPredicate(
+  predicate: string | null,
+): void {
   expect(predicate).toMatch(/catalogue_state\s*=\s*'published'/)
-  expect(predicate).toMatch(/maturity\s*<>\s*'adult'/)
+  expect(predicate).not.toMatch(/maturity/i)
 }
 
 async function queryCatalogueReadIndexMetadata(): Promise<
@@ -204,7 +208,7 @@ describe('database integration safety', () => {
     )
   })
 
-  it('contains exactly the nine approved public application tables', async () => {
+  it('contains exactly the ten approved public application tables', async () => {
     const result = await pool.query<{ tableName: string }>(`
       select tablename as "tableName"
       from pg_catalog.pg_tables
@@ -220,6 +224,7 @@ describe('database integration safety', () => {
       'anime_entries',
       'rate_limits',
       'sessions',
+      'user_catalogue_preferences',
       'users',
       'verifications',
     ])
@@ -288,28 +293,78 @@ describe('catalogue read indexes and pg_trgm', () => {
     expect(result.rows).toEqual([{ extensionName: 'pg_trgm' }])
   })
 
-  it('creates the five planned catalogue read indexes with expected metadata', async () => {
+  it('creates exactly the seven planned catalogue read indexes with expected metadata', async () => {
     const indexes = await queryCatalogueReadIndexMetadata()
+    const inventoryResult = await pool.query<{ indexName: string }>(`
+      select idx.relname as "indexName"
+      from pg_index ix
+      join pg_class idx on idx.oid = ix.indexrelid
+      where ix.indrelid in (
+        'anime_catalogue_items'::regclass,
+        'anime_alternative_titles'::regclass
+      )
+        and not exists (
+          select 1
+          from pg_constraint con
+          where con.conindid = ix.indexrelid
+        )
+      order by idx.relname
+    `)
 
-    expect(indexes.map(({ indexName }) => indexName)).toEqual(
-      expect.arrayContaining([...catalogueReadIndexNames]),
-    )
+    expect(
+      inventoryResult.rows.map(({ indexName }) => indexName),
+    ).toStrictEqual([...catalogueReadIndexNames])
+    expect(indexes.map(({ indexName }) => indexName)).toStrictEqual([
+      ...catalogueReadIndexNames,
+    ])
 
-    const browseIndex = findCatalogueReadIndex(
+    const englishBrowseIndex = findCatalogueReadIndex(
       indexes,
-      'anime_catalogue_items_public_browse_idx',
+      'anime_catalogue_items_published_english_browse_idx',
     )
-    expect(browseIndex.tableName).toBe('anime_catalogue_items')
-    expect(browseIndex.accessMethod).toBe('btree')
-    expectPublicCatalogueIndexPredicate(browseIndex.predicate)
-    expect(browseIndex.expressions).toHaveLength(3)
-    expect(browseIndex.expressions[0]).toMatch(
+    expect(englishBrowseIndex.tableName).toBe('anime_catalogue_items')
+    expect(englishBrowseIndex.accessMethod).toBe('btree')
+    expectPublishedCatalogueIndexPredicate(englishBrowseIndex.predicate)
+    expect(englishBrowseIndex.expressions).toHaveLength(3)
+    expect(englishBrowseIndex.expressions[0]).toMatch(
       /lower\(coalesce\(english_title, romaji_title, original_title\)\)/i,
     )
-    expect(browseIndex.expressions[1]).toMatch(
+    expect(englishBrowseIndex.expressions[1]).toMatch(
       /coalesce\(english_title, romaji_title, original_title\)/i,
     )
-    expect(browseIndex.expressions[2]).toMatch(/^id$/i)
+    expect(englishBrowseIndex.expressions[2]).toMatch(/^id$/i)
+
+    const originalBrowseIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_published_original_browse_idx',
+    )
+    expect(originalBrowseIndex.tableName).toBe('anime_catalogue_items')
+    expect(originalBrowseIndex.accessMethod).toBe('btree')
+    expectPublishedCatalogueIndexPredicate(originalBrowseIndex.predicate)
+    expect(originalBrowseIndex.expressions).toHaveLength(3)
+    expect(originalBrowseIndex.expressions[0]).toMatch(
+      /lower\(coalesce\(original_title, romaji_title, english_title\)\)/i,
+    )
+    expect(originalBrowseIndex.expressions[1]).toMatch(
+      /coalesce\(original_title, romaji_title, english_title\)/i,
+    )
+    expect(originalBrowseIndex.expressions[2]).toMatch(/^id$/i)
+
+    const romajiBrowseIndex = findCatalogueReadIndex(
+      indexes,
+      'anime_catalogue_items_published_romaji_browse_idx',
+    )
+    expect(romajiBrowseIndex.tableName).toBe('anime_catalogue_items')
+    expect(romajiBrowseIndex.accessMethod).toBe('btree')
+    expectPublishedCatalogueIndexPredicate(romajiBrowseIndex.predicate)
+    expect(romajiBrowseIndex.expressions).toHaveLength(3)
+    expect(romajiBrowseIndex.expressions[0]).toMatch(
+      /lower\(coalesce\(romaji_title, english_title, original_title\)\)/i,
+    )
+    expect(romajiBrowseIndex.expressions[1]).toMatch(
+      /coalesce\(romaji_title, english_title, original_title\)/i,
+    )
+    expect(romajiBrowseIndex.expressions[2]).toMatch(/^id$/i)
 
     const englishTitleIndex = findCatalogueReadIndex(
       indexes,
@@ -317,7 +372,7 @@ describe('catalogue read indexes and pg_trgm', () => {
     )
     expect(englishTitleIndex.tableName).toBe('anime_catalogue_items')
     expect(englishTitleIndex.accessMethod).toBe('gin')
-    expectPublicCatalogueIndexPredicate(englishTitleIndex.predicate)
+    expectPublishedCatalogueIndexPredicate(englishTitleIndex.predicate)
     expect(englishTitleIndex.predicate).toMatch(/english_title is not null/i)
     expect(englishTitleIndex.expressions).toEqual(['english_title'])
     expect(englishTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
@@ -328,7 +383,7 @@ describe('catalogue read indexes and pg_trgm', () => {
     )
     expect(romajiTitleIndex.tableName).toBe('anime_catalogue_items')
     expect(romajiTitleIndex.accessMethod).toBe('gin')
-    expectPublicCatalogueIndexPredicate(romajiTitleIndex.predicate)
+    expectPublishedCatalogueIndexPredicate(romajiTitleIndex.predicate)
     expect(romajiTitleIndex.predicate).toMatch(/romaji_title is not null/i)
     expect(romajiTitleIndex.expressions).toEqual(['romaji_title'])
     expect(romajiTitleIndex.opclasses).toEqual(['gin_trgm_ops'])
@@ -339,7 +394,7 @@ describe('catalogue read indexes and pg_trgm', () => {
     )
     expect(originalTitleIndex.tableName).toBe('anime_catalogue_items')
     expect(originalTitleIndex.accessMethod).toBe('gin')
-    expectPublicCatalogueIndexPredicate(originalTitleIndex.predicate)
+    expectPublishedCatalogueIndexPredicate(originalTitleIndex.predicate)
     expect(originalTitleIndex.predicate).toMatch(/original_title is not null/i)
     expect(originalTitleIndex.expressions).toEqual(['original_title'])
     expect(originalTitleIndex.opclasses).toEqual(['gin_trgm_ops'])

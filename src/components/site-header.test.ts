@@ -71,6 +71,8 @@ describe('SiteHeader', () => {
     expect(markup).toContain('href="/archive/anime"')
     expect(markup).toContain('My anime')
     expect(markup).toContain('@Zelmari')
+    expect(markup).toContain('href="/settings"')
+    expect(markup).toContain('Settings')
     expect(markup).toContain('Sign out')
   })
 
@@ -83,6 +85,7 @@ describe('SiteHeader', () => {
     expect(markup).toContain('Sign in')
     expect(markup).toContain('Register')
     expect(markup).not.toContain('My anime')
+    expect(markup).not.toContain('Settings')
     expect(markup).not.toContain('aria-label="Primary"')
   })
 })

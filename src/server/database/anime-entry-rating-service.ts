@@ -8,6 +8,7 @@ import type {
   UpdateAnimeEntryRatingInput,
 } from '@/features/archive/domain/update-anime-entry-rating'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryRatingRequest = UpdateAnimeEntryRatingInput & {
   userId: string
@@ -66,7 +67,14 @@ export async function updateAnimeEntryRating(
       .for('share')
       .limit(1)
 
-    if (catalogueItem === undefined || catalogueItem.maturity === 'adult') {
+    if (catalogueItem === undefined) {
+      return { kind: 'unavailable' }
+    }
+
+    if (
+      catalogueItem.maturity === 'adult' &&
+      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+    ) {
       return { kind: 'unavailable' }
     }
 

@@ -19,6 +19,7 @@ import { updateAnimeEntryDateRange } from '@/server/database/anime-entry-date-ra
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -338,6 +339,24 @@ describe('anime entry date range service', () => {
       ).resolves.toEqual({ kind: 'unavailable' })
     await expect(readEntry(entry.id)).resolves.toEqual(before)
     await expect(readEntry(adultEntry.id)).resolves.toEqual(adultBefore)
+
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    await expect(
+      updateAnimeEntryDateRange(database, {
+        userId: owner.id,
+        entryId: adultEntry.id,
+        expectedStartDate: null,
+        expectedFinishDate: '2024-01-02',
+        requestedStartDate: '2024-01-01',
+        requestedFinishDate: '2024-01-02',
+      }),
+    ).resolves.toEqual({
+      kind: 'updated',
+      startDate: '2024-01-01',
+      finishDate: '2024-01-02',
+    })
   })
 
   it('serializes concurrent pair CAS and rejects a winning safe-to-adult reclassification', async () => {

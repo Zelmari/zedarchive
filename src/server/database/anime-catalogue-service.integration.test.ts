@@ -14,15 +14,19 @@ import {
 vi.mock('server-only', () => ({}))
 
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
-import type { AnimeCatalogueItem } from '@/features/anime/domain/anime-catalogue-item'
+import type { AnimeCataloguePageItem } from '@/features/anime/catalogue/anime-catalogue-query'
 import {
   browseAnimeCatalogue,
+  readAnimeCatalogueForViewer,
   searchAnimeCatalogue,
   StoredAnimeCatalogueTitleIntegrityError,
 } from '@/server/database/anime-catalogue-service'
 import {
   animeAlternativeTitles,
   animeCatalogueItems,
+  animeEntries,
+  userCataloguePreferences,
+  users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
 
@@ -69,8 +73,9 @@ async function insertPublishedItem(
   return item
 }
 
-function expectItemShape(item: AnimeCatalogueItem) {
+function expectItemShape(item: AnimeCataloguePageItem) {
   expect(Object.keys(item).sort()).toEqual([
+    'displayTitle',
     'episodeCount',
     'format',
     'id',
@@ -89,6 +94,24 @@ function expectItemShape(item: AnimeCatalogueItem) {
   expect(item).not.toHaveProperty('createdAt')
   expect(item).not.toHaveProperty('updatedAt')
   expect(item).not.toHaveProperty('sources')
+}
+
+async function insertUser() {
+  const username = `User${randomUUID().replaceAll('-', '').slice(0, 12)}`
+  const [user] = await database
+    .insert(users)
+    .values({
+      username,
+      usernameIdentityKey: username.toLowerCase(),
+      email: `${randomUUID()}@example.com`,
+    })
+    .returning()
+
+  if (!user) {
+    throw new Error('Expected user fixture')
+  }
+
+  return user
 }
 
 async function readCatalogueFingerprint(): Promise<unknown> {
@@ -129,7 +152,12 @@ beforeEach(async () => {
       anime_entries,
       anime_catalogue_sources,
       anime_alternative_titles,
-      anime_catalogue_items
+      anime_catalogue_items,
+      rate_limits,
+      verifications,
+      sessions,
+      accounts,
+      users
     restart identity cascade
   `)
 })
@@ -272,6 +300,7 @@ describe('browseAnimeCatalogue', () => {
         releaseYear: 2024,
         episodeCount: 1,
         maturity: 'sensitive',
+        displayTitle: 'Mapped Title',
       },
     ])
     expectItemShape(page.items[0]!)
@@ -721,5 +750,173 @@ describe('searchAnimeCatalogue', () => {
     await searchAnimeCatalogue(database, { query: 'read only' })
 
     expect(await readCatalogueFingerprint()).toEqual(fingerprintBefore)
+  })
+})
+
+describe('readAnimeCatalogueForViewer', () => {
+  it('uses English/adult-off for signed-out and missing-preference viewers without exposing adult identifiers', async () => {
+    const user = await insertUser()
+    const safeId = '17171717-1717-4171-8171-171717171701'
+    const adultId = '17171717-1717-4171-8171-171717171702'
+
+    await Promise.all([
+      insertPublishedItem({
+        id: safeId,
+        englishTitle: 'English Safe',
+        romajiTitle: 'Romaji Safe',
+      }),
+      insertPublishedItem({
+        id: adultId,
+        englishTitle: 'PRIVATE ADULT TITLE',
+        maturity: 'adult',
+      }),
+    ])
+
+    const signedOut = await readAnimeCatalogueForViewer(database, {
+      kind: 'browse',
+      userId: null,
+      page: 1,
+      pageSize: 24,
+    })
+    const defaultUser = await readAnimeCatalogueForViewer(database, {
+      kind: 'browse',
+      userId: user.id,
+      page: 1,
+      pageSize: 24,
+    })
+
+    expect(signedOut).toMatchObject({
+      cataloguePage: {
+        items: [{ id: safeId, displayTitle: 'English Safe' }],
+        pagination: { totalItems: 1 },
+      },
+      memberships: null,
+    })
+    expect(defaultUser).toMatchObject({
+      cataloguePage: {
+        items: [{ id: safeId, displayTitle: 'English Safe' }],
+        pagination: { totalItems: 1 },
+      },
+      memberships: [],
+    })
+    expect(JSON.stringify(signedOut)).not.toContain(adultId)
+    expect(JSON.stringify(signedOut)).not.toContain('PRIVATE ADULT TITLE')
+    expect(JSON.stringify(defaultUser)).not.toContain(adultId)
+    expect(JSON.stringify(defaultUser)).not.toContain('PRIVATE ADULT TITLE')
+  })
+
+  it('includes only published adult items when enabled and resolves ordering, display, and membership in the viewer snapshot', async () => {
+    const user = await insertUser()
+    const adultId = '18181818-1818-4181-8181-181818181801'
+    const safeId = '18181818-1818-4181-8181-181818181802'
+
+    await database.insert(userCataloguePreferences).values({
+      userId: user.id,
+      titleLanguage: 'romaji',
+      adultContentEnabled: true,
+    })
+    await Promise.all([
+      insertPublishedItem({
+        id: safeId,
+        englishTitle: 'Alpha English',
+        romajiTitle: 'Zulu Romaji',
+      }),
+      insertPublishedItem({
+        id: adultId,
+        englishTitle: 'Zulu English',
+        romajiTitle: 'Alpha Romaji',
+        maturity: 'adult',
+      }),
+      insertPublishedItem({
+        englishTitle: 'Hidden Adult',
+        romajiTitle: 'Before Everything',
+        maturity: 'adult',
+        catalogueState: 'hidden',
+      }),
+    ])
+    await database.insert(animeEntries).values({
+      userId: user.id,
+      catalogueItemId: adultId,
+      status: 'in_progress',
+    })
+
+    const response = await readAnimeCatalogueForViewer(database, {
+      kind: 'browse',
+      userId: user.id,
+      page: 1,
+      pageSize: 24,
+    })
+
+    expect(response.cataloguePage.pagination.totalItems).toBe(2)
+    expect(
+      response.cataloguePage.items.map(({ id, displayTitle, maturity }) => ({
+        id,
+        displayTitle,
+        maturity,
+      })),
+    ).toEqual([
+      {
+        id: adultId,
+        displayTitle: 'Alpha Romaji',
+        maturity: 'adult',
+      },
+      {
+        id: safeId,
+        displayTitle: 'Zulu Romaji',
+        maturity: 'safe',
+      },
+    ])
+    expect(response.memberships).toEqual([
+      { catalogueItemId: adultId, status: 'in_progress' },
+    ])
+  })
+
+  it('keeps all-title search matching and rank stable while preferred display titles break ties', async () => {
+    const user = await insertUser()
+    const originalFirstId = '19191919-1919-4191-8191-191919191901'
+    const originalSecondId = '19191919-1919-4191-8191-191919191902'
+
+    await database.insert(userCataloguePreferences).values({
+      userId: user.id,
+      titleLanguage: 'original',
+      adultContentEnabled: true,
+    })
+    await insertPublishedItem(
+      {
+        id: originalSecondId,
+        englishTitle: 'Alpha English',
+        romajiTitle: 'Second Romaji',
+        originalTitle: 'Zulu Original',
+      },
+      [{ title: 'Shared Exact Alias', position: 0 }],
+    )
+    await insertPublishedItem(
+      {
+        id: originalFirstId,
+        englishTitle: 'Zulu English',
+        romajiTitle: 'First Romaji',
+        originalTitle: 'Alpha Original',
+        maturity: 'adult',
+      },
+      [{ title: 'Shared Exact Alias', position: 0 }],
+    )
+
+    const response = await readAnimeCatalogueForViewer(database, {
+      kind: 'search',
+      userId: user.id,
+      query: 'shared exact alias',
+      page: 1,
+      pageSize: 24,
+    })
+
+    expect(
+      response.cataloguePage.items.map(({ id, displayTitle }) => ({
+        id,
+        displayTitle,
+      })),
+    ).toEqual([
+      { id: originalFirstId, displayTitle: 'Alpha Original' },
+      { id: originalSecondId, displayTitle: 'Zulu Original' },
+    ])
   })
 })

@@ -23,6 +23,7 @@ import {
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -249,6 +250,36 @@ describe('episode progress and total services', () => {
       await expect(readEntry(entry.id)).resolves.toEqual(before)
     },
   )
+
+  it('updates progress and personal total for an adult entry only while enabled', async () => {
+    const owner = await insertUser()
+    const item = await insertCatalogueItem({
+      maturity: 'adult',
+      catalogueState: 'hidden',
+      episodeCount: 12,
+    })
+    const entry = await insertEntry(owner.id, item.id)
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+
+    await expect(
+      updateAnimeEntryEpisodeProgress(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedEpisodeProgress: 0,
+        requestedEpisodeProgress: 2,
+      }),
+    ).resolves.toMatchObject({ kind: 'updated', progress: 2 })
+    await expect(
+      updateAnimeEntryEpisodeTotalOverride(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedEpisodeTotalOverride: null,
+        requestedEpisodeTotalOverride: 10,
+      }),
+    ).resolves.toMatchObject({ kind: 'updated', personalTotal: 10 })
+  })
 
   it('preserves unrelated fields across real changes, no-ops, replay, reset, and clear', async () => {
     const owner = await insertUser()

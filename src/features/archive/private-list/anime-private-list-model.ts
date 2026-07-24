@@ -22,6 +22,7 @@ export type AnimePrivateListVisibleEntry = {
   kind: 'displayable' | 'unavailable_in_catalogue'
   entryId: string
   title: string
+  isAdult: boolean
   releaseYear: number | null
   episodeCount: number | null
   releaseStatus: AnimeReleaseStatus

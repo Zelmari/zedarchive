@@ -20,6 +20,7 @@ import { updateAnimeEntryFavourite } from '@/server/database/anime-entry-favouri
 import {
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
   users,
 } from '@/server/database/schema'
 import { assertSafeTestDatabaseName } from '@/test/database/global-setup'
@@ -243,6 +244,18 @@ describe('anime entry favourite service', () => {
       ).resolves.toEqual({ kind: 'unavailable' })
     await expect(readEntry(entry.id)).resolves.toEqual(before)
     await expect(readEntry(adultEntry.id)).resolves.toEqual(adultBefore)
+
+    await database
+      .insert(userCataloguePreferences)
+      .values({ userId: owner.id, adultContentEnabled: true })
+    await expect(
+      updateAnimeEntryFavourite(database, {
+        userId: owner.id,
+        entryId: adultEntry.id,
+        expectedFavourite: true,
+        requestedFavourite: false,
+      }),
+    ).resolves.toEqual({ kind: 'updated', isFavourite: false })
   })
 
   it('keeps timestamps unchanged for no-ops and replay, detects conflicts, and accepts the documented ABA limitation', async () => {

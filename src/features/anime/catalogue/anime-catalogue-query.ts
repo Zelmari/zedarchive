@@ -67,8 +67,12 @@ export const animeCataloguePaginationSchema = z
     }
   })
 
+export const animeCataloguePageItemSchema = animeCatalogueItemSchema.extend({
+  displayTitle: z.string().trim().min(1),
+})
+
 export const animeCataloguePageSchema = z.strictObject({
-  items: z.array(animeCatalogueItemSchema),
+  items: z.array(animeCataloguePageItemSchema),
   pagination: animeCataloguePaginationSchema,
 })
 
@@ -82,6 +86,10 @@ export type AnimeCatalogueSearchRequest = z.infer<
 
 export type AnimeCataloguePagination = z.infer<
   typeof animeCataloguePaginationSchema
+>
+
+export type AnimeCataloguePageItem = z.infer<
+  typeof animeCataloguePageItemSchema
 >
 
 export type AnimeCataloguePage = z.infer<typeof animeCataloguePageSchema>

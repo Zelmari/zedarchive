@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { z } from 'zod'
 import type { AddAnimeEntryInput } from '@/features/archive/domain/add-anime-entry'
@@ -23,8 +23,13 @@ import {
   type AnimePrivateListSort,
 } from '@/features/archive/private-list/anime-private-list-sort'
 import type { AnimeReleaseStatus } from '@/features/anime/domain/anime-catalogue-item'
-import { publishedNonAdultAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
+import type { AnimeTitleLanguage } from '@/features/settings/domain/catalogue-preferences'
+import { buildPreferredAnimeTitleExpression } from '@/server/database/anime-catalogue-title-expression'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import {
+  lockAdultContentPreferenceForShare,
+  readUserCataloguePreferences,
+} from '@/server/database/user-catalogue-preferences-service'
 
 export type CreateAnimeEntryRequest = AddAnimeEntryInput & {
   userId: string
@@ -61,51 +66,80 @@ export type ReadAnimeArchivePageRequest = z.input<
   typeof animeArchivePageRequestSchema
 >
 
-const resolvedTitleExpression = sql<string>`coalesce(${animeCatalogueItems.englishTitle}, ${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.originalTitle})`
-const restrictedOrderExpression = sql<number>`case when ${animeCatalogueItems.maturity} = 'adult' then 1 else 0 end`
-const visibleTitleLowerOrderExpression = sql<
-  string | null
->`case when ${animeCatalogueItems.maturity} = 'adult' then null else lower(${resolvedTitleExpression}) end`
-const visibleTitleOrderExpression = sql<
-  string | null
->`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${resolvedTitleExpression} end`
-const ordinaryFavouriteOrderExpression = sql<number | null>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then null
-  when ${animeEntries.isFavourite} then 0
-  else 1
-end`
-const visibleUpdatedAtOrderExpression = sql<Date | null>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then null
-  else ${animeEntries.updatedAt}
-end`
-const visibleCreatedAtOrderExpression = sql<Date | null>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then null
-  else ${animeEntries.createdAt}
-end`
-const visibleUnratedOrderExpression = sql<number | null>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then null
-  when ${animeEntries.rating} is null then 1
-  else 0
-end`
-const visibleRatingOrderExpression = sql<number | null>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then null
-  else ${animeEntries.rating}
-end`
+function buildAnimeArchiveExpressions({
+  canViewAdult,
+  titleLanguage,
+}: {
+  canViewAdult: boolean
+  titleLanguage: AnimeTitleLanguage
+}) {
+  const resolvedTitle = buildPreferredAnimeTitleExpression(titleLanguage)
+  const restrictedCondition: SQL = canViewAdult
+    ? sql`false`
+    : sql`${animeCatalogueItems.maturity} = 'adult'`
+  const restrictedOrder = sql<number>`case when ${restrictedCondition} then 1 else 0 end`
+  const visibleTitleLower = sql<
+    string | null
+  >`case when ${restrictedCondition} then null else lower(${resolvedTitle}) end`
+  const visibleTitle = sql<
+    string | null
+  >`case when ${restrictedCondition} then null else ${resolvedTitle} end`
+  const ordinaryFavourite = sql<number | null>`case
+    when ${restrictedCondition} then null
+    when ${animeEntries.isFavourite} then 0
+    else 1
+  end`
+  const visibleUpdatedAt = sql<Date | null>`case
+    when ${restrictedCondition} then null
+    else ${animeEntries.updatedAt}
+  end`
+  const visibleCreatedAt = sql<Date | null>`case
+    when ${restrictedCondition} then null
+    else ${animeEntries.createdAt}
+  end`
+  const visibleUnrated = sql<number | null>`case
+    when ${restrictedCondition} then null
+    when ${animeEntries.rating} is null then 1
+    else 0
+  end`
+  const visibleRating = sql<number | null>`case
+    when ${restrictedCondition} then null
+    else ${animeEntries.rating}
+  end`
+  const availability = sql<AnimePrivateListEntry['kind']>`case
+    when ${restrictedCondition} then 'restricted'
+    when ${animeCatalogueItems.catalogueState} = 'published' then 'displayable'
+    else 'unavailable_in_catalogue'
+  end`
 
-const archiveAvailabilityExpression = sql<AnimePrivateListEntry['kind']>`case
-  when ${animeCatalogueItems.maturity} = 'adult' then 'restricted'
-  when ${animeCatalogueItems.catalogueState} = 'published' then 'displayable'
-  else 'unavailable_in_catalogue'
-end`
+  return {
+    availability,
+    ordinaryFavourite,
+    resolvedTitle,
+    restrictedCondition,
+    restrictedOrder,
+    visibleCreatedAt,
+    visibleRating,
+    visibleTitle,
+    visibleTitleLower,
+    visibleUnrated,
+    visibleUpdatedAt,
+  }
+}
 
-function buildAnimeArchiveOrder(sort: AnimePrivateListSort) {
+type AnimeArchiveExpressions = ReturnType<typeof buildAnimeArchiveExpressions>
+
+function buildAnimeArchiveOrder(
+  sort: AnimePrivateListSort,
+  expressions: AnimeArchiveExpressions,
+) {
   const sharedOrder = [
-    asc(restrictedOrderExpression),
-    asc(ordinaryFavouriteOrderExpression),
+    asc(expressions.restrictedOrder),
+    asc(expressions.ordinaryFavourite),
   ] as const
   const titleOrder = [
-    asc(visibleTitleLowerOrderExpression),
-    asc(visibleTitleOrderExpression),
+    asc(expressions.visibleTitleLower),
+    asc(expressions.visibleTitle),
     asc(animeCatalogueItems.id),
   ] as const
 
@@ -113,22 +147,14 @@ function buildAnimeArchiveOrder(sort: AnimePrivateListSort) {
     case 'alphabetical':
       return [...sharedOrder, ...titleOrder]
     case 'recently-updated':
-      return [
-        ...sharedOrder,
-        desc(visibleUpdatedAtOrderExpression),
-        ...titleOrder,
-      ]
+      return [...sharedOrder, desc(expressions.visibleUpdatedAt), ...titleOrder]
     case 'recently-added':
-      return [
-        ...sharedOrder,
-        desc(visibleCreatedAtOrderExpression),
-        ...titleOrder,
-      ]
+      return [...sharedOrder, desc(expressions.visibleCreatedAt), ...titleOrder]
     case 'highest-rated':
       return [
         ...sharedOrder,
-        asc(visibleUnratedOrderExpression),
-        desc(visibleRatingOrderExpression),
+        asc(expressions.visibleUnrated),
+        desc(expressions.visibleRating),
         ...titleOrder,
       ]
   }
@@ -138,6 +164,7 @@ function mapStoredAnimeArchiveEntry(row: {
   kind: AnimePrivateListEntry['kind']
   entryId: string | null
   title: string | null
+  isAdult: boolean | null
   releaseYear: number | null
   episodeCount: number | null
   format: string | null
@@ -171,9 +198,10 @@ function mapStoredAnimeArchiveEntry(row: {
   }
 
   const isFavourite = z.boolean().safeParse(row.isFavourite)
-  if (!isFavourite.success) {
+  const isAdult = z.boolean().safeParse(row.isAdult)
+  if (!isFavourite.success || !isAdult.success) {
     throw new Error(
-      'Stored private anime archive favourite failed integrity checks',
+      'Stored private anime archive visibility failed integrity checks',
     )
   }
 
@@ -189,6 +217,7 @@ function mapStoredAnimeArchiveEntry(row: {
     kind: row.kind,
     entryId: row.entryId,
     title: row.title,
+    isAdult: isAdult.data,
     releaseYear: row.releaseYear,
     episodeCount: row.episodeCount,
     releaseStatus: row.releaseStatus,
@@ -230,49 +259,58 @@ export async function createAnimeEntry(
   database: NodePgDatabase,
   request: CreateAnimeEntryRequest,
 ): Promise<CreateAnimeEntryResult> {
-  const [createdEntry] = await database
-    .execute<{ status: EntryStatus }>(
-      sql`
-      insert into ${animeEntries} (
-        "user_id",
-        "catalogue_item_id",
-        "status"
+  return database.transaction(async (transaction) => {
+    const [catalogueItem] = await transaction
+      .select({
+        catalogueState: animeCatalogueItems.catalogueState,
+        maturity: animeCatalogueItems.maturity,
+      })
+      .from(animeCatalogueItems)
+      .where(eq(animeCatalogueItems.id, request.catalogueItemId))
+      .for('share')
+      .limit(1)
+
+    if (
+      catalogueItem === undefined ||
+      catalogueItem.catalogueState !== 'published'
+    ) {
+      return { kind: 'unavailable' }
+    }
+
+    if (
+      catalogueItem.maturity === 'adult' &&
+      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+    ) {
+      return { kind: 'unavailable' }
+    }
+
+    const [createdEntry] = await transaction
+      .insert(animeEntries)
+      .values(request)
+      .onConflictDoNothing({
+        target: [animeEntries.userId, animeEntries.catalogueItemId],
+      })
+      .returning({ status: animeEntries.status })
+
+    if (createdEntry) {
+      return { kind: 'created', status: createdEntry.status }
+    }
+
+    const [existingEntry] = await transaction
+      .select({ status: animeEntries.status })
+      .from(animeEntries)
+      .where(
+        and(
+          eq(animeEntries.userId, request.userId),
+          eq(animeEntries.catalogueItemId, request.catalogueItemId),
+        ),
       )
-      select
-        ${request.userId}::uuid,
-        ${animeCatalogueItems.id},
-        ${request.status}
-      from ${animeCatalogueItems}
-      where ${and(
-        eq(animeCatalogueItems.id, request.catalogueItemId),
-        publishedNonAdultAnimeCatalogueVisibility,
-      )}
-      on conflict ("user_id", "catalogue_item_id") do nothing
-      returning ${animeEntries.status}
-    `,
-    )
-    .then(({ rows }) => rows)
+      .limit(1)
 
-  if (createdEntry) {
-    return { kind: 'created', status: createdEntry.status }
-  }
-
-  const [existingEntry] = await database
-    .select({ status: animeEntries.status })
-    .from(animeEntries)
-    .where(
-      and(
-        eq(animeEntries.userId, request.userId),
-        eq(animeEntries.catalogueItemId, request.catalogueItemId),
-      ),
-    )
-    .limit(1)
-
-  if (existingEntry) {
-    return { kind: 'already_exists', status: existingEntry.status }
-  }
-
-  return { kind: 'unavailable' }
+    return existingEntry
+      ? { kind: 'already_exists', status: existingEntry.status }
+      : { kind: 'unavailable' }
+  })
 }
 
 export async function getAnimeEntryCatalogueMembership(
@@ -334,7 +372,14 @@ export async function updateAnimeEntryStatus(
       .for('share')
       .limit(1)
 
-    if (catalogueItem === undefined || catalogueItem.maturity === 'adult') {
+    if (catalogueItem === undefined) {
+      return { kind: 'unavailable' }
+    }
+
+    if (
+      catalogueItem.maturity === 'adult' &&
+      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+    ) {
       return { kind: 'unavailable' }
     }
 
@@ -381,6 +426,13 @@ export async function readAnimeArchivePage(
 
   return database.transaction(
     async (transaction) => {
+      const preferences = await readUserCataloguePreferences(transaction, {
+        userId,
+      })
+      const expressions = buildAnimeArchiveExpressions({
+        canViewAdult: preferences.adultContentEnabled,
+        titleLanguage: preferences.titleLanguage,
+      })
       const [countRow] = await transaction
         .select({ totalItems: count() })
         .from(animeEntries)
@@ -389,53 +441,58 @@ export async function readAnimeArchivePage(
       const totalItems = Number(countRow?.totalItems ?? 0)
       const rows = await transaction
         .select({
-          kind: archiveAvailabilityExpression,
+          kind: expressions.availability,
           entryId: sql<
             string | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.id} end`,
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.id} end`,
           title: sql<
             string | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${resolvedTitleExpression} end`,
+          >`case when ${expressions.restrictedCondition} then null else ${expressions.resolvedTitle} end`,
+          isAdult: sql<
+            boolean | null
+          >`case when ${expressions.restrictedCondition} then null else ${animeCatalogueItems.maturity} = 'adult' end`.mapWith(
+            Boolean,
+          ),
           releaseYear: sql<
             number | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.releaseYear} end`,
+          >`case when ${expressions.restrictedCondition} then null else ${animeCatalogueItems.releaseYear} end`,
           episodeCount: sql<
             number | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.episodeCount} end`,
+          >`case when ${expressions.restrictedCondition} then null else ${animeCatalogueItems.episodeCount} end`,
           format: sql<
             string | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.format} end`,
+          >`case when ${expressions.restrictedCondition} then null else ${animeCatalogueItems.format} end`,
           episodeProgress: sql<
             number | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.episodeProgress} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.episodeProgress} end`.mapWith(
             animeEntries.episodeProgress,
           ),
           episodeTotalOverride: sql<
             number | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.episodeTotalOverride} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.episodeTotalOverride} end`.mapWith(
             animeEntries.episodeTotalOverride,
           ),
           rating: sql<
             number | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.rating} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.rating} end`.mapWith(
             animeEntries.rating,
           ),
           isFavourite: sql<
             boolean | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.isFavourite} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.isFavourite} end`.mapWith(
             animeEntries.isFavourite,
           ),
           startDate: sql<
             string | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.startDate} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.startDate} end`.mapWith(
             animeEntries.startDate,
           ),
           finishDate: sql<
             string | null
-          >`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeEntries.finishDate} end`.mapWith(
+          >`case when ${expressions.restrictedCondition} then null else ${animeEntries.finishDate} end`.mapWith(
             animeEntries.finishDate,
           ),
-          releaseStatus: sql<AnimeReleaseStatus | null>`case when ${animeCatalogueItems.maturity} = 'adult' then null else ${animeCatalogueItems.releaseStatus} end`,
+          releaseStatus: sql<AnimeReleaseStatus | null>`case when ${expressions.restrictedCondition} then null else ${animeCatalogueItems.releaseStatus} end`,
           archiveStatus: animeEntries.status,
         })
         .from(animeEntries)
@@ -444,7 +501,7 @@ export async function readAnimeArchivePage(
           eq(animeCatalogueItems.id, animeEntries.catalogueItemId),
         )
         .where(eq(animeEntries.userId, userId))
-        .orderBy(...buildAnimeArchiveOrder(sort))
+        .orderBy(...buildAnimeArchiveOrder(sort, expressions))
         .limit(pageSize)
         .offset(offset)
 

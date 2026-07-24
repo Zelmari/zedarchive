@@ -8,6 +8,7 @@ import type {
   UpdateAnimeEntryFavouriteInput,
 } from '@/features/archive/domain/update-anime-entry-favourite'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryFavouriteRequest =
   UpdateAnimeEntryFavouriteInput & { userId: string }
@@ -69,7 +70,14 @@ export async function updateAnimeEntryFavourite(
       .for('share')
       .limit(1)
 
-    if (catalogueItem === undefined || catalogueItem.maturity === 'adult') {
+    if (catalogueItem === undefined) {
+      return { kind: 'unavailable' }
+    }
+
+    if (
+      catalogueItem.maturity === 'adult' &&
+      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+    ) {
       return { kind: 'unavailable' }
     }
 

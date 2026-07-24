@@ -1,9 +1,7 @@
 import { headers } from 'next/headers'
 import { AnimeCatalogueCard } from '@/features/anime/catalogue/anime-catalogue-card'
-import {
-  getAnimeCatalogueArchivePresentation,
-  type AnimeCatalogueArchiveAccess,
-} from '@/features/anime/catalogue/anime-catalogue-archive-presentation'
+import { createAnimeCatalogueCoordinator } from '@/features/anime/catalogue/anime-catalogue-coordinator'
+import { getAnimeCatalogueArchivePresentation } from '@/features/anime/catalogue/anime-catalogue-archive-presentation'
 import {
   AnimeCatalogueEmptyStateView,
   getAnimeCatalogueEmptyState,
@@ -13,13 +11,9 @@ import type {
   AnimeCatalogueSearchPageQuery,
 } from '@/features/anime/catalogue/anime-catalogue-page-query'
 import { AnimeCataloguePagination } from '@/features/anime/catalogue/anime-catalogue-pagination'
-import {
-  browseAnimeCatalogue,
-  searchAnimeCatalogue,
-} from '@/server/database/anime-catalogue-service'
+import { readAnimeCatalogueForViewer } from '@/server/database/anime-catalogue-service'
 import { database } from '@/server/database/client'
 import { auth } from '@/server/auth/auth'
-import { getAnimeEntryCatalogueMembership } from '@/server/database/anime-entry-service'
 
 type AnimeCatalogueResultsProps = {
   pageQuery: AnimeCatalogueBrowsePageQuery | AnimeCatalogueSearchPageQuery
@@ -37,20 +31,19 @@ function formatSearchSummary(totalItems: number, query: string): string {
   return `${totalItems} results for "${query}"`
 }
 
+const coordinateAnimeCatalogue = createAnimeCatalogueCoordinator({
+  getSession: async () =>
+    auth.api.getSession({
+      headers: await headers(),
+    }),
+  readCatalogue: (request) => readAnimeCatalogueForViewer(database, request),
+})
+
 export async function AnimeCatalogueResults({
   pageQuery,
 }: AnimeCatalogueResultsProps) {
-  const cataloguePage =
-    pageQuery.kind === 'browse'
-      ? await browseAnimeCatalogue(database, {
-          page: pageQuery.page,
-          pageSize: pageQuery.pageSize,
-        })
-      : await searchAnimeCatalogue(database, {
-          query: pageQuery.query,
-          page: pageQuery.page,
-          pageSize: pageQuery.pageSize,
-        })
+  const { cataloguePage, archiveAccess } =
+    await coordinateAnimeCatalogue(pageQuery)
 
   const query = pageQuery.kind === 'search' ? pageQuery.query : undefined
   const emptyState = getAnimeCatalogueEmptyState({
@@ -61,31 +54,6 @@ export async function AnimeCatalogueResults({
     pagination: cataloguePage.pagination,
     itemCount: cataloguePage.items.length,
   })
-
-  let archiveAccess: AnimeCatalogueArchiveAccess = { kind: 'signed-out' }
-
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (session?.user?.id) {
-      try {
-        const memberships = await getAnimeEntryCatalogueMembership(database, {
-          userId: session.user.id,
-          catalogueItemIds: cataloguePage.items.map(({ id }) => id),
-        })
-
-        archiveAccess = { kind: 'memberships', memberships }
-      } catch {
-        console.error('Anime catalogue archive controls lookup failed.')
-        archiveAccess = { kind: 'controls-unavailable' }
-      }
-    }
-  } catch {
-    console.error('Anime catalogue session lookup failed.')
-    archiveAccess = { kind: 'session-unavailable' }
-  }
 
   const archivePresentation =
     getAnimeCatalogueArchivePresentation(archiveAccess)

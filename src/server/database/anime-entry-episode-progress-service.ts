@@ -21,6 +21,7 @@ import type {
 } from '@/features/archive/domain/update-anime-entry-episode-total'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryEpisodeProgressRequest =
   UpdateAnimeEntryEpisodeProgressInput & {
@@ -161,7 +162,11 @@ export async function updateAnimeEntryEpisodeProgress(
 
     const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
     if (
-      catalogueItem.maturity === 'adult' ||
+      (catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(
+          transaction,
+          request.userId,
+        ))) ||
       getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
     ) {
       return { kind: 'unavailable' }
@@ -259,7 +264,11 @@ export async function updateAnimeEntryEpisodeTotalOverride(
 
     const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
     if (
-      catalogueItem.maturity === 'adult' ||
+      (catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(
+          transaction,
+          request.userId,
+        ))) ||
       getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
     ) {
       return { kind: 'unavailable' }
