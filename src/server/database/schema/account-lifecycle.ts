@@ -42,7 +42,7 @@ export const accountDeletionRequests = pgTable(
     }).onDelete('cascade'),
     check(
       'account_deletion_requests_recovery_interval_check',
-      sql`${table.purgeAfter} = ${table.requestedAt} + interval '14 days'`,
+      sql`${table.purgeAfter} = ${table.requestedAt} + interval '336 hours'`,
     ),
     index('account_deletion_requests_purge_after_user_id_idx').on(
       table.purgeAfter,

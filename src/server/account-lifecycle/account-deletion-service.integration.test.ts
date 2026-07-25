@@ -309,4 +309,34 @@ describe('account deletion lifecycle service', () => {
       database.select().from(accountDeletionRequests),
     ).resolves.toHaveLength(1)
   })
+
+  it('does not cancel at the exact deadline through the controlled SQL predicate', async () => {
+    const { user } = await createSessionFixture()
+    const requestedAt = new Date('2026-03-15T12:00:00.000Z')
+    const purgeAfter = new Date(
+      requestedAt.getTime() + 14 * 24 * 60 * 60 * 1000,
+    )
+    await database.insert(accountDeletionRequests).values({
+      userId: user.id,
+      requestedAt,
+      purgeAfter,
+    })
+
+    const equalityDelete = await pool.query<{ userId: string }>(
+      `
+        delete from account_deletion_requests
+        where user_id = $1
+          and $2::timestamptz < purge_after
+        returning user_id as "userId"
+      `,
+      [user.id, purgeAfter.toISOString()],
+    )
+    expect(equalityDelete.rows).toEqual([])
+    await expect(
+      database
+        .select({ userId: accountDeletionRequests.userId })
+        .from(accountDeletionRequests)
+        .where(eq(accountDeletionRequests.userId, user.id)),
+    ).resolves.toEqual([{ userId: user.id }])
+  })
 })

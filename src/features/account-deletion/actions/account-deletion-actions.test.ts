@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}))
 import { createCancelAccountDeletionHandler } from '@/features/account-deletion/actions/cancel-account-deletion-handler'
 import { createCompleteAccountDeletionHandler } from '@/features/account-deletion/actions/complete-account-deletion-handler'
 import { createRequestAccountDeletionHandler } from '@/features/account-deletion/actions/request-account-deletion-handler'
+import { createResendAccountDeletionCodeHandler } from '@/features/account-deletion/actions/resend-account-deletion-code-handler'
 import {
   accountDeletionConfirmationValue,
   accountDeletionHydratedValue,
@@ -82,7 +83,7 @@ describe('account deletion action handlers', () => {
   it('schedules a code without returning it in action state', async () => {
     const scheduleCodeEmail = vi.fn()
     const delivery = {
-      to: 'fixture@example.test',
+      recipient: 'fixture@example.test',
       code: '00000001',
       challengeId: '33333333-3333-4333-8333-333333333333',
     }
@@ -106,6 +107,60 @@ describe('account deletion action handlers', () => {
     expect(result).toEqual({ kind: 'code_sent' })
     expect(JSON.stringify(result)).not.toContain(delivery.code)
     expect(scheduleCodeEmail).toHaveBeenCalledWith(delivery)
+  })
+
+  it('revalidates committed challenge state when initial code scheduling fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const revalidate = vi.fn()
+    const handler = createRequestAccountDeletionHandler({
+      getHeaders: vi.fn().mockResolvedValue(new Headers()),
+      resolveAccess: vi.fn().mockResolvedValue(activeAccess),
+      verifyPassword: vi.fn().mockResolvedValue({ kind: 'verified' }),
+      startChallenge: vi.fn().mockResolvedValue({
+        kind: 'challenge_created',
+        delivery: {
+          recipient: 'fixture@example.test',
+          code: '00000001',
+          challengeId: '33333333-3333-4333-8333-333333333333',
+        },
+      }),
+      scheduleCodeEmail: vi.fn(() => {
+        throw new Error('private delivery error')
+      }),
+      revalidate,
+    })
+
+    await expect(
+      handler(initialAccountDeletionActionState, startFormData()),
+    ).resolves.toEqual({ kind: 'retry' })
+    expect(revalidate).toHaveBeenCalledTimes(1)
+  })
+
+  it('revalidates committed challenge state when resend scheduling fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const revalidate = vi.fn(() => {
+      throw new Error('private revalidation error')
+    })
+    const handler = createResendAccountDeletionCodeHandler({
+      resolveAccess: vi.fn().mockResolvedValue(activeAccess),
+      resendCode: vi.fn().mockResolvedValue({
+        kind: 'challenge_resent',
+        delivery: {
+          recipient: 'fixture@example.test',
+          code: '00000002',
+          challengeId: '33333333-3333-4333-8333-333333333333',
+        },
+      }),
+      scheduleCodeEmail: vi.fn(() => {
+        throw new Error('private delivery error')
+      }),
+      revalidate,
+    })
+
+    await expect(
+      handler(initialAccountDeletionActionState, new FormData()),
+    ).resolves.toEqual({ kind: 'retry' })
+    expect(revalidate).toHaveBeenCalledTimes(1)
   })
 
   it('requires confirmation before resolving account access', async () => {
@@ -133,7 +188,7 @@ describe('account deletion action handlers', () => {
         kind: 'deletion_requested',
         purgeAfter: new Date('2026-08-25T14:30:00.000Z'),
         delivery: {
-          to: 'fixture@example.test',
+          recipient: 'fixture@example.test',
           purgeAfter: new Date('2026-08-25T14:30:00.000Z'),
           idempotencyValue: 'bounded-event',
         },

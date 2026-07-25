@@ -102,8 +102,6 @@ export type AccountDeletionSetupState =
   | { kind: 'account_unavailable' }
   | { kind: 'session_invalid' }
 
-const recoveryPeriodMilliseconds = 14 * 24 * 60 * 60 * 1000
-
 function addMilliseconds(value: Date, milliseconds: number): Date {
   return new Date(value.getTime() + milliseconds)
 }
@@ -123,6 +121,52 @@ async function databaseNow(
   }
 
   return new Date(row.now)
+}
+
+function readDatabaseTimestamp(value: unknown): Date {
+  if (value instanceof Date) return value
+  if (typeof value === 'string' || typeof value === 'number') {
+    const timestamp = new Date(value)
+    if (!Number.isNaN(timestamp.getTime())) return timestamp
+  }
+
+  throw new Error('Account lifecycle database timestamp is invalid')
+}
+
+/**
+ * Uses one PostgreSQL clock value so the recovery deadline is always an exact
+ * 336 elapsed hours, including across daylight-saving transitions.
+ */
+async function databaseRecoveryDeadline(
+  database: LifecycleDatabase,
+  userId: string,
+): Promise<Readonly<{ requestedAt: Date; purgeAfter: Date }>> {
+  const result = await database.execute(sql<{
+    requestedAt: Date
+    purgeAfter: Date
+  }>`
+    with database_now as materialized (
+      select clock_timestamp() as requested_at
+    )
+    select
+      database_now.requested_at as "requestedAt",
+      database_now.requested_at + interval '336 hours' as "purgeAfter"
+    from database_now
+    where exists (
+      select 1
+      from "users"
+      where "users"."id" = ${userId}::uuid
+    )
+  `)
+  const row = result.rows[0]
+  if (row === undefined) {
+    throw new Error('Account lifecycle user no longer exists')
+  }
+
+  return {
+    requestedAt: readDatabaseTimestamp(row.requestedAt),
+    purgeAfter: readDatabaseTimestamp(row.purgeAfter),
+  }
 }
 
 async function loadLockedUser(database: LifecycleDatabase, userId: string) {
@@ -559,7 +603,11 @@ export async function completeAccountDeletion(
         return { kind: 'restart_required' }
       }
 
-      const requestedAt = await databaseNow(transaction, user.id)
+      const recoveryDeadline = await databaseRecoveryDeadline(
+        transaction,
+        user.id,
+      )
+      const requestedAt = recoveryDeadline.requestedAt
       if (requestedAt >= challenge.reauthenticatedUntil) {
         return { kind: 'reauthentication_required' }
       }
@@ -594,14 +642,10 @@ export async function completeAccountDeletion(
         return { kind: 'invalid_code' }
       }
 
-      const purgeAfter = addMilliseconds(
-        requestedAt,
-        recoveryPeriodMilliseconds,
-      )
       await transaction.insert(accountDeletionRequests).values({
         userId: user.id,
-        requestedAt,
-        purgeAfter,
+        requestedAt: recoveryDeadline.requestedAt,
+        purgeAfter: recoveryDeadline.purgeAfter,
       })
       await transaction
         .delete(usernameChangeChallenges)
@@ -618,7 +662,7 @@ export async function completeAccountDeletion(
       return {
         kind: 'deletion_requested',
         recipient: user.email,
-        purgeAfter,
+        purgeAfter: recoveryDeadline.purgeAfter,
       }
     },
     { isolationLevel: 'read committed' },

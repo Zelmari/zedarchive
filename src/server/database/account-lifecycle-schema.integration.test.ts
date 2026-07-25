@@ -132,7 +132,7 @@ describe('account lifecycle schema', () => {
     expect(generated.rows[0]?.expression).toContain('reset-password:%')
   })
 
-  it('enforces the exact recovery interval and cascades or detaches lifecycle rows', async () => {
+  it('enforces the exact 336-hour recovery interval across daylight-saving time and cascades or detaches lifecycle rows', async () => {
     const user = await insertUser()
     const sessionId = randomUUID()
     await database.insert(sessions).values({
@@ -141,20 +141,62 @@ describe('account lifecycle schema', () => {
       token: randomUUID(),
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     })
-    const now = new Date()
-    await database.insert(accountDeletionRequests).values({
-      userId: user.id,
-      requestedAt: now,
-      purgeAfter: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
-    })
+    const invalidIntervalUser = await insertUser()
+    const requestedAt = new Date('2026-03-15T12:00:00.000Z')
+    const client = await pool.connect()
+    let transactionStarted = false
+    try {
+      await client.query('begin')
+      transactionStarted = true
+      await client.query("set local time zone 'Europe/London'")
+      await client.query(
+        `
+          insert into account_deletion_requests (
+            user_id,
+            requested_at,
+            purge_after
+          )
+          values (
+            $1,
+            $2::timestamptz,
+            $2::timestamptz + interval '336 hours'
+          )
+        `,
+        [user.id, requestedAt.toISOString()],
+      )
+      await client.query('savepoint invalid_recovery_interval')
+      await expect(
+        client.query(
+          `
+            insert into account_deletion_requests (
+              user_id,
+              requested_at,
+              purge_after
+            )
+            values (
+              $1,
+              $2::timestamptz,
+              $2::timestamptz + interval '14 days'
+            )
+          `,
+          [invalidIntervalUser.id, requestedAt.toISOString()],
+        ),
+      ).rejects.toThrow('account_deletion_requests_recovery_interval_check')
+      await client.query('rollback to savepoint invalid_recovery_interval')
+      await client.query('commit')
+      transactionStarted = false
+    } finally {
+      if (transactionStarted) await client.query('rollback')
+      client.release()
+    }
     await database.insert(deletionChallenges).values({
       userId: user.id,
       sessionId,
       codeDigest: 'a'.repeat(64),
-      codeExpiresAt: new Date(now.getTime() + 10 * 60 * 1000),
-      reauthenticatedUntil: new Date(now.getTime() + 15 * 60 * 1000),
-      sendWindowStartedAt: now,
-      lastSentAt: now,
+      codeExpiresAt: new Date(requestedAt.getTime() + 10 * 60 * 1000),
+      reauthenticatedUntil: new Date(requestedAt.getTime() + 15 * 60 * 1000),
+      sendWindowStartedAt: requestedAt,
+      lastSentAt: requestedAt,
     })
 
     await database.delete(sessions).where(eq(sessions.id, sessionId))
@@ -168,5 +210,11 @@ describe('account lifecycle schema', () => {
     await expect(database.select().from(deletionChallenges)).resolves.toEqual(
       [],
     )
+    await expect(
+      database
+        .delete(users)
+        .where(eq(users.id, invalidIntervalUser.id))
+        .returning({ id: users.id }),
+    ).resolves.toEqual([{ id: invalidIntervalUser.id }])
   })
 })

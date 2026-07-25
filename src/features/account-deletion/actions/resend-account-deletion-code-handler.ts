@@ -70,6 +70,11 @@ export function createResendAccountDeletionCodeHandler({
       scheduleCodeEmail(result.delivery)
     } catch {
       console.error('Account deletion resend email scheduling failed.')
+      try {
+        revalidate()
+      } catch {
+        console.error('Account deletion revalidation failed.')
+      }
       return { kind: 'retry' }
     }
 

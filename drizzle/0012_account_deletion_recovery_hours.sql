@@ -1,0 +1,2 @@
+ALTER TABLE "account_deletion_requests" DROP CONSTRAINT "account_deletion_requests_recovery_interval_check";--> statement-breakpoint
+ALTER TABLE "account_deletion_requests" ADD CONSTRAINT "account_deletion_requests_recovery_interval_check" CHECK ("account_deletion_requests"."purge_after" = "account_deletion_requests"."requested_at" + interval '336 hours');

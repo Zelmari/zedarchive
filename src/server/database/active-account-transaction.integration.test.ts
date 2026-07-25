@@ -104,7 +104,7 @@ describe('active account transaction barrier', () => {
         )
         insert into account_deletion_requests
           (user_id, requested_at, purge_after)
-        select $1, requested_at, requested_at + interval '14 days'
+        select $1, requested_at, requested_at + interval '336 hours'
         from lifecycle_clock`,
         [user.id],
       )

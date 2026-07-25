@@ -101,6 +101,11 @@ export function createRequestAccountDeletionHandler({
       scheduleCodeEmail(result.delivery)
     } catch {
       console.error('Account deletion code email scheduling failed.')
+      try {
+        revalidate()
+      } catch {
+        console.error('Account deletion revalidation failed.')
+      }
       return { kind: 'retry' }
     }
 

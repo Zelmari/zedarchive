@@ -5,6 +5,7 @@ import {
   test,
   type BrowserContext,
   type ConsoleMessage,
+  type Locator,
   type Page,
 } from '@playwright/test'
 import { hashPassword } from 'better-auth/crypto'
@@ -36,6 +37,13 @@ const fakeResendPort = 43_132
 const expectedFakeResendBaseUrl = `http://127.0.0.1:${fakeResendPort}`
 const { databaseUrl } = readDatabaseRuntimeEnvironment()
 const pool = new Pool({ connectionString: databaseUrl })
+const sharedVerifyPasswordRateLimitKey = 'no-trusted-ip|/verify-password'
+type SharedVerifyPasswordRateLimit = {
+  id: string
+  count: number
+  lastRequest: string
+}
+
 const fixtureUserIds: string[] = []
 const fixtureCatalogueItemIds: string[] = []
 let ownerAId = ''
@@ -44,6 +52,10 @@ let ownerCId = ''
 let ownerAEntryId = ''
 let publicCatalogueItemId = ''
 let collector: Server | undefined
+let sharedVerifyPasswordRateLimitBefore:
+  SharedVerifyPasswordRateLimit | null | undefined
+let sharedVerifyPasswordRateLimitExpected:
+  SharedVerifyPasswordRateLimit | null | undefined
 const collectedEmails: Array<{
   body: Record<string, unknown>
   idempotencyKey: string | undefined
@@ -222,6 +234,12 @@ function deletionConfirmation(page: Page) {
   return deletionSection(page).getByRole('checkbox')
 }
 
+async function expectVisibleFocusIndicator(control: Locator) {
+  await expect(control).toBeFocused()
+  await expect(control).toHaveCSS('outline-style', /^(auto|solid)$/)
+  await expect(control).not.toHaveCSS('outline-width', '0px')
+}
+
 /**
  * The provider's short per-IP sign-in window is far narrower than this
  * journey's burst of synthetic sign-ins, so the run paces itself rather than
@@ -233,19 +251,161 @@ const signInRateLimitAttempts = 3
 /**
  * Local browser runs share one verify-password bucket when no trusted client
  * IP is forwarded (`no-trusted-ip|/verify-password`, 5/60s). This journey needs
- * more successful proofs than that window allows, so age the disposable local
- * counter rather than weakening the production rule.
+ * more successful proofs than that window allows. The bucket can contain real
+ * local-development traffic, so every test-owned change is compare-and-set
+ * guarded: a concurrent change fails the test without being overwritten.
  */
+async function readSharedVerifyPasswordRateLimit() {
+  return pool.query<SharedVerifyPasswordRateLimit>(
+    `select id, count, last_request::text as "lastRequest"
+     from rate_limits
+     where key = $1`,
+    [sharedVerifyPasswordRateLimitKey],
+  )
+}
+
+function requireSharedVerifyPasswordRateLimitExpected() {
+  if (sharedVerifyPasswordRateLimitExpected === undefined) {
+    throw new Error('Shared verify-password rate limit was not snapshotted')
+  }
+
+  return sharedVerifyPasswordRateLimitExpected
+}
+
 async function clearSharedVerifyPasswordRateLimit() {
   const target = await pool.query<{ name: string }>(
     'select current_database() as name',
   )
   assertAllowedFixtureDatabase(target.rows[0]?.name)
-  await pool.query(
+  const expected = requireSharedVerifyPasswordRateLimitExpected()
+
+  if (expected === null) {
+    const current = await readSharedVerifyPasswordRateLimit()
+    expect(current.rows).toEqual([])
+    return
+  }
+
+  const cleared = await pool.query<SharedVerifyPasswordRateLimit>(
     `update rate_limits
      set count = 0, last_request = last_request - 61_000
-     where key = 'no-trusted-ip|/verify-password'`,
+     where key = $1
+       and id = $2
+       and count = $3
+       and last_request = $4
+     returning id, count, last_request::text as "lastRequest"`,
+    [
+      sharedVerifyPasswordRateLimitKey,
+      expected.id,
+      expected.count,
+      expected.lastRequest,
+    ],
   )
+  expect(cleared.rows).toHaveLength(1)
+  const [current] = cleared.rows
+  if (current === undefined) {
+    throw new Error('Shared verify-password rate limit changed before clearing')
+  }
+  sharedVerifyPasswordRateLimitExpected = current
+}
+
+/**
+ * The action response arrives only after Better Auth has completed its
+ * verify-password call. Recording the resulting one-count row makes every
+ * subsequent test mutation and final restoration compare-and-set guarded.
+ */
+async function recordVerifyPasswordRateLimitResponse() {
+  const expected = requireSharedVerifyPasswordRateLimitExpected()
+  const current = await readSharedVerifyPasswordRateLimit()
+  expect(current.rows).toHaveLength(1)
+  const [row] = current.rows
+  if (row === undefined) {
+    throw new Error('Verify-password did not create its expected rate limit')
+  }
+  expect(row.count).toBe(1)
+  if (expected !== null) {
+    expect(expected.count).toBe(0)
+    expect(row.id).toBe(expected.id)
+    expect(BigInt(row.lastRequest)).toBeGreaterThan(
+      BigInt(expected.lastRequest),
+    )
+  }
+  sharedVerifyPasswordRateLimitExpected = row
+}
+
+async function sendDeletionCode(page: Page) {
+  const response = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === 'POST' &&
+      new URL(candidate.url()).pathname === '/settings',
+  )
+  await page.getByRole('button', { name: 'Send deletion code' }).click()
+  await response
+  await recordVerifyPasswordRateLimitResponse()
+}
+
+async function restoreSharedVerifyPasswordRateLimit() {
+  if (
+    sharedVerifyPasswordRateLimitBefore === undefined ||
+    sharedVerifyPasswordRateLimitExpected === undefined
+  ) {
+    return
+  }
+
+  const expected = sharedVerifyPasswordRateLimitExpected
+  const before = sharedVerifyPasswordRateLimitBefore
+
+  if (before === null) {
+    if (expected === null) {
+      const current = await readSharedVerifyPasswordRateLimit()
+      expect(current.rows).toEqual([])
+      return
+    }
+
+    const deleted = await pool.query<SharedVerifyPasswordRateLimit>(
+      `delete from rate_limits
+       where key = $1
+         and id = $2
+         and count = $3
+         and last_request = $4
+       returning id, count, last_request::text as "lastRequest"`,
+      [
+        sharedVerifyPasswordRateLimitKey,
+        expected.id,
+        expected.count,
+        expected.lastRequest,
+      ],
+    )
+    expect(deleted.rows).toEqual([expected])
+  } else {
+    if (expected === null) {
+      throw new Error(
+        'Shared verify-password rate limit disappeared during test',
+      )
+    }
+
+    const restored = await pool.query<SharedVerifyPasswordRateLimit>(
+      `update rate_limits
+       set id = $2, count = $3, last_request = $4
+       where key = $1
+         and id = $5
+         and count = $6
+         and last_request = $7
+       returning id, count, last_request::text as "lastRequest"`,
+      [
+        sharedVerifyPasswordRateLimitKey,
+        before.id,
+        before.count,
+        before.lastRequest,
+        expected.id,
+        expected.count,
+        expected.lastRequest,
+      ],
+    )
+    expect(restored.rows).toEqual([before])
+  }
+
+  const restored = await readSharedVerifyPasswordRateLimit()
+  expect(restored.rows).toEqual(before === null ? [] : [before])
 }
 
 async function signIn(page: Page, owner: (typeof owners)[keyof typeof owners]) {
@@ -621,6 +781,9 @@ test.beforeAll(async () => {
     'select current_database() as name',
   )
   assertAllowedFixtureDatabase(target.rows[0]?.name)
+  const sharedRateLimit = await readSharedVerifyPasswordRateLimit()
+  sharedVerifyPasswordRateLimitBefore = sharedRateLimit.rows[0] ?? null
+  sharedVerifyPasswordRateLimitExpected = sharedRateLimit.rows[0] ?? null
   ownerAId = await insertUser(owners.a)
   ownerBId = await insertUser(owners.b)
   ownerCId = await insertUser(owners.c)
@@ -633,6 +796,7 @@ test.afterAll(async () => {
       'select current_database() as name',
     )
     assertAllowedFixtureDatabase(target.rows[0]?.name)
+    await restoreSharedVerifyPasswordRateLimit()
     await pool.query('delete from users where id = any($1::uuid[])', [
       fixtureUserIds,
     ])
@@ -729,7 +893,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
 
     await clearSharedVerifyPasswordRateLimit()
     await currentPasswordField(page).fill(`${password}-wrong`)
-    await page.getByRole('button', { name: 'Send deletion code' }).click()
+    await sendDeletionCode(page)
     await expect(
       page.getByRole('alert').filter({
         hasText: 'Your current password is incorrect.',
@@ -746,7 +910,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
 
     await clearSharedVerifyPasswordRateLimit()
     await currentPasswordField(page).fill(password)
-    await page.getByRole('button', { name: 'Send deletion code' }).click()
+    await sendDeletionCode(page)
     const firstCode = await deletionCode(
       1,
       owners.a.email,
@@ -820,7 +984,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
 
     await clearSharedVerifyPasswordRateLimit()
     await currentPasswordField(page).fill(password)
-    await page.getByRole('button', { name: 'Send deletion code' }).click()
+    await sendDeletionCode(page)
     await expect(
       page
         .getByRole('alert')
@@ -847,7 +1011,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     // React resets the form after each action, so the proof must be re-entered.
     await clearSharedVerifyPasswordRateLimit()
     await currentPasswordField(page).fill(password)
-    await page.getByRole('button', { name: 'Send deletion code' }).click()
+    await sendDeletionCode(page)
     const newestCode = await deletionCode(
       3,
       owners.a.email,
@@ -856,12 +1020,30 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     )
     const ownerAPrivateValuesBeforeRequest =
       await accountPrivateIdentifiers(ownerAId)
-    await page.getByRole('textbox', { name: 'Deletion code' }).fill(newestCode)
+    const newestCodeInput = page.getByRole('textbox', {
+      name: 'Deletion code',
+    })
     const newestConfirmation = deletionConfirmation(page)
-    await newestConfirmation.focus()
+    const requestDeletionButton = page.getByRole('button', {
+      name: 'Request account deletion',
+    })
+    await newestCodeInput.fill(newestCode)
+    await expectVisibleFocusIndicator(newestCodeInput)
+    await page.keyboard.press('Tab')
+    await expectVisibleFocusIndicator(newestConfirmation)
+    await page.keyboard.press('Shift+Tab')
+    await expectVisibleFocusIndicator(newestCodeInput)
+    await page.keyboard.press('Tab')
+    await expectVisibleFocusIndicator(newestConfirmation)
+    await page.keyboard.press('Tab')
+    await expectVisibleFocusIndicator(requestDeletionButton)
+    await page.keyboard.press('Shift+Tab')
+    await expectVisibleFocusIndicator(newestConfirmation)
     await page.keyboard.press('Space')
     await expect(newestConfirmation).toBeChecked()
-    await page.getByRole('button', { name: 'Request account deletion' }).click()
+    await page.keyboard.press('Tab')
+    await expectVisibleFocusIndicator(requestDeletionButton)
+    await page.keyboard.press('Enter')
     await page.waitForURL('/account/deletion')
     await expect.poll(() => collectedEmails.length).toBe(4)
     expect(collectedEmails[3]?.body).toMatchObject({
@@ -1139,9 +1321,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       await expectPrivateNoStore(noJavaScriptSettings!)
       await clearSharedVerifyPasswordRateLimit()
       await currentPasswordField(noJavaScriptPage).fill(password)
-      await noJavaScriptPage
-        .getByRole('button', { name: 'Send deletion code' })
-        .click()
+      await sendDeletionCode(noJavaScriptPage)
       await expect(
         noJavaScriptPage.getByRole('textbox', { name: 'Deletion code' }),
       ).toBeVisible()
@@ -1281,7 +1461,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     const initialCRequestedAt = new Date()
     await pool.query(
       `insert into account_deletion_requests(user_id,requested_at,purge_after)
-       values($1,$2,$2::timestamptz + interval '14 days')`,
+       values($1,$2,$2::timestamptz + interval '336 hours')`,
       [ownerCId, initialCRequestedAt],
     )
     const due = await browser.newContext({ baseURL: applicationOrigin })
@@ -1298,7 +1478,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       )
       await pool.query(
         `update account_deletion_requests
-         set requested_at=$2, purge_after=$2::timestamptz + interval '14 days'
+         set requested_at=$2, purge_after=$2::timestamptz + interval '336 hours'
          where user_id=$1`,
         [ownerCId, dueRequestedAt],
       )
