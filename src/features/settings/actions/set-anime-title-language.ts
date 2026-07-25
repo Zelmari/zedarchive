@@ -4,15 +4,12 @@ import { headers } from 'next/headers'
 import { createSetAnimeTitleLanguageHandler } from '@/features/settings/actions/set-anime-title-language-handler'
 import { revalidateCataloguePreferencePaths } from '@/features/settings/actions/catalogue-preference-action-helpers'
 import type { CataloguePreferenceActionState } from '@/features/settings/domain/catalogue-preferences'
-import { auth } from '@/server/auth/auth'
+import { resolveActiveAccountSession } from '@/features/auth/server/account-access-composition'
 import { database } from '@/server/database/client'
 import { setUserAnimeTitleLanguage } from '@/server/database/user-catalogue-preferences-service'
 
 const handler = createSetAnimeTitleLanguageHandler({
-  getSession: async () =>
-    auth.api.getSession({
-      headers: await headers(),
-    }),
+  getSession: async () => resolveActiveAccountSession(await headers()),
   setTitleLanguage: (request) => setUserAnimeTitleLanguage(database, request),
   revalidate: revalidateCataloguePreferencePaths,
 })

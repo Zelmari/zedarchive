@@ -60,7 +60,7 @@ describe('readAnimeArchivePage request and transaction boundary', () => {
     },
   )
 
-  it('opens the archive snapshot as read-only repeatable-read', async () => {
+  it('uses a READ COMMITTED active-account barrier before one archive payload statement', async () => {
     const expectedPage = {
       entries: [],
       pagination: {
@@ -72,7 +72,41 @@ describe('readAnimeArchivePage request and transaction boundary', () => {
         hasNextPage: false,
       },
     }
-    const transaction = vi.fn().mockResolvedValue(expectedPage)
+    const operations: string[] = []
+    const userLimit = vi.fn(async () => {
+      operations.push('active-account user lock')
+      return [{ id: '11111111-1111-4111-8111-111111111111' }]
+    })
+    const requestLimit = vi.fn(async () => {
+      operations.push('active-account request check')
+      return []
+    })
+    const select = vi
+      .fn()
+      .mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            for: () => ({ limit: userLimit }),
+          }),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: () => ({
+          where: () => ({ limit: requestLimit }),
+        }),
+      })
+    const execute = vi.fn(async () => {
+      operations.push('archive payload')
+      return { rows: [{ totalItems: 0, kind: null }] }
+    })
+    const transactionClient = {
+      execute,
+      select,
+    } as unknown as NodePgDatabase
+    const transaction = vi.fn(
+      async (operation: (client: NodePgDatabase) => Promise<unknown>) =>
+        operation(transactionClient),
+    )
     const database = { transaction } as unknown as NodePgDatabase
 
     await expect(
@@ -82,10 +116,18 @@ describe('readAnimeArchivePage request and transaction boundary', () => {
         pageSize: 24,
         sort: 'alphabetical',
       }),
-    ).resolves.toBe(expectedPage)
+    ).resolves.toStrictEqual(expectedPage)
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: 'repeatable read',
-      accessMode: 'read only',
+      isolationLevel: 'read committed',
     })
+    expect(select).toHaveBeenCalledTimes(2)
+    expect(userLimit).toHaveBeenCalledOnce()
+    expect(requestLimit).toHaveBeenCalledOnce()
+    expect(execute).toHaveBeenCalledOnce()
+    expect(operations).toEqual([
+      'active-account user lock',
+      'active-account request check',
+      'archive payload',
+    ])
   })
 })

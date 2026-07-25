@@ -11,6 +11,7 @@ import {
   type UserCataloguePreferences,
 } from '@/features/settings/domain/catalogue-preferences'
 import { userCataloguePreferences } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 
 /**
  * The deliberately small executor contract is implemented by both the root
@@ -18,11 +19,6 @@ import { userCataloguePreferences } from '@/server/database/schema'
  * into catalogue/archive snapshot transactions without opening nested ones.
  */
 export type UserCataloguePreferenceReadExecutor = Pick<NodePgDatabase, 'select'>
-
-type UserCataloguePreferenceMutationExecutor = Pick<
-  NodePgDatabase,
-  'insert' | 'update'
->
 
 function parseStoredPreferences(row: {
   titleLanguage: string
@@ -34,7 +30,7 @@ function parseStoredPreferences(row: {
   }
 }
 
-export async function readUserCataloguePreferences(
+export async function readUserCataloguePreferencesAfterBarrier(
   executor: UserCataloguePreferenceReadExecutor,
   request: { userId: string },
 ): Promise<UserCataloguePreferences> {
@@ -50,6 +46,22 @@ export async function readUserCataloguePreferences(
   return storedPreferences === undefined
     ? { ...defaultUserCataloguePreferences }
     : parseStoredPreferences(storedPreferences)
+}
+
+export async function readUserCataloguePreferences(
+  database: NodePgDatabase,
+  request: { userId: string },
+): Promise<UserCataloguePreferences> {
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        throw new Error('Catalogue preferences account is unavailable')
+      }
+
+      return readUserCataloguePreferencesAfterBarrier(transaction, request)
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 /**
@@ -76,68 +88,92 @@ export async function lockAdultContentPreferenceForShare(
 }
 
 export async function setUserAnimeTitleLanguage(
-  executor: UserCataloguePreferenceMutationExecutor,
+  database: NodePgDatabase,
   request: { userId: string; titleLanguage: AnimeTitleLanguage },
 ): Promise<CataloguePreferenceMutationResult> {
-  const updatedRows = await executor
-    .insert(userCataloguePreferences)
-    .values({
-      userId: request.userId,
-      titleLanguage: request.titleLanguage,
-    })
-    .onConflictDoUpdate({
-      target: userCataloguePreferences.userId,
-      set: {
-        titleLanguage: request.titleLanguage,
-        updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
-      },
-      setWhere: ne(
-        userCataloguePreferences.titleLanguage,
-        request.titleLanguage,
-      ),
-    })
-    .returning({ userId: userCataloguePreferences.userId })
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        throw new Error('Catalogue preferences account is unavailable')
+      }
+      const updatedRows = await transaction
+        .insert(userCataloguePreferences)
+        .values({
+          userId: request.userId,
+          titleLanguage: request.titleLanguage,
+        })
+        .onConflictDoUpdate({
+          target: userCataloguePreferences.userId,
+          set: {
+            titleLanguage: request.titleLanguage,
+            updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
+          },
+          setWhere: ne(
+            userCataloguePreferences.titleLanguage,
+            request.titleLanguage,
+          ),
+        })
+        .returning({ userId: userCataloguePreferences.userId })
 
-  return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+      return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function enableUserAdultContent(
-  executor: UserCataloguePreferenceMutationExecutor,
+  database: NodePgDatabase,
   request: { userId: string },
 ): Promise<CataloguePreferenceMutationResult> {
-  const updatedRows = await executor
-    .insert(userCataloguePreferences)
-    .values({
-      userId: request.userId,
-      adultContentEnabled: true,
-    })
-    .onConflictDoUpdate({
-      target: userCataloguePreferences.userId,
-      set: {
-        adultContentEnabled: true,
-        updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
-      },
-      setWhere: eq(userCataloguePreferences.adultContentEnabled, false),
-    })
-    .returning({ userId: userCataloguePreferences.userId })
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        throw new Error('Catalogue preferences account is unavailable')
+      }
+      const updatedRows = await transaction
+        .insert(userCataloguePreferences)
+        .values({
+          userId: request.userId,
+          adultContentEnabled: true,
+        })
+        .onConflictDoUpdate({
+          target: userCataloguePreferences.userId,
+          set: {
+            adultContentEnabled: true,
+            updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
+          },
+          setWhere: eq(userCataloguePreferences.adultContentEnabled, false),
+        })
+        .returning({ userId: userCataloguePreferences.userId })
 
-  return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+      return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function disableUserAdultContent(
-  executor: UserCataloguePreferenceMutationExecutor,
+  database: NodePgDatabase,
   request: { userId: string },
 ): Promise<CataloguePreferenceMutationResult> {
-  const updatedRows = await executor
-    .update(userCataloguePreferences)
-    .set({
-      adultContentEnabled: false,
-      updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
-    })
-    .where(
-      sql`${userCataloguePreferences.userId} = ${request.userId} and ${userCataloguePreferences.adultContentEnabled} = true`,
-    )
-    .returning({ userId: userCataloguePreferences.userId })
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        throw new Error('Catalogue preferences account is unavailable')
+      }
+      const updatedRows = await transaction
+        .update(userCataloguePreferences)
+        .set({
+          adultContentEnabled: false,
+          updatedAt: sql`greatest(${userCataloguePreferences.updatedAt}, clock_timestamp())`,
+        })
+        .where(
+          sql`${userCataloguePreferences.userId} = ${request.userId} and ${userCataloguePreferences.adultContentEnabled} = true`,
+        )
+        .returning({ userId: userCataloguePreferences.userId })
 
-  return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+      return { kind: updatedRows.length === 0 ? 'unchanged' : 'updated' }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

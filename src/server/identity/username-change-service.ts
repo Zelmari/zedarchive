@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { randomUUID } from 'node:crypto'
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import {
   normalizeUsernameForIdentity,
@@ -9,10 +9,12 @@ import {
 } from '@/features/identity/domain/username'
 import {
   sessions,
+  accountDeletionRequests,
   usernameChangeChallenges,
   usernameChangeRecords,
   users,
 } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import {
   createUsernameChangeCode,
   createUsernameChangeCodeDigest,
@@ -101,6 +103,11 @@ export type UsernameChangeState =
     }
   | { kind: 'already_changed'; username: string }
   | { kind: 'session_invalid' }
+
+export type UsernameChangeEmailRecipientRequest = Readonly<{
+  userId: string
+  challengeId: string
+}>
 
 function addMilliseconds(value: Date, milliseconds: number): Date {
   return new Date(value.getTime() + milliseconds)
@@ -223,6 +230,19 @@ async function hasChangeRecord(database: IdentityDatabase, userId: string) {
   return record !== undefined
 }
 
+async function hasDeletionRequest(
+  database: IdentityDatabase,
+  userId: string,
+): Promise<boolean> {
+  const [request] = await database
+    .select({ userId: accountDeletionRequests.userId })
+    .from(accountDeletionRequests)
+    .where(eq(accountDeletionRequests.userId, userId))
+    .limit(1)
+
+  return request !== undefined
+}
+
 async function loadLockedChallenge(database: IdentityDatabase, userId: string) {
   const [challenge] = await database
     .select()
@@ -274,37 +294,49 @@ export async function preflightUsernameChange(
   const proposed = parseProposedUsername(proposedValue)
   if (proposed.kind === 'invalid') return { kind: 'invalid_username' }
 
-  const [user] = await database
-    .select({
-      id: users.id,
-      username: users.username,
-      usernameIdentityKey: users.usernameIdentityKey,
-      emailVerified: users.emailVerified,
-    })
-    .from(users)
-    .where(eq(users.id, session.userId))
-    .limit(1)
-  if (user === undefined || !(await sessionBelongsToUser(database, session))) {
-    return { kind: 'session_invalid' }
-  }
-  if (user.username === proposed.username) return { kind: 'no_change' }
-  if (await hasChangeRecord(database, user.id))
-    return { kind: 'already_changed' }
-  if (!user.emailVerified) return { kind: 'email_unavailable' }
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, session.userId))) {
+        return { kind: 'session_invalid' }
+      }
+      const [user] = await transaction
+        .select({
+          id: users.id,
+          username: users.username,
+          usernameIdentityKey: users.usernameIdentityKey,
+          emailVerified: users.emailVerified,
+        })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1)
+      if (
+        user === undefined ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (user.username === proposed.username) return { kind: 'no_change' }
+      if (await hasChangeRecord(transaction, user.id)) {
+        return { kind: 'already_changed' }
+      }
+      if (!user.emailVerified) return { kind: 'email_unavailable' }
 
-  const now = await databaseNow(database, user.id)
-  if (
-    !(await targetIsAvailable(
-      database,
-      user.id,
-      user.usernameIdentityKey,
-      proposed.identityKey,
-      now,
-    ))
-  ) {
-    return { kind: 'target_unavailable' }
-  }
-  return { kind: 'ready', username: proposed.username }
+      const now = await databaseNow(transaction, user.id)
+      if (
+        !(await targetIsAvailable(
+          transaction,
+          user.id,
+          user.usernameIdentityKey,
+          proposed.identityKey,
+          now,
+        ))
+      ) {
+        return { kind: 'target_unavailable' }
+      }
+      return { kind: 'ready', username: proposed.username }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function requestUsernameChange(
@@ -316,93 +348,77 @@ export async function requestUsernameChange(
   const proposed = parseProposedUsername(proposedValue)
   if (proposed.kind === 'invalid') return { kind: 'invalid_username' }
 
-  return database.transaction(async (transaction) => {
-    const user = await loadLockedUser(transaction, session.userId)
-    if (
-      user === undefined ||
-      !(await sessionBelongsToUser(transaction, session))
-    ) {
-      return { kind: 'session_invalid' }
-    }
-    if (!user.emailVerified) return { kind: 'email_unavailable' }
-    if (user.username === proposed.username) return { kind: 'no_change' }
-    if (await hasChangeRecord(transaction, session.userId)) {
-      return { kind: 'already_changed' }
-    }
+  return database.transaction(
+    async (transaction) => {
+      const user = await loadLockedUser(transaction, session.userId)
+      if (
+        user !== undefined &&
+        (await hasDeletionRequest(transaction, user.id))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (
+        user === undefined ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (!user.emailVerified) return { kind: 'email_unavailable' }
+      if (user.username === proposed.username) return { kind: 'no_change' }
+      if (await hasChangeRecord(transaction, session.userId)) {
+        return { kind: 'already_changed' }
+      }
 
-    const now = await databaseNow(transaction, session.userId)
-    const currentChallenge = await loadLockedChallenge(
-      transaction,
-      session.userId,
-    )
-    const resetWindow =
-      currentChallenge === undefined ||
-      now.getTime() - currentChallenge.sendWindowStartedAt.getTime() >=
-        usernameChangeSendWindowMilliseconds
-    if (
-      !resetWindow &&
-      now.getTime() - currentChallenge.lastSentAt.getTime() <
-        usernameChangeResendCooldownMilliseconds
-    ) {
-      return { kind: 'resend_cooldown' }
-    }
-    const sendCount = resetWindow ? 1 : currentChallenge.sendCount + 1
-    if (!resetWindow && sendCount > usernameChangeMaximumSends) {
-      return { kind: 'send_limit' }
-    }
-
-    await lockIdentityKeys(
-      transaction,
-      user.usernameIdentityKey,
-      proposed.identityKey,
-    )
-    if (
-      !(await targetIsAvailable(
+      const now = await databaseNow(transaction, session.userId)
+      const currentChallenge = await loadLockedChallenge(
         transaction,
-        user.id,
+        session.userId,
+      )
+      const resetWindow =
+        currentChallenge === undefined ||
+        now.getTime() - currentChallenge.sendWindowStartedAt.getTime() >=
+          usernameChangeSendWindowMilliseconds
+      if (
+        !resetWindow &&
+        now.getTime() - currentChallenge.lastSentAt.getTime() <
+          usernameChangeResendCooldownMilliseconds
+      ) {
+        return { kind: 'resend_cooldown' }
+      }
+      const sendCount = resetWindow ? 1 : currentChallenge.sendCount + 1
+      if (!resetWindow && sendCount > usernameChangeMaximumSends) {
+        return { kind: 'send_limit' }
+      }
+
+      await lockIdentityKeys(
+        transaction,
         user.usernameIdentityKey,
         proposed.identityKey,
+      )
+      if (
+        !(await targetIsAvailable(
+          transaction,
+          user.id,
+          user.usernameIdentityKey,
+          proposed.identityKey,
+          now,
+        ))
+      ) {
+        return { kind: 'target_unavailable' }
+      }
+
+      const challengeId = randomUUID()
+      const code = createUsernameChangeCode()
+      const delivery = createDelivery(code, challengeId, now)
+      const reauthenticatedUntil = addMilliseconds(
         now,
-      ))
-    ) {
-      return { kind: 'target_unavailable' }
-    }
+        usernameChangeReauthenticationMilliseconds,
+      )
 
-    const challengeId = randomUUID()
-    const code = createUsernameChangeCode()
-    const delivery = createDelivery(code, challengeId, now)
-    const reauthenticatedUntil = addMilliseconds(
-      now,
-      usernameChangeReauthenticationMilliseconds,
-    )
-
-    await transaction
-      .insert(usernameChangeChallenges)
-      .values({
-        userId: user.id,
-        sessionId: session.sessionId,
-        challengeId,
-        proposedUsername: proposed.username,
-        proposedUsernameIdentityKey: proposed.identityKey,
-        codeDigest: createUsernameChangeCodeDigest(
-          authSecret,
-          challengeId,
-          code,
-        ),
-        codeExpiresAt: delivery.expiresAt,
-        reauthenticatedUntil,
-        failedCodeAttempts: 0,
-        sendWindowStartedAt: resetWindow
-          ? now
-          : currentChallenge!.sendWindowStartedAt,
-        sendCount,
-        lastSentAt: now,
-        createdAt: currentChallenge?.createdAt ?? now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: usernameChangeChallenges.userId,
-        set: {
+      await transaction
+        .insert(usernameChangeChallenges)
+        .values({
+          userId: user.id,
           sessionId: session.sessionId,
           challengeId,
           proposedUsername: proposed.username,
@@ -420,12 +436,37 @@ export async function requestUsernameChange(
             : currentChallenge!.sendWindowStartedAt,
           sendCount,
           lastSentAt: now,
+          createdAt: currentChallenge?.createdAt ?? now,
           updatedAt: now,
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: usernameChangeChallenges.userId,
+          set: {
+            sessionId: session.sessionId,
+            challengeId,
+            proposedUsername: proposed.username,
+            proposedUsernameIdentityKey: proposed.identityKey,
+            codeDigest: createUsernameChangeCodeDigest(
+              authSecret,
+              challengeId,
+              code,
+            ),
+            codeExpiresAt: delivery.expiresAt,
+            reauthenticatedUntil,
+            failedCodeAttempts: 0,
+            sendWindowStartedAt: resetWindow
+              ? now
+              : currentChallenge!.sendWindowStartedAt,
+            sendCount,
+            lastSentAt: now,
+            updatedAt: now,
+          },
+        })
 
-    return { kind: 'challenge_created', delivery }
-  })
+      return { kind: 'challenge_created', delivery }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function resendUsernameChangeCode(
@@ -433,90 +474,113 @@ export async function resendUsernameChangeCode(
   authSecret: string,
   session: IdentitySession,
 ): Promise<UsernameChangeResendResult> {
-  return database.transaction(async (transaction) => {
-    const user = await loadLockedUser(transaction, session.userId)
-    if (
-      user === undefined ||
-      !(await sessionBelongsToUser(transaction, session))
-    ) {
-      return { kind: 'session_invalid' }
-    }
-    const challenge = await loadLockedChallenge(transaction, session.userId)
-    if (challenge === undefined || challenge.sessionId !== session.sessionId) {
-      return { kind: 'restart_required' }
-    }
-    const now = await databaseNow(transaction, user.id)
-    if (now >= challenge.reauthenticatedUntil) {
-      return { kind: 'reauthentication_required' }
-    }
-    if (challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts) {
-      return { kind: 'attempts_exhausted' }
-    }
-    if (
-      addMilliseconds(now, usernameChangeCodeExpiresInMilliseconds) >
-      challenge.reauthenticatedUntil
-    ) {
-      return { kind: 'reauthentication_required' }
-    }
-    if (
-      now.getTime() - challenge.lastSentAt.getTime() <
-      usernameChangeResendCooldownMilliseconds
-    ) {
-      return { kind: 'resend_cooldown' }
-    }
-    if (
-      now.getTime() - challenge.sendWindowStartedAt.getTime() >=
-        usernameChangeSendWindowMilliseconds ||
-      challenge.sendCount >= usernameChangeMaximumSends
-    ) {
-      return { kind: 'send_limit' }
-    }
+  return database.transaction(
+    async (transaction) => {
+      const user = await loadLockedUser(transaction, session.userId)
+      if (
+        user !== undefined &&
+        (await hasDeletionRequest(transaction, user.id))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (
+        user === undefined ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      const challenge = await loadLockedChallenge(transaction, session.userId)
+      if (
+        challenge === undefined ||
+        challenge.sessionId !== session.sessionId
+      ) {
+        return { kind: 'restart_required' }
+      }
+      const now = await databaseNow(transaction, user.id)
+      if (now >= challenge.reauthenticatedUntil) {
+        return { kind: 'reauthentication_required' }
+      }
+      if (challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts) {
+        return { kind: 'attempts_exhausted' }
+      }
+      if (
+        addMilliseconds(now, usernameChangeCodeExpiresInMilliseconds) >
+        challenge.reauthenticatedUntil
+      ) {
+        return { kind: 'reauthentication_required' }
+      }
+      if (
+        now.getTime() - challenge.lastSentAt.getTime() <
+        usernameChangeResendCooldownMilliseconds
+      ) {
+        return { kind: 'resend_cooldown' }
+      }
+      if (
+        now.getTime() - challenge.sendWindowStartedAt.getTime() >=
+          usernameChangeSendWindowMilliseconds ||
+        challenge.sendCount >= usernameChangeMaximumSends
+      ) {
+        return { kind: 'send_limit' }
+      }
 
-    const challengeId = randomUUID()
-    const code = createUsernameChangeCode()
-    const delivery = createDelivery(code, challengeId, now)
-    await transaction
-      .update(usernameChangeChallenges)
-      .set({
-        challengeId,
-        codeDigest: createUsernameChangeCodeDigest(
-          authSecret,
+      const challengeId = randomUUID()
+      const code = createUsernameChangeCode()
+      const delivery = createDelivery(code, challengeId, now)
+      await transaction
+        .update(usernameChangeChallenges)
+        .set({
           challengeId,
-          code,
-        ),
-        codeExpiresAt: delivery.expiresAt,
-        failedCodeAttempts: 0,
-        sendCount: challenge.sendCount + 1,
-        lastSentAt: now,
-        updatedAt: now,
-      })
-      .where(eq(usernameChangeChallenges.userId, user.id))
+          codeDigest: createUsernameChangeCodeDigest(
+            authSecret,
+            challengeId,
+            code,
+          ),
+          codeExpiresAt: delivery.expiresAt,
+          failedCodeAttempts: 0,
+          sendCount: challenge.sendCount + 1,
+          lastSentAt: now,
+          updatedAt: now,
+        })
+        .where(eq(usernameChangeChallenges.userId, user.id))
 
-    return { kind: 'challenge_resent', delivery }
-  })
+      return { kind: 'challenge_resent', delivery }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function cancelUsernameChange(
   database: IdentityDatabase,
   session: IdentitySession,
 ): Promise<{ kind: 'cancelled' } | { kind: 'session_invalid' }> {
-  return database.transaction(async (transaction) => {
-    if (!(await sessionBelongsToUser(transaction, session))) {
-      return { kind: 'session_invalid' }
-    }
-    const challenge = await loadLockedChallenge(transaction, session.userId)
-    if (challenge === undefined || challenge.sessionId !== session.sessionId) {
+  return database.transaction(
+    async (transaction) => {
+      const user = await loadLockedUser(transaction, session.userId)
+      if (
+        user === undefined ||
+        (await hasDeletionRequest(transaction, user.id)) ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      const challenge = await loadLockedChallenge(transaction, session.userId)
+      if (
+        challenge === undefined ||
+        challenge.sessionId !== session.sessionId
+      ) {
+        return { kind: 'cancelled' }
+      }
+      await transaction
+        .update(usernameChangeChallenges)
+        .set({
+          sessionId: null,
+          updatedAt: await databaseNow(transaction, session.userId),
+        })
+        .where(eq(usernameChangeChallenges.userId, session.userId))
       return { kind: 'cancelled' }
-    }
-    await transaction
-      .update(usernameChangeChallenges)
-      .set({
-        sessionId: null,
-        updatedAt: await databaseNow(transaction, session.userId),
-      })
-      .where(eq(usernameChangeChallenges.userId, session.userId))
-    return { kind: 'cancelled' }
-  })
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function completeUsernameChange(
@@ -527,183 +591,253 @@ export async function completeUsernameChange(
 ): Promise<UsernameChangeCompletionResult> {
   if (!isUsernameChangeCode(code)) return { kind: 'invalid_code' }
 
-  return database.transaction(async (transaction) => {
-    const user = await loadLockedUser(transaction, session.userId)
-    if (
-      user === undefined ||
-      !(await sessionBelongsToUser(transaction, session))
-    ) {
-      return { kind: 'session_invalid' }
-    }
-    const challenge = await loadLockedChallenge(transaction, user.id)
-    if (challenge === undefined || challenge.sessionId !== session.sessionId) {
-      return { kind: 'restart_required' }
-    }
-    const authorizationCheckedAt = await databaseNow(transaction, user.id)
-    if (authorizationCheckedAt >= challenge.reauthenticatedUntil) {
-      return { kind: 'reauthentication_required' }
-    }
-    if (challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts) {
-      return { kind: 'attempts_exhausted' }
-    }
-    if (authorizationCheckedAt >= challenge.codeExpiresAt) {
-      return { kind: 'code_expired' }
-    }
-    if (
-      !verifyUsernameChangeCodeDigest(
-        authSecret,
-        challenge.challengeId,
-        code,
-        challenge.codeDigest,
-      )
-    ) {
-      await transaction
-        .update(usernameChangeChallenges)
-        .set({
-          failedCodeAttempts: challenge.failedCodeAttempts + 1,
-          updatedAt: authorizationCheckedAt,
-        })
-        .where(eq(usernameChangeChallenges.userId, user.id))
-      return { kind: 'invalid_code' }
-    }
-    if (await hasChangeRecord(transaction, user.id)) {
-      return { kind: 'already_changed' }
-    }
-    const parsed = usernameSchema.safeParse(challenge.proposedUsername)
-    const proposedIdentityKey = parsed.success
-      ? normalizeUsernameForIdentity(parsed.data)
-      : undefined
-    if (
-      !parsed.success ||
-      proposedIdentityKey !== challenge.proposedUsernameIdentityKey
-    ) {
-      await transaction
-        .update(usernameChangeChallenges)
-        .set({ sessionId: null, updatedAt: authorizationCheckedAt })
-        .where(eq(usernameChangeChallenges.userId, user.id))
-      return { kind: 'restart_required' }
-    }
+  return database.transaction(
+    async (transaction) => {
+      const user = await loadLockedUser(transaction, session.userId)
+      if (
+        user !== undefined &&
+        (await hasDeletionRequest(transaction, user.id))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (
+        user === undefined ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      const challenge = await loadLockedChallenge(transaction, user.id)
+      if (
+        challenge === undefined ||
+        challenge.sessionId !== session.sessionId
+      ) {
+        return { kind: 'restart_required' }
+      }
+      const authorizationCheckedAt = await databaseNow(transaction, user.id)
+      if (authorizationCheckedAt >= challenge.reauthenticatedUntil) {
+        return { kind: 'reauthentication_required' }
+      }
+      if (challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts) {
+        return { kind: 'attempts_exhausted' }
+      }
+      if (authorizationCheckedAt >= challenge.codeExpiresAt) {
+        return { kind: 'code_expired' }
+      }
+      if (
+        !verifyUsernameChangeCodeDigest(
+          authSecret,
+          challenge.challengeId,
+          code,
+          challenge.codeDigest,
+        )
+      ) {
+        await transaction
+          .update(usernameChangeChallenges)
+          .set({
+            failedCodeAttempts: challenge.failedCodeAttempts + 1,
+            updatedAt: authorizationCheckedAt,
+          })
+          .where(eq(usernameChangeChallenges.userId, user.id))
+        return { kind: 'invalid_code' }
+      }
+      if (await hasChangeRecord(transaction, user.id)) {
+        return { kind: 'already_changed' }
+      }
+      const parsed = usernameSchema.safeParse(challenge.proposedUsername)
+      const proposedIdentityKey = parsed.success
+        ? normalizeUsernameForIdentity(parsed.data)
+        : undefined
+      if (
+        !parsed.success ||
+        proposedIdentityKey !== challenge.proposedUsernameIdentityKey
+      ) {
+        await transaction
+          .update(usernameChangeChallenges)
+          .set({ sessionId: null, updatedAt: authorizationCheckedAt })
+          .where(eq(usernameChangeChallenges.userId, user.id))
+        return { kind: 'restart_required' }
+      }
 
-    await lockIdentityKeys(
-      transaction,
-      user.usernameIdentityKey,
-      proposedIdentityKey,
-    )
-    const changedAt = await databaseNow(transaction, user.id)
-    if (
-      !(await targetIsAvailable(
+      await lockIdentityKeys(
         transaction,
-        user.id,
         user.usernameIdentityKey,
         proposedIdentityKey,
-        changedAt,
-      ))
-    ) {
+      )
+      const changedAt = await databaseNow(transaction, user.id)
+      if (
+        !(await targetIsAvailable(
+          transaction,
+          user.id,
+          user.usernameIdentityKey,
+          proposedIdentityKey,
+          changedAt,
+        ))
+      ) {
+        await transaction
+          .update(usernameChangeChallenges)
+          .set({ sessionId: null, updatedAt: changedAt })
+          .where(eq(usernameChangeChallenges.userId, user.id))
+        return { kind: 'target_unavailable' }
+      }
+
+      const identityChanged = user.usernameIdentityKey !== proposedIdentityKey
       await transaction
-        .update(usernameChangeChallenges)
-        .set({ sessionId: null, updatedAt: changedAt })
-        .where(eq(usernameChangeChallenges.userId, user.id))
-      return { kind: 'target_unavailable' }
-    }
-
-    const identityChanged = user.usernameIdentityKey !== proposedIdentityKey
-    await transaction
-      .update(users)
-      .set({
-        username: parsed.data,
-        usernameIdentityKey: proposedIdentityKey,
-        updatedAt: changedAt,
+        .update(users)
+        .set({
+          username: parsed.data,
+          usernameIdentityKey: proposedIdentityKey,
+          updatedAt: changedAt,
+        })
+        .where(eq(users.id, user.id))
+      await transaction.insert(usernameChangeRecords).values({
+        userId: user.id,
+        changedAt,
+        previousUsernameIdentityKey: identityChanged
+          ? user.usernameIdentityKey
+          : null,
+        previousUsernameReservedUntil: identityChanged
+          ? addMilliseconds(changedAt, 14 * 24 * 60 * 60 * 1000)
+          : null,
       })
-      .where(eq(users.id, user.id))
-    await transaction.insert(usernameChangeRecords).values({
-      userId: user.id,
-      changedAt,
-      previousUsernameIdentityKey: identityChanged
-        ? user.usernameIdentityKey
-        : null,
-      previousUsernameReservedUntil: identityChanged
-        ? addMilliseconds(changedAt, 14 * 24 * 60 * 60 * 1000)
-        : null,
-    })
-    await transaction
-      .delete(usernameChangeChallenges)
-      .where(eq(usernameChangeChallenges.userId, user.id))
+      await transaction
+        .delete(usernameChangeChallenges)
+        .where(eq(usernameChangeChallenges.userId, user.id))
 
-    return { kind: 'changed', username: parsed.data }
-  })
+      return { kind: 'changed', username: parsed.data }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function readUsernameChangeState(
   database: IdentityDatabase,
   session: IdentitySession,
 ): Promise<UsernameChangeState> {
-  const [user] = await database
-    .select({ username: users.username })
-    .from(users)
-    .where(eq(users.id, session.userId))
-    .limit(1)
-  if (user === undefined || !(await sessionBelongsToUser(database, session))) {
-    return { kind: 'session_invalid' }
-  }
-  if (await hasChangeRecord(database, session.userId)) {
-    return { kind: 'already_changed', username: user.username }
-  }
-  const [challenge] = await database
-    .select({
-      sessionId: usernameChangeChallenges.sessionId,
-      proposedUsername: usernameChangeChallenges.proposedUsername,
-      reauthenticatedUntil: usernameChangeChallenges.reauthenticatedUntil,
-      failedCodeAttempts: usernameChangeChallenges.failedCodeAttempts,
-      sendCount: usernameChangeChallenges.sendCount,
-      sendWindowStartedAt: usernameChangeChallenges.sendWindowStartedAt,
-      lastSentAt: usernameChangeChallenges.lastSentAt,
-    })
-    .from(usernameChangeChallenges)
-    .where(eq(usernameChangeChallenges.userId, session.userId))
-    .limit(1)
-  if (challenge?.sessionId === session.sessionId) {
-    const now = await databaseNow(database, session.userId)
-    const reauthenticationCanFitAnotherCode =
-      addMilliseconds(now, usernameChangeCodeExpiresInMilliseconds) <=
-      challenge.reauthenticatedUntil
-    const invalidChallenge =
-      now >= challenge.reauthenticatedUntil ||
-      challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts
-    const sendLimitReached =
-      challenge.sendCount >= usernameChangeMaximumSends ||
-      now.getTime() - challenge.sendWindowStartedAt.getTime() >=
-        usernameChangeSendWindowMilliseconds
-    const resendUnavailableReason = sendLimitReached
-      ? 'send_limit'
-      : !reauthenticationCanFitAnotherCode
-        ? 'reauthentication_window'
-        : undefined
-    const remainingCooldown = Math.min(
-      usernameChangeResendCooldownMilliseconds,
-      Math.max(
-        0,
-        usernameChangeResendCooldownMilliseconds -
-          (now.getTime() - challenge.lastSentAt.getTime()),
-      ),
-    )
-    return {
-      kind: 'pending',
-      username: user.username,
-      proposedUsername: challenge.proposedUsername,
-      resend: invalidChallenge
-        ? {
-            kind: 'restart_required',
-            reason:
-              now >= challenge.reauthenticatedUntil
-                ? 'reauthentication_expired'
-                : 'attempts_exhausted',
-          }
-        : resendUnavailableReason !== undefined
-          ? { kind: 'unavailable', reason: resendUnavailableReason }
-          : remainingCooldown === 0
-            ? { kind: 'available' }
-            : { kind: 'cooldown', retryAfterMilliseconds: remainingCooldown },
-    }
-  }
-  return { kind: 'available', username: user.username }
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, session.userId))) {
+        return { kind: 'session_invalid' }
+      }
+      const [user] = await transaction
+        .select({ username: users.username })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1)
+      if (
+        user === undefined ||
+        !(await sessionBelongsToUser(transaction, session))
+      ) {
+        return { kind: 'session_invalid' }
+      }
+      if (await hasChangeRecord(transaction, session.userId)) {
+        return { kind: 'already_changed', username: user.username }
+      }
+      const [challenge] = await transaction
+        .select({
+          sessionId: usernameChangeChallenges.sessionId,
+          proposedUsername: usernameChangeChallenges.proposedUsername,
+          reauthenticatedUntil: usernameChangeChallenges.reauthenticatedUntil,
+          failedCodeAttempts: usernameChangeChallenges.failedCodeAttempts,
+          sendCount: usernameChangeChallenges.sendCount,
+          sendWindowStartedAt: usernameChangeChallenges.sendWindowStartedAt,
+          lastSentAt: usernameChangeChallenges.lastSentAt,
+        })
+        .from(usernameChangeChallenges)
+        .where(eq(usernameChangeChallenges.userId, session.userId))
+        .limit(1)
+      if (challenge?.sessionId !== session.sessionId) {
+        return { kind: 'available', username: user.username }
+      }
+      const now = await databaseNow(transaction, session.userId)
+      const reauthenticationCanFitAnotherCode =
+        addMilliseconds(now, usernameChangeCodeExpiresInMilliseconds) <=
+        challenge.reauthenticatedUntil
+      const invalidChallenge =
+        now >= challenge.reauthenticatedUntil ||
+        challenge.failedCodeAttempts >= usernameChangeMaximumFailedAttempts
+      const sendLimitReached =
+        challenge.sendCount >= usernameChangeMaximumSends ||
+        now.getTime() - challenge.sendWindowStartedAt.getTime() >=
+          usernameChangeSendWindowMilliseconds
+      const resendUnavailableReason = sendLimitReached
+        ? 'send_limit'
+        : !reauthenticationCanFitAnotherCode
+          ? 'reauthentication_window'
+          : undefined
+      const remainingCooldown = Math.min(
+        usernameChangeResendCooldownMilliseconds,
+        Math.max(
+          0,
+          usernameChangeResendCooldownMilliseconds -
+            (now.getTime() - challenge.lastSentAt.getTime()),
+        ),
+      )
+      return {
+        kind: 'pending',
+        username: user.username,
+        proposedUsername: challenge.proposedUsername,
+        resend: invalidChallenge
+          ? {
+              kind: 'restart_required',
+              reason:
+                now >= challenge.reauthenticatedUntil
+                  ? 'reauthentication_expired'
+                  : 'attempts_exhausted',
+            }
+          : resendUnavailableReason !== undefined
+            ? { kind: 'unavailable', reason: resendUnavailableReason }
+            : remainingCooldown === 0
+              ? { kind: 'available' }
+              : { kind: 'cooldown', retryAfterMilliseconds: remainingCooldown },
+      }
+    },
+    { isolationLevel: 'read committed' },
+  )
+}
+
+/**
+ * Resolves only the bounded recipient for the exact challenge that is still
+ * current, session-bound, and owned by an active account. Keeping this lookup
+ * behind the transaction-time barrier prevents deferred email work from
+ * reading identity data after an account-deletion request commits.
+ */
+export async function readUsernameChangeEmailRecipient(
+  database: IdentityDatabase,
+  request: UsernameChangeEmailRecipientRequest,
+): Promise<string | null> {
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return null
+      }
+
+      const [recipient] = await transaction
+        .select({ email: users.email })
+        .from(users)
+        .innerJoin(
+          usernameChangeChallenges,
+          eq(usernameChangeChallenges.userId, users.id),
+        )
+        .innerJoin(
+          sessions,
+          and(
+            eq(sessions.id, usernameChangeChallenges.sessionId),
+            eq(sessions.userId, users.id),
+          ),
+        )
+        .where(
+          and(
+            eq(users.id, request.userId),
+            eq(usernameChangeChallenges.challengeId, request.challengeId),
+            isNotNull(usernameChangeChallenges.sessionId),
+            eq(users.emailVerified, true),
+            sql`${sessions.expiresAt} > clock_timestamp()`,
+          ),
+        )
+        .limit(1)
+
+      return recipient?.email ?? null
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

@@ -78,6 +78,13 @@
       "when": 1784919927285,
       "tag": "0010_username_change",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784937095215,
+      "tag": "0011_account_deletion_request",
+      "breakpoints": true
     }
   ]
 }

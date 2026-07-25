@@ -2,7 +2,6 @@ import 'server-only'
 
 import { drizzleAdapter, type DB } from '@better-auth/drizzle-adapter'
 import { APIError, betterAuth, type BetterAuthOptions } from 'better-auth'
-import { createAuthMiddleware } from 'better-auth/api'
 import { haveIBeenPwned } from 'better-auth/plugins'
 import {
   passwordMaximumLength,
@@ -12,6 +11,8 @@ import {
   normalizeUsernameForIdentity,
   usernameSchema,
 } from '@/features/identity/domain/username'
+import type { AccountDeletionStateReader } from '@/server/account-access/account-deletion-state'
+import { createBetterAuthProviderBeforeHook } from '@/server/account-access/better-auth-provider-guard'
 import type {
   AuthEmailCallbackData,
   AuthEmailCallbacks,
@@ -30,6 +31,7 @@ export type CreateAuthTestOverrides = Readonly<{
 }>
 
 export type CreateAuthDependencies = Readonly<{
+  accountDeletionStateReader?: AccountDeletionStateReader
   emailCallbacks?: AuthEmailCallbacks
   backgroundTaskHandler?: (promise: Promise<unknown>) => void
 }>
@@ -51,12 +53,6 @@ const VERIFY_PASSWORD_RATE_LIMIT_MAX_REQUESTS = 5
 
 export const PENDING_USERNAME_IDENTITY_KEY_SENTINEL =
   '__pending_identity__' as const
-
-const stripCallerUsernameIdentityKeyBeforeHook = createAuthMiddleware(
-  async (ctx) => {
-    stripCallerUsernameIdentityKeyFromCredentialSignUp(ctx)
-  },
-)
 
 export function stripCallerUsernameIdentityKeyFromCredentialSignUp(ctx: {
   path?: string
@@ -116,7 +112,14 @@ export function createAuthOptions(
   testOverrides: CreateAuthTestOverrides = {},
 ): BetterAuthOptions {
   const emailCallbacks = dependencies.emailCallbacks
+  const accountDeletionStateReader = dependencies.accountDeletionStateReader
   const registrationMode = configuration.registrationMode ?? 'disabled'
+
+  if (accountDeletionStateReader === undefined) {
+    throw new Error(
+      'Better Auth composition requires an account-deletion state reader',
+    )
+  }
 
   if (
     registrationMode === 'verified-email-required' &&
@@ -196,7 +199,10 @@ export function createAuthOptions(
       },
     },
     hooks: {
-      before: stripCallerUsernameIdentityKeyBeforeHook,
+      before: createBetterAuthProviderBeforeHook(
+        accountDeletionStateReader,
+        stripCallerUsernameIdentityKeyFromCredentialSignUp,
+      ),
     },
     rateLimit: {
       enabled: true,

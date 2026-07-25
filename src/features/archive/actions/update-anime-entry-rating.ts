@@ -3,12 +3,12 @@
 import { headers } from 'next/headers'
 import { createUpdateAnimeEntryRatingHandler } from '@/features/archive/actions/update-anime-entry-rating-handler'
 import type { UpdateAnimeEntryRatingActionState } from '@/features/archive/domain/update-anime-entry-rating'
-import { auth } from '@/server/auth/auth'
+import { resolveActiveAccountSession } from '@/features/auth/server/account-access-composition'
 import { database } from '@/server/database/client'
 import { updateAnimeEntryRating as updateStoredAnimeEntryRating } from '@/server/database/anime-entry-rating-service'
 
 const handler = createUpdateAnimeEntryRatingHandler({
-  getSession: async () => auth.api.getSession({ headers: await headers() }),
+  getSession: async () => resolveActiveAccountSession(await headers()),
   updateRating: (request) => updateStoredAnimeEntryRating(database, request),
 })
 

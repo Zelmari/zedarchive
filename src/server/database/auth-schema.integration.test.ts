@@ -161,6 +161,7 @@ describe('auth schema integration safety', () => {
         'accounts_provider_id_non_blank_check',
         'accounts_timestamp_order_check',
         'verifications_pkey',
+        'verifications_reset_owner_user_id_fkey',
         'verifications_identifier_non_blank_check',
         'verifications_value_non_blank_check',
         'verifications_timestamp_order_check',
@@ -178,6 +179,7 @@ describe('auth schema integration safety', () => {
         'accounts_user_id_idx',
         'verifications_identifier_idx',
         'verifications_expires_at_idx',
+        'verifications_reset_owner_user_id_idx',
       ]),
     )
   })
@@ -422,6 +424,40 @@ describe('verifications and rate limits', () => {
       identifier: 'person@example.com',
       value: 'verification-token',
     })
+  })
+
+  it('derives reset owners, cascades their rows, and preserves unrelated rows', async () => {
+    const user = await insertUser()
+    const expiresAt = new Date('2026-08-01T00:00:00.000Z')
+
+    const [reset] = await database
+      .insert(verifications)
+      .values({
+        identifier: 'reset-password:fixture',
+        value: user.id,
+        expiresAt,
+      })
+      .returning()
+    const [unrelated] = await database
+      .insert(verifications)
+      .values({
+        identifier: 'unrelated-provider:fixture',
+        value: user.id,
+        expiresAt,
+      })
+      .returning()
+
+    expect(reset?.resetOwnerUserId).toBe(user.id)
+    expect(unrelated?.resetOwnerUserId).toBeNull()
+
+    await database.delete(users).where(eq(users.id, user.id))
+
+    await expect(database.select().from(verifications)).resolves.toMatchObject([
+      {
+        identifier: 'unrelated-provider:fixture',
+        resetOwnerUserId: null,
+      },
+    ])
   })
 
   it('stores rate-limit counters independently of users', async () => {

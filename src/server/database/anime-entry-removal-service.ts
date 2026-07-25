@@ -7,6 +7,7 @@ import type {
   RemoveAnimeEntryResult,
 } from '@/features/archive/domain/remove-anime-entry'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type RemoveAnimeEntryRequest = RemoveAnimeEntryInput & {
@@ -17,56 +18,63 @@ export async function removeAnimeEntry(
   database: NodePgDatabase,
   request: RemoveAnimeEntryRequest,
 ): Promise<RemoveAnimeEntryResult> {
-  return database.transaction(async (transaction) => {
-    const [entry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
+      }
 
-    if (entry === undefined) return { kind: 'unavailable' }
+      const [entry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    const [catalogueItem] = await transaction
-      .select({ maturity: animeCatalogueItems.maturity })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
+      if (entry === undefined) return { kind: 'unavailable' }
 
-    if (catalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
+      const [catalogueItem] = await transaction
+        .select({ maturity: animeCatalogueItems.maturity })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
 
-    if (
-      catalogueItem.maturity === 'adult' &&
-      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
-    ) {
-      return { kind: 'unavailable' }
-    }
+      if (catalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    const removedEntries = await transaction
-      .delete(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .returning({ id: animeEntries.id })
+      if (
+        catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+      ) {
+        return { kind: 'unavailable' }
+      }
 
-    if (removedEntries.length !== 1) {
-      throw new Error('Eligible anime entry removal did not delete one row')
-    }
+      const removedEntries = await transaction
+        .delete(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .returning({ id: animeEntries.id })
 
-    return { kind: 'removed' }
-  })
+      if (removedEntries.length !== 1) {
+        throw new Error('Eligible anime entry removal did not delete one row')
+      }
+
+      return { kind: 'removed' }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

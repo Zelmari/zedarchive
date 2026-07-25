@@ -3,15 +3,12 @@
 import { headers } from 'next/headers'
 import { createUpdateAnimeEntryStatusHandler } from '@/features/archive/actions/update-anime-entry-status-handler'
 import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
-import { auth } from '@/server/auth/auth'
+import { resolveActiveAccountSession } from '@/features/auth/server/account-access-composition'
 import { database } from '@/server/database/client'
 import { updateAnimeEntryStatus as updateStoredAnimeEntryStatus } from '@/server/database/anime-entry-service'
 
 const updateAnimeEntryStatusHandler = createUpdateAnimeEntryStatusHandler({
-  getSession: async () =>
-    auth.api.getSession({
-      headers: await headers(),
-    }),
+  getSession: async () => resolveActiveAccountSession(await headers()),
   updateEntryStatus: (request) =>
     updateStoredAnimeEntryStatus(database, request),
 })

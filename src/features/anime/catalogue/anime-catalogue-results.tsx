@@ -13,7 +13,7 @@ import type {
 import { AnimeCataloguePagination } from '@/features/anime/catalogue/anime-catalogue-pagination'
 import { readAnimeCatalogueForViewer } from '@/server/database/anime-catalogue-service'
 import { database } from '@/server/database/client'
-import { auth } from '@/server/auth/auth'
+import { resolvePublicPersonalizationSession } from '@/features/auth/server/account-access-composition'
 
 type AnimeCatalogueResultsProps = {
   pageQuery: AnimeCatalogueBrowsePageQuery | AnimeCatalogueSearchPageQuery
@@ -32,10 +32,7 @@ function formatSearchSummary(totalItems: number, query: string): string {
 }
 
 const coordinateAnimeCatalogue = createAnimeCatalogueCoordinator({
-  getSession: async () =>
-    auth.api.getSession({
-      headers: await headers(),
-    }),
+  getSession: async () => resolvePublicPersonalizationSession(await headers()),
   readCatalogue: (request) => readAnimeCatalogueForViewer(database, request),
 })
 

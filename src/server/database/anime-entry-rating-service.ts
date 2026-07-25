@@ -8,6 +8,7 @@ import type {
   UpdateAnimeEntryRatingInput,
 } from '@/features/archive/domain/update-anime-entry-rating'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryRatingRequest = UpdateAnimeEntryRatingInput & {
@@ -38,82 +39,89 @@ export async function updateAnimeEntryRating(
   database: NodePgDatabase,
   request: UpdateAnimeEntryRatingRequest,
 ): Promise<UpdateAnimeEntryRatingResult> {
-  return database.transaction(async (transaction) => {
-    const [storedEntry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        rating: animeEntries.rating,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
-
-    if (storedEntry === undefined) {
-      return { kind: 'unavailable' }
-    }
-
-    const entry = parseLockedEntry(storedEntry)
-    const [catalogueItem] = await transaction
-      .select({ maturity: animeCatalogueItems.maturity })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
-
-    if (catalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
-
-    if (
-      catalogueItem.maturity === 'adult' &&
-      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
-    ) {
-      return { kind: 'unavailable' }
-    }
-
-    if (entry.rating === request.requestedRating) {
-      return {
-        kind:
-          request.expectedRating === request.requestedRating
-            ? 'unchanged'
-            : 'updated',
-        rating: entry.rating,
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
       }
-    }
 
-    if (entry.rating !== request.expectedRating) {
-      return { kind: 'conflict', currentRating: entry.rating }
-    }
+      const [storedEntry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          rating: animeEntries.rating,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    const [updatedEntry] = await transaction
-      .update(animeEntries)
-      .set({
-        rating: request.requestedRating,
-        updatedAt: sql`current_timestamp`,
-      })
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-          sql`${animeEntries.rating} is not distinct from ${request.expectedRating}`,
-        ),
-      )
-      .returning({ rating: animeEntries.rating })
+      if (storedEntry === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    if (updatedEntry === undefined) {
-      return { kind: 'conflict', currentRating: entry.rating }
-    }
+      const entry = parseLockedEntry(storedEntry)
+      const [catalogueItem] = await transaction
+        .select({ maturity: animeCatalogueItems.maturity })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
 
-    return {
-      kind: 'updated',
-      rating: ratingSchema.nullable().parse(updatedEntry.rating),
-    }
-  })
+      if (catalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
+
+      if (
+        catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+      ) {
+        return { kind: 'unavailable' }
+      }
+
+      if (entry.rating === request.requestedRating) {
+        return {
+          kind:
+            request.expectedRating === request.requestedRating
+              ? 'unchanged'
+              : 'updated',
+          rating: entry.rating,
+        }
+      }
+
+      if (entry.rating !== request.expectedRating) {
+        return { kind: 'conflict', currentRating: entry.rating }
+      }
+
+      const [updatedEntry] = await transaction
+        .update(animeEntries)
+        .set({
+          rating: request.requestedRating,
+          updatedAt: sql`current_timestamp`,
+        })
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+            sql`${animeEntries.rating} is not distinct from ${request.expectedRating}`,
+          ),
+        )
+        .returning({ rating: animeEntries.rating })
+
+      if (updatedEntry === undefined) {
+        return { kind: 'conflict', currentRating: entry.rating }
+      }
+
+      return {
+        kind: 'updated',
+        rating: ratingSchema.nullable().parse(updatedEntry.rating),
+      }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

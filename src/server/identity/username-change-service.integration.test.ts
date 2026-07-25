@@ -16,6 +16,7 @@ vi.mock('server-only', () => ({}))
 
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import {
+  accountDeletionRequests,
   sessions,
   usernameChangeChallenges,
   usernameChangeRecords,
@@ -25,6 +26,7 @@ import {
   cancelUsernameChange,
   completeUsernameChange,
   preflightUsernameChange,
+  readUsernameChangeEmailRecipient,
   readUsernameChangeState,
   requestUsernameChange,
   resendUsernameChangeCode,
@@ -110,6 +112,26 @@ async function waitForAdvisoryLockWait(expectedWaiters = 1): Promise<void> {
   throw new Error('Expected completion to wait on the advisory identity lock')
 }
 
+async function waitForDatabaseLock(pid: number): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result = await pool.query<{ waiting: boolean }>(
+      `select coalesce(
+        (
+          select wait_event_type = 'Lock'
+          from pg_stat_activity
+          where pid = $1
+        ),
+        false
+      ) as waiting`,
+      [pid],
+    )
+    if (result.rows[0]?.waiting) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  throw new Error('Expected username email recipient lookup to wait')
+}
+
 beforeAll(async () => {
   const result = await pool.query<{ databaseName: string }>(
     'select current_database() as "databaseName"',
@@ -135,6 +157,152 @@ afterAll(async () => {
 })
 
 describe('username change service', () => {
+  it('returns the verified recipient only for the current session-bound challenge', async () => {
+    const { user, session } = await createAuthenticatedSession()
+    const requested = await requestUsernameChange(
+      database,
+      authSecret,
+      session,
+      'NewName',
+    )
+    expect(requested.kind).toBe('challenge_created')
+    if (requested.kind !== 'challenge_created') return
+
+    await expect(
+      readUsernameChangeEmailRecipient(database, {
+        userId: user.id,
+        challengeId: requested.delivery.challengeId,
+      }),
+    ).resolves.toBe(user.email)
+  })
+
+  it('suppresses the recipient after an account deletion request commits', async () => {
+    const { user, session } = await createAuthenticatedSession()
+    const requested = await requestUsernameChange(
+      database,
+      authSecret,
+      session,
+      'NewName',
+    )
+    expect(requested.kind).toBe('challenge_created')
+    if (requested.kind !== 'challenge_created') return
+
+    const requestedAt = new Date()
+    await database.insert(accountDeletionRequests).values({
+      userId: user.id,
+      requestedAt,
+      purgeAfter: new Date(requestedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
+    })
+
+    await expect(
+      readUsernameChangeEmailRecipient(database, {
+        userId: user.id,
+        challengeId: requested.delivery.challengeId,
+      }),
+    ).resolves.toBeNull()
+  })
+
+  it('suppresses stale, deleted, detached, and unverified challenges', async () => {
+    const { user, session } = await createAuthenticatedSession()
+    const requested = await requestUsernameChange(
+      database,
+      authSecret,
+      session,
+      'NewName',
+    )
+    expect(requested.kind).toBe('challenge_created')
+    if (requested.kind !== 'challenge_created') return
+    const request = {
+      userId: user.id,
+      challengeId: requested.delivery.challengeId,
+    }
+
+    await expect(
+      readUsernameChangeEmailRecipient(database, {
+        ...request,
+        challengeId: randomUUID(),
+      }),
+    ).resolves.toBeNull()
+    await database
+      .update(usernameChangeChallenges)
+      .set({ sessionId: null })
+      .where(eq(usernameChangeChallenges.userId, user.id))
+    await expect(
+      readUsernameChangeEmailRecipient(database, request),
+    ).resolves.toBeNull()
+    await database
+      .update(usernameChangeChallenges)
+      .set({ sessionId: session.sessionId })
+      .where(eq(usernameChangeChallenges.userId, user.id))
+    await database
+      .update(users)
+      .set({ emailVerified: false })
+      .where(eq(users.id, user.id))
+    await expect(
+      readUsernameChangeEmailRecipient(database, request),
+    ).resolves.toBeNull()
+    await database
+      .update(users)
+      .set({ emailVerified: true })
+      .where(eq(users.id, user.id))
+    await database
+      .delete(usernameChangeChallenges)
+      .where(eq(usernameChangeChallenges.userId, user.id))
+    await expect(
+      readUsernameChangeEmailRecipient(database, request),
+    ).resolves.toBeNull()
+  })
+
+  it('waits behind lifecycle authority and observes the freshly committed deletion request', async () => {
+    const { user, session } = await createAuthenticatedSession()
+    const requested = await requestUsernameChange(
+      database,
+      authSecret,
+      session,
+      'NewName',
+    )
+    expect(requested.kind).toBe('challenge_created')
+    if (requested.kind !== 'challenge_created') return
+
+    const lifecycleClient = await pool.connect()
+    const recipientClient = await pool.connect()
+    try {
+      await lifecycleClient.query('begin')
+      await lifecycleClient.query(
+        'select id from users where id = $1 for update',
+        [user.id],
+      )
+      const recipientPid = await recipientClient.query<{ pid: number }>(
+        'select pg_backend_pid() as pid',
+      )
+      const recipientDatabase = drizzle({ client: recipientClient })
+      const recipient = readUsernameChangeEmailRecipient(recipientDatabase, {
+        userId: user.id,
+        challengeId: requested.delivery.challengeId,
+      })
+      await waitForDatabaseLock(recipientPid.rows[0]!.pid)
+
+      await lifecycleClient.query(
+        `with lifecycle_clock as (
+          select clock_timestamp() as requested_at
+        )
+        insert into account_deletion_requests
+          (user_id, requested_at, purge_after)
+        select $1, requested_at, requested_at + interval '14 days'
+        from lifecycle_clock`,
+        [user.id],
+      )
+      await lifecycleClient.query('commit')
+
+      await expect(recipient).resolves.toBeNull()
+    } finally {
+      await lifecycleClient.query('rollback').catch(() => undefined)
+      await recipientClient.query('rollback').catch(() => undefined)
+      lifecycleClient.release()
+      recipientClient.release()
+    }
+  })
+
   it('preflights exact, unavailable, and capitalization-only names without writing challenge state', async () => {
     const { user, session } = await createAuthenticatedSession()
 

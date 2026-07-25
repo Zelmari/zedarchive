@@ -24,7 +24,7 @@ function copyHeader(
  * Runs the pinned provider endpoint through its router rather than calling
  * auth.api directly, preserving its authoritative-session, CSRF and shared
  * database rate-limit boundary. IP forwarding remains intentionally disabled
- * until the production proxy decision at Gate F.
+ * until the production proxy decision at Gate G.
  */
 export async function verifyCurrentPassword(
   auth: AuthHandler,

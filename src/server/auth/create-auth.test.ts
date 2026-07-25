@@ -26,11 +26,20 @@ const emailCallbacks = {
   afterPasswordReset: vi.fn(async () => undefined),
 }
 const backgroundTaskHandler = vi.fn(() => undefined)
+const accountDeletionStateReader = vi.fn(async () => ({
+  kind: 'active' as const,
+}))
 
 function createOptions(
   testOverrides: Parameters<typeof createAuthOptions>[4] = {},
 ) {
-  return createAuthOptions(database, authEnvironment, {}, {}, testOverrides)
+  return createAuthOptions(
+    database,
+    authEnvironment,
+    { accountDeletionStateReader },
+    {},
+    testOverrides,
+  )
 }
 
 describe('createAuthOptions', () => {
@@ -57,7 +66,11 @@ describe('createAuthOptions', () => {
     const options = createAuthOptions(
       database,
       authEnvironment,
-      { emailCallbacks, backgroundTaskHandler },
+      {
+        accountDeletionStateReader,
+        emailCallbacks,
+        backgroundTaskHandler,
+      },
       {},
       {},
     )
@@ -87,7 +100,7 @@ describe('createAuthOptions', () => {
     const options = createAuthOptions(
       database,
       authEnvironment,
-      { emailCallbacks },
+      { accountDeletionStateReader, emailCallbacks },
       {},
       {
         verificationExpiresInSeconds: 1,
@@ -146,7 +159,7 @@ describe('createAuthOptions', () => {
       createAuthOptions(
         database,
         authEnvironment,
-        {},
+        { accountDeletionStateReader },
         {
           registrationMode: 'verified-email-required',
         },
@@ -158,7 +171,7 @@ describe('createAuthOptions', () => {
     const options = createAuthOptions(
       database,
       authEnvironment,
-      { emailCallbacks },
+      { accountDeletionStateReader, emailCallbacks },
       { registrationMode: 'verified-email-required' },
     )
 
@@ -171,7 +184,7 @@ describe('createAuthOptions', () => {
       createAuthOptions(
         database,
         authEnvironment,
-        {},
+        { accountDeletionStateReader },
         { registrationMode: 'verified-email-required' },
         { allowCredentialSignUpForTesting: true },
       ),
@@ -198,6 +211,14 @@ describe('createAuthOptions', () => {
 
   it('strips caller-supplied identity keys before credential signup parsing', () => {
     expect(typeof createOptions().hooks?.before).toBe('function')
+  })
+
+  it('requires account-deletion state composition', () => {
+    expect(() =>
+      createAuthOptions(database, authEnvironment, {}, {}, {}),
+    ).toThrow(
+      'Better Auth composition requires an account-deletion state reader',
+    )
   })
 
   it('configures the drizzle adapter with plural schema keys only', () => {

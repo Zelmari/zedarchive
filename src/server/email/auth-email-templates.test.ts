@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createAuthEmailIdempotencyKey,
+  renderAccountDeletionCancelledMessage,
+  renderAccountDeletionCodeMessage,
+  renderAccountDeletionRequestedMessage,
   renderEmailVerificationMessage,
   renderPasswordResetMessage,
   renderUsernameChangeCodeMessage,
@@ -62,6 +65,86 @@ describe('authentication email templates', () => {
       /^auth-email\/username_change\/[a-f0-9]{64}$/u,
     )
   })
+
+  it('renders the approved data-minimal deletion code email', () => {
+    const message = renderAccountDeletionCodeMessage({
+      challengeId: '11111111-1111-4111-8111-111111111111',
+      code: '00000001',
+    })
+
+    expect(message.category).toBe('account_deletion_code')
+    expect(message.subject).toBe('Your zedarchive account deletion code')
+    expect(message.text).toContain('Confirm account deletion')
+    expect(message.text).toContain('Verification code: 00000001')
+    expect(message.text).toContain('will not be restricted unless')
+    expect(message.html).not.toContain('href=')
+    expect(message.idempotencyKey).not.toContain('00000001')
+  })
+
+  it('renders the fixed-UTC request notification without a bearer link', () => {
+    const message = renderAccountDeletionRequestedMessage({
+      recipient: 'first@example.test',
+      purgeAfter: new Date('2026-08-25T14:30:00.000Z'),
+    })
+
+    expect(message.category).toBe('account_deletion_requested')
+    expect(message.subject).toBe(
+      'Deletion requested for your zedarchive account',
+    )
+    expect(message.text).toContain(
+      'Recovery ends on 25 August 2026 at 14:30 UTC.',
+    )
+    expect(message.text).toContain('Encrypted backups may retain copies')
+    expect(message.html).not.toContain('href=')
+    expect(JSON.stringify(message)).not.toContain('first@example.test')
+    expect(message.idempotencyKey).not.toContain('2026-08-25')
+  })
+
+  it('renders the cancellation notification without recipient data', () => {
+    const first = renderAccountDeletionCancelledMessage({
+      recipient: 'first@example.test',
+      purgeAfter: new Date('2026-08-25T14:30:00.000Z'),
+    })
+
+    expect(first.category).toBe('account_deletion_cancelled')
+    expect(first.subject).toBe('Deletion cancelled for your zedarchive account')
+    expect(first.text).toContain('account and archive are available again')
+    expect(first.html).not.toContain('href=')
+    expect(JSON.stringify(first)).not.toContain('first@example.test')
+  })
+
+  it.each([
+    {
+      category: 'request',
+      render: (recipient: string, purgeAfter: Date) =>
+        renderAccountDeletionRequestedMessage({ recipient, purgeAfter }),
+    },
+    {
+      category: 'cancellation',
+      render: (recipient: string, purgeAfter: Date) =>
+        renderAccountDeletionCancelledMessage({ recipient, purgeAfter }),
+    },
+  ])(
+    'uses a stable, account-scoped key for each $category lifecycle',
+    ({ render }) => {
+      const deadline = new Date('2026-08-25T14:30:00.000Z')
+      const first = render('first@example.test', deadline)
+      const repeat = render('first@example.test', deadline)
+      const differentAccount = render('second@example.test', deadline)
+      const laterLifecycle = render(
+        'first@example.test',
+        new Date('2026-09-25T14:30:00.000Z'),
+      )
+
+      expect(first.idempotencyKey).toBe(repeat.idempotencyKey)
+      expect(first.idempotencyKey).not.toBe(differentAccount.idempotencyKey)
+      expect(first.idempotencyKey).not.toBe(laterLifecycle.idempotencyKey)
+      expect(first.idempotencyKey).not.toContain('first@example.test')
+      expect(differentAccount.idempotencyKey).not.toContain(
+        'second@example.test',
+      )
+    },
+  )
 
   it('does not introduce recipient or account metadata', () => {
     const serialized = JSON.stringify(

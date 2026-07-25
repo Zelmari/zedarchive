@@ -30,12 +30,26 @@ import {
   animeAlternativeTitles,
   animeCatalogueItems,
   animeEntries,
+  userCataloguePreferences,
 } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { buildPreferredAnimeTitleExpression } from '@/server/database/anime-catalogue-title-expression'
 import { buildPublishedAnimeCatalogueVisibility } from '@/server/database/anime-catalogue-visibility'
-import { readUserCataloguePreferences } from '@/server/database/user-catalogue-preferences-service'
 
 type StoredCatalogueItem = typeof animeCatalogueItems.$inferSelect
+type StoredCatalogueDomainItem = Pick<
+  StoredCatalogueItem,
+  | 'id'
+  | 'englishTitle'
+  | 'romajiTitle'
+  | 'originalTitle'
+  | 'format'
+  | 'releaseStatus'
+  | 'releaseYear'
+  | 'episodeCount'
+  | 'maturity'
+  | 'catalogueState'
+>
 
 export class StoredAnimeCatalogueTitleIntegrityError extends Error {
   constructor() {
@@ -154,7 +168,7 @@ function assertTrimmedStoredTitle(value: string | null): void {
 }
 
 function mapStoredItemToDomain(
-  item: StoredCatalogueItem,
+  item: StoredCatalogueDomainItem,
   alternatives: readonly string[],
   options: {
     titleLanguage: AnimeTitleLanguage
@@ -217,6 +231,200 @@ function buildPagination(
   }
 }
 
+async function readPersonalizedAnimeCataloguePage(
+  database: NodePgDatabase,
+  options: {
+    page: number
+    pageSize: number
+    normalizedQuery?: string
+    userId: string
+  },
+): Promise<AnimeCatalogueViewerPage> {
+  const { page, pageSize, normalizedQuery, userId } = options
+  const offset = (page - 1) * pageSize
+
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, userId))) {
+        throw new Error('Personalized anime catalogue account is unavailable')
+      }
+
+      const preferredTitle = sql<string>`case "preference"."title_language"
+        when 'romaji' then coalesce(${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.englishTitle}, ${animeCatalogueItems.originalTitle})
+        when 'original' then coalesce(${animeCatalogueItems.originalTitle}, ${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.englishTitle})
+        else coalesce(${animeCatalogueItems.englishTitle}, ${animeCatalogueItems.romajiTitle}, ${animeCatalogueItems.originalTitle})
+      end`
+      const visibility = and(
+        eq(animeCatalogueItems.catalogueState, 'published'),
+        sql`("preference"."adult_content_enabled"
+          or ${animeCatalogueItems.maturity} <> 'adult')`,
+      )!
+      const whereClause =
+        normalizedQuery === undefined
+          ? visibility
+          : and(
+              visibility,
+              buildTitleMatchCondition(normalizedQuery, 'contains'),
+            )!
+      const titleOrder = sql`lower(${preferredTitle}) asc,
+        ${preferredTitle} asc,
+        ${animeCatalogueItems.id} asc`
+      const pageOrder =
+        normalizedQuery === undefined
+          ? titleOrder
+          : sql`${buildSearchRankExpression(normalizedQuery)} asc, ${titleOrder}`
+
+      const payload = await transaction.execute<{
+        totalItems: number
+        id: string | null
+        englishTitle: string | null
+        romajiTitle: string | null
+        originalTitle: string | null
+        format: StoredCatalogueItem['format'] | null
+        releaseStatus: StoredCatalogueItem['releaseStatus'] | null
+        releaseYear: number | null
+        episodeCount: number | null
+        maturity: StoredCatalogueItem['maturity'] | null
+        catalogueState: StoredCatalogueItem['catalogueState'] | null
+        titleLanguage: AnimeTitleLanguage | null
+        adultContentEnabled: boolean | null
+        alternatives: string[]
+        membershipCatalogueItemId: string | null
+        membershipStatus: EntryStatus | null
+      }>(sql`
+        with "preference" as materialized (
+          select
+            coalesce(
+              (
+                select ${userCataloguePreferences.titleLanguage}
+                from ${userCataloguePreferences}
+                where ${userCataloguePreferences.userId} = ${userId}
+              ),
+              'english'
+            ) as "title_language",
+            coalesce(
+              (
+                select ${userCataloguePreferences.adultContentEnabled}
+                from ${userCataloguePreferences}
+                where ${userCataloguePreferences.userId} = ${userId}
+              ),
+              false
+            ) as "adult_content_enabled"
+        ),
+        "total" as (
+          select count(*)::integer as "totalItems"
+          from ${animeCatalogueItems}
+          cross join "preference"
+          where ${whereClause}
+        ),
+        "page" as (
+          select
+            ${animeCatalogueItems.id} as "id",
+            ${animeCatalogueItems.englishTitle} as "englishTitle",
+            ${animeCatalogueItems.romajiTitle} as "romajiTitle",
+            ${animeCatalogueItems.originalTitle} as "originalTitle",
+            ${animeCatalogueItems.format} as "format",
+            ${animeCatalogueItems.releaseStatus} as "releaseStatus",
+            ${animeCatalogueItems.releaseYear} as "releaseYear",
+            ${animeCatalogueItems.episodeCount} as "episodeCount",
+            ${animeCatalogueItems.maturity} as "maturity",
+            ${animeCatalogueItems.catalogueState} as "catalogueState",
+            "preference"."title_language" as "titleLanguage",
+            "preference"."adult_content_enabled" as "adultContentEnabled",
+            row_number() over (order by ${pageOrder}) as "rowPosition"
+          from ${animeCatalogueItems}
+          cross join "preference"
+          where ${whereClause}
+          order by ${pageOrder}
+          limit ${pageSize}
+          offset ${offset}
+        )
+        select
+          "total"."totalItems",
+          "page"."id",
+          "page"."englishTitle",
+          "page"."romajiTitle",
+          "page"."originalTitle",
+          "page"."format",
+          "page"."releaseStatus",
+          "page"."releaseYear",
+          "page"."episodeCount",
+          "page"."maturity",
+          "page"."catalogueState",
+          "page"."titleLanguage",
+          "page"."adultContentEnabled",
+          coalesce(
+            (
+              select array_agg(
+                ${animeAlternativeTitles.title}
+                order by ${animeAlternativeTitles.position}
+              )
+              from ${animeAlternativeTitles}
+              where ${animeAlternativeTitles.catalogueItemId} = "page"."id"
+            ),
+            array[]::text[]
+          ) as "alternatives",
+          ${animeEntries.catalogueItemId} as "membershipCatalogueItemId",
+          ${animeEntries.status} as "membershipStatus"
+        from "total"
+        left join "page" on true
+        left join ${animeEntries}
+          on ${animeEntries.userId} = ${userId}
+          and ${animeEntries.catalogueItemId} = "page"."id"
+        order by "page"."rowPosition" nulls last
+      `)
+
+      const rows = payload.rows
+      const totalItems = Number(rows[0]?.totalItems ?? 0)
+      const itemRows = rows.filter(
+        (
+          row,
+        ): row is typeof row & {
+          id: string
+          format: StoredCatalogueItem['format']
+          releaseStatus: StoredCatalogueItem['releaseStatus']
+          maturity: StoredCatalogueItem['maturity']
+          catalogueState: StoredCatalogueItem['catalogueState']
+          titleLanguage: AnimeTitleLanguage
+          adultContentEnabled: boolean
+        } =>
+          row.id !== null &&
+          row.format !== null &&
+          row.releaseStatus !== null &&
+          row.maturity !== null &&
+          row.catalogueState !== null &&
+          row.titleLanguage !== null &&
+          row.adultContentEnabled !== null,
+      )
+      const items = itemRows.map((row) =>
+        mapStoredItemToDomain(row, row.alternatives, {
+          titleLanguage: row.titleLanguage,
+          canViewAdult: row.adultContentEnabled,
+        }),
+      )
+      const memberships = itemRows.flatMap((row) =>
+        row.membershipCatalogueItemId === null || row.membershipStatus === null
+          ? []
+          : [
+              {
+                catalogueItemId: row.membershipCatalogueItemId,
+                status: row.membershipStatus,
+              },
+            ],
+      )
+
+      return {
+        cataloguePage: animeCataloguePageSchema.parse({
+          items,
+          pagination: buildPagination(page, pageSize, totalItems),
+        }),
+        memberships,
+      }
+    },
+    { isolationLevel: 'read committed' },
+  )
+}
+
 async function readPublicAnimeCataloguePage(
   database: NodePgDatabase,
   options: {
@@ -229,12 +437,18 @@ async function readPublicAnimeCataloguePage(
   const { page, pageSize, normalizedQuery, userId } = options
   const offset = (page - 1) * pageSize
 
+  if (userId !== null) {
+    return readPersonalizedAnimeCataloguePage(database, {
+      page,
+      pageSize,
+      normalizedQuery,
+      userId,
+    })
+  }
+
   return database.transaction(
     async (transaction) => {
-      const preferences =
-        userId === null
-          ? defaultUserCataloguePreferences
-          : await readUserCataloguePreferences(transaction, { userId })
+      const preferences = defaultUserCataloguePreferences
       const visibility = buildPublishedAnimeCatalogueVisibility(
         preferences.adultContentEnabled,
       )
@@ -284,7 +498,7 @@ async function readPublicAnimeCataloguePage(
             items: [],
             pagination: buildPagination(page, pageSize, totalItems),
           }),
-          memberships: userId === null ? null : [],
+          memberships: null,
         }
       }
 
@@ -317,28 +531,12 @@ async function readPublicAnimeCataloguePage(
         }),
       )
 
-      const memberships =
-        userId === null
-          ? null
-          : await transaction
-              .select({
-                catalogueItemId: animeEntries.catalogueItemId,
-                status: animeEntries.status,
-              })
-              .from(animeEntries)
-              .where(
-                and(
-                  eq(animeEntries.userId, userId),
-                  inArray(animeEntries.catalogueItemId, itemIds),
-                ),
-              )
-
       return {
         cataloguePage: animeCataloguePageSchema.parse({
           items,
           pagination: buildPagination(page, pageSize, totalItems),
         }),
-        memberships,
+        memberships: null,
       }
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' },

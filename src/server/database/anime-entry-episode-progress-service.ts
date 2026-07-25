@@ -21,6 +21,7 @@ import type {
 } from '@/features/archive/domain/update-anime-entry-episode-total'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryEpisodeProgressRequest =
@@ -121,205 +122,225 @@ export async function updateAnimeEntryEpisodeProgress(
   database: NodePgDatabase,
   request: UpdateAnimeEntryEpisodeProgressRequest,
 ): Promise<UpdateAnimeEntryEpisodeProgressResult> {
-  return database.transaction(async (transaction) => {
-    const [storedEntry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        status: animeEntries.status,
-        episodeProgress: animeEntries.episodeProgress,
-        episodeTotalOverride: animeEntries.episodeTotalOverride,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
+      }
 
-    if (storedEntry === undefined) {
-      return { kind: 'unavailable' }
-    }
+      const [storedEntry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          status: animeEntries.status,
+          episodeProgress: animeEntries.episodeProgress,
+          episodeTotalOverride: animeEntries.episodeTotalOverride,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    const entry = parseLockedEntry(storedEntry)
-    const [storedCatalogueItem] = await transaction
-      .select({
-        format: animeCatalogueItems.format,
-        maturity: animeCatalogueItems.maturity,
-        episodeCount: animeCatalogueItems.episodeCount,
-      })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
+      if (storedEntry === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    if (storedCatalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
+      const entry = parseLockedEntry(storedEntry)
+      const [storedCatalogueItem] = await transaction
+        .select({
+          format: animeCatalogueItems.format,
+          maturity: animeCatalogueItems.maturity,
+          episodeCount: animeCatalogueItems.episodeCount,
+        })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
 
-    const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
-    if (
-      (catalogueItem.maturity === 'adult' &&
-        !(await lockAdultContentPreferenceForShare(
-          transaction,
-          request.userId,
-        ))) ||
-      getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
-    ) {
-      return { kind: 'unavailable' }
-    }
+      if (storedCatalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    if (entry.episodeProgress === request.requestedEpisodeProgress) {
+      const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
+      if (
+        (catalogueItem.maturity === 'adult' &&
+          !(await lockAdultContentPreferenceForShare(
+            transaction,
+            request.userId,
+          ))) ||
+        getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
+      ) {
+        return { kind: 'unavailable' }
+      }
+
+      if (entry.episodeProgress === request.requestedEpisodeProgress) {
+        return progressResult(
+          request.expectedEpisodeProgress === request.requestedEpisodeProgress
+            ? 'unchanged'
+            : 'updated',
+          entry,
+          catalogueItem,
+        )
+      }
+
+      if (entry.episodeProgress !== request.expectedEpisodeProgress) {
+        return { kind: 'conflict', currentProgress: entry.episodeProgress }
+      }
+
+      const [updatedEntry] = await transaction
+        .update(animeEntries)
+        .set({
+          episodeProgress: request.requestedEpisodeProgress,
+          updatedAt: sql`current_timestamp`,
+        })
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+            eq(animeEntries.episodeProgress, request.expectedEpisodeProgress),
+          ),
+        )
+        .returning({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          status: animeEntries.status,
+          episodeProgress: animeEntries.episodeProgress,
+          episodeTotalOverride: animeEntries.episodeTotalOverride,
+        })
+
+      if (updatedEntry === undefined) {
+        return { kind: 'conflict', currentProgress: entry.episodeProgress }
+      }
+
       return progressResult(
-        request.expectedEpisodeProgress === request.requestedEpisodeProgress
-          ? 'unchanged'
-          : 'updated',
-        entry,
+        'updated',
+        parseLockedEntry(updatedEntry),
         catalogueItem,
       )
-    }
-
-    if (entry.episodeProgress !== request.expectedEpisodeProgress) {
-      return { kind: 'conflict', currentProgress: entry.episodeProgress }
-    }
-
-    const [updatedEntry] = await transaction
-      .update(animeEntries)
-      .set({
-        episodeProgress: request.requestedEpisodeProgress,
-        updatedAt: sql`current_timestamp`,
-      })
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-          eq(animeEntries.episodeProgress, request.expectedEpisodeProgress),
-        ),
-      )
-      .returning({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        status: animeEntries.status,
-        episodeProgress: animeEntries.episodeProgress,
-        episodeTotalOverride: animeEntries.episodeTotalOverride,
-      })
-
-    if (updatedEntry === undefined) {
-      return { kind: 'conflict', currentProgress: entry.episodeProgress }
-    }
-
-    return progressResult(
-      'updated',
-      parseLockedEntry(updatedEntry),
-      catalogueItem,
-    )
-  })
+    },
+    { isolationLevel: 'read committed' },
+  )
 }
 
 export async function updateAnimeEntryEpisodeTotalOverride(
   database: NodePgDatabase,
   request: UpdateAnimeEntryEpisodeTotalOverrideRequest,
 ): Promise<UpdateAnimeEntryEpisodeTotalOverrideResult> {
-  return database.transaction(async (transaction) => {
-    const [storedEntry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        status: animeEntries.status,
-        episodeProgress: animeEntries.episodeProgress,
-        episodeTotalOverride: animeEntries.episodeTotalOverride,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
+      }
 
-    if (storedEntry === undefined) {
-      return { kind: 'unavailable' }
-    }
+      const [storedEntry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          status: animeEntries.status,
+          episodeProgress: animeEntries.episodeProgress,
+          episodeTotalOverride: animeEntries.episodeTotalOverride,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    const entry = parseLockedEntry(storedEntry)
-    const [storedCatalogueItem] = await transaction
-      .select({
-        format: animeCatalogueItems.format,
-        maturity: animeCatalogueItems.maturity,
-        episodeCount: animeCatalogueItems.episodeCount,
-      })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
+      if (storedEntry === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    if (storedCatalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
+      const entry = parseLockedEntry(storedEntry)
+      const [storedCatalogueItem] = await transaction
+        .select({
+          format: animeCatalogueItems.format,
+          maturity: animeCatalogueItems.maturity,
+          episodeCount: animeCatalogueItems.episodeCount,
+        })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
 
-    const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
-    if (
-      (catalogueItem.maturity === 'adult' &&
-        !(await lockAdultContentPreferenceForShare(
-          transaction,
-          request.userId,
-        ))) ||
-      getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
-    ) {
-      return { kind: 'unavailable' }
-    }
+      if (storedCatalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
 
-    if (entry.episodeTotalOverride === request.requestedEpisodeTotalOverride) {
+      const catalogueItem = parseLockedCatalogueItem(storedCatalogueItem)
+      if (
+        (catalogueItem.maturity === 'adult' &&
+          !(await lockAdultContentPreferenceForShare(
+            transaction,
+            request.userId,
+          ))) ||
+        getAnimeEpisodeProgressSupport(catalogueItem.format) !== 'trackable'
+      ) {
+        return { kind: 'unavailable' }
+      }
+
+      if (
+        entry.episodeTotalOverride === request.requestedEpisodeTotalOverride
+      ) {
+        return totalResult(
+          request.expectedEpisodeTotalOverride ===
+            request.requestedEpisodeTotalOverride
+            ? 'unchanged'
+            : 'updated',
+          entry,
+          catalogueItem,
+        )
+      }
+
+      if (entry.episodeTotalOverride !== request.expectedEpisodeTotalOverride) {
+        return {
+          kind: 'conflict',
+          currentPersonalTotal: entry.episodeTotalOverride,
+        }
+      }
+
+      const [updatedEntry] = await transaction
+        .update(animeEntries)
+        .set({
+          episodeTotalOverride: request.requestedEpisodeTotalOverride,
+          updatedAt: sql`current_timestamp`,
+        })
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+            sql`${animeEntries.episodeTotalOverride} is not distinct from ${request.expectedEpisodeTotalOverride}`,
+          ),
+        )
+        .returning({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          status: animeEntries.status,
+          episodeProgress: animeEntries.episodeProgress,
+          episodeTotalOverride: animeEntries.episodeTotalOverride,
+        })
+
+      if (updatedEntry === undefined) {
+        return {
+          kind: 'conflict',
+          currentPersonalTotal: entry.episodeTotalOverride,
+        }
+      }
+
       return totalResult(
-        request.expectedEpisodeTotalOverride ===
-          request.requestedEpisodeTotalOverride
-          ? 'unchanged'
-          : 'updated',
-        entry,
+        'updated',
+        parseLockedEntry(updatedEntry),
         catalogueItem,
       )
-    }
-
-    if (entry.episodeTotalOverride !== request.expectedEpisodeTotalOverride) {
-      return {
-        kind: 'conflict',
-        currentPersonalTotal: entry.episodeTotalOverride,
-      }
-    }
-
-    const [updatedEntry] = await transaction
-      .update(animeEntries)
-      .set({
-        episodeTotalOverride: request.requestedEpisodeTotalOverride,
-        updatedAt: sql`current_timestamp`,
-      })
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-          sql`${animeEntries.episodeTotalOverride} is not distinct from ${request.expectedEpisodeTotalOverride}`,
-        ),
-      )
-      .returning({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        status: animeEntries.status,
-        episodeProgress: animeEntries.episodeProgress,
-        episodeTotalOverride: animeEntries.episodeTotalOverride,
-      })
-
-    if (updatedEntry === undefined) {
-      return {
-        kind: 'conflict',
-        currentPersonalTotal: entry.episodeTotalOverride,
-      }
-    }
-
-    return totalResult('updated', parseLockedEntry(updatedEntry), catalogueItem)
-  })
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

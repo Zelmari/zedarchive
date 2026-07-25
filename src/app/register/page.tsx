@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { RegisterForm } from '@/features/auth/components/register-form'
 import { PublicUsername } from '@/features/identity/components/public-username'
-import { auth } from '@/server/auth/auth'
+import { resolveAccountAccess } from '@/server/auth/auth'
 
 export const metadata: Metadata = {
   title: 'Register',
@@ -13,9 +14,14 @@ const linkClassName =
   'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
 export default async function RegisterPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
+  const access = await resolveAccountAccess(await headers())
+  if (
+    access.status === 'deletion_recoverable' ||
+    access.status === 'deletion_due'
+  ) {
+    redirect('/account/deletion')
+  }
+  const session = access.status === 'active' ? access.session : null
 
   return (
     <main
@@ -30,7 +36,12 @@ export default async function RegisterPage() {
         </p>
       </header>
 
-      {session?.user ? (
+      {access.status === 'unavailable' ? (
+        <p role="alert">
+          Account access is temporarily unavailable. Try again later or sign
+          out.
+        </p>
+      ) : session?.user ? (
         <section className="space-y-4">
           <p>
             You are already signed in as{' '}

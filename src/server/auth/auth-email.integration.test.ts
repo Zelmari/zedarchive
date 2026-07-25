@@ -16,6 +16,7 @@ import {
   passwordMaximumLength,
   passwordMinimumLength,
 } from '@/features/auth/domain/password-policy'
+import { readAccountDeletionState } from '@/server/account-lifecycle/account-deletion-state'
 import { createAuthEmailCallbacks } from '@/server/auth/auth-email-callbacks'
 import {
   createAuth,
@@ -129,6 +130,8 @@ function createEmailAuth(
     database,
     authEnvironment,
     {
+      accountDeletionStateReader: (userId) =>
+        readAccountDeletionState(database, userId),
       emailCallbacks,
       backgroundTaskHandler,
     },

@@ -11,6 +11,7 @@ import type {
   UpdateAnimeEntryDateRangeInput,
 } from '@/features/archive/domain/update-anime-entry-date-range'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryDateRangeRequest =
@@ -82,99 +83,106 @@ export async function updateAnimeEntryDateRange(
   database: NodePgDatabase,
   request: UpdateAnimeEntryDateRangeRequest,
 ): Promise<UpdateAnimeEntryDateRangeResult> {
-  return database.transaction(async (transaction) => {
-    const [storedEntry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        startDate: animeEntries.startDate,
-        finishDate: animeEntries.finishDate,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
-
-    if (storedEntry === undefined) return { kind: 'unavailable' }
-
-    const entry = parseLockedEntry(storedEntry)
-    const [catalogueItem] = await transaction
-      .select({ maturity: animeCatalogueItems.maturity })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
-
-    if (catalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
-
-    if (
-      catalogueItem.maturity === 'adult' &&
-      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
-    ) {
-      return { kind: 'unavailable' }
-    }
-
-    const requestedDateRange = {
-      startDate: request.requestedStartDate,
-      finishDate: request.requestedFinishDate,
-    }
-    const expectedDateRange = {
-      startDate: request.expectedStartDate,
-      finishDate: request.expectedFinishDate,
-    }
-
-    if (hasSameDateRange(entry, requestedDateRange)) {
-      return result(
-        hasSameDateRange(expectedDateRange, requestedDateRange)
-          ? 'unchanged'
-          : 'updated',
-        entry,
-      )
-    }
-
-    if (!hasSameDateRange(entry, expectedDateRange)) {
-      return {
-        kind: 'conflict',
-        currentStartDate: entry.startDate,
-        currentFinishDate: entry.finishDate,
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
       }
-    }
 
-    const [updatedEntry] = await transaction
-      .update(animeEntries)
-      .set({
+      const [storedEntry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          startDate: animeEntries.startDate,
+          finishDate: animeEntries.finishDate,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
+
+      if (storedEntry === undefined) return { kind: 'unavailable' }
+
+      const entry = parseLockedEntry(storedEntry)
+      const [catalogueItem] = await transaction
+        .select({ maturity: animeCatalogueItems.maturity })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
+
+      if (catalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
+
+      if (
+        catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+      ) {
+        return { kind: 'unavailable' }
+      }
+
+      const requestedDateRange = {
         startDate: request.requestedStartDate,
         finishDate: request.requestedFinishDate,
-        updatedAt: sql`current_timestamp`,
-      })
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-          sql`${animeEntries.startDate} is not distinct from ${request.expectedStartDate}`,
-          sql`${animeEntries.finishDate} is not distinct from ${request.expectedFinishDate}`,
-        ),
-      )
-      .returning({
-        startDate: animeEntries.startDate,
-        finishDate: animeEntries.finishDate,
-      })
-
-    if (updatedEntry === undefined) {
-      return {
-        kind: 'conflict',
-        currentStartDate: entry.startDate,
-        currentFinishDate: entry.finishDate,
       }
-    }
+      const expectedDateRange = {
+        startDate: request.expectedStartDate,
+        finishDate: request.expectedFinishDate,
+      }
 
-    return result('updated', parseDateRange(updatedEntry))
-  })
+      if (hasSameDateRange(entry, requestedDateRange)) {
+        return result(
+          hasSameDateRange(expectedDateRange, requestedDateRange)
+            ? 'unchanged'
+            : 'updated',
+          entry,
+        )
+      }
+
+      if (!hasSameDateRange(entry, expectedDateRange)) {
+        return {
+          kind: 'conflict',
+          currentStartDate: entry.startDate,
+          currentFinishDate: entry.finishDate,
+        }
+      }
+
+      const [updatedEntry] = await transaction
+        .update(animeEntries)
+        .set({
+          startDate: request.requestedStartDate,
+          finishDate: request.requestedFinishDate,
+          updatedAt: sql`current_timestamp`,
+        })
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+            sql`${animeEntries.startDate} is not distinct from ${request.expectedStartDate}`,
+            sql`${animeEntries.finishDate} is not distinct from ${request.expectedFinishDate}`,
+          ),
+        )
+        .returning({
+          startDate: animeEntries.startDate,
+          finishDate: animeEntries.finishDate,
+        })
+
+      if (updatedEntry === undefined) {
+        return {
+          kind: 'conflict',
+          currentStartDate: entry.startDate,
+          currentFinishDate: entry.finishDate,
+        }
+      }
+
+      return result('updated', parseDateRange(updatedEntry))
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

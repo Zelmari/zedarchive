@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { productName } from '@/config/product-identity'
+import { formatAccountDeletionDeadlineUtc } from '@/features/account-deletion/domain/account-deletion'
 import type {
   AuthEmailCategory,
   TransactionalEmailContent,
@@ -145,6 +146,131 @@ export function renderUsernameChangeCodeMessage({
     idempotencyKey: createAuthEmailIdempotencyKey(
       'username_change',
       challengeId,
+    ),
+  }
+}
+
+export function renderAccountDeletionCodeMessage({
+  challengeId,
+  code,
+}: Readonly<{
+  challengeId: string
+  code: string
+}>): TransactionalEmailContent {
+  return {
+    category: 'account_deletion_code',
+    subject: `Your ${productName} account deletion code`,
+    text: [
+      'Confirm account deletion',
+      '',
+      `An account deletion request was started for your ${productName} account.`,
+      '',
+      `Verification code: ${code}`,
+      '',
+      'This code expires in 10 minutes. If you requested another code, only the newest code works.',
+      '',
+      'Your account will not be restricted unless the code is entered and the request is confirmed.',
+      '',
+      'If you did not request this, reset your password.',
+    ].join('\n'),
+    html: [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<body>',
+      '<main>',
+      '<h1>Confirm account deletion</h1>',
+      `<p>An account deletion request was started for your ${productName} account.</p>`,
+      `<p>Verification code: <strong>${escapeHtml(code)}</strong></p>`,
+      '<p>This code expires in 10 minutes. If you requested another code, only the newest code works.</p>',
+      '<p>Your account will not be restricted unless the code is entered and the request is confirmed.</p>',
+      '<p>If you did not request this, reset your password.</p>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    idempotencyKey: createAuthEmailIdempotencyKey(
+      'account_deletion_code',
+      challengeId,
+    ),
+  }
+}
+
+export function renderAccountDeletionRequestedMessage({
+  recipient,
+  purgeAfter,
+}: Readonly<{
+  recipient: string
+  purgeAfter: Date
+}>): TransactionalEmailContent {
+  const deadline = formatAccountDeletionDeadlineUtc(purgeAfter)
+
+  return {
+    category: 'account_deletion_requested',
+    subject: `Deletion requested for your ${productName} account`,
+    text: [
+      'Account deletion requested',
+      '',
+      `Your ${productName} account is now restricted.`,
+      '',
+      `Recovery ends on ${deadline}. You can cancel before this time by signing in and opening Account deletion.`,
+      '',
+      'After recovery ends, cancellation is unavailable and your live account and archive will be permanently deleted. Encrypted backups may retain copies until they expire.',
+      '',
+      'If you did not request this, sign in and cancel the request, then reset your password.',
+    ].join('\n'),
+    html: [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<body>',
+      '<main>',
+      '<h1>Account deletion requested</h1>',
+      `<p>Your ${productName} account is now restricted.</p>`,
+      `<p>Recovery ends on ${escapeHtml(deadline)}. You can cancel before this time by signing in and opening Account deletion.</p>`,
+      '<p>After recovery ends, cancellation is unavailable and your live account and archive will be permanently deleted. Encrypted backups may retain copies until they expire.</p>',
+      '<p>If you did not request this, sign in and cancel the request, then reset your password.</p>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    idempotencyKey: createAuthEmailIdempotencyKey(
+      'account_deletion_requested',
+      JSON.stringify([recipient, purgeAfter.toISOString()]),
+    ),
+  }
+}
+
+export function renderAccountDeletionCancelledMessage({
+  recipient,
+  purgeAfter,
+}: Readonly<{
+  recipient: string
+  purgeAfter: Date
+}>): TransactionalEmailContent {
+  return {
+    category: 'account_deletion_cancelled',
+    subject: `Deletion cancelled for your ${productName} account`,
+    text: [
+      'Account deletion cancelled',
+      '',
+      `The deletion request for your ${productName} account was cancelled. Your account and archive are available again.`,
+      '',
+      'If you did not cancel this request, reset your password.',
+    ].join('\n'),
+    html: [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<body>',
+      '<main>',
+      '<h1>Account deletion cancelled</h1>',
+      `<p>The deletion request for your ${productName} account was cancelled. Your account and archive are available again.</p>`,
+      '<p>If you did not cancel this request, reset your password.</p>',
+      '</main>',
+      '</body>',
+      '</html>',
+    ].join(''),
+    idempotencyKey: createAuthEmailIdempotencyKey(
+      'account_deletion_cancelled',
+      JSON.stringify([recipient, purgeAfter.toISOString()]),
     ),
   }
 }

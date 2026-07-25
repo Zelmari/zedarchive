@@ -8,6 +8,7 @@ import type {
   UpdateAnimeEntryFavouriteInput,
 } from '@/features/archive/domain/update-anime-entry-favourite'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
+import { establishActiveAccount } from '@/server/database/active-account-transaction'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryFavouriteRequest =
@@ -43,80 +44,87 @@ export async function updateAnimeEntryFavourite(
   database: NodePgDatabase,
   request: UpdateAnimeEntryFavouriteRequest,
 ): Promise<UpdateAnimeEntryFavouriteResult> {
-  return database.transaction(async (transaction) => {
-    const [storedEntry] = await transaction
-      .select({
-        id: animeEntries.id,
-        catalogueItemId: animeEntries.catalogueItemId,
-        isFavourite: animeEntries.isFavourite,
-      })
-      .from(animeEntries)
-      .where(
-        and(
-          eq(animeEntries.id, request.entryId),
-          eq(animeEntries.userId, request.userId),
-        ),
-      )
-      .for('update')
-      .limit(1)
-
-    if (storedEntry === undefined) return { kind: 'unavailable' }
-
-    const entry = parseLockedEntry(storedEntry)
-    const [catalogueItem] = await transaction
-      .select({ maturity: animeCatalogueItems.maturity })
-      .from(animeCatalogueItems)
-      .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
-      .for('share')
-      .limit(1)
-
-    if (catalogueItem === undefined) {
-      return { kind: 'unavailable' }
-    }
-
-    if (
-      catalogueItem.maturity === 'adult' &&
-      !(await lockAdultContentPreferenceForShare(transaction, request.userId))
-    ) {
-      return { kind: 'unavailable' }
-    }
-
-    if (entry.isFavourite === request.requestedFavourite) {
-      return {
-        kind:
-          request.expectedFavourite === request.requestedFavourite
-            ? 'unchanged'
-            : 'updated',
-        isFavourite: entry.isFavourite,
+  return database.transaction(
+    async (transaction) => {
+      if (!(await establishActiveAccount(transaction, request.userId))) {
+        return { kind: 'unavailable' }
       }
-    }
 
-    if (entry.isFavourite !== request.expectedFavourite) {
-      return { kind: 'conflict', currentFavourite: entry.isFavourite }
-    }
+      const [storedEntry] = await transaction
+        .select({
+          id: animeEntries.id,
+          catalogueItemId: animeEntries.catalogueItemId,
+          isFavourite: animeEntries.isFavourite,
+        })
+        .from(animeEntries)
+        .where(
+          and(
+            eq(animeEntries.id, request.entryId),
+            eq(animeEntries.userId, request.userId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    const [updatedEntry] = await transaction
-      .update(animeEntries)
-      .set({
-        isFavourite: request.requestedFavourite,
-        updatedAt: sql`current_timestamp`,
-      })
-      .where(
-        and(
-          eq(animeEntries.id, entry.id),
-          eq(animeEntries.userId, request.userId),
-          eq(animeEntries.isFavourite, request.expectedFavourite),
-        ),
-      )
-      .returning({ isFavourite: animeEntries.isFavourite })
+      if (storedEntry === undefined) return { kind: 'unavailable' }
 
-    if (updatedEntry === undefined) {
-      return { kind: 'conflict', currentFavourite: entry.isFavourite }
-    }
+      const entry = parseLockedEntry(storedEntry)
+      const [catalogueItem] = await transaction
+        .select({ maturity: animeCatalogueItems.maturity })
+        .from(animeCatalogueItems)
+        .where(eq(animeCatalogueItems.id, entry.catalogueItemId))
+        .for('share')
+        .limit(1)
 
-    return {
-      kind: 'updated',
-      isFavourite: z.boolean().parse(updatedEntry.isFavourite),
-    }
-  })
+      if (catalogueItem === undefined) {
+        return { kind: 'unavailable' }
+      }
+
+      if (
+        catalogueItem.maturity === 'adult' &&
+        !(await lockAdultContentPreferenceForShare(transaction, request.userId))
+      ) {
+        return { kind: 'unavailable' }
+      }
+
+      if (entry.isFavourite === request.requestedFavourite) {
+        return {
+          kind:
+            request.expectedFavourite === request.requestedFavourite
+              ? 'unchanged'
+              : 'updated',
+          isFavourite: entry.isFavourite,
+        }
+      }
+
+      if (entry.isFavourite !== request.expectedFavourite) {
+        return { kind: 'conflict', currentFavourite: entry.isFavourite }
+      }
+
+      const [updatedEntry] = await transaction
+        .update(animeEntries)
+        .set({
+          isFavourite: request.requestedFavourite,
+          updatedAt: sql`current_timestamp`,
+        })
+        .where(
+          and(
+            eq(animeEntries.id, entry.id),
+            eq(animeEntries.userId, request.userId),
+            eq(animeEntries.isFavourite, request.expectedFavourite),
+          ),
+        )
+        .returning({ isFavourite: animeEntries.isFavourite })
+
+      if (updatedEntry === undefined) {
+        return { kind: 'conflict', currentFavourite: entry.isFavourite }
+      }
+
+      return {
+        kind: 'updated',
+        isFavourite: z.boolean().parse(updatedEntry.isFavourite),
+      }
+    },
+    { isolationLevel: 'read committed' },
+  )
 }

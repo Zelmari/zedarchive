@@ -16,8 +16,10 @@ import {
   passwordMaximumLength,
   passwordMinimumLength,
 } from '@/features/auth/domain/password-policy'
-import { createAuth } from '@/server/auth/create-auth'
+import { readAccountDeletionState } from '@/server/account-lifecycle/account-deletion-state'
+import { createAuth as createBaseAuth } from '@/server/auth/create-auth'
 import {
+  accountDeletionRequests,
   accounts,
   rateLimits,
   sessions,
@@ -46,6 +48,28 @@ const aboveMaximumPassword = 'a'.repeat(passwordMaximumLength + 1)
 const { databaseTestUrl } = readDatabaseTestEnvironment()
 const pool = new Pool({ connectionString: databaseTestUrl })
 const database = drizzle({ client: pool })
+
+function createAuth(...args: Parameters<typeof createBaseAuth>) {
+  const [
+    authDatabase,
+    environment,
+    dependencies = {},
+    configuration = {},
+    testOverrides = {},
+  ] = args
+
+  return createBaseAuth(
+    authDatabase,
+    environment,
+    {
+      ...dependencies,
+      accountDeletionStateReader: (userId) =>
+        readAccountDeletionState(database, userId),
+    },
+    configuration,
+    testOverrides,
+  )
+}
 
 function createAuthRequest(
   path: string,
@@ -499,7 +523,7 @@ describe('auth handler integration', () => {
     )
   })
 
-  it('rejects authenticated username updates without changing stored identity', async () => {
+  it('globally denies provider user updates without changing stored identity', async () => {
     const auth = createAuth(
       database,
       authEnvironment,
@@ -518,10 +542,10 @@ describe('auth handler integration', () => {
       }),
     )
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(403)
 
     const body = (await response.json()) as { code?: string }
-    expect(body.code).toBe('USERNAME_UPDATE_NOT_SUPPORTED')
+    expect(body.code).toBe('AUTH_OPERATION_UNAVAILABLE')
 
     const storedUsers = await database.select().from(users)
 
@@ -530,6 +554,81 @@ describe('auth handler integration', () => {
       username: 'MediaFan',
       usernameIdentityKey: 'mediafan',
     })
+  })
+
+  it('allows only the frozen recovery routes for a pending incoming session through HTTP and direct dispatch', async () => {
+    const auth = createAuth(
+      database,
+      authEnvironment,
+      {},
+      {},
+      { allowCredentialSignUpForTesting: true },
+    )
+    const { sessionCookie } = await signUpTestUser(auth)
+    const [user] = await database.select().from(users)
+    expect(user).toBeDefined()
+    const requestedAt = new Date(Date.now() - 1_000)
+    const purgeAfter = new Date(
+      requestedAt.getTime() + 14 * 24 * 60 * 60 * 1_000,
+    )
+    await database.insert(accountDeletionRequests).values({
+      userId: user!.id,
+      requestedAt,
+      purgeAfter,
+    })
+
+    const getSessionResponse = await auth.handler(
+      createAuthRequest('/get-session', {
+        method: 'GET',
+        cookie: sessionCookie,
+      }),
+    )
+    expect(getSessionResponse.status).toBe(200)
+    await expect(getSessionResponse.json()).resolves.toMatchObject({
+      user: { id: user!.id },
+    })
+
+    const pendingHeaders = new Headers({
+      Cookie: sessionCookie,
+      Origin: authEnvironment.authUrl,
+    })
+    await expect(
+      auth.api.verifyPassword({
+        headers: pendingHeaders,
+        body: { password: validPassword },
+      }),
+    ).rejects.toMatchObject({
+      body: { code: 'AUTH_OPERATION_UNAVAILABLE' },
+    })
+
+    const blockedSignUp = await auth.handler(
+      createAuthRequest('/sign-up/email', {
+        cookie: sessionCookie,
+        body: {
+          name: 'AnotherFan',
+          email: 'another@example.com',
+          password: validPassword,
+        },
+      }),
+    )
+    expect(blockedSignUp.status).toBe(403)
+    await expect(blockedSignUp.json()).resolves.toMatchObject({
+      code: 'AUTH_OPERATION_UNAVAILABLE',
+    })
+
+    await expect(
+      auth.api.signInEmail({
+        headers: pendingHeaders,
+        body: {
+          email: 'fan@example.com',
+          password: validPassword,
+        },
+      }),
+    ).resolves.toMatchObject({
+      user: { id: user!.id },
+    })
+    await expect(database.select().from(users)).resolves.toHaveLength(1)
+    await expect(database.select().from(sessions)).resolves.toHaveLength(2)
   })
 
   it('enforces verify-password session and same-origin semantics without rotating the session', async () => {
@@ -593,7 +692,10 @@ describe('auth handler integration', () => {
         cookie: sessionCookie,
       }),
     )
-    expect(expiredSession.status).toBe(401)
+    expect(expiredSession.status).toBe(403)
+    await expect(expiredSession.json()).resolves.toMatchObject({
+      code: 'AUTH_OPERATION_UNAVAILABLE',
+    })
     expect(expiredSession.headers.get('set-cookie')).toBeNull()
     await expect(database.select().from(sessions)).resolves.toEqual([])
   })

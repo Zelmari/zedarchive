@@ -6,10 +6,10 @@ import { createRequestUsernameChangeHandler } from '@/features/settings/actions/
 import { revalidateUsernameChangePaths } from '@/features/settings/actions/username-change-action-helpers'
 import type { UsernameChangeActionState } from '@/features/settings/domain/username-change'
 import {
-  auth,
   scheduleUsernameChangeEmail,
   verifyCurrentAuthPassword,
 } from '@/server/auth/auth'
+import { resolveActiveAccountSession } from '@/features/auth/server/account-access-composition'
 import { database } from '@/server/database/client'
 import {
   preflightUsernameChange,
@@ -18,10 +18,7 @@ import {
 
 const handler = createRequestUsernameChangeHandler({
   getHeaders: headers,
-  getSession: async () =>
-    auth.api.getSession({
-      headers: await headers(),
-    }),
+  getSession: async () => resolveActiveAccountSession(await headers()),
   verifyPassword: verifyCurrentAuthPassword,
   preflightUsernameChange: (session, username) =>
     preflightUsernameChange(database, session, username),

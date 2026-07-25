@@ -157,6 +157,9 @@ export const verifications = pgTable(
     id: uuid('id').defaultRandom().notNull(),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
+    resetOwnerUserId: uuid('reset_owner_user_id').generatedAlwaysAs(
+      sql`CASE WHEN "identifier" LIKE 'reset-password:%' THEN "value"::uuid ELSE NULL END`,
+    ),
     expiresAt: timestamp('expires_at', authTimestamp).notNull(),
     createdAt: timestamp('created_at', authTimestamp).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', authTimestamp).defaultNow().notNull(),
@@ -166,6 +169,11 @@ export const verifications = pgTable(
       columns: [table.id],
       name: 'verifications_pkey',
     }),
+    foreignKey({
+      columns: [table.resetOwnerUserId],
+      foreignColumns: [users.id],
+      name: 'verifications_reset_owner_user_id_fkey',
+    }).onDelete('cascade'),
     check(
       'verifications_identifier_non_blank_check',
       sql`${table.identifier} ~ '[^[:space:]]'`,
@@ -180,6 +188,9 @@ export const verifications = pgTable(
     ),
     index('verifications_identifier_idx').on(table.identifier),
     index('verifications_expires_at_idx').on(table.expiresAt),
+    index('verifications_reset_owner_user_id_idx')
+      .on(table.resetOwnerUserId)
+      .where(sql`${table.resetOwnerUserId} is not null`),
   ],
 )
 
