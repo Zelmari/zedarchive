@@ -37,6 +37,7 @@ describe('fetchWikidataEntities', () => {
     expect(url.searchParams.get('props')).toBe('labels|aliases|claims')
     expect(url.searchParams.get('languages')).toBe('en|ja')
     expect(url.searchParams.get('formatversion')).toBe('2')
+    expect(url.searchParams.get('maxlag')).toBe('10')
     expect(requestInit?.headers).toEqual({
       'User-Agent': wikidataImporterUserAgent,
     })
@@ -78,6 +79,94 @@ describe('fetchWikidataEntities', () => {
     ).resolves.toHaveProperty('Q1')
     expect(delay).toHaveBeenNthCalledWith(1, 2000)
     expect(delay).toHaveBeenNthCalledWith(2, 2000)
+  })
+
+  it('honors a seconds Retry-After value for an HTTP-200 Action API maxlag response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: { code: 'maxlag', info: 'private provider detail' },
+          }),
+          { headers: { 'retry-after': '8' } },
+        ),
+      )
+      .mockResolvedValueOnce(entityResponse(['Q1']))
+    const delay = vi.fn(() => Promise.resolve())
+
+    await expect(
+      fetchWikidataEntities(['Q1'], { fetch: fetchMock, delay }),
+    ).resolves.toHaveProperty('Q1')
+    expect(delay).toHaveBeenCalledWith(8000)
+  })
+
+  it('uses bounded fallback backoff when a maxlag response omits Retry-After', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'maxlag' } })),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'maxlag' } })),
+      )
+      .mockResolvedValueOnce(entityResponse(['Q1']))
+    const delay = vi.fn(() => Promise.resolve())
+
+    await expect(
+      fetchWikidataEntities(['Q1'], { fetch: fetchMock, delay }),
+    ).resolves.toHaveProperty('Q1')
+    expect(delay).toHaveBeenNthCalledWith(1, 1000)
+    expect(delay).toHaveBeenNthCalledWith(2, 2000)
+  })
+
+  it('honors an HTTP-date Retry-After value for a maxlag response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'maxlag' } }), {
+          headers: {
+            'retry-after': 'Thu, 01 Jan 1970 00:00:05 GMT',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(entityResponse(['Q1']))
+    const delay = vi.fn(() => Promise.resolve())
+    const clock = {
+      now: () => 2000,
+      setTimeout,
+      clearTimeout,
+    }
+
+    await fetchWikidataEntities(['Q1'], {
+      fetch: fetchMock,
+      delay,
+      clock,
+    })
+    expect(delay).toHaveBeenCalledWith(3000)
+  })
+
+  it('rejects an excessive maxlag Retry-After without exposing provider detail', async () => {
+    const secret = 'private-provider-detail'
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ error: { code: 'maxlag', info: secret } }),
+          { headers: { 'retry-after': '31' } },
+        ),
+      ),
+    )
+    const delay = vi.fn(() => Promise.resolve())
+
+    let error: unknown
+    try {
+      await fetchWikidataEntities(['Q1'], { fetch: fetchMock, delay })
+    } catch (caught) {
+      error = caught
+    }
+    expect(String(error)).toContain('longer than 30 seconds')
+    expect(String(error)).not.toContain(secret)
+    expect(delay).not.toHaveBeenCalled()
   })
 
   it('does not retry non-retryable responses or malformed success bodies', async () => {

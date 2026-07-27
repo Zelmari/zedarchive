@@ -29,11 +29,12 @@ const formatByClass: Readonly<
   Q63952888: 'tv',
   Q100269041: 'tv',
   Q20650540: 'movie',
+  Q220898: 'ova',
   Q113687694: 'ova',
   Q113671041: 'ona',
   Q117209498: 'special',
 }
-const reviewedGeneralFormatClasses = new Set(['Q202866'])
+const reviewedGeneralFormatClasses = new Set(['Q202866', 'Q11424'])
 
 type IndexedStatement = {
   statement: WikidataStatement
@@ -500,7 +501,11 @@ export function reviewWikidataAnimeCandidate(
     format = formatOverride ?? mappedFormats[0] ?? null
   } else if (
     formatOverride !== undefined &&
-    classes.some((classId) => reviewedGeneralFormatClasses.has(classId))
+    classes.some(
+      (classId) =>
+        reviewedGeneralFormatClasses.has(classId) &&
+        (classId !== 'Q11424' || formatOverride === 'movie'),
+    )
   ) {
     format = formatOverride
     warnings.push(

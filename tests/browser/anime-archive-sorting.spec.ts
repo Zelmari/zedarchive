@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
@@ -25,12 +25,16 @@ const pool = new Pool({ connectionString: databaseUrl })
 const fixtureUserIds: string[] = []
 const fixtureCatalogueItemIds: string[] = []
 
-function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
+function monitorUnexpectedBrowserErrors(page: Page) {
   let hasConsoleError = false
   let hasPageError = false
 
   page.on('console', (message) => {
-    if (message.type() === 'error' && !isKnownMissingFaviconError(message)) {
+    if (
+      message.type() === 'error' &&
+      !isKnownMissingFaviconError(message) &&
+      !isExpectedSignInRateLimitError(message)
+    ) {
       hasConsoleError = true
     }
   })
@@ -53,6 +57,19 @@ function isKnownMissingFaviconError(
     return (
       new URL(location).pathname === '/favicon.ico' &&
       message.text().includes('404')
+    )
+  } catch {
+    return false
+  }
+}
+
+function isExpectedSignInRateLimitError(
+  message: import('@playwright/test').ConsoleMessage,
+) {
+  try {
+    return (
+      new URL(message.location().url).pathname === '/api/auth/sign-in/email' &&
+      message.text().includes('429')
     )
   } catch {
     return false
@@ -163,32 +180,51 @@ async function insertEntry({
   )
 }
 
-async function signIn(
-  page: import('@playwright/test').Page,
-  owner: typeof ownerA,
-) {
+async function signIn(page: Page, owner: typeof ownerA) {
   await page.goto('/sign-in')
-  await page
-    .getByRole('textbox', { name: 'Email', exact: true })
-    .fill(owner.email)
-  await page
-    .getByRole('textbox', { name: 'Password', exact: true })
-    .fill(password)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  let status = 0
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page
+      .getByRole('textbox', { name: 'Email', exact: true })
+      .fill(owner.email)
+    await page
+      .getByRole('textbox', { name: 'Password', exact: true })
+      .fill(password)
+    const signInResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === '/api/auth/sign-in/email',
+    )
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    status = (await signInResponse).status()
+    if (status !== 429) break
+    await page.waitForTimeout(60_000)
+  }
+
+  expect(status).toBe(200)
   await expect(page.getByText('Signed in as')).toBeVisible()
 }
 
-async function signOut(page: import('@playwright/test').Page) {
+async function signOut(page: Page) {
+  const signOutResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/api/auth/sign-out',
+  )
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  expect((await signOutResponse).status()).toBe(200)
+  await page.reload()
   await expect(
     page
       .getByRole('navigation', { name: 'Account', exact: true })
       .getByRole('link', { name: 'Sign in', exact: true }),
   ).toBeVisible()
+  await expect(page.getByText('Signed in as')).toHaveCount(0)
 }
 
 async function applySort(
-  page: import('@playwright/test').Page,
+  page: Page,
   sort:
     'alphabetical' | 'recently-updated' | 'recently-added' | 'highest-rated',
 ) {
@@ -197,10 +233,7 @@ async function applySort(
   await expect(page).toHaveURL(`/archive/anime?sort=${sort}`)
 }
 
-async function expectLeadingTitles(
-  page: import('@playwright/test').Page,
-  expectedTitles: string[],
-) {
+async function expectLeadingTitles(page: Page, expectedTitles: string[]) {
   const headings = page.locator('article h2')
 
   for (const [index, expectedTitle] of expectedTitles.entries()) {
@@ -333,7 +366,7 @@ test.afterAll(async () => {
 test('sorts the complete private archive, persists only through Apply, and preserves restricted privacy', async ({
   page,
 }) => {
-  test.setTimeout(45_000)
+  test.setTimeout(120_000)
   const assertNoUnexpectedBrowserErrors = monitorUnexpectedBrowserErrors(page)
 
   await page.goto('/archive/anime?sort=unsupported')

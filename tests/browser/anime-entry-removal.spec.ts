@@ -45,6 +45,7 @@ let sharedOwnerAEntryId = ''
 let sharedOwnerBEntryId = ''
 let originEntryId = ''
 let laterPageEntryId = ''
+const removalTargets = new Map<string, { entryId: string; userId: string }>()
 
 function assertAllowedFixtureDatabase(databaseName: string | undefined) {
   const expectedDatabaseName =
@@ -287,11 +288,7 @@ async function openRemovalDialog(page: Page, title: string) {
   return { card, dialog, launcher }
 }
 
-async function confirmRemoval(
-  page: Page,
-  title: string,
-  { expectFocus = true }: { expectFocus?: boolean } = {},
-) {
+async function confirmRemoval(page: Page, title: string) {
   const { dialog } = await openRemovalDialog(page, title)
   await dialog
     .getByRole('button', { name: 'Remove from archive', exact: true })
@@ -299,14 +296,23 @@ async function confirmRemoval(
   const status = page.getByRole('status').filter({
     hasText: /^Anime removed from your archive\.$/,
   })
-  if (expectFocus) {
-    await expect(status).toBeFocused({ timeout: 15_000 })
-  } else {
-    await expect(dialog).not.toBeVisible()
-    await expect(cardForTitle(page, title)).toHaveCount(0, {
-      timeout: 15_000,
-    })
+  const target = removalTargets.get(title)
+  if (target === undefined) {
+    throw new Error(`Missing removal fixture target for ${title}`)
   }
+
+  await expect(dialog).not.toBeVisible()
+  const targetCount = await pool.query<{ count: string }>(
+    `
+      select count(*)::text as count
+      from anime_entries
+      where id = $1 and user_id = $2
+    `,
+    [target.entryId, target.userId],
+  )
+  expect(targetCount.rows[0]?.count).toBe('0')
+  await expect(status).toBeFocused({ timeout: 15_000 })
+  await expect(cardForTitle(page, title)).toHaveCount(0, { timeout: 15_000 })
 }
 
 async function holdEntryLock(entryId: string): Promise<PoolClient> {
@@ -367,6 +373,10 @@ test.beforeAll(async () => {
     finishDate: '2026-02-03',
     createdAt: new Date('2026-07-24T13:00:00.000Z'),
   })
+  removalTargets.set(sharedTitle, {
+    entryId: sharedOwnerAEntryId,
+    userId: ownerAId,
+  })
   sharedOwnerBEntryId = await insertEntry({
     userId: ownerBId,
     catalogueItemId: sharedCatalogueItemId,
@@ -386,19 +396,21 @@ test.beforeAll(async () => {
     title: hiddenTitle,
     catalogueState: 'hidden',
   })
-  await insertEntry({
+  const hiddenEntryId = await insertEntry({
     userId: ownerAId,
     catalogueItemId: hiddenCatalogueItemId,
   })
+  removalTargets.set(hiddenTitle, { entryId: hiddenEntryId, userId: ownerAId })
 
   const draftCatalogueItemId = await insertCatalogueItem({
     title: draftTitle,
     catalogueState: 'draft',
   })
-  await insertEntry({
+  const draftEntryId = await insertEntry({
     userId: ownerAId,
     catalogueItemId: draftCatalogueItemId,
   })
+  removalTargets.set(draftTitle, { entryId: draftEntryId, userId: ownerAId })
 
   const originCatalogueItemId = await insertCatalogueItem({
     title: originTitle,
@@ -407,6 +419,7 @@ test.beforeAll(async () => {
     userId: ownerAId,
     catalogueItemId: originCatalogueItemId,
   })
+  removalTargets.set(originTitle, { entryId: originEntryId, userId: ownerAId })
 
   for (const index of Array.from({ length: 19 }, (_, value) => value + 1)) {
     const catalogueItemId = await insertCatalogueItem({
@@ -432,9 +445,13 @@ test.beforeAll(async () => {
   const emptyCatalogueItemId = await insertCatalogueItem({
     title: emptyTransitionTitle,
   })
-  await insertEntry({
+  const emptyTransitionEntryId = await insertEntry({
     userId: emptyOwnerId,
     catalogueItemId: emptyCatalogueItemId,
+  })
+  removalTargets.set(emptyTransitionTitle, {
+    entryId: emptyTransitionEntryId,
+    userId: emptyOwnerId,
   })
 
   for (const index of Array.from({ length: 24 }, (_, value) => value + 1)) {
@@ -452,6 +469,10 @@ test.beforeAll(async () => {
   laterPageEntryId = await insertEntry({
     userId: pagedOwnerId,
     catalogueItemId: laterPageCatalogueItemId,
+  })
+  removalTargets.set(laterPageTitle, {
+    entryId: laterPageEntryId,
+    userId: pagedOwnerId,
   })
 })
 
@@ -725,15 +746,15 @@ test('removes hidden and draft non-adult entries and transitions the final page-
   const assertNoUnexpectedBrowserErrors = monitorUnexpectedBrowserErrors(page)
   await signIn(page, ownerA)
   await page.goto('/archive/anime?sort=alphabetical')
-  await confirmRemoval(page, hiddenTitle, { expectFocus: false })
-  await confirmRemoval(page, draftTitle, { expectFocus: false })
+  await confirmRemoval(page, hiddenTitle)
+  await confirmRemoval(page, draftTitle)
   await expect(cardForTitle(page, hiddenTitle)).toHaveCount(0)
   await expect(cardForTitle(page, draftTitle)).toHaveCount(0)
   await signOutIfSignedIn(page)
 
   await signIn(page, emptyOwner)
   await page.goto('/archive/anime?sort=alphabetical')
-  await confirmRemoval(page, emptyTransitionTitle, { expectFocus: false })
+  await confirmRemoval(page, emptyTransitionTitle)
   await expect(
     page.getByRole('heading', {
       name: 'Your anime archive is empty',

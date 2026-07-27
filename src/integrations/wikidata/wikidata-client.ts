@@ -55,6 +55,10 @@ function buildRequestUrl(qids: readonly string[]): string {
     languages: 'en|ja',
     format: 'json',
     formatversion: '2',
+    // The Action API can return HTTP 200 while overloaded. Asking it to obey
+    // maxlag gives us a machine-readable retry boundary instead of competing
+    // with replication work.
+    maxlag: '10',
   }).toString()
   return url.href
 }
@@ -160,6 +164,21 @@ async function responseJson(response: Response, qids: readonly string[]) {
   }
 }
 
+function actionApiErrorCode(body: unknown): string | undefined {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'error' in body &&
+    typeof body.error === 'object' &&
+    body.error !== null &&
+    'code' in body.error &&
+    typeof body.error.code === 'string'
+  ) {
+    return body.error.code
+  }
+  return undefined
+}
+
 async function fetchChunk(
   qids: readonly string[],
   dependencies: Required<WikidataClientDependencies>,
@@ -198,24 +217,42 @@ async function fetchChunk(
       } else {
         let parsedResponse
         const responseBody = await responseJson(response, qids)
+        const apiErrorCode = actionApiErrorCode(responseBody)
 
-        try {
-          parsedResponse = parseWikidataEntityResponse(responseBody)
-        } catch {
-          throw new WikidataClientError(
-            `Wikidata returned an invalid response for QIDs ${qids.join(', ')}.`,
-          )
-        }
-
-        for (const qid of qids) {
-          if (parsedResponse.entities[qid] === undefined) {
+        if (apiErrorCode === 'maxlag') {
+          if (attempt === maximumAttempts) {
             throw new WikidataClientError(
-              `Wikidata omitted requested entity ${qid}.`,
+              `Wikidata remained overloaded after ${attempt} attempts for QIDs ${qids.join(', ')}.`,
             )
           }
-        }
+          retryDelay =
+            retryDelayFromHeader(
+              response.headers.get('retry-after'),
+              dependencies.clock.now(),
+            ) ?? 1000 * 2 ** (attempt - 1)
+        } else if (apiErrorCode !== undefined) {
+          throw new WikidataClientError(
+            `Wikidata returned an Action API error on attempt ${attempt} for QIDs ${qids.join(', ')}.`,
+          )
+        } else {
+          try {
+            parsedResponse = parseWikidataEntityResponse(responseBody)
+          } catch {
+            throw new WikidataClientError(
+              `Wikidata returned an invalid response for QIDs ${qids.join(', ')}.`,
+            )
+          }
 
-        return parsedResponse.entities
+          for (const qid of qids) {
+            if (parsedResponse.entities[qid] === undefined) {
+              throw new WikidataClientError(
+                `Wikidata omitted requested entity ${qid}.`,
+              )
+            }
+          }
+
+          return parsedResponse.entities
+        }
       }
     } catch (error) {
       if (error instanceof WikidataClientError) {

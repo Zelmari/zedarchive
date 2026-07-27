@@ -21,6 +21,24 @@ catalogue mistakes easier to spot; the JSON is the machine-readable evidence.
 Records are promoted only as reviewed, normalized entries in the committed
 development seed.
 
+The version-1 release catalogue has a separate, committed public boundary:
+
+- `releases/anime-catalogue.v1.json` is the strict 500-item normalized source;
+- `releases/anime-catalogue.v1.index.json` records deterministic coverage and
+  binds the corpus, ordered manifests, review ledger, and semantic summary by
+  SHA-256;
+- `releases/anime-catalogue.v1.review.json` retains public-safe approvals and
+  factual override evidence; and
+- `imports/releases/anime-v1/` contains the twenty reviewed 25-item Wikidata
+  manifests.
+
+Those files may contain only eligible Wikidata CC0 facts, zedarchive-owned
+normalization and curation, public catalogue identifiers, fixed review
+outcomes, and concise factual rationales. They are not a PostgreSQL dump and
+contain no user or archive data. Raw provider responses, generated batch
+reviews, discovery pools, free-form private notes, credentials, database
+exports, and backups remain ignored and must not be promoted.
+
 Future imported datasets and assets must document their own source, licence,
 attribution, and reuse restrictions. The root MIT License does not override or
 replace third-party terms.
@@ -43,3 +61,11 @@ Never commit user accounts or archives, private custom items, credentials,
 database exports, unreviewed private curation notes, embargoed information, or
 assets whose terms do not permit redistribution. Those belong in protected
 application storage or ignored local review artifacts, as appropriate.
+
+The release commands preserve this boundary: `catalogue:release:check`
+validates committed data without a database, `plan` is read-only against an
+allowed target, and `rehearse` writes atomically only to the exact disposable
+local rehearsal database. The production-capable `apply` mode remains disabled
+until Milestone 43. Corrections use reviewed successor releases, and disputed
+public records move to `hidden`; ordinary correction does not delete shared
+catalogue identities that user archives may reference.

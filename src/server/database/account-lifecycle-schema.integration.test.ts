@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import {
   accountDeletionRequests,
+  accountPurgeRunHeartbeats,
   deletionChallenges,
   sessions,
   users,
@@ -48,6 +49,19 @@ beforeEach(async () => {
       users
     restart identity cascade
   `)
+  await pool.query(`
+    update account_purge_run_heartbeats
+       set run_id = null,
+           revision = 0,
+           started_at = null,
+           completed_at = null,
+           result_category = 'never_started',
+           examined_count = 0,
+           purged_count = 0,
+           skipped_count = 0,
+           failed_count = 0
+     where singleton = true
+  `)
 })
 
 afterAll(async () => {
@@ -55,6 +69,98 @@ afterAll(async () => {
 })
 
 describe('account lifecycle schema', () => {
+  it('seeds one identity-free purge heartbeat and enforces its state machine', async () => {
+    const columns = await pool.query<{ columnName: string }>(`
+      select column_name as "columnName"
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'account_purge_run_heartbeats'
+      order by ordinal_position
+    `)
+    expect(columns.rows.map(({ columnName }) => columnName)).toEqual([
+      'singleton',
+      'run_id',
+      'revision',
+      'started_at',
+      'completed_at',
+      'result_category',
+      'examined_count',
+      'purged_count',
+      'skipped_count',
+      'failed_count',
+    ])
+    await expect(
+      database.select().from(accountPurgeRunHeartbeats),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        singleton: true,
+        runId: null,
+        revision: 0,
+        startedAt: null,
+        completedAt: null,
+        resultCategory: 'never_started',
+        examinedCount: 0,
+        purgedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      }),
+    ])
+
+    await expect(
+      database.insert(accountPurgeRunHeartbeats).values({
+        singleton: false,
+        revision: 0,
+        resultCategory: 'never_started',
+        examinedCount: 0,
+        purgedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+      }),
+    ).rejects.toThrow()
+    await expect(
+      database.update(accountPurgeRunHeartbeats).set({
+        resultCategory: 'completed',
+      }),
+    ).rejects.toThrow()
+
+    const runId = randomUUID()
+    await database
+      .update(accountPurgeRunHeartbeats)
+      .set({
+        runId,
+        revision: 1,
+        startedAt: new Date(),
+        resultCategory: 'running',
+      })
+      .where(eq(accountPurgeRunHeartbeats.singleton, true))
+    for (const resultCategory of [
+      'completed',
+      'completed_backlog',
+      'completed_with_failures',
+      'time_budget_exhausted',
+      'fatal_failure',
+    ] as const) {
+      await database
+        .update(accountPurgeRunHeartbeats)
+        .set({
+          completedAt: new Date(),
+          resultCategory,
+          examinedCount: 1,
+          purgedCount: 1,
+        })
+        .where(eq(accountPurgeRunHeartbeats.singleton, true))
+      await database
+        .update(accountPurgeRunHeartbeats)
+        .set({
+          completedAt: null,
+          resultCategory: 'running',
+          examinedCount: 0,
+          purgedCount: 0,
+        })
+        .where(eq(accountPurgeRunHeartbeats.singleton, true))
+    }
+  })
+
   it('installs the exact constraints, generated expression, and indexes', async () => {
     const constraints = await pool.query<{ name: string }>(`
       select conname as name

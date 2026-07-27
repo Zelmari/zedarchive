@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  animePrivateListRemovalRefreshWatchdogDelayMilliseconds,
+  expireAnimePrivateListRemovalRefresh,
+  focusAnimePrivateListRemovalStatus,
+  getAnimePrivateListRemovalStatusFocusPlan,
   initialAnimePrivateListRemovalRefreshState,
+  maxAnimePrivateListRemovalRefreshAttempts,
+  maxAnimePrivateListRemovalStatusFocusVerificationFrames,
   reconcileAnimePrivateListRemovalRefresh,
   reportAnimePrivateListRemoval,
-  scheduleAnimePrivateListRemovalStatusFocus,
+  scheduleAnimePrivateListRemovalRefreshWatchdog,
 } from '@/features/archive/private-list/anime-private-list-removal-boundary'
 
 describe('anime private-list removal boundary', () => {
@@ -78,6 +84,7 @@ describe('anime private-list removal boundary', () => {
         activeRenderRevision: 'render-2',
         hasQueuedRemoval: false,
         isAwaitingRefresh: true,
+        requiresPostTerminalRefresh: false,
       },
       shouldRefresh: true,
       shouldFocusStatus: false,
@@ -138,31 +145,212 @@ describe('anime private-list removal boundary', () => {
     })
   })
 
-  it('defers final focus until the next frame and replaces stale focus work', () => {
-    const cancelFrame = vi.fn()
-    const focusStatus = vi.fn()
-    const frameCallbacks: FrameRequestCallback[] = []
-    const requestFrame = vi.fn((callback: FrameRequestCallback) => {
-      frameCallbacks.push(callback)
-      return 42
+  it('focuses the settled status immediately or when its node becomes available', () => {
+    const focus = vi.fn()
+
+    expect(focusAnimePrivateListRemovalStatus(null)).toBe(false)
+    expect(focus).not.toHaveBeenCalled()
+
+    expect(
+      focusAnimePrivateListRemovalStatus({
+        focus,
+      }),
+    ).toBe(true)
+    expect(focus).toHaveBeenCalledOnce()
+  })
+
+  it('keeps focus intent through a stable post-commit frame for a replacement status node', () => {
+    const firstStatus = {}
+    const replacementStatus = {}
+
+    expect(
+      getAnimePrivateListRemovalStatusFocusPlan({
+        activeElement: firstStatus,
+        status: firstStatus,
+        verificationFrames: 1,
+      }),
+    ).toEqual({ shouldFocusStatus: false, shouldRetainFocusIntent: true })
+    expect(
+      getAnimePrivateListRemovalStatusFocusPlan({
+        activeElement: firstStatus,
+        status: replacementStatus,
+        verificationFrames: 1,
+      }),
+    ).toEqual({ shouldFocusStatus: true, shouldRetainFocusIntent: true })
+    expect(
+      getAnimePrivateListRemovalStatusFocusPlan({
+        activeElement: replacementStatus,
+        status: replacementStatus,
+        verificationFrames:
+          maxAnimePrivateListRemovalStatusFocusVerificationFrames,
+      }),
+    ).toEqual({ shouldFocusStatus: false, shouldRetainFocusIntent: false })
+  })
+
+  it('schedules one bounded watchdog retry after an unsettled refresh', () => {
+    const cancelTimeout = vi.fn()
+    const onRetry = vi.fn()
+    const scheduled: Array<{
+      callback: () => void
+      delayMilliseconds: number
+    }> = []
+
+    const timeout = scheduleAnimePrivateListRemovalRefreshWatchdog({
+      cancelTimeout,
+      currentTimeout: null,
+      onExhausted: vi.fn(),
+      onRetry,
+      refreshAttemptCount: 1,
+      scheduleTimeout: (callback, delayMilliseconds) => {
+        scheduled.push({ callback, delayMilliseconds })
+        return 42
+      },
     })
 
-    const frame = scheduleAnimePrivateListRemovalStatusFocus({
-      cancelFrame,
-      currentFrame: 17,
-      focusStatus,
-      requestFrame,
+    expect(timeout).toBe(42)
+    expect(cancelTimeout).not.toHaveBeenCalled()
+    expect(scheduled).toHaveLength(1)
+    expect(scheduled[0]?.delayMilliseconds).toBe(
+      animePrivateListRemovalRefreshWatchdogDelayMilliseconds,
+    )
+    scheduled[0]?.callback()
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('replaces a pending watchdog when a newer refresh starts', () => {
+    const cancelTimeout = vi.fn()
+    const onRetry = vi.fn()
+    const scheduleTimeout = vi.fn(() => 84)
+
+    expect(
+      scheduleAnimePrivateListRemovalRefreshWatchdog({
+        cancelTimeout,
+        currentTimeout: 17,
+        onExhausted: vi.fn(),
+        onRetry,
+        refreshAttemptCount: 1,
+        scheduleTimeout,
+      }),
+    ).toBe(84)
+
+    expect(cancelTimeout).toHaveBeenCalledExactlyOnceWith(17)
+    expect(scheduleTimeout).toHaveBeenCalledWith(
+      onRetry,
+      animePrivateListRemovalRefreshWatchdogDelayMilliseconds,
+    )
+  })
+
+  it('schedules terminal cleanup once the refresh budget is exhausted', () => {
+    const cancelTimeout = vi.fn()
+    const onExhausted = vi.fn()
+    const scheduleTimeout = vi.fn(() => 84)
+
+    expect(
+      scheduleAnimePrivateListRemovalRefreshWatchdog({
+        cancelTimeout,
+        currentTimeout: 17,
+        onExhausted,
+        onRetry: vi.fn(),
+        refreshAttemptCount: maxAnimePrivateListRemovalRefreshAttempts,
+        scheduleTimeout,
+      }),
+    ).toBe(84)
+
+    expect(cancelTimeout).toHaveBeenCalledExactlyOnceWith(17)
+    expect(scheduleTimeout).toHaveBeenCalledWith(
+      onExhausted,
+      animePrivateListRemovalRefreshWatchdogDelayMilliseconds,
+    )
+  })
+
+  it('lets a later removal start a fresh refresh cycle after terminal cleanup', () => {
+    const firstRemoval = reportAnimePrivateListRemoval(
+      initialAnimePrivateListRemovalRefreshState,
+      'render-1',
+    )
+    const expired = expireAnimePrivateListRemovalRefresh(firstRemoval.nextState)
+    const laterRemoval = reportAnimePrivateListRemoval(
+      expired.nextState,
+      'render-2',
+    )
+
+    expect(expired).toEqual({
+      nextState: initialAnimePrivateListRemovalRefreshState,
+      shouldFocusStatus: false,
+      shouldRefresh: false,
     })
+    expect(laterRemoval).toMatchObject({
+      nextState: {
+        activeRenderRevision: 'render-2',
+        hasQueuedRemoval: false,
+        isAwaitingRefresh: true,
+        requiresPostTerminalRefresh: false,
+      },
+      shouldFocusStatus: false,
+      shouldRefresh: true,
+    })
+  })
 
-    expect(frame).toBe(42)
-    expect(cancelFrame).toHaveBeenCalledExactlyOnceWith(17)
-    expect(focusStatus).not.toHaveBeenCalled()
+  it('refreshes queued removal work before clearing terminal state', () => {
+    const firstRemoval = reportAnimePrivateListRemoval(
+      initialAnimePrivateListRemovalRefreshState,
+      'render-1',
+    )
+    const queuedRemoval = reportAnimePrivateListRemoval(
+      firstRemoval.nextState,
+      'render-1',
+    )
+    const expired = expireAnimePrivateListRemovalRefresh(
+      queuedRemoval.nextState,
+    )
 
-    const frameCallback = frameCallbacks[0]
-    if (frameCallback === undefined) {
-      throw new Error('Expected a scheduled animation frame')
-    }
-    frameCallback(0)
-    expect(focusStatus).toHaveBeenCalledOnce()
+    expect(expired).toEqual({
+      nextState: {
+        activeRenderRevision: 'render-1',
+        hasQueuedRemoval: false,
+        isAwaitingRefresh: true,
+        requiresPostTerminalRefresh: true,
+      },
+      shouldFocusStatus: false,
+      shouldRefresh: true,
+    })
+  })
+
+  it('waits for a post-terminal refresh after a late prior response', () => {
+    const firstRemoval = reportAnimePrivateListRemoval(
+      initialAnimePrivateListRemovalRefreshState,
+      'render-1',
+    )
+    const queuedRemoval = reportAnimePrivateListRemoval(
+      firstRemoval.nextState,
+      'render-1',
+    )
+    const expired = expireAnimePrivateListRemovalRefresh(
+      queuedRemoval.nextState,
+    )
+    const latePriorResponse = reconcileAnimePrivateListRemovalRefresh(
+      expired.nextState,
+      'render-2',
+    )
+    const postTerminalResponse = reconcileAnimePrivateListRemovalRefresh(
+      latePriorResponse.nextState,
+      'render-3',
+    )
+
+    expect(latePriorResponse).toEqual({
+      nextState: {
+        activeRenderRevision: 'render-2',
+        hasQueuedRemoval: false,
+        isAwaitingRefresh: true,
+        requiresPostTerminalRefresh: false,
+      },
+      shouldFocusStatus: false,
+      shouldRefresh: true,
+    })
+    expect(postTerminalResponse).toEqual({
+      nextState: initialAnimePrivateListRemovalRefreshState,
+      shouldFocusStatus: true,
+      shouldRefresh: false,
+    })
   })
 })

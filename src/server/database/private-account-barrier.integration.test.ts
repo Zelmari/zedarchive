@@ -15,6 +15,7 @@ vi.mock('server-only', () => ({}))
 
 import { readDatabaseTestEnvironment } from '@/config/database-environment'
 import { readAnimeCatalogueForViewer } from '@/server/database/anime-catalogue-service'
+import { readArchiveBackup } from '@/server/database/archive-backup-service'
 import { updateAnimeEntryDateRange } from '@/server/database/anime-entry-date-range-service'
 import {
   updateAnimeEntryEpisodeProgress,
@@ -183,6 +184,11 @@ describe('pending-account private operation inventory', () => {
         sort: 'alphabetical',
       }),
     ).rejects.toThrow('Anime archive account is unavailable')
+    await expect(
+      readArchiveBackup(database, { userId: user.id }),
+    ).resolves.toEqual({
+      kind: 'account_unavailable',
+    })
     await expect(
       readAnimeCatalogueForViewer(database, {
         kind: 'browse',

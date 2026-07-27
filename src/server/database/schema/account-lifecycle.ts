@@ -1,10 +1,13 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
+  boolean,
   check,
   foreignKey,
   index,
   pgTable,
   primaryKey,
+  integer,
   smallint,
   timestamp,
   unique,
@@ -118,6 +121,78 @@ export const deletionChallenges = pgTable(
     check(
       'deletion_challenges_timestamp_order_check',
       sql`${table.updatedAt} >= ${table.createdAt} and ${table.lastSentAt} >= ${table.sendWindowStartedAt}`,
+    ),
+  ],
+)
+
+/**
+ * The purge worker keeps only one aggregate, identity-free execution record.
+ * It is deliberately not a per-account deletion audit trail.
+ */
+export const accountPurgeRunHeartbeats = pgTable(
+  'account_purge_run_heartbeats',
+  {
+    singleton: boolean('singleton').primaryKey(),
+    runId: uuid('run_id'),
+    revision: bigint('revision', { mode: 'number' }).notNull(),
+    startedAt: timestamp('started_at', lifecycleTimestamp),
+    completedAt: timestamp('completed_at', lifecycleTimestamp),
+    resultCategory: text('result_category').notNull(),
+    examinedCount: integer('examined_count').notNull(),
+    purgedCount: integer('purged_count').notNull(),
+    skippedCount: integer('skipped_count').notNull(),
+    failedCount: integer('failed_count').notNull(),
+  },
+  (table) => [
+    check(
+      'account_purge_run_heartbeats_singleton_check',
+      sql`${table.singleton}`,
+    ),
+    check(
+      'account_purge_run_heartbeats_revision_check',
+      sql`${table.revision} >= 0`,
+    ),
+    check(
+      'account_purge_run_heartbeats_result_category_check',
+      sql`${table.resultCategory} in ('never_started', 'running', 'completed', 'completed_backlog', 'completed_with_failures', 'time_budget_exhausted', 'fatal_failure')`,
+    ),
+    check(
+      'account_purge_run_heartbeats_count_check',
+      sql`${table.examinedCount} >= 0 and ${table.purgedCount} >= 0 and ${table.skippedCount} >= 0 and ${table.failedCount} >= 0`,
+    ),
+    check(
+      'account_purge_run_heartbeats_state_check',
+      sql`
+        (
+          ${table.resultCategory} = 'never_started'
+          and ${table.revision} = 0
+          and ${table.runId} is null
+          and ${table.startedAt} is null
+          and ${table.completedAt} is null
+          and ${table.examinedCount} = 0
+          and ${table.purgedCount} = 0
+          and ${table.skippedCount} = 0
+          and ${table.failedCount} = 0
+        )
+        or (
+          ${table.resultCategory} = 'running'
+          and ${table.runId} is not null
+          and ${table.startedAt} is not null
+          and ${table.completedAt} is null
+          and ${table.examinedCount} = 0
+          and ${table.purgedCount} = 0
+          and ${table.skippedCount} = 0
+          and ${table.failedCount} = 0
+        )
+        or (
+          ${table.resultCategory} in ('completed', 'completed_backlog', 'completed_with_failures', 'time_budget_exhausted', 'fatal_failure')
+          and ${table.runId} is not null
+          and ${table.startedAt} is not null
+          and ${table.completedAt} is not null
+          and ${table.completedAt} >= ${table.startedAt}
+          and ${table.examinedCount} = ${table.purgedCount} + ${table.skippedCount} + ${table.failedCount}
+        )
+      `,
     ),
   ],
 )

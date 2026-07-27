@@ -303,6 +303,68 @@ describe('Wikidata anime normalization', () => {
     expect(review.warnings).toContain('P577 statement 1 had no usable year.')
   })
 
+  it('maps the original video animation class directly to OVA', () => {
+    const review = reviewWikidataAnimeCandidate(
+      candidate(),
+      entity({
+        claims: { P31: [itemStatement('P31', 'Q220898')] },
+      }),
+      emptySnapshot,
+      0,
+    )
+
+    expect(review.classification).toBe('ready-create')
+    expect(review.proposedItem?.format).toBe('ova')
+  })
+
+  it('does not infer a catalogue format from the generic film class', () => {
+    const review = reviewWikidataAnimeCandidate(
+      candidate(),
+      entity({
+        claims: { P31: [itemStatement('P31', 'Q11424')] },
+      }),
+      emptySnapshot,
+      0,
+    )
+
+    expect(review.classification).toBe('blocked-unsupported-identity')
+    expect(review.proposedItem).toBeNull()
+    expect(review.warnings).toContain(
+      'No approved anime identity class was found in P31 (Q11424).',
+    )
+  })
+
+  it('accepts an explicit movie override for a reviewed generic film identity', () => {
+    const review = reviewWikidataAnimeCandidate(
+      candidate({ format: 'movie' }),
+      entity({
+        claims: { P31: [itemStatement('P31', 'Q11424')] },
+      }),
+      emptySnapshot,
+      0,
+    )
+
+    expect(review.classification).toBe('ready-create')
+    expect(review.proposedItem?.format).toBe('movie')
+    expect(review.warnings).toContain(
+      'Format movie uses a reviewed override for general class Q11424.',
+    )
+  })
+
+  it('rejects a non-movie override for the generic film class', () => {
+    const review = reviewWikidataAnimeCandidate(
+      candidate({ format: 'tv' }),
+      entity({
+        claims: { P31: [itemStatement('P31', 'Q11424')] },
+      }),
+      emptySnapshot,
+      0,
+    )
+
+    expect(review.classification).toBe('blocked-unsupported-identity')
+    expect(review.proposedItem).toBeNull()
+  })
+
   it('applies reviewed alternative-title exclusions before seed promotion', () => {
     const review = reviewWikidataAnimeCandidate(
       candidate({

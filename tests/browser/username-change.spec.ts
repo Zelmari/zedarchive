@@ -344,13 +344,20 @@ async function submitStart(
   username: string,
   currentPassword: string,
 ) {
-  await page.getByRole('textbox', { name: 'New username' }).fill(username)
-  await page
+  const usernameSection = getUsernameSection(page)
+  await usernameSection
+    .getByRole('textbox', { name: 'New username' })
+    .fill(username)
+  await usernameSection
     .getByRole('textbox', { name: 'Current password' })
     .fill(currentPassword)
-  await page
+  await usernameSection
     .getByRole('button', { name: 'Send verification code', exact: true })
     .click()
+}
+
+function getUsernameSection(page: Page) {
+  return page.getByRole('region', { name: 'Username', exact: true })
 }
 
 test.beforeAll(async () => {
@@ -451,7 +458,7 @@ test('protects and completes the one-time username-change journey', async ({
         page.getByRole('heading', { name: 'Username', exact: true }),
       ).toBeVisible()
       await expect(
-        page.getByRole('button', {
+        getUsernameSection(page).getByRole('button', {
           name: 'Send verification code',
           exact: true,
         }),
@@ -464,10 +471,12 @@ test('protects and completes the one-time username-change journey', async ({
     })
     await expect(noChangeFeedback).toBeFocused()
     await expect(
-      page.getByRole('textbox', { name: 'New username' }),
+      getUsernameSection(page).getByRole('textbox', { name: 'New username' }),
     ).toHaveAttribute('aria-invalid', 'true')
     await expect(
-      page.getByRole('textbox', { name: 'Current password' }),
+      getUsernameSection(page).getByRole('textbox', {
+        name: 'Current password',
+      }),
     ).not.toHaveAttribute('aria-invalid')
     expect(await challengeFor(ownerAId)).toBeUndefined()
 
@@ -484,10 +493,12 @@ test('protects and completes the one-time username-change journey', async ({
     })
     await expect(passwordFeedback).toBeFocused()
     await expect(
-      page.getByRole('textbox', { name: 'Current password' }),
+      getUsernameSection(page).getByRole('textbox', {
+        name: 'Current password',
+      }),
     ).toHaveAttribute('aria-invalid', 'true')
     await expect(
-      page.getByRole('textbox', { name: 'New username' }),
+      getUsernameSection(page).getByRole('textbox', { name: 'New username' }),
     ).not.toHaveAttribute('aria-invalid')
     expect(await challengeFor(ownerAId)).toBeUndefined()
 
@@ -544,22 +555,24 @@ test('protects and completes the one-time username-change journey', async ({
     expect(secondSessionResponse?.status()).toBe(200)
     await expectPrivateNoStore(secondSessionResponse!)
     await expect(
-      secondOwnerAPage.getByRole('button', {
+      getUsernameSection(secondOwnerAPage).getByRole('button', {
         name: 'Send verification code',
         exact: true,
       }),
     ).toBeVisible()
     await expect(
-      secondOwnerAPage.getByRole('textbox', { name: 'Verification code' }),
+      getUsernameSection(secondOwnerAPage).getByRole('textbox', {
+        name: 'Verification code',
+      }),
     ).toHaveCount(0)
 
-    const confirmation = page.getByRole('checkbox', {
+    const confirmation = getUsernameSection(page).getByRole('checkbox', {
       name: 'I understand that I can only change my username once.',
     })
-    await page
+    await getUsernameSection(page)
       .getByRole('textbox', { name: 'Verification code' })
       .fill(ownerACode)
-    await page
+    await getUsernameSection(page)
       .getByRole('button', { name: 'Change username', exact: true })
       .click()
     const confirmationFeedback = page.getByRole('alert').filter({
@@ -570,7 +583,9 @@ test('protects and completes the one-time username-change journey', async ({
     await expect(confirmation).toHaveAttribute('aria-invalid', 'true')
     expect((await challengeFor(ownerAId))?.failed_code_attempts).toBe(0)
 
-    const codeInput = page.getByRole('textbox', { name: 'Verification code' })
+    const codeInput = getUsernameSection(page).getByRole('textbox', {
+      name: 'Verification code',
+    })
     await codeInput.focus()
     await page.keyboard.press('Tab')
     await expect(confirmation).toBeFocused()
@@ -579,7 +594,7 @@ test('protects and completes the one-time username-change journey', async ({
 
     const incorrectCode = ownerACode === '00000042' ? '00000041' : '00000042'
     await codeInput.fill(incorrectCode)
-    await page
+    await getUsernameSection(page)
       .getByRole('button', { name: 'Change username', exact: true })
       .click()
     const invalidCodeFeedback = page.getByRole('alert').filter({
@@ -605,7 +620,9 @@ test('protects and completes the one-time username-change journey', async ({
         .getByText(`@${changedUsername}`, { exact: true }),
     ).toBeVisible()
     await expect(
-      page.getByRole('button', { name: 'Send verification code' }),
+      getUsernameSection(page).getByRole('button', {
+        name: 'Send verification code',
+      }),
     ).toHaveCount(0)
     expect(await challengeFor(ownerAId)).toBeUndefined()
 
@@ -650,7 +667,7 @@ test('protects and completes the one-time username-change journey', async ({
     const staleOwnerBPage = await expiredOwnerBContext.newPage()
     await staleOwnerBPage.goto('/settings')
     await expect(
-      staleOwnerBPage.getByRole('button', {
+      getUsernameSection(staleOwnerBPage).getByRole('button', {
         name: 'Send verification code',
         exact: true,
       }),
@@ -714,7 +731,9 @@ test('protects and completes the one-time username-change journey', async ({
     await expectPrivateNoStore(noJavaScriptSettings!)
     await submitStart(noJavaScriptPage, noJavaScriptTarget, password)
     await expect(
-      noJavaScriptPage.getByRole('textbox', { name: 'Verification code' }),
+      getUsernameSection(noJavaScriptPage).getByRole('textbox', {
+        name: 'Verification code',
+      }),
     ).toBeVisible()
     await readCollectedUsernameCode(2, owners.c.email, [
       noJavaScriptTarget,
@@ -722,12 +741,14 @@ test('protects and completes the one-time username-change journey', async ({
       ownerCId,
     ])
     await expect(
-      noJavaScriptPage.getByRole('checkbox', {
+      getUsernameSection(noJavaScriptPage).getByRole('checkbox', {
         name: 'I understand that I can only change my username once.',
       }),
     ).toBeVisible()
     await expect(
-      noJavaScriptPage.getByRole('button', { name: 'Send another code' }),
+      getUsernameSection(noJavaScriptPage).getByRole('button', {
+        name: 'Send another code',
+      }),
     ).toBeDisabled()
     await expect(
       noJavaScriptPage.getByText(
@@ -735,11 +756,11 @@ test('protects and completes the one-time username-change journey', async ({
         { exact: false },
       ),
     ).toBeVisible()
-    await noJavaScriptPage
+    await getUsernameSection(noJavaScriptPage)
       .getByRole('button', { name: 'Cancel username change', exact: true })
       .click()
     await expect(
-      noJavaScriptPage.getByRole('button', {
+      getUsernameSection(noJavaScriptPage).getByRole('button', {
         name: 'Send verification code',
         exact: true,
       }),
@@ -774,22 +795,24 @@ test('protects and completes the one-time username-change journey', async ({
     await noJavaScriptPage.waitForTimeout(cooldownWaitMilliseconds)
     await submitStart(noJavaScriptPage, capitalizationOnlyTarget, password)
     await expect(
-      noJavaScriptPage.getByRole('textbox', { name: 'Verification code' }),
+      getUsernameSection(noJavaScriptPage).getByRole('textbox', {
+        name: 'Verification code',
+      }),
     ).toBeVisible()
     const capitalizationCode = await readCollectedUsernameCode(
       3,
       owners.c.email,
       [capitalizationOnlyTarget, owners.c.username, ownerCId],
     )
-    await noJavaScriptPage
+    await getUsernameSection(noJavaScriptPage)
       .getByRole('textbox', { name: 'Verification code' })
       .fill(capitalizationCode)
-    await noJavaScriptPage
+    await getUsernameSection(noJavaScriptPage)
       .getByRole('checkbox', {
         name: 'I understand that I can only change my username once.',
       })
       .check()
-    await noJavaScriptPage
+    await getUsernameSection(noJavaScriptPage)
       .getByRole('button', { name: 'Change username', exact: true })
       .click()
     await expect(

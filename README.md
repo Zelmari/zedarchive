@@ -67,6 +67,44 @@ evidence. The importer never writes catalogue tables and has no apply mode.
 Approved records are added to the committed deterministic seed through human
 review and then loaded only with the existing guarded `npm run db:seed` command.
 
+### Release anime catalogue
+
+The reviewed version-1 release catalogue is a separate public, normalized
+dataset:
+
+- `data/releases/anime-catalogue.v1.json` contains the 500 application-owned
+  catalogue records;
+- `data/releases/anime-catalogue.v1.index.json` binds the corpus, manifests,
+  review ledger, coverage, and deterministic hashes;
+- `data/releases/anime-catalogue.v1.review.json` retains the approved,
+  public-safe review evidence; and
+- `data/imports/releases/anime-v1/` contains the twenty ordered 25-item
+  Wikidata manifests.
+
+These tracked files contain reviewed Wikidata CC0 facts and zedarchive-owned
+normalization and curation. Raw provider responses, generated working reviews,
+and private curation notes remain ignored and are not release data.
+
+The release workflow has four deliberate modes:
+
+```bash
+npm run catalogue:release:check
+npm run catalogue:release:plan
+npm run catalogue:release:rehearse
+npm run catalogue:release:apply
+```
+
+`check` validates committed files without a database, `plan` compares them
+read-only with an explicitly allowed database, and `rehearse` atomically loads
+only the exact disposable local rehearsal database.
+
+`apply` is implemented as a guarded production-capable path but remains
+disabled until Milestone 43 supplies and approves the production target,
+enablement flag, release identity, and exact committed hash. Do not run it
+during ordinary development. Catalogue mistakes are repaired with a reviewed
+forward release; unsafe or disputed records move to `hidden`. Ordinary
+catalogue correction never deletes records that user archives may reference.
+
 ## License
 
 zedarchive's original source code and supporting documentation are available

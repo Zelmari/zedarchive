@@ -3,3 +3,5 @@ node_modules
 out
 dist
 package-lock.json
+data/imports/releases/anime-v1/*.json
+data/releases/anime-catalogue.v1*.json

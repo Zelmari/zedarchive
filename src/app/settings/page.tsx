@@ -105,6 +105,30 @@ export default async function SettingsPage() {
               <UsernameChangeRouteContent model={model.username} />
             </section>
             <section
+              aria-labelledby="archive-data-heading"
+              className="space-y-4 border-t border-gray-300 pt-6"
+            >
+              <h3 className="font-semibold" id="archive-data-heading">
+                Archive data
+              </h3>
+              <p>
+                Download a JSON copy of your saved anime tracking data and
+                catalogue preferences. It excludes your account identity,
+                sign-in information, and images.
+              </p>
+              <p>
+                The JSON file contains your complete saved anime data, including
+                entries currently hidden by your adult-content setting. Store it
+                somewhere private.
+              </p>
+              <a
+                className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                href="/api/account/archive-backup"
+              >
+                Download archive backup (JSON)
+              </a>
+            </section>
+            <section
               aria-labelledby="delete-account-heading"
               className="space-y-4 border-t border-gray-300 pt-6"
             >
