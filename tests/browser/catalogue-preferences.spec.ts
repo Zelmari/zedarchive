@@ -58,19 +58,6 @@ function assertAllowedFixtureDatabase(databaseName: string | undefined) {
   }
 }
 
-function isKnownMissingFaviconError(
-  message: import('@playwright/test').ConsoleMessage,
-) {
-  try {
-    return (
-      new URL(message.location().url).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
-  }
-}
-
 function isExpectedSignInRateLimitError(
   message: import('@playwright/test').ConsoleMessage,
 ) {
@@ -91,7 +78,6 @@ function monitorUnexpectedBrowserErrors(page: Page) {
   page.on('console', (message) => {
     if (
       message.type() === 'error' &&
-      !isKnownMissingFaviconError(message) &&
       !isExpectedSignInRateLimitError(message)
     ) {
       hasConsoleError = true

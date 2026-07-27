@@ -5,7 +5,7 @@ function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
   let hasPageError = false
 
   page.on('console', (message) => {
-    if (message.type() === 'error' && !isKnownMissingFaviconError(message)) {
+    if (message.type() === 'error') {
       hasConsoleError = true
     }
   })
@@ -16,21 +16,6 @@ function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
   return () => {
     expect(hasConsoleError).toBe(false)
     expect(hasPageError).toBe(false)
-  }
-}
-
-function isKnownMissingFaviconError(
-  message: import('@playwright/test').ConsoleMessage,
-) {
-  const location = message.location().url
-
-  try {
-    return (
-      new URL(location).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
   }
 }
 

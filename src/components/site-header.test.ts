@@ -78,6 +78,21 @@ describe('SiteHeader', () => {
     expect(markup).toContain('Sign out')
   })
 
+  it('uses the shared shell and link roles without changing the header landmarks', async () => {
+    resolveAccountAccess.mockResolvedValue({ status: 'signed_out' })
+
+    const markup = renderToStaticMarkup(await SiteHeader())
+
+    expect(markup).toContain('<header class="za-site-header">')
+    expect(markup).toContain('za-container za-container--wide')
+    expect(markup).toContain('class="za-wordmark za-link"')
+    expect(markup).toContain('href="/"')
+    expect(markup).toContain('class="za-link" href="/sign-in"')
+    expect(markup).toContain('class="za-link" href="/register"')
+    expect(markup).toContain('aria-label="Account"')
+    expect(markup).not.toContain('aria-label="Primary"')
+  })
+
   it('does not expose primary archive navigation when signed out', async () => {
     resolveAccountAccess.mockResolvedValue({ status: 'signed_out' })
 

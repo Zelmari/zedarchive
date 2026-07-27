@@ -91,19 +91,6 @@ function displayTitle(item: ReleaseItem) {
   return title
 }
 
-function isKnownMissingFaviconError(
-  message: import('@playwright/test').ConsoleMessage,
-) {
-  try {
-    return (
-      new URL(message.location().url).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
-  }
-}
-
 function monitorBoundedBrowserEvidence(page: Page) {
   const applicationOrigin = 'http://127.0.0.1:3100'
   let externalRequestObserved = false
@@ -125,7 +112,7 @@ function monitorBoundedBrowserEvidence(page: Page) {
     }
   })
   page.on('console', (message) => {
-    if (message.type() === 'error' && !isKnownMissingFaviconError(message)) {
+    if (message.type() === 'error') {
       unexpectedConsoleErrorObserved = true
     }
   })

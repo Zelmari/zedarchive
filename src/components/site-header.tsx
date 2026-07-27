@@ -5,8 +5,7 @@ import { SignOutButton } from '@/features/auth/components/sign-out-button'
 import { PublicUsername } from '@/features/identity/components/public-username'
 import { resolveAccountAccess } from '@/server/auth/auth'
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const linkClassName = 'za-link'
 
 export async function SiteHeader() {
   let access: Awaited<ReturnType<typeof resolveAccountAccess>>
@@ -26,9 +25,9 @@ export async function SiteHeader() {
     access.status === 'unavailable'
 
   return (
-    <header className="border-b border-gray-300">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 p-4 sm:p-6">
-        <Link className={linkClassName} href="/">
+    <header className="za-site-header">
+      <div className="za-container za-container--wide flex flex-wrap items-center justify-between gap-4 py-4 sm:py-6">
+        <Link className="za-wordmark za-link" href="/">
           {productName}
         </Link>
         {signedInUsername ? (

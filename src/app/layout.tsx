@@ -15,9 +15,6 @@ export const metadata: Metadata = {
 // the header's outage handling. Accepted in decision 019.
 export const dynamic = 'force-dynamic'
 
-const skipLinkClassName =
-  'sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:border focus:border-gray-300 focus:bg-white focus:px-3 focus:py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-
 type RootLayoutProps = {
   children: ReactNode
 }
@@ -26,7 +23,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body>
-        <a className={skipLinkClassName} href="#main-content">
+        <a className="za-skip-link" href="#main-content">
           Skip to main content
         </a>
         <SiteHeader />

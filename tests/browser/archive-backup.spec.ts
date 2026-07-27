@@ -52,19 +52,6 @@ function assertAllowedFixtureDatabase(name: string | undefined): void {
   }
 }
 
-function isKnownMissingFaviconError(
-  message: import('@playwright/test').ConsoleMessage,
-): boolean {
-  try {
-    return (
-      new URL(message.location().url).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
-  }
-}
-
 function isExpectedSignInRateLimitError(
   message: import('@playwright/test').ConsoleMessage,
 ): boolean {
@@ -85,7 +72,6 @@ function monitorUnexpectedBrowserErrors(page: Page): () => void {
   page.on('console', (message) => {
     if (
       message.type() === 'error' &&
-      !isKnownMissingFaviconError(message) &&
       !isExpectedSignInRateLimitError(message)
     ) {
       consoleErrorCount += 1

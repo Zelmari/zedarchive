@@ -4,7 +4,6 @@ import {
   expect,
   test,
   type BrowserContext,
-  type ConsoleMessage,
   type Locator,
   type Page,
 } from '@playwright/test'
@@ -69,17 +68,6 @@ function assertAllowedFixtureDatabase(name: string | undefined) {
   }
 }
 
-function isKnownMissingFaviconError(message: ConsoleMessage) {
-  try {
-    return (
-      new URL(message.location().url).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
-  }
-}
-
 const pagesExpectingRejection = new Set<Page>()
 
 /**
@@ -106,7 +94,7 @@ function monitorUnexpectedBrowserErrors(page: Page) {
 
   page.on('console', (message) => {
     if (pagesExpectingRejection.has(page)) return
-    if (message.type() === 'error' && !isKnownMissingFaviconError(message)) {
+    if (message.type() === 'error') {
       consoleErrorCount += 1
     }
   })

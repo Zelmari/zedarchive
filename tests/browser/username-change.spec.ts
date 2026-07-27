@@ -1,12 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type ConsoleMessage,
-  type Page,
-} from '@playwright/test'
+import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
@@ -57,23 +51,12 @@ function assertAllowedFixtureDatabase(databaseName: string | undefined) {
   }
 }
 
-function isKnownMissingFaviconError(message: ConsoleMessage) {
-  try {
-    return (
-      new URL(message.location().url).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
-  }
-}
-
 function monitorUnexpectedBrowserErrors(page: Page) {
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
 
   page.on('console', (message) => {
-    if (message.type() === 'error' && !isKnownMissingFaviconError(message)) {
+    if (message.type() === 'error') {
       consoleErrors.push(message.text())
     }
   })

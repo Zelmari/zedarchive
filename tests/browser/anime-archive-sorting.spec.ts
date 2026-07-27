@@ -32,7 +32,6 @@ function monitorUnexpectedBrowserErrors(page: Page) {
   page.on('console', (message) => {
     if (
       message.type() === 'error' &&
-      !isKnownMissingFaviconError(message) &&
       !isExpectedSignInRateLimitError(message)
     ) {
       hasConsoleError = true
@@ -45,21 +44,6 @@ function monitorUnexpectedBrowserErrors(page: Page) {
   return () => {
     expect(hasConsoleError).toBe(false)
     expect(hasPageError).toBe(false)
-  }
-}
-
-function isKnownMissingFaviconError(
-  message: import('@playwright/test').ConsoleMessage,
-) {
-  const location = message.location().url
-
-  try {
-    return (
-      new URL(location).pathname === '/favicon.ico' &&
-      message.text().includes('404')
-    )
-  } catch {
-    return false
   }
 }
 
