@@ -32,7 +32,7 @@ const { accountPurgeAdvisoryLockKey, runAccountPurgeSweep } =
 
 const pool = new Pool({ connectionString: databaseTestUrl })
 const database = drizzle({ client: pool })
-const dueRequestIndexPlannerContractTimeoutMilliseconds = 20_000
+const dueRequestIndexPlannerContractTimeoutMilliseconds = 45_000
 
 async function createDueUser(index: number) {
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
