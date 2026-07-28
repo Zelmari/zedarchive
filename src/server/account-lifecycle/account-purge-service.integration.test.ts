@@ -32,6 +32,7 @@ const { accountPurgeAdvisoryLockKey, runAccountPurgeSweep } =
 
 const pool = new Pool({ connectionString: databaseTestUrl })
 const database = drizzle({ client: pool })
+const dueRequestIndexPlannerContractTimeoutMilliseconds = 20_000
 
 async function createDueUser(index: number) {
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
@@ -821,37 +822,39 @@ describe('account purge sweep', () => {
     ).resolves.toEqual([])
   })
 
-  it('uses the due-request index for deterministic cutoff-bound discovery', async () => {
-    const prefix = `m34p${randomUUID().replaceAll('-', '').slice(0, 6)}`
-    const baseline = await pool.query<{ users: number; requests: number }>(`
+  it(
+    'uses the due-request index for deterministic cutoff-bound discovery',
+    async () => {
+      const prefix = `m34p${randomUUID().replaceAll('-', '').slice(0, 6)}`
+      const baseline = await pool.query<{ users: number; requests: number }>(`
       select
         (select count(*)::int from users) as users,
         (select count(*)::int from account_deletion_requests) as requests
     `)
-    await expect(
-      pool.query(
-        `select count(*)::int as count from users where username like $1`,
-        [`${prefix}%`],
-      ),
-    ).resolves.toMatchObject({ rows: [{ count: 0 }] })
-    try {
-      // A single rolled-back 100k statement exceeded this local PostgreSQL
-      // instance's shared-memory limit. Bounded committed chunks stay inside
-      // one exact test-only namespace and are cleaned in finally.
-      for (let offset = 0; offset < 100_000; offset += 10_000) {
-        await pool.query(
-          `insert into users (id, username, username_identity_key, email)
+      await expect(
+        pool.query(
+          `select count(*)::int as count from users where username like $1`,
+          [`${prefix}%`],
+        ),
+      ).resolves.toMatchObject({ rows: [{ count: 0 }] })
+      try {
+        // A single rolled-back 100k statement exceeded this local PostgreSQL
+        // instance's shared-memory limit. Bounded committed chunks stay inside
+        // one exact test-only namespace and are cleaned in finally.
+        for (let offset = 0; offset < 100_000; offset += 10_000) {
+          await pool.query(
+            `insert into users (id, username, username_identity_key, email)
            select
              gen_random_uuid(),
              $1 || series,
              $1 || series,
              $1 || series || '@example.test'
            from generate_series($2::integer, $3::integer) as series`,
-          [prefix, offset + 1, offset + 10_000],
-        )
-      }
-      await pool.query(
-        `insert into account_deletion_requests (user_id, requested_at, purge_after)
+            [prefix, offset + 1, offset + 10_000],
+          )
+        }
+        await pool.query(
+          `insert into account_deletion_requests (user_id, requested_at, purge_after)
          select id, purge_after - interval '336 hours', purge_after
          from (
            select
@@ -863,44 +866,46 @@ describe('account purge sweep', () => {
            from users
            where username like $1 || '%'
          ) as planned_requests`,
-        [prefix],
-      )
-      await pool.query('analyze account_deletion_requests')
-      const cutoff = await pool.query<{ cutoff: Date }>(
-        'select clock_timestamp() as cutoff',
-      )
-      const plan = await pool.query<Record<'QUERY PLAN', unknown>>(
-        `explain (analyze, buffers, format json)
+          [prefix],
+        )
+        await pool.query('analyze account_deletion_requests')
+        const cutoff = await pool.query<{ cutoff: Date }>(
+          'select clock_timestamp() as cutoff',
+        )
+        const plan = await pool.query<Record<'QUERY PLAN', unknown>>(
+          `explain (analyze, buffers, format json)
          select user_id
            from account_deletion_requests
           where purge_after <= $1::timestamptz
           order by purge_after, user_id
           limit 26`,
-        [cutoff.rows[0]?.cutoff],
-      )
-      expect(JSON.stringify(plan.rows[0]?.['QUERY PLAN'])).toContain(
-        'account_deletion_requests_purge_after_user_id_idx',
-      )
-    } finally {
-      await pool.query('delete from users where username like $1', [
-        `${prefix}%`,
-      ])
-    }
-    // ANALYZE statistics are not transactional, so restore the baseline after
-    // the namespace cleanup has completed.
-    await pool.query('analyze account_deletion_requests')
-    await expect(
-      pool.query(
-        `select count(*)::int as count from users where username like $1`,
-        [`${prefix}%`],
-      ),
-    ).resolves.toMatchObject({ rows: [{ count: 0 }] })
-    await expect(
-      pool.query<{ users: number; requests: number }>(`
+          [cutoff.rows[0]?.cutoff],
+        )
+        expect(JSON.stringify(plan.rows[0]?.['QUERY PLAN'])).toContain(
+          'account_deletion_requests_purge_after_user_id_idx',
+        )
+      } finally {
+        await pool.query('delete from users where username like $1', [
+          `${prefix}%`,
+        ])
+      }
+      // ANALYZE statistics are not transactional, so restore the baseline after
+      // the namespace cleanup has completed.
+      await pool.query('analyze account_deletion_requests')
+      await expect(
+        pool.query(
+          `select count(*)::int as count from users where username like $1`,
+          [`${prefix}%`],
+        ),
+      ).resolves.toMatchObject({ rows: [{ count: 0 }] })
+      await expect(
+        pool.query<{ users: number; requests: number }>(`
         select
           (select count(*)::int from users) as users,
           (select count(*)::int from account_deletion_requests) as requests
       `),
-    ).resolves.toMatchObject({ rows: baseline.rows })
-  })
+      ).resolves.toMatchObject({ rows: baseline.rows })
+    },
+    dueRequestIndexPlannerContractTimeoutMilliseconds,
+  )
 })
