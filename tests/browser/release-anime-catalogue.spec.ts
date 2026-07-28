@@ -154,6 +154,24 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBe(true)
 }
 
+async function resolvedTokenColour(
+  page: Page,
+  token: string,
+  property: 'background-color' | 'color',
+) {
+  return page.evaluate(
+    ({ propertyName, tokenName }) => {
+      const probe = document.createElement('span')
+      probe.style.setProperty(propertyName, `var(${tokenName})`)
+      document.body.append(probe)
+      const value = getComputedStyle(probe).getPropertyValue(propertyName)
+      probe.remove()
+      return value
+    },
+    { propertyName: property, tokenName: token },
+  )
+}
+
 function cardForTitle(page: Page, title: string) {
   return page.locator('article').filter({
     has: page.getByRole('heading', { name: title, exact: true }),
@@ -461,6 +479,36 @@ test('proves the approved release catalogue in production browser flows', async 
   await page.keyboard.press('Enter')
   await expect(page.locator('main#main-content')).toBeFocused()
 
+  const firstPagePagination = page.getByRole('navigation', {
+    name: 'Anime catalogue pagination',
+    exact: true,
+  })
+  expect(
+    await firstPagePagination.locator(':scope > *').allTextContents(),
+  ).toEqual(['Page 1 of 19', 'Next'])
+  const nextPageLink = firstPagePagination.getByRole('link', {
+    name: 'Next',
+    exact: true,
+  })
+  await nextPageLink.focus()
+  expect(
+    await nextPageLink.evaluate(
+      (element) => getComputedStyle(element).outlineWidth,
+    ),
+  ).toBe('3px')
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/?page=2$/)
+  const secondPagePagination = page.getByRole('navigation', {
+    name: 'Anime catalogue pagination',
+    exact: true,
+  })
+  await expect(
+    secondPagePagination.getByText('Page 2 of 19', { exact: true }),
+  ).toBeVisible()
+  expect(
+    await secondPagePagination.locator(':scope > *').allTextContents(),
+  ).toEqual(['Previous', 'Page 2 of 19', 'Next'])
+
   const allPublishedIds = new Set<string>()
   for (let pageNumber = 1; pageNumber <= 19; pageNumber += 1) {
     const response = await page.goto(`/?page=${pageNumber}`)
@@ -585,6 +633,73 @@ test('proves the approved release catalogue in production browser flows', async 
     }
   }
 
+  await page.setViewportSize({ width: 320, height: 568 })
+  const longTitleResponse = await page.goto('/')
+  expect(longTitleResponse?.status()).toBe(200)
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  const longestVisibleCardIndex = await page
+    .locator('article')
+    .evaluateAll((cards) => {
+      let longestIndex = 0
+      let longestLength = -1
+
+      for (const [index, card] of cards.entries()) {
+        const length = card.querySelector('h2')?.textContent?.length ?? 0
+        if (length > longestLength) {
+          longestIndex = index
+          longestLength = length
+        }
+      }
+
+      return longestIndex
+    })
+  const longestVisibleCard = page
+    .locator('article')
+    .nth(longestVisibleCardIndex)
+  const longestVisibleTitle = longestVisibleCard.getByRole('heading', {
+    level: 2,
+  })
+  const titleLayout = await longestVisibleTitle.evaluate((heading) => {
+    const range = document.createRange()
+    range.selectNodeContents(heading)
+    const style = getComputedStyle(heading)
+    return {
+      lineCount: range.getClientRects().length,
+      overflow: style.overflow,
+      scrollWidth: heading.scrollWidth,
+      textOverflow: style.textOverflow,
+    }
+  })
+  expect(titleLayout.lineCount).toBeGreaterThan(1)
+  expect(titleLayout.overflow).not.toBe('hidden')
+  expect(titleLayout.textOverflow).not.toBe('ellipsis')
+  expect(titleLayout.scrollWidth).toBeLessThanOrEqual(
+    await longestVisibleTitle.evaluate((heading) => heading.clientWidth),
+  )
+  await expectNoHorizontalOverflow(page)
+  const enlargedPagination = page.getByRole('navigation', {
+    name: 'Anime catalogue pagination',
+    exact: true,
+  })
+  const enlargedNextLink = enlargedPagination.getByRole('link', {
+    name: 'Next',
+    exact: true,
+  })
+  await enlargedNextLink.scrollIntoViewIfNeeded()
+  const enlargedNextBox = await enlargedNextLink.boundingBox()
+  expect(enlargedNextBox).not.toBeNull()
+  expect(enlargedNextBox!.x).toBeGreaterThanOrEqual(-0.5)
+  expect(enlargedNextBox!.x + enlargedNextBox!.width).toBeLessThanOrEqual(320.5)
+  await enlargedNextLink.focus()
+  await expect(enlargedNextLink).toBeFocused()
+  expect(
+    await enlargedNextLink.evaluate(
+      (element) => getComputedStyle(element).outlineWidth,
+    ),
+  ).toBe('3px')
+
   const signedOutFirstByteSamples: number[] = []
   await navigationFirstByteMs(page, '/')
   for (const path of [
@@ -661,9 +776,22 @@ test('proves the approved release catalogue in production browser flows', async 
       .getByText('Page 1 of 20', { exact: true }),
   ).toBeVisible()
   await page.goto(`/?q=${encodeURIComponent(displayTitle(adultSentinel))}`)
-  await expect(cardForTitle(page, displayTitle(adultSentinel))).toContainText(
-    'Adult content',
-  )
+  const adultCard = cardForTitle(page, displayTitle(adultSentinel))
+  await expect(adultCard).toContainText('Adult content')
+  const adultMarker = adultCard.getByText('Adult content', { exact: true })
+  expect(
+    await adultMarker.evaluate((element) => getComputedStyle(element).color),
+  ).toBe(await resolvedTokenColour(page, '--za-color-text-muted', 'color'))
+  expect(
+    await adultMarker.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    ),
+  ).toBe('rgba(0, 0, 0, 0)')
+  expect(
+    await adultMarker.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe('0px')
 
   const authenticatedFirstByteSamples: number[] = []
   await navigationFirstByteMs(page, '/')

@@ -394,6 +394,48 @@
     font-weight: var(--za-weight-heading);
   }
 
+  .za-catalogue-card {
+    display: flex;
+    inline-size: 100%;
+    flex-direction: column;
+    gap: var(--za-space-4);
+  }
+
+  .za-catalogue-card__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--za-space-4);
+  }
+
+  .za-catalogue-card__tile {
+    inline-size: min(7rem, 100%);
+    max-inline-size: 100%;
+    flex: 0 1 7rem;
+  }
+
+  .za-catalogue-card__details {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 10rem;
+    align-content: start;
+    gap: var(--za-space-2);
+    overflow-wrap: anywhere;
+  }
+
+  .za-catalogue-card__action {
+    inline-size: 100%;
+    margin-block-start: auto;
+  }
+
+  .za-catalogue-card__saved {
+    border: var(--za-border-width) solid var(--za-color-accent);
+    border-radius: var(--za-radius-control);
+    background: var(--za-color-accent-soft);
+    padding: var(--za-space-3);
+    color: var(--za-color-accent);
+  }
+
   @media (min-width: 40rem) {
     .za-container {
       --za-page-gutter: 1.5rem;

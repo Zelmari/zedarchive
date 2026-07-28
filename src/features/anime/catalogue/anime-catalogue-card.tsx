@@ -23,30 +23,38 @@ export function AnimeCatalogueCard({
   const episodeTotal = formatAnimeEpisodeTotal(item.episodeCount)
 
   return (
-    <article className="overflow-hidden rounded border border-gray-300">
-      <div
-        aria-hidden="true"
-        className="flex aspect-[2/3] items-center justify-center border-b border-gray-300 bg-gray-100 px-4 text-4xl font-semibold text-gray-700"
-      >
-        {titleInitials}
-      </div>
-      <div className="space-y-2 p-4">
-        <h2 className="text-lg font-medium">{title}</h2>
-        {item.maturity === 'adult' ? <p>Adult content</p> : null}
-        <div className="space-y-1 text-sm">
-          <p>{formatAnimeReleaseYear(item.releaseYear)}</p>
-          {episodeTotal !== null ? <p>{episodeTotal}</p> : null}
-          <p>{formatAnimeReleaseStatus(item.releaseStatus)}</p>
+    <article className="za-card za-catalogue-card">
+      <div className="za-catalogue-card__summary">
+        <div
+          aria-hidden="true"
+          className="za-title-tile za-catalogue-card__tile"
+        >
+          {titleInitials}
         </div>
-        {archiveState.kind === 'can-add' ? (
-          <AddAnimeEntryForm catalogueItemId={item.id} animeTitle={title} />
-        ) : null}
-        {archiveState.kind === 'saved' ? (
-          <p>
-            In your archive — {getEntryStatusDisplayLabel(archiveState.status)}
-          </p>
-        ) : null}
+        <div className="za-catalogue-card__details">
+          <h2 className="text-[length:var(--za-text-heading-md)] leading-[var(--za-leading-compact)] font-semibold">
+            {title}
+          </h2>
+          <div className="space-y-1 text-sm text-ink-muted">
+            <p>{formatAnimeReleaseYear(item.releaseYear)}</p>
+            {episodeTotal !== null ? <p>{episodeTotal}</p> : null}
+            <p>{formatAnimeReleaseStatus(item.releaseStatus)}</p>
+          </div>
+          {item.maturity === 'adult' ? (
+            <p className="text-sm font-medium text-ink-muted">Adult content</p>
+          ) : null}
+        </div>
       </div>
+      {archiveState.kind === 'can-add' ? (
+        <div className="za-catalogue-card__action">
+          <AddAnimeEntryForm catalogueItemId={item.id} animeTitle={title} />
+        </div>
+      ) : null}
+      {archiveState.kind === 'saved' ? (
+        <p className="za-catalogue-card__saved za-catalogue-card__action">
+          In your archive — {getEntryStatusDisplayLabel(archiveState.status)}
+        </p>
+      ) : null}
     </article>
   )
 }

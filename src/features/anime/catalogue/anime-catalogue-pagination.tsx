@@ -6,9 +6,6 @@ type AnimeCataloguePaginationProps = {
   query?: string
 }
 
-const paginationLinkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-
 export function AnimeCataloguePagination({
   pagination,
   query,
@@ -20,11 +17,11 @@ export function AnimeCataloguePagination({
   return (
     <nav
       aria-label="Anime catalogue pagination"
-      className="flex flex-wrap items-center gap-4 text-sm"
+      className="grid gap-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center"
     >
       {pagination.hasPreviousPage ? (
         <a
-          className={paginationLinkClassName}
+          className="za-link sm:justify-self-start"
           href={buildAnimeCataloguePageHref({
             query,
             page: pagination.page - 1,
@@ -33,12 +30,12 @@ export function AnimeCataloguePagination({
           Previous
         </a>
       ) : null}
-      <p>
+      <p className="sm:col-start-2 sm:row-start-1 sm:justify-self-center">
         Page {pagination.page} of {pagination.totalPages}
       </p>
       {pagination.hasNextPage ? (
         <a
-          className={paginationLinkClassName}
+          className="za-link sm:col-start-3 sm:row-start-1 sm:justify-self-end"
           href={buildAnimeCataloguePageHref({
             query,
             page: pagination.page + 1,

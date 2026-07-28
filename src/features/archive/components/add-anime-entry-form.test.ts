@@ -102,6 +102,7 @@ describe('AddAnimeEntryForm', () => {
     expect(markup).not.toContain('userId')
     expect(markup).toContain('>Status</label>')
     expect(markup).toContain('name="status" required=""')
+    expect(markup).toContain('class="za-select"')
     expect(markup).toContain('<option disabled="" value="" selected="">')
     expect(markup).toContain('Choose a status</option>')
     expect(markup).toContain('<option value="planned">Plan to watch</option>')
@@ -111,9 +112,10 @@ describe('AddAnimeEntryForm', () => {
     expect(markup).toContain('<option value="completed">Completed</option>')
     expect(markup).toContain('aria-live="polite"')
     expect(markup).toContain('role="status"')
+    expect(markup).toContain('za-button za-button--primary')
   })
 
-  it('renders a red inline server validation alert associated with the select', () => {
+  it('renders an inline server validation alert associated with the native select', () => {
     useActionState.mockReturnValue([{ kind: 'invalid_status' }, vi.fn(), false])
     useFormStatus.mockReturnValue({ pending: false })
 
@@ -126,7 +128,7 @@ describe('AddAnimeEntryForm', () => {
 
     expect(markup).toContain('aria-invalid="true"')
     expect(markup).toMatch(/aria-describedby="[^"]+"/)
-    expect(markup).toContain('class="text-sm text-red-700"')
+    expect(markup).toContain('class="text-sm text-destructive"')
     expect(markup).toContain('role="alert"')
     expect(markup).toContain('Choose one of the available statuses.')
   })
@@ -224,6 +226,9 @@ describe('AddAnimeEntryForm', () => {
       expect(markup).toContain('aria-live="polite"')
       expect(markup).toContain('role="status"')
       expect(markup).not.toContain('<form')
+      expect(markup).toContain('za-catalogue-card__saved')
+      expect(markup).not.toContain('<select')
+      expect(markup).not.toContain('<button')
     },
   )
 })

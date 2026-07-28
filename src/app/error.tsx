@@ -12,19 +12,21 @@ export default function CatalogueError({
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6"
+      className="za-container za-container--wide space-y-6 py-6 sm:py-8"
     >
-      <h1 className="text-2xl font-semibold">
-        The anime catalogue is temporarily unavailable
-      </h1>
-      <p>Try again in a moment.</p>
-      <button
-        className="rounded border border-gray-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-        onClick={() => unstable_retry()}
-        type="button"
-      >
-        Try again
-      </button>
+      <section className="za-notice za-notice--error space-y-4">
+        <h1 className="text-[length:var(--za-text-heading-xl)] leading-[var(--za-leading-compact)] font-semibold">
+          The anime catalogue is temporarily unavailable
+        </h1>
+        <p>Try again in a moment.</p>
+        <button
+          className="za-button za-button--primary"
+          onClick={() => unstable_retry()}
+          type="button"
+        >
+          Try again
+        </button>
+      </section>
     </main>
   )
 }

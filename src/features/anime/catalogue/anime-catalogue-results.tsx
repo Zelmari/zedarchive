@@ -57,7 +57,7 @@ export async function AnimeCatalogueResults({
 
   return (
     <>
-      <p>
+      <p className="text-sm text-ink-muted">
         {pageQuery.kind === 'browse'
           ? formatBrowseSummary(cataloguePage.pagination.totalItems)
           : formatSearchSummary(
@@ -66,26 +66,23 @@ export async function AnimeCatalogueResults({
             )}
       </p>
       {archivePresentation.notice === 'sign-in' ? (
-        <p>
-          <a
-            className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            href="/sign-in"
-          >
+        <p className="za-notice za-notice--information">
+          <a className="za-link" href="/sign-in">
             Sign in
           </a>{' '}
           to add anime to your archive.
         </p>
       ) : null}
       {archivePresentation.notice === 'controls-unavailable' ? (
-        <p role="status">
+        <p className="za-notice za-notice--warning" role="status">
           Archive controls are temporarily unavailable. Please try again.
         </p>
       ) : null}
 
       {emptyState === null ? (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {cataloguePage.items.map((item) => (
-            <li key={item.id}>
+            <li className="flex" key={item.id}>
               <AnimeCatalogueCard
                 archiveState={
                   archivePresentation.cardStateByCatalogueItemId.get(item.id) ??

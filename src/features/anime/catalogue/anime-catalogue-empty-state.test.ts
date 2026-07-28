@@ -1,5 +1,10 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { getAnimeCatalogueEmptyState } from '@/features/anime/catalogue/anime-catalogue-empty-state'
+import {
+  AnimeCatalogueEmptyStateView,
+  getAnimeCatalogueEmptyState,
+} from '@/features/anime/catalogue/anime-catalogue-empty-state'
 import type { AnimeCataloguePagination } from '@/features/anime/catalogue/anime-catalogue-query'
 
 function createPagination(
@@ -78,5 +83,43 @@ describe('getAnimeCatalogueEmptyState', () => {
         itemCount: 1,
       }),
     ).toBeNull()
+  })
+})
+
+describe('AnimeCatalogueEmptyStateView', () => {
+  it.each([
+    [
+      { kind: 'empty-catalogue' } as const,
+      'No anime are available yet',
+      'The public catalogue is empty right now. Check back later.',
+    ],
+    [
+      { kind: 'no-search-results', query: 'Cowboy Bebop' } as const,
+      'No anime found',
+      'No results matched “Cowboy Bebop”. Try another title or browse all anime.',
+    ],
+  ])('uses the shared in-flow card recipe for %o', (state, heading, copy) => {
+    const markup = renderToStaticMarkup(
+      createElement(AnimeCatalogueEmptyStateView, { state }),
+    )
+
+    expect(markup).toContain('<section')
+    expect(markup).toContain('za-card')
+    expect(markup).toContain(`<h2`)
+    expect(markup).toContain(`>${heading}</h2>`)
+    expect(markup).toContain(copy)
+  })
+
+  it('keeps the beyond-final recovery link semantic and canonical', () => {
+    const markup = renderToStaticMarkup(
+      createElement(AnimeCatalogueEmptyStateView, {
+        state: { kind: 'beyond-last-page', query: 'Cowboy Bebop' },
+      }),
+    )
+
+    expect(markup).toContain('This page has no results')
+    expect(markup).toContain('class="za-link"')
+    expect(markup).toContain('href="/?q=Cowboy+Bebop"')
+    expect(markup).toContain('Return to the first page to continue browsing.')
   })
 })

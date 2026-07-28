@@ -36,10 +36,7 @@ export function getAnimeCatalogueEmptyState(options: {
 }
 
 const emptyStateClassName =
-  'space-y-2 rounded border border-gray-300 bg-gray-50 p-4'
-
-const emptyStateLinkClassName =
-  'inline-block rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+  'za-card space-y-2 max-w-[var(--za-measure-readable)]'
 
 export function AnimeCatalogueEmptyStateView({
   state,
@@ -49,7 +46,9 @@ export function AnimeCatalogueEmptyStateView({
   if (state.kind === 'empty-catalogue') {
     return (
       <section className={emptyStateClassName}>
-        <h2 className="text-lg font-medium">No anime are available yet</h2>
+        <h2 className="text-[length:var(--za-text-heading-md)] leading-[var(--za-leading-compact)] font-semibold">
+          No anime are available yet
+        </h2>
         <p>The public catalogue is empty right now. Check back later.</p>
       </section>
     )
@@ -58,7 +57,9 @@ export function AnimeCatalogueEmptyStateView({
   if (state.kind === 'no-search-results') {
     return (
       <section className={emptyStateClassName}>
-        <h2 className="text-lg font-medium">No anime found</h2>
+        <h2 className="text-[length:var(--za-text-heading-md)] leading-[var(--za-leading-compact)] font-semibold">
+          No anime found
+        </h2>
         <p>
           No results matched “{state.query}”. Try another title or browse all
           anime.
@@ -69,9 +70,11 @@ export function AnimeCatalogueEmptyStateView({
 
   return (
     <section className={emptyStateClassName}>
-      <h2 className="text-lg font-medium">This page has no results</h2>
+      <h2 className="text-[length:var(--za-text-heading-md)] leading-[var(--za-leading-compact)] font-semibold">
+        This page has no results
+      </h2>
       <a
-        className={emptyStateLinkClassName}
+        className="za-link"
         href={buildAnimeCataloguePageHref({
           query: state.query,
           page: 1,

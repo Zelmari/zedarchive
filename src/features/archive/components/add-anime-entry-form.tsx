@@ -19,12 +19,6 @@ import { getAddAnimeEntryStatusValidationError } from '@/features/archive/compon
 
 export { getAddAnimeEntryFormFeedback } from '@/features/archive/components/add-anime-entry-form-state'
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 aria-invalid:border-red-600 aria-invalid:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
-
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
-
 type AddAnimeEntryFormProps = {
   catalogueItemId: string
   animeTitle: string
@@ -34,7 +28,11 @@ function AddAnimeEntrySubmitButton() {
   const { pending } = useFormStatus()
 
   return (
-    <button className={buttonClassName} disabled={pending} type="submit">
+    <button
+      className="za-button za-button--primary w-full"
+      disabled={pending}
+      type="submit"
+    >
       {pending ? 'Adding…' : 'Add to archive'}
     </button>
   )
@@ -73,10 +71,10 @@ export function AddAnimeEntryForm({
   useEffect(() => {
     if (isSaved) {
       resultRef.current?.focus()
-    } else if (state.kind !== 'idle') {
+    } else if (statusError !== null || state.kind !== 'idle') {
       alertRef.current?.focus()
     }
-  }, [isSaved, state.kind])
+  }, [isSaved, state.kind, statusError])
 
   useEffect(() => {
     if (statusError === null) {
@@ -148,7 +146,9 @@ export function AddAnimeEntryForm({
   return (
     <div className="space-y-2" onBlur={handleFormBlur} ref={formContainerRef}>
       {isSaved ? (
-        <p>In your archive — {getEntryStatusDisplayLabel(state.status)}</p>
+        <p className="za-catalogue-card__saved">
+          In your archive — {getEntryStatusDisplayLabel(state.status)}
+        </p>
       ) : (
         <form
           action={formAction}
@@ -166,7 +166,7 @@ export function AddAnimeEntryForm({
             <select
               aria-describedby={statusError ? feedbackId : undefined}
               aria-invalid={statusError ? true : undefined}
-              className={fieldClassName}
+              className="za-select"
               disabled={isPending}
               id={statusId}
               name="status"
@@ -187,7 +187,7 @@ export function AddAnimeEntryForm({
           <AddAnimeEntrySubmitButton />
           {shouldShowFeedback ? (
             <p
-              className="text-sm text-red-700"
+              className="text-sm text-destructive"
               id={feedbackId}
               ref={alertRef}
               role="alert"
@@ -195,10 +195,7 @@ export function AddAnimeEntryForm({
             >
               {state.kind === 'sign_in_required' ? (
                 <>
-                  <a
-                    className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                    href="/sign-in"
-                  >
+                  <a className="za-link" href="/sign-in">
                     Sign in
                   </a>{' '}
                   to add anime to your archive.

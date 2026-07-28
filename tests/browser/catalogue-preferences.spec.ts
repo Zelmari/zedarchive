@@ -262,6 +262,94 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBe(true)
 }
 
+async function expectCardNoHorizontalOverflow(
+  page: Page,
+  card: ReturnType<Page['locator']>,
+) {
+  const overflowingElements = await card.locator('*').evaluateAll((elements) =>
+    elements
+      .filter(
+        (element) =>
+          element.tagName !== 'SELECT' &&
+          element.scrollWidth > element.clientWidth + 0.5,
+      )
+      .map((element) => ({
+        className:
+          typeof element.className === 'string' ? element.className : '',
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        tagName: element.tagName,
+      })),
+  )
+  expect(overflowingElements).toEqual([])
+  expect(
+    await card.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 0.5,
+    ),
+  ).toBe(true)
+
+  const [cardBox, viewportWidth] = await Promise.all([
+    card.boundingBox(),
+    page.evaluate(() => window.innerWidth),
+  ])
+  expect(cardBox).not.toBeNull()
+  expect(cardBox!.x).toBeGreaterThanOrEqual(-0.5)
+  expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(viewportWidth + 0.5)
+}
+
+async function resolvedTokenValue(
+  page: Page,
+  token: string,
+  property:
+    | 'background-color'
+    | 'border-color'
+    | 'border-radius'
+    | 'color'
+    | 'padding-top',
+) {
+  return page.evaluate(
+    ({ propertyName, tokenName }) => {
+      const probe = document.createElement('span')
+      probe.style.setProperty(propertyName, `var(${tokenName})`)
+      document.body.append(probe)
+      const value = getComputedStyle(probe).getPropertyValue(propertyName)
+      probe.remove()
+      return value
+    },
+    { propertyName: property, tokenName: token },
+  )
+}
+
+async function expectInsideCardAndViewport(
+  page: Page,
+  card: ReturnType<Page['locator']>,
+  locator: ReturnType<Page['locator']>,
+) {
+  const [cardBox, locatorBox, viewport] = await Promise.all([
+    card.boundingBox(),
+    locator.boundingBox(),
+    page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    })),
+  ])
+
+  expect(cardBox).not.toBeNull()
+  expect(locatorBox).not.toBeNull()
+  expect(locatorBox!.x).toBeGreaterThanOrEqual(cardBox!.x - 0.5)
+  expect(locatorBox!.x + locatorBox!.width).toBeLessThanOrEqual(
+    cardBox!.x + cardBox!.width + 0.5,
+  )
+  expect(locatorBox!.x).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.y).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.x + locatorBox!.width).toBeLessThanOrEqual(
+    viewport.width + 0.5,
+  )
+  expect(locatorBox!.y + locatorBox!.height).toBeLessThanOrEqual(
+    viewport.height + 0.5,
+  )
+}
+
 async function expectLeadingTitles(page: Page, expectedTitles: string[]) {
   const headings = page.locator('article h2')
 
@@ -796,9 +884,28 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   await expectPrivateNoStore(adultCatalogueResponse!)
   const adultAddCard = cardForTitle(page, adultPublishedAddTitle)
   await expect(adultAddCard).toContainText('Adult content')
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  await expectCardNoHorizontalOverflow(page, adultAddCard)
+  const adultStatusSelect = adultAddCard.getByRole('combobox', {
+    name: 'Status',
+  })
+  await adultStatusSelect.scrollIntoViewIfNeeded()
+  await expectInsideCardAndViewport(page, adultAddCard, adultStatusSelect)
+
   await adultAddCard
-    .getByRole('combobox', { name: 'Status' })
-    .selectOption('planned')
+    .getByRole('button', { name: 'Add to archive', exact: true })
+    .click()
+  const addValidationAlert = adultAddCard.getByRole('alert').filter({
+    hasText: /^Select a status before adding this anime to your archive\.$/,
+  })
+  await expect(addValidationAlert).toBeFocused()
+  await expectCardNoHorizontalOverflow(page, adultAddCard)
+  await expectInsideCardAndViewport(page, adultAddCard, addValidationAlert)
+
+  await adultStatusSelect.selectOption('planned')
   await adultAddCard
     .getByRole('button', { name: 'Add to archive', exact: true })
     .click()
@@ -807,6 +914,61 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
       hasText: /^Added to your archive as Plan to watch\.$/,
     }),
   ).toBeFocused()
+  const addSuccessStatus = adultAddCard.getByRole('status').filter({
+    hasText: /^Added to your archive as Plan to watch\.$/,
+  })
+  const adultMarker = adultAddCard.getByText('Adult content', { exact: true })
+  expect(
+    await adultMarker.evaluate((element) => getComputedStyle(element).color),
+  ).toBe(await resolvedTokenValue(page, '--za-color-text-muted', 'color'))
+  expect(
+    await adultMarker.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    ),
+  ).toBe('rgba(0, 0, 0, 0)')
+  expect(
+    await adultMarker.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe('0px')
+
+  const savedState = adultAddCard.locator('.za-catalogue-card__saved')
+  expect(
+    await savedState.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    ),
+  ).toBe(
+    await resolvedTokenValue(
+      page,
+      '--za-color-accent-soft',
+      'background-color',
+    ),
+  )
+  expect(
+    await savedState.evaluate((element) => getComputedStyle(element).color),
+  ).toBe(await resolvedTokenValue(page, '--za-color-accent', 'color'))
+  expect(
+    await savedState.evaluate(
+      (element) => getComputedStyle(element).borderTopColor,
+    ),
+  ).toBe(await resolvedTokenValue(page, '--za-color-accent', 'border-color'))
+  expect(
+    await savedState.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe('1px')
+  expect(
+    await savedState.evaluate(
+      (element) => getComputedStyle(element).borderRadius,
+    ),
+  ).toBe(await resolvedTokenValue(page, '--za-radius-control', 'border-radius'))
+  expect(
+    await savedState.evaluate(
+      (element) => getComputedStyle(element).paddingTop,
+    ),
+  ).toBe(await resolvedTokenValue(page, '--za-space-3', 'padding-top'))
+  await expectCardNoHorizontalOverflow(page, adultAddCard)
+  await expectInsideCardAndViewport(page, adultAddCard, addSuccessStatus)
   const addedEntry = await pool.query<{ count: number }>(
     `
       select count(*)::int as count
