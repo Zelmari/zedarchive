@@ -304,6 +304,7 @@ async function resolvedTokenValue(
     | 'background-color'
     | 'border-color'
     | 'border-radius'
+    | 'box-shadow'
     | 'color'
     | 'padding-top',
 ) {
@@ -317,6 +318,87 @@ async function resolvedTokenValue(
       return value
     },
     { propertyName: property, tokenName: token },
+  )
+}
+
+async function expectRaisedPaper(
+  page: Page,
+  locator: ReturnType<Page['locator']>,
+) {
+  await expect(locator).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await locator.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).toBe(await resolvedTokenValue(page, '--za-shadow-raised', 'box-shadow'))
+}
+
+async function expectCatalogueActionZone(
+  page: Page,
+  card: ReturnType<Page['locator']>,
+) {
+  const action = card.locator('.za-catalogue-card__action')
+  await expect(action).toHaveCount(1)
+  expect(
+    await action.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe('1px')
+  expect(
+    await action.evaluate(
+      (element) => getComputedStyle(element).borderTopColor,
+    ),
+  ).toBe(
+    await resolvedTokenValue(
+      page,
+      '--za-color-border-decorative',
+      'border-color',
+    ),
+  )
+  expect(
+    await action.evaluate((element) => getComputedStyle(element).paddingTop),
+  ).toBe(await resolvedTokenValue(page, '--za-space-3', 'padding-top'))
+}
+
+async function expectFocusOutlineWithinCard(
+  page: Page,
+  card: ReturnType<Page['locator']>,
+  locator: ReturnType<Page['locator']>,
+) {
+  await locator.focus()
+  await expect(locator).toBeFocused()
+  const [cardBox, locatorBox, outline, viewport] = await Promise.all([
+    card.boundingBox(),
+    locator.boundingBox(),
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        offset: Number.parseFloat(style.outlineOffset),
+        width: Number.parseFloat(style.outlineWidth),
+      }
+    }),
+    page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    })),
+  ])
+  expect(cardBox).not.toBeNull()
+  expect(locatorBox).not.toBeNull()
+  expect(outline.width).toBe(3)
+  const extent = outline.width + outline.offset
+  expect(locatorBox!.x - extent).toBeGreaterThanOrEqual(cardBox!.x - 0.5)
+  expect(locatorBox!.x + locatorBox!.width + extent).toBeLessThanOrEqual(
+    cardBox!.x + cardBox!.width + 0.5,
+  )
+  expect(locatorBox!.y - extent).toBeGreaterThanOrEqual(cardBox!.y - 0.5)
+  expect(locatorBox!.y + locatorBox!.height + extent).toBeLessThanOrEqual(
+    cardBox!.y + cardBox!.height + 0.5,
+  )
+  expect(locatorBox!.x - extent).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.x + locatorBox!.width + extent).toBeLessThanOrEqual(
+    viewport.width + 0.5,
+  )
+  expect(locatorBox!.y - extent).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.y + locatorBox!.height + extent).toBeLessThanOrEqual(
+    viewport.height + 0.5,
   )
 }
 
@@ -599,6 +681,16 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   await expect(cardForTitle(page, adultPublishedAddTitle)).toHaveCount(0)
   await expect(page.getByText('0 results for', { exact: false })).toBeVisible()
 
+  const signedOutSafeCatalogueResponse = await page.goto(
+    `/?q=${encodeURIComponent(languageTitles.alpha.english)}`,
+  )
+  await expectPrivateNoStore(signedOutSafeCatalogueResponse!)
+  const signedOutCard = cardForTitle(page, languageTitles.alpha.english)
+  await expectRaisedPaper(page, signedOutCard)
+  await expect(signedOutCard.locator('.za-catalogue-card__action')).toHaveCount(
+    0,
+  )
+
   const noJavaScriptContext = await browser.newContext({
     javaScriptEnabled: false,
   })
@@ -878,11 +970,24 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
     titleLanguage: 'romaji',
   })
 
+  const initialSavedResponse = await page.goto(
+    `/?q=${encodeURIComponent(adultPublishedOwnedTitle)}`,
+  )
+  await expectPrivateNoStore(initialSavedResponse!)
+  const initialSavedCard = cardForTitle(page, adultPublishedOwnedTitle)
+  await expectRaisedPaper(page, initialSavedCard)
+  await expectCatalogueActionZone(page, initialSavedCard)
+  await expect(
+    initialSavedCard.locator('.za-catalogue-card__saved'),
+  ).toBeVisible()
+
   const adultCatalogueResponse = await page.goto(
     `/?q=${encodeURIComponent(adultPublishedAddTitle)}`,
   )
   await expectPrivateNoStore(adultCatalogueResponse!)
   const adultAddCard = cardForTitle(page, adultPublishedAddTitle)
+  await expectRaisedPaper(page, adultAddCard)
+  await expectCatalogueActionZone(page, adultAddCard)
   await expect(adultAddCard).toContainText('Adult content')
   await page.setViewportSize({ width: 320, height: 568 })
   await page.evaluate(() => {
@@ -902,8 +1007,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
     hasText: /^Select a status before adding this anime to your archive\.$/,
   })
   await expect(addValidationAlert).toBeFocused()
+  await expectCatalogueActionZone(page, adultAddCard)
   await expectCardNoHorizontalOverflow(page, adultAddCard)
   await expectInsideCardAndViewport(page, adultAddCard, addValidationAlert)
+  await expectFocusOutlineWithinCard(page, adultAddCard, adultStatusSelect)
 
   await adultStatusSelect.selectOption('planned')
   await adultAddCard
@@ -933,6 +1040,7 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   ).toBe('0px')
 
   const savedState = adultAddCard.locator('.za-catalogue-card__saved')
+  await expectCatalogueActionZone(page, adultAddCard)
   expect(
     await savedState.evaluate(
       (element) => getComputedStyle(element).backgroundColor,

@@ -23,7 +23,7 @@ export function AnimeCatalogueCard({
   const episodeTotal = formatAnimeEpisodeTotal(item.episodeCount)
 
   return (
-    <article className="za-card za-catalogue-card">
+    <article className="za-card za-card--raised za-catalogue-card">
       <div className="za-catalogue-card__summary">
         <div
           aria-hidden="true"
@@ -51,9 +51,11 @@ export function AnimeCatalogueCard({
         </div>
       ) : null}
       {archiveState.kind === 'saved' ? (
-        <p className="za-catalogue-card__saved za-catalogue-card__action">
-          In your archive — {getEntryStatusDisplayLabel(archiveState.status)}
-        </p>
+        <div className="za-catalogue-card__action">
+          <p className="za-catalogue-card__saved">
+            In your archive — {getEntryStatusDisplayLabel(archiveState.status)}
+          </p>
+        </div>
       ) : null}
     </article>
   )

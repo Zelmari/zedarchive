@@ -36,7 +36,7 @@ export function getAnimeCatalogueEmptyState(options: {
 }
 
 const emptyStateClassName =
-  'za-card space-y-2 max-w-[var(--za-measure-readable)]'
+  'za-card za-card--raised space-y-2 max-w-[var(--za-measure-readable)]'
 
 export function AnimeCatalogueEmptyStateView({
   state,

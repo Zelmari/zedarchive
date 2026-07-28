@@ -98,17 +98,22 @@ describe('AnimeCatalogueEmptyStateView', () => {
       'No anime found',
       'No results matched “Cowboy Bebop”. Try another title or browse all anime.',
     ],
-  ])('uses the shared in-flow card recipe for %o', (state, heading, copy) => {
-    const markup = renderToStaticMarkup(
-      createElement(AnimeCatalogueEmptyStateView, { state }),
-    )
+  ])(
+    'uses the shared raised in-flow card recipe for %o',
+    (state, heading, copy) => {
+      const markup = renderToStaticMarkup(
+        createElement(AnimeCatalogueEmptyStateView, { state }),
+      )
 
-    expect(markup).toContain('<section')
-    expect(markup).toContain('za-card')
-    expect(markup).toContain(`<h2`)
-    expect(markup).toContain(`>${heading}</h2>`)
-    expect(markup).toContain(copy)
-  })
+      expect(markup).toContain('<section')
+      expect(markup).toMatch(
+        /class="[^"]*\bza-card\b[^"]*\bza-card--raised\b[^"]*"/,
+      )
+      expect(markup).toContain(`<h2`)
+      expect(markup).toContain(`>${heading}</h2>`)
+      expect(markup).toContain(copy)
+    },
+  )
 
   it('keeps the beyond-final recovery link semantic and canonical', () => {
     const markup = renderToStaticMarkup(
@@ -118,6 +123,7 @@ describe('AnimeCatalogueEmptyStateView', () => {
     )
 
     expect(markup).toContain('This page has no results')
+    expect(markup).toMatch(/class="[^"]*\bza-card--raised\b[^"]*"/)
     expect(markup).toContain('class="za-link"')
     expect(markup).toContain('href="/?q=Cowboy+Bebop"')
     expect(markup).toContain('Return to the first page to continue browsing.')

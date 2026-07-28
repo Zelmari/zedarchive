@@ -41,7 +41,10 @@ describe('AnimeCatalogueCard archive state', () => {
     )
 
     expect(markup).toContain(`add:${item.id}:Cowboy Bebop`)
-    expect(markup).toContain('za-catalogue-card__action')
+    expect(markup).toMatch(/<article class="[^"]*\bza-card--raised\b[^"]*">/)
+    expect(markup).toMatch(
+      /<div class="[^"]*\bza-catalogue-card__action\b[^"]*">[\s\S]*add:/,
+    )
     expect(markup).not.toContain('za-catalogue-card__saved')
   })
 
@@ -54,6 +57,7 @@ describe('AnimeCatalogueCard archive state', () => {
     )
 
     expect(markup).not.toContain('add:')
+    expect(markup).not.toContain('za-catalogue-card__action')
   })
 
   it('renders an existing entry as static, non-editable status text', () => {
@@ -67,8 +71,9 @@ describe('AnimeCatalogueCard archive state', () => {
     expect(markup).toContain('In your archive — In progress')
     expect(markup).not.toContain('add:')
     expect(markup).not.toContain('<select')
-    expect(markup).toContain('za-catalogue-card__saved')
-    expect(markup).toContain('za-catalogue-card__action')
+    expect(markup).toMatch(
+      /<div class="[^"]*\bza-catalogue-card__action\b[^"]*"><p class="[^"]*\bza-catalogue-card__saved\b[^"]*">/,
+    )
   })
 
   it('uses the resolved display title for initials, headings, and Add context', () => {

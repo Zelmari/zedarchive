@@ -172,6 +172,27 @@ async function resolvedTokenColour(
   )
 }
 
+async function resolvedRaisedShadow(page: Page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('span')
+    probe.style.boxShadow = 'var(--za-shadow-raised)'
+    document.body.append(probe)
+    const value = getComputedStyle(probe).boxShadow
+    probe.remove()
+    return value
+  })
+}
+
+async function expectRaisedPaper(
+  page: Page,
+  locator: ReturnType<Page['locator']>,
+) {
+  await expect(locator).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await locator.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).toBe(await resolvedRaisedShadow(page))
+}
+
 function cardForTitle(page: Page, title: string) {
   return page.locator('article').filter({
     has: page.getByRole('heading', { name: title, exact: true }),
@@ -483,6 +504,8 @@ test('proves the approved release catalogue in production browser flows', async 
     name: 'Anime catalogue pagination',
     exact: true,
   })
+  await expectRaisedPaper(page, firstPagePagination)
+  await expectRaisedPaper(page, page.locator('article').first())
   expect(
     await firstPagePagination.locator(':scope > *').allTextContents(),
   ).toEqual(['Page 1 of 19', 'Next'])
@@ -540,6 +563,23 @@ test('proves the approved release catalogue in production browser flows', async 
       name: 'This page has no results',
       exact: true,
     }),
+  ).toBeVisible()
+  await expectRaisedPaper(
+    page,
+    page
+      .getByRole('heading', {
+        name: 'This page has no results',
+        exact: true,
+      })
+      .locator('xpath=..'),
+  )
+  const beyondFinalPagination = page.getByRole('navigation', {
+    name: 'Anime catalogue pagination',
+    exact: true,
+  })
+  await expectRaisedPaper(page, beyondFinalPagination)
+  await expect(
+    beyondFinalPagination.getByText('Page 20 of 19', { exact: true }),
   ).toBeVisible()
 
   await page.goto('/')
@@ -699,6 +739,28 @@ test('proves the approved release catalogue in production browser flows', async 
       (element) => getComputedStyle(element).outlineWidth,
     ),
   ).toBe('3px')
+  const [paginationBox, focusedNextBox, focusedNextOutline] = await Promise.all(
+    [
+      enlargedPagination.boundingBox(),
+      enlargedNextLink.boundingBox(),
+      enlargedNextLink.evaluate((element) => {
+        const style = getComputedStyle(element)
+        return {
+          offset: Number.parseFloat(style.outlineOffset),
+          width: Number.parseFloat(style.outlineWidth),
+        }
+      }),
+    ],
+  )
+  expect(paginationBox).not.toBeNull()
+  expect(focusedNextBox).not.toBeNull()
+  const outlineExtent = focusedNextOutline.width + focusedNextOutline.offset
+  expect(focusedNextBox!.x - outlineExtent).toBeGreaterThanOrEqual(
+    paginationBox!.x - 0.5,
+  )
+  expect(
+    focusedNextBox!.x + focusedNextBox!.width + outlineExtent,
+  ).toBeLessThanOrEqual(paginationBox!.x + paginationBox!.width + 0.5)
 
   const signedOutFirstByteSamples: number[] = []
   await navigationFirstByteMs(page, '/')

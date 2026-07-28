@@ -111,6 +111,81 @@ async function resolvedTokenColour(page: Page, token: string) {
   }, token)
 }
 
+async function resolvedSystemHighlightColour(page: Page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('span')
+    probe.style.outlineColor = 'Highlight'
+    document.body.append(probe)
+    const value = getComputedStyle(probe).outlineColor
+    probe.remove()
+    return value
+  })
+}
+
+async function resolvedTokenBoxShadow(page: Page, token: string) {
+  return page.evaluate((tokenName) => {
+    const probe = document.createElement('span')
+    probe.style.boxShadow = `var(${tokenName})`
+    document.body.append(probe)
+    const value = getComputedStyle(probe).boxShadow
+    probe.remove()
+    return value
+  }, token)
+}
+
+async function expectRaisedPaper(page: Page, locator: Locator) {
+  await expect(locator).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await locator.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).toBe(await resolvedTokenBoxShadow(page, '--za-shadow-raised'))
+}
+
+async function expectFocusedOutlineWithin(
+  page: Page,
+  locator: Locator,
+  container: Locator,
+) {
+  await locator.focus()
+  await expect(locator).toBeFocused()
+  const [outline, locatorBox, containerBox, viewport] = await Promise.all([
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        color: style.outlineColor,
+        offset: Number.parseFloat(style.outlineOffset),
+        width: Number.parseFloat(style.outlineWidth),
+      }
+    }),
+    locator.boundingBox(),
+    container.boundingBox(),
+    page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    })),
+  ])
+
+  expect(locatorBox).not.toBeNull()
+  expect(containerBox).not.toBeNull()
+  expect(outline.width).toBe(3)
+  const extent = outline.width + outline.offset
+  expect(locatorBox!.x - extent).toBeGreaterThanOrEqual(containerBox!.x - 0.5)
+  expect(locatorBox!.x + locatorBox!.width + extent).toBeLessThanOrEqual(
+    containerBox!.x + containerBox!.width + 0.5,
+  )
+  expect(locatorBox!.y - extent).toBeGreaterThanOrEqual(containerBox!.y - 0.5)
+  expect(locatorBox!.y + locatorBox!.height + extent).toBeLessThanOrEqual(
+    containerBox!.y + containerBox!.height + 0.5,
+  )
+  expect(locatorBox!.x - extent).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.x + locatorBox!.width + extent).toBeLessThanOrEqual(
+    viewport.width + 0.5,
+  )
+  expect(locatorBox!.y - extent).toBeGreaterThanOrEqual(-0.5)
+  expect(locatorBox!.y + locatorBox!.height + extent).toBeLessThanOrEqual(
+    viewport.height + 0.5,
+  )
+}
+
 function catalogueGrid(page: Page) {
   return page
     .locator('ul')
@@ -139,6 +214,7 @@ async function expectCatalogueCardPresentation(page: Page, card: Locator) {
   )
 
   await expect(card).toHaveClass(/\bza-card\b/)
+  await expectRaisedPaper(page, card)
   await expect(tile).toHaveClass(/\bza-catalogue-card__tile\b/)
   await expect(heading).toBeVisible()
   expect(
@@ -236,6 +312,7 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
     await expect(
       page.getByRole('searchbox', { name: 'Search anime' }),
     ).toBeVisible()
+    await expectRaisedPaper(page, page.locator('main > header'))
     await expectGridColumnCount(page, viewport.columns)
     const card = page.locator('article').first()
     await expectCatalogueCardPresentation(page, card)
@@ -245,6 +322,18 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
       page.getByRole('searchbox', { name: 'Search anime' }),
     )
   }
+  await expect
+    .poll(() => resolvedTokenColour(page, '--za-color-accent'))
+    .toBe('rgb(36, 35, 33)')
+  await expect
+    .poll(() => resolvedTokenColour(page, '--za-color-accent-soft'))
+    .toBe('rgb(238, 236, 231)')
+  await expect
+    .poll(() => resolvedTokenColour(page, '--za-color-information'))
+    .toBe('rgb(75, 74, 70)')
+  await expect
+    .poll(() => resolvedTokenColour(page, '--za-color-information-surface'))
+    .toBe('rgb(240, 237, 230)')
 
   const cowboyResponse = await page.goto('/?q=Cowboy%20Bebop')
   expect(cowboyResponse?.status()).toBe(200)
@@ -254,6 +343,15 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
   const browseAllLink = page.getByRole('link', { name: 'Browse all anime' })
   await expect(browseAllLink).toBeVisible()
   await expectCatalogueCardPresentation(page, page.locator('article').first())
+  await expect(
+    page.locator('nav[aria-label="Anime catalogue pagination"]'),
+  ).toHaveCount(0)
+  expect(
+    await catalogueGrid(page).evaluate(
+      (grid) =>
+        grid.parentElement?.classList.contains('za-card--raised') ?? false,
+    ),
+  ).toBe(false)
 
   await page.getByRole('searchbox', { name: 'Search anime' }).focus()
   await page.keyboard.press('Tab')
@@ -280,6 +378,10 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
   await expect(
     page.getByRole('heading', { name: 'No anime found' }),
   ).toBeVisible()
+  await expectRaisedPaper(
+    page,
+    page.getByRole('heading', { name: 'No anime found' }).locator('xpath=..'),
+  )
 
   const invalidResponse = await page.goto('/?q=one&q=two')
   expect(invalidResponse?.status()).toBe(200)
@@ -302,6 +404,12 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
   await expect(
     page.getByRole('link', { name: 'Return to the first page' }),
   ).toBeVisible()
+  await expectRaisedPaper(
+    page,
+    page
+      .getByRole('heading', { name: 'This page has no results' })
+      .locator('xpath=..'),
+  )
   await expectNoHorizontalOverflow(page)
 
   assertBoundedBrowserEvidence()
@@ -319,6 +427,7 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
   })
 
   const card = page.locator('article').first()
+  const masthead = page.locator('main > header')
   const tile = card.locator('.za-title-tile')
   const details = card.locator('.za-catalogue-card__details')
   await expectCatalogueCardPresentation(page, card)
@@ -338,6 +447,11 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
     page,
     page.getByRole('searchbox', { name: 'Search anime' }),
   )
+  await expectFocusedOutlineWithin(
+    page,
+    page.getByRole('searchbox', { name: 'Search anime' }),
+    masthead,
+  )
 
   await page.goto('/?q=Cowboy%20Bebop')
   await page.evaluate(() => {
@@ -353,6 +467,13 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
   await expect(
     page.getByRole('link', { name: 'Return to the first page' }),
   ).toBeVisible()
+  await expectFocusedOutlineWithin(
+    page,
+    page.getByRole('link', { name: 'Return to the first page' }),
+    page
+      .getByRole('heading', { name: 'This page has no results' })
+      .locator('xpath=..'),
+  )
   await expectNoHorizontalOverflow(page)
 
   assertBoundedBrowserEvidence()
@@ -439,6 +560,14 @@ test('keeps public catalogue controls visible in forced colours and quiet under 
       .getByRole('button', { name: 'Search' })
       .evaluate((element) => getComputedStyle(element).forcedColorAdjust),
   ).not.toBe('none')
+  const forcedSearch = page.getByRole('searchbox', { name: 'Search anime' })
+  await forcedSearch.focus()
+  await expect(forcedSearch).toBeFocused()
+  expect(
+    await forcedSearch.evaluate(
+      (element) => getComputedStyle(element).outlineColor,
+    ),
+  ).toBe(await resolvedSystemHighlightColour(page))
 
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'reduce' })
   await expect

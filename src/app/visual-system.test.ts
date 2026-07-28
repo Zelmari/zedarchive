@@ -13,10 +13,10 @@ const requiredColors = {
   'text-muted': '#5b5c61',
   'border-required': '#85837c',
   'border-decorative': '#d6d1c7',
-  accent: '#3346a8',
-  'accent-hover': '#29398b',
-  'accent-active': '#202e70',
-  'accent-soft': '#e8ebfa',
+  accent: '#242321',
+  'accent-hover': '#3a3936',
+  'accent-active': '#171716',
+  'accent-soft': '#eeece7',
   'on-accent': '#ffffff',
   destructive: '#b4232e',
   'destructive-hover': '#8f1d26',
@@ -27,8 +27,8 @@ const requiredColors = {
   'success-surface': '#e9f4ee',
   warning: '#765a00',
   'warning-surface': '#f8f0d8',
-  information: '#365a82',
-  'information-surface': '#eaf1f8',
+  information: '#4b4a46',
+  'information-surface': '#f0ede6',
   'disabled-text': '#64656a',
   'disabled-surface': '#ece9e2',
   'title-tile': '#ded9cf',
@@ -174,11 +174,35 @@ describe('visual system contract', () => {
       ['--font-sans', '--za-font-sans'],
       ['--radius-control', '--za-radius-control'],
       ['--shadow-layered', '--za-shadow-layered'],
+      ['--shadow-raised', '--za-shadow-raised'],
     ]) {
       expect(css).toContain(`${themeName}: var(${sourceName});`)
     }
 
     expect(css).not.toMatch(/--color-(?:gray|red|green|amber)-/)
+  })
+
+  it('keeps modal and raised-paper elevation as distinct static recipes', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toContain(
+      '--za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);',
+    )
+    expect(css).toMatch(
+      /--za-shadow-raised:\s*0 1px 2px rgb\(36 35 33 \/ 8%\),\s*0 6px 16px rgb\(36 35 33 \/ 6%\);/,
+    )
+    expect(css).toMatch(
+      /\.za-card--raised\s*\{\s*box-shadow: var\(--za-shadow-raised\);\s*\}/,
+    )
+    expect(css).not.toMatch(/\.za-card--raised[^}]*:(?:hover|active)/)
+  })
+
+  it('keeps the catalogue action zone visually divided without creating another card', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /\.za-catalogue-card__action\s*\{[\s\S]*?inline-size: 100%;[\s\S]*?margin-block-start: auto;[\s\S]*?border-block-start: var\(--za-border-width\) solid\s*var\(--za-color-border-decorative\);[\s\S]*?padding-block-start: var\(--za-space-3\);/,
+    )
   })
 
   it('keeps the wordmark ink-coloured while retaining link interaction states', async () => {
@@ -224,6 +248,9 @@ describe('visual system contract', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     expect(css).toContain('@media (forced-colors: active)')
     expect(css).toContain('outline-color: Highlight;')
+    expect(css).toMatch(
+      /\.za-site-header\s*\{[\s\S]*?background: var\(--za-color-surface\);/,
+    )
   })
 
   it('contains only a local, static owned favicon', async () => {

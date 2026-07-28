@@ -8,10 +8,10 @@
   --za-color-text-muted: #5b5c61;
   --za-color-border-required: #85837c;
   --za-color-border-decorative: #d6d1c7;
-  --za-color-accent: #3346a8;
-  --za-color-accent-hover: #29398b;
-  --za-color-accent-active: #202e70;
-  --za-color-accent-soft: #e8ebfa;
+  --za-color-accent: #242321;
+  --za-color-accent-hover: #3a3936;
+  --za-color-accent-active: #171716;
+  --za-color-accent-soft: #eeece7;
   --za-color-on-accent: #ffffff;
   --za-color-destructive: #b4232e;
   --za-color-destructive-hover: #8f1d26;
@@ -22,8 +22,8 @@
   --za-color-success-surface: #e9f4ee;
   --za-color-warning: #765a00;
   --za-color-warning-surface: #f8f0d8;
-  --za-color-information: #365a82;
-  --za-color-information-surface: #eaf1f8;
+  --za-color-information: #4b4a46;
+  --za-color-information-surface: #f0ede6;
   --za-color-disabled-text: #64656a;
   --za-color-disabled-surface: #ece9e2;
   --za-color-title-tile: #ded9cf;
@@ -66,6 +66,8 @@
   --za-focus-width: 3px;
   --za-focus-offset: 3px;
   --za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);
+  --za-shadow-raised:
+    0 1px 2px rgb(36 35 33 / 8%), 0 6px 16px rgb(36 35 33 / 6%);
   --za-layer-content: 0;
   --za-layer-skip-link: 50;
   --za-layer-modal: 100;
@@ -108,6 +110,7 @@
   --radius-control: var(--za-radius-control);
   --radius-layered: var(--za-radius-layered);
   --shadow-layered: var(--za-shadow-layered);
+  --shadow-raised: var(--za-shadow-raised);
 }
 
 @layer base {
@@ -202,7 +205,7 @@
   .za-site-header {
     border-block-end: var(--za-border-width) solid
       var(--za-color-border-decorative);
-    background: var(--za-color-canvas);
+    background: var(--za-color-surface);
   }
 
   .za-wordmark {
@@ -383,6 +386,10 @@
     box-shadow: var(--za-shadow-layered);
   }
 
+  .za-card--raised {
+    box-shadow: var(--za-shadow-raised);
+  }
+
   .za-title-tile {
     display: grid;
     aspect-ratio: 2 / 3;
@@ -426,6 +433,9 @@
   .za-catalogue-card__action {
     inline-size: 100%;
     margin-block-start: auto;
+    border-block-start: var(--za-border-width) solid
+      var(--za-color-border-decorative);
+    padding-block-start: var(--za-space-3);
   }
 
   .za-catalogue-card__saved {

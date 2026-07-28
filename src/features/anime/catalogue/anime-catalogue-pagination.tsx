@@ -17,7 +17,7 @@ export function AnimeCataloguePagination({
   return (
     <nav
       aria-label="Anime catalogue pagination"
-      className="grid gap-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center"
+      className="za-card za-card--raised grid gap-3 p-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center"
     >
       {pagination.hasPreviousPage ? (
         <a

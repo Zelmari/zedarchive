@@ -42,8 +42,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       tabIndex={-1}
       className="za-container za-container--wide space-y-6 py-6 sm:space-y-8 sm:py-8"
     >
-      <header className="space-y-4">
-        <h1 className="text-[length:var(--za-text-heading-xl)] leading-[var(--za-leading-compact)] font-semibold">
+      <header className="za-card za-card--raised space-y-4 p-4 sm:p-6">
+        <h1 className="wrap-anywhere text-[length:var(--za-text-heading-xl)] leading-[var(--za-leading-compact)] font-semibold">
           Anime catalogue
         </h1>
         <form
@@ -51,7 +51,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           method="get"
           role="search"
         >
-          <div className="flex w-full min-w-0 flex-1 flex-col gap-1 sm:min-w-[12rem] sm:w-auto">
+          <div className="flex w-full min-w-0 flex-none flex-col gap-1 sm:w-auto sm:min-w-[12rem] sm:flex-1">
             <label className="text-sm font-medium" htmlFor="anime-search-query">
               Search anime
             </label>

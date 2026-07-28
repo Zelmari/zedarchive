@@ -190,7 +190,7 @@ async function loadSpecimen(page: Page) {
       </section>
       <section aria-labelledby="foundation-state-heading" data-zone="states">
         <h2 id="foundation-state-heading">Archive states</h2>
-        <article class="za-card">
+        <article class="za-card za-card--raised" id="foundation-raised-card">
           <div aria-label="The Amber Atlas initials" class="za-title-tile">TA</div>
           <div>
             <h3>The Amber Atlas</h3>
@@ -255,6 +255,20 @@ async function resolvedTokenColour(
   )
 }
 
+async function resolvedTokenValue(page: Page, token: string, property: string) {
+  return page.evaluate(
+    ({ tokenName, styleProperty }) => {
+      const probe = document.createElement('span')
+      probe.style.setProperty(styleProperty, `var(${tokenName})`)
+      document.body.append(probe)
+      const value = getComputedStyle(probe).getPropertyValue(styleProperty)
+      probe.remove()
+      return value
+    },
+    { tokenName: token, styleProperty: property },
+  )
+}
+
 async function expectSpecimenRecipeContract(page: Page) {
   const primaryBackground = await resolvedTokenColour(
     page,
@@ -295,6 +309,11 @@ async function expectSpecimenRecipeContract(page: Page) {
     page,
     '--za-color-destructive-active',
     'background-color',
+  )
+  const raisedShadow = await resolvedTokenValue(
+    page,
+    '--za-shadow-raised',
+    'box-shadow',
   )
 
   await expect(
@@ -338,6 +357,9 @@ async function expectSpecimenRecipeContract(page: Page) {
   expect(await computedValue(page, '#foundation-destructive', 'color')).toBe(
     destructiveForeground,
   )
+  expect(
+    await computedValue(page, '#foundation-raised-card', 'box-shadow'),
+  ).toBe(raisedShadow)
   expect(
     await computedValue(page, '#foundation-search', 'border-top-width'),
   ).toBe('1px')

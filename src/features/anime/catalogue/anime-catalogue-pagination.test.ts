@@ -49,6 +49,9 @@ describe('AnimeCataloguePagination', () => {
     const nextIndex = markup.indexOf('>Next</a>')
 
     expect(markup).toContain('aria-label="Anime catalogue pagination"')
+    expect(markup).toMatch(
+      /<nav[^>]*class="[^"]*\bza-card--raised\b[^"]*\bp-4\b[^"]*"/,
+    )
     expect(previousIndex).toBeGreaterThanOrEqual(0)
     expect(summaryIndex).toBeGreaterThan(previousIndex)
     expect(nextIndex).toBeGreaterThan(summaryIndex)
