@@ -13,7 +13,10 @@ vi.mock('react', async (importOriginal) => ({
   useSyncExternalStore,
 }))
 
-import { AnimeEntryRemovalControl } from '@/features/archive/components/anime-entry-removal-control'
+import {
+  AnimeEntryRemovalControl,
+  publishAnimeEntryRemoval,
+} from '@/features/archive/components/anime-entry-removal-control'
 
 const props = {
   animeTitle: 'Cowboy Bebop',
@@ -130,5 +133,21 @@ describe('AnimeEntryRemovalControl', () => {
     expect(markup).toContain('<form aria-busy="true"')
     expect(markup.match(/disabled=""/g)).toHaveLength(3)
     expect(markup).toContain('Removing…')
+  })
+
+  it('publishes confirmed removal synchronously after closing the dialog and updating local state', () => {
+    const events: string[] = []
+
+    publishAnimeEntryRemoval({
+      closeDialog: () => events.push('dialog closed'),
+      dispatch: (event) => events.push(`state ${event.kind}`),
+      onRemoved: () => events.push('removal published'),
+    })
+
+    expect(events).toEqual([
+      'dialog closed',
+      'state removed',
+      'removal published',
+    ])
   })
 })

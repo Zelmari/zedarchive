@@ -12,6 +12,7 @@ import {
 import {
   animeEntryRemovalControlReducer,
   createInitialAnimeEntryRemovalControlState,
+  type AnimeEntryRemovalControlEvent,
 } from '@/features/archive/components/anime-entry-removal-control-state'
 import type { RemoveAnimeEntryActionState } from '@/features/archive/domain/remove-anime-entry'
 
@@ -30,6 +31,20 @@ type AnimeEntryRemovalControlProps = {
   isPending: boolean
   onRemoved: () => void
   onSubmit: (formData: FormData) => Promise<RemoveAnimeEntryActionState | null>
+}
+
+export function publishAnimeEntryRemoval({
+  closeDialog,
+  dispatch,
+  onRemoved,
+}: {
+  closeDialog: () => void
+  dispatch: (event: AnimeEntryRemovalControlEvent) => void
+  onRemoved: () => void
+}) {
+  closeDialog()
+  dispatch({ kind: 'removed' })
+  onRemoved()
 }
 
 export function AnimeEntryRemovalControl({
@@ -119,9 +134,11 @@ export function AnimeEntryRemovalControl({
 
     if (result.kind === 'removed') {
       hasPublishedRemovalRef.current = true
-      dialogRef.current?.close()
-      dispatch({ kind: 'removed' })
-      window.requestAnimationFrame(onRemoved)
+      publishAnimeEntryRemoval({
+        closeDialog: () => dialogRef.current?.close(),
+        dispatch,
+        onRemoved,
+      })
       return
     }
 

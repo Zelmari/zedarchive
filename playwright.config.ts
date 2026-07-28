@@ -10,6 +10,10 @@ const accountPurgeTestSecret = 'm34-browser-disposable-cron-secret-32chars'
 
 export default defineConfig({
   testDir: './tests/browser',
+  // The real-corpus M36 browser evidence has an exact rehearsal-database
+  // baseline. It must be selected through its dedicated runner, never the
+  // ordinary browser suite's development/test-database environments.
+  testIgnore: '**/release-anime-catalogue.spec.ts',
   forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
   outputDir: 'test-results/playwright',

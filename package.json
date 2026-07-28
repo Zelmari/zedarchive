@@ -26,6 +26,7 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:browser": "playwright test",
+    "test:browser:release": "playwright test --config playwright.release-catalogue.config.ts",
     "test:browser:headed": "playwright test --headed",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
