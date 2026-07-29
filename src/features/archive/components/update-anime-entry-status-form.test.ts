@@ -69,7 +69,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
     const markup = renderForm()
 
     expect(markup).toContain('In your archive — In progress')
-    expect(markup).toContain('type="button">Edit status</button>')
+    expect(markup).toContain('aria-label="Edit status — Cowboy Bebop"')
     expect(markup).not.toContain(entryId)
   })
 
@@ -80,7 +80,8 @@ describe('UpdateAnimeEntryStatusForm', () => {
 
     const markup = renderForm()
 
-    expect(markup).toContain('disabled="" type="button">Edit status</button>')
+    expect(markup).toContain('disabled=""')
+    expect(markup).toContain('aria-label="Edit status — Cowboy Bebop"')
   })
 
   it('renders the deliberate form with exact mutation fields and all statuses', () => {
@@ -109,8 +110,8 @@ describe('UpdateAnimeEntryStatusForm', () => {
     expect(markup).toContain('<option value="on_hold">On hold</option>')
     expect(markup).toContain('<option value="dropped">Dropped</option>')
     expect(markup).toContain('<option value="completed">Completed</option>')
-    expect(markup).toContain('disabled="" type="submit">Save status</button>')
-    expect(markup).toContain('type="button">Cancel</button>')
+    expect(markup).toContain('aria-label="Save status — Cowboy Bebop"')
+    expect(markup).toContain('aria-label="Cancel status edit — Cowboy Bebop"')
     expect(markup).not.toContain('userId')
   })
 
@@ -124,7 +125,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
     const markup = renderForm()
 
     expect(markup).toContain('<option value="completed" selected="">')
-    expect(markup).toMatch(/<button class="[^"]+" type="submit">Save status/)
+    expect(markup).toContain('aria-label="Save status — Cowboy Bebop"')
   })
 
   it('disables every form control and shows Saving while pending', () => {
@@ -141,7 +142,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
 
     expect(markup).toContain('aria-busy="true"')
     expect(markup.match(/disabled=""/g)).toHaveLength(3)
-    expect(markup).toContain('type="submit">Saving…</button>')
+    expect(markup).toContain('>Saving…</button>')
   })
 
   it('associates and focuses local invalid feedback', () => {

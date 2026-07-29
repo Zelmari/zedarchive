@@ -21,6 +21,7 @@ import type { FeedbackPresentationTone } from '@/features/feedback/feedback-pres
 
 const props = {
   entryId: '550e8400-e29b-41d4-a716-446655440000',
+  animeTitle: 'Cowboy Bebop',
   progress: 7,
   catalogueTotal: 12,
   personalTotal: null,
@@ -90,9 +91,9 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       'Enter a whole personal total of at least 1 episode.',
     )
     expect(markup).toContain(
-      '<form aria-busy="false" class="space-y-2" noValidate="">',
+      '<form aria-busy="false" aria-label="Update personal episode total for Cowboy Bebop"',
     )
-    expect(markup).toContain('type="submit">Save personal total')
+    expect(markup).toContain('aria-label="Save personal total — Cowboy Bebop"')
   })
 
   it('disables Save progress for a numerically equivalent leading-zero value', () => {
@@ -102,7 +103,8 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       createElement(AnimeEntryEpisodeProgressControls, props),
     )
 
-    expect(markup).toContain('disabled="" type="submit">Save progress')
+    expect(markup).toContain('disabled="" type="submit"')
+    expect(markup).toContain('aria-label="Save progress — Cowboy Bebop"')
   })
 
   it('allows changed invalid progress through the form for inline validation', () => {
@@ -112,8 +114,10 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       createElement(AnimeEntryEpisodeProgressControls, props),
     )
 
-    expect(markup).toContain('<form aria-busy="false" noValidate="">')
-    expect(markup).toContain('type="submit">Save progress')
+    expect(markup).toContain(
+      '<form aria-busy="false" aria-label="Update episode progress for Cowboy Bebop"',
+    )
+    expect(markup).toContain('aria-label="Save progress — Cowboy Bebop"')
   })
 
   it('keeps a completion retry open while rendering failure feedback as an alert', () => {
@@ -187,7 +191,7 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       createElement(AnimeEntryEpisodeProgressControls, props),
     )
 
-    expect(markup).toContain('type="button">Reset progress</button>')
+    expect(markup).toContain('aria-label="Reset progress — Cowboy Bebop"')
   })
 
   it('uses the authoritative catalogue total returned by a cleared-total mutation', () => {

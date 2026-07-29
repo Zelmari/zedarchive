@@ -92,8 +92,8 @@ describe('AnimeEntryDateRangeForm', () => {
     expect(markup).toContain('aria-invalid="true"')
     expect(markup).toMatch(/aria-describedby="[^"]+"/)
     expect(markup).toContain('role="alert" tabindex="-1"')
-    expect(markup).toContain('type="submit">Save dates</button>')
-    expect(markup).toContain('type="button">Cancel</button>')
+    expect(markup).toContain('aria-label="Save dates — Date fixture"')
+    expect(markup).toContain('aria-label="Cancel date edit — Date fixture"')
   })
 
   it('uses read labels and focused success feedback after a saved date pair', () => {
@@ -179,7 +179,8 @@ describe('AnimeEntryDateRangeForm', () => {
       }),
     )
 
-    expect(markup).toContain('disabled="" type="submit">Save dates</button>')
+    expect(markup).toContain('disabled="" type="submit"')
+    expect(markup).toContain('>Save dates</button>')
     expect(markup).not.toContain('Saving dates…')
   })
 

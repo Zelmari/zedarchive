@@ -8,7 +8,6 @@ import {
   useRef,
   useSyncExternalStore,
 } from 'react'
-import { useFormStatus } from 'react-dom'
 import { getAccountDeletionFeedback } from '@/features/account-deletion/components/account-deletion-form-state'
 import {
   accountDeletionHydratedValue,
@@ -25,17 +24,34 @@ const subscribeToHydration = () => () => undefined
 const hydratedSnapshot = () => true
 const serverSnapshot = () => false
 
-function CancelButton() {
-  const { pending } = useFormStatus()
-
+function RecoveryCancellationForm({
+  action,
+  describedBy,
+  hydrated,
+  pending,
+}: {
+  action: (formData: FormData) => void
+  describedBy?: string
+  hydrated: boolean
+  pending: boolean
+}) {
   return (
-    <button
-      className="za-button za-button--primary"
-      disabled={pending}
-      type="submit"
-    >
-      {pending ? 'Cancelling account deletion…' : 'Cancel account deletion'}
-    </button>
+    <form action={action} aria-busy={pending} aria-describedby={describedBy}>
+      {hydrated ? (
+        <input
+          name="hydrated"
+          type="hidden"
+          value={accountDeletionHydratedValue}
+        />
+      ) : null}
+      <button
+        className="za-button za-button--primary"
+        disabled={pending}
+        type="submit"
+      >
+        {pending ? 'Cancelling account deletion…' : 'Cancel account deletion'}
+      </button>
+    </form>
   )
 }
 
@@ -44,7 +60,7 @@ export function RecoverableAccountDeletion({
 }: {
   purgeAfter: Date
 }) {
-  const [state, action] = useActionState(
+  const [state, action, cancelPending] = useActionState(
     cancelAccountDeletion,
     initialAccountDeletionActionState,
   )
@@ -124,19 +140,12 @@ export function RecoverableAccountDeletion({
         unavailable until deletion succeeds. Encrypted backups may retain copies
         until they expire.
       </p>
-      <form
+      <RecoveryCancellationForm
         action={action}
-        aria-describedby={feedback ? feedbackId : undefined}
-      >
-        {hydrated ? (
-          <input
-            name="hydrated"
-            type="hidden"
-            value={accountDeletionHydratedValue}
-          />
-        ) : null}
-        <CancelButton />
-      </form>
+        describedBy={feedback ? feedbackId : undefined}
+        hydrated={hydrated}
+        pending={cancelPending}
+      />
       <p
         aria-live={feedbackIsAlert ? undefined : 'polite'}
         className={

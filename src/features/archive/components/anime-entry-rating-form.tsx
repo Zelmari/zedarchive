@@ -97,6 +97,8 @@ export function AnimeEntryRatingForm({
     isPending || !shouldEnableRatingSave(state.value, state.authoritativeRating)
   const isSaving = isPending && pendingCommand === 'save'
   const isRemoving = isPending && pendingCommand === 'remove'
+  const saveLabel = isSaving ? 'Saving rating…' : 'Save rating'
+  const removeLabel = isRemoving ? 'Removing rating…' : 'Remove rating'
   const feedbackIsAlert =
     state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
 
@@ -143,6 +145,7 @@ export function AnimeEntryRatingForm({
             onClick={() => dispatch({ kind: 'open' })}
             ref={launcherRef}
             type="button"
+            aria-label={`${state.authoritativeRating === null ? 'Set rating' : 'Edit rating'} — ${animeTitle}`}
           >
             {state.authoritativeRating === null ? 'Set rating' : 'Edit rating'}
           </button>
@@ -216,8 +219,9 @@ export function AnimeEntryRatingForm({
             className={primaryButtonClassName}
             disabled={isSaveDisabled}
             type="submit"
+            aria-label={`${saveLabel} — ${animeTitle}`}
           >
-            {isSaving ? 'Saving rating…' : 'Save rating'}
+            {saveLabel}
           </button>
           {state.authoritativeRating === null ? null : (
             <button
@@ -225,8 +229,9 @@ export function AnimeEntryRatingForm({
               disabled={isPending}
               onClick={submitRemove}
               type="button"
+              aria-label={`${removeLabel} — ${animeTitle}`}
             >
-              {isRemoving ? 'Removing rating…' : 'Remove rating'}
+              {removeLabel}
             </button>
           )}
           <button
@@ -234,6 +239,7 @@ export function AnimeEntryRatingForm({
             disabled={isPending}
             onClick={() => dispatch({ kind: 'cancel' })}
             type="button"
+            aria-label={`Cancel rating edit — ${animeTitle}`}
           >
             Cancel
           </button>

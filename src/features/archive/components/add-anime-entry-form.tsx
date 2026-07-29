@@ -24,16 +24,18 @@ type AddAnimeEntryFormProps = {
   animeTitle: string
 }
 
-function AddAnimeEntrySubmitButton() {
+function AddAnimeEntrySubmitButton({ animeTitle }: { animeTitle: string }) {
   const { pending } = useFormStatus()
+  const label = pending ? 'Adding…' : 'Add to archive'
 
   return (
     <button
       className="za-button za-button--primary w-full"
       disabled={pending}
       type="submit"
+      aria-label={`${label} — ${animeTitle}`}
     >
-      {pending ? 'Adding…' : 'Add to archive'}
+      {label}
     </button>
   )
 }
@@ -184,7 +186,7 @@ export function AddAnimeEntryForm({
               ))}
             </select>
           </div>
-          <AddAnimeEntrySubmitButton />
+          <AddAnimeEntrySubmitButton animeTitle={animeTitle} />
           {shouldShowFeedback ? (
             <p
               className="text-sm text-destructive"

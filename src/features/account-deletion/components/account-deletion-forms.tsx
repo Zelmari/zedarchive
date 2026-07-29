@@ -159,22 +159,24 @@ function useResendAvailability(
 ) {
   const [previous, setPrevious] = useState(resend)
   const [available, setAvailable] = useState(resend.kind === 'available')
+  const [cooldownExpired, setCooldownExpired] = useState(false)
 
   if (resend !== previous) {
     setPrevious(resend)
     setAvailable(resend.kind === 'available')
+    setCooldownExpired(false)
   }
 
   useEffect(() => {
     if (resend.kind !== 'cooldown' || available) return
-    const timeout = window.setTimeout(
-      () => setAvailable(true),
-      resend.retryAfterMilliseconds,
-    )
+    const timeout = window.setTimeout(() => {
+      setAvailable(true)
+      setCooldownExpired(true)
+    }, resend.retryAfterMilliseconds)
     return () => window.clearTimeout(timeout)
   }, [available, resend])
 
-  return available
+  return { available, cooldownExpired }
 }
 
 function CompletionForm({
@@ -209,6 +211,8 @@ function CompletionForm({
   resendPending: boolean
 }) {
   const codeId = useId()
+  const codeGuidanceId = useId()
+  const cooldownStatusId = useId()
   const confirmationId = useId()
   const confirmationRef = useRef<HTMLInputElement>(null)
   const hydrated = useSyncExternalStore(
@@ -216,12 +220,15 @@ function CompletionForm({
     hydratedSnapshot,
     serverSnapshot,
   )
-  const resendAvailable = useResendAvailability(resend)
+  const { available: resendAvailable, cooldownExpired } =
+    useResendAvailability(resend)
   const anyPending = completePending || resendPending || cancelSetupPending
 
   return (
     <div className="space-y-4">
-      <p>Check your verified email for an eight-digit deletion code.</p>
+      <p id={codeGuidanceId}>
+        Check your verified email for an eight-digit deletion code.
+      </p>
       <p>
         Requesting deletion will immediately restrict this account and sign out
         your other sessions. You can cancel before the 14-day recovery period
@@ -251,9 +258,7 @@ function CompletionForm({
             Deletion code
           </label>
           <input
-            aria-describedby={
-              feedback?.field === 'code' ? feedbackId : undefined
-            }
+            aria-describedby={`${codeGuidanceId}${feedback?.field === 'code' ? ` ${feedbackId}` : ''}`}
             aria-invalid={feedback?.field === 'code' ? true : undefined}
             autoComplete="one-time-code"
             className={fieldClassName}
@@ -319,11 +324,19 @@ function CompletionForm({
               variant="secondary"
             />
             {resend.kind === 'cooldown' && !resendAvailable ? (
-              <p className="mt-2 text-sm text-ink-muted" role="status">
+              <p className="mt-2 text-sm text-ink-muted">
                 Wait a moment before sending another code. Refresh settings
                 after the cooldown if JavaScript is unavailable.
               </p>
             ) : null}
+            <p
+              aria-live="polite"
+              className="mt-2 text-sm text-ink-muted"
+              id={cooldownStatusId}
+              role="status"
+            >
+              {cooldownExpired ? 'You can request another code now.' : ''}
+            </p>
           </form>
         )}
         <form

@@ -4,6 +4,12 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool, type PoolClient } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import {
+  applyWcagTextSpacing,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -256,10 +262,14 @@ function cardForTitle(page: Page, title: string) {
   })
 }
 
+function archiveActionName(action: string, title: string) {
+  return `${action} — ${title}`
+}
+
 async function openRemovalDialog(page: Page, title: string) {
   const card = cardForTitle(page, title)
   const launcher = card.getByRole('button', {
-    name: 'Remove from archive',
+    name: archiveActionName('Remove from archive', title),
     exact: true,
   })
 
@@ -305,7 +315,10 @@ async function expectRemovalDialogPresentation(
 async function confirmRemoval(page: Page, title: string) {
   const { dialog } = await openRemovalDialog(page, title)
   await dialog
-    .getByRole('button', { name: 'Remove from archive', exact: true })
+    .getByRole('button', {
+      name: archiveActionName('Remove from archive', title),
+      exact: true,
+    })
     .click()
   const status = page.getByRole('status').filter({
     hasText: /^Anime removed from your archive\.$/,
@@ -491,6 +504,9 @@ test.beforeAll(async () => {
 })
 
 test.afterEach(async ({ page }) => {
+  if ((await page.locator('dialog[open]').count()) > 0) {
+    await page.goto('/archive/anime?sort=alphabetical')
+  }
   await signOutIfSignedIn(page)
 })
 
@@ -530,6 +546,7 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
   test.setTimeout(90_000)
   const assertNoUnexpectedBrowserErrors = monitorUnexpectedBrowserErrors(page)
   await signIn(page, ownerA)
+  await expectRepresentativeAccessibilityBasics(page)
 
   for (const viewport of [
     { width: 390, height: 844 },
@@ -553,7 +570,7 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
   for (const title of [hiddenTitle, draftTitle]) {
     await expect(
       cardForTitle(page, title).getByRole('button', {
-        name: 'Remove from archive',
+        name: archiveActionName('Remove from archive', title),
         exact: true,
       }),
     ).toBeVisible()
@@ -577,24 +594,53 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
     'Removing this entry permanently deletes its status, episode progress, personal episode total, rating, favourite, and viewing dates. This can’t be undone. The shared catalogue anime will remain.',
   )
   const cancelButton = firstOpen.dialog.getByRole('button', {
-    name: 'Cancel',
+    name: archiveActionName('Cancel removal', sharedTitle),
     exact: true,
   })
   await expect(cancelButton).toBeFocused()
+  await expectTargetAtLeast24Px(cancelButton)
   await expectRemovalDialogPresentation(page, firstOpen.dialog)
-  await page.setViewportSize({ width: 320, height: 568 })
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = '200%'
-  })
-  await expectRemovalDialogPresentation(page, firstOpen.dialog)
-  await page.emulateMedia({ forcedColors: 'active' })
-  await expect(cancelButton).toBeVisible()
-  await expect(firstOpen.dialog).toHaveClass(/\bza-dialog\b/)
-  await page.emulateMedia({ forcedColors: 'none' })
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = ''
-  })
-  await page.setViewportSize({ width: 1280, height: 960 })
+  let spacingAuditCompleted = false
+  try {
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%'
+    })
+    await expectRemovalDialogPresentation(page, firstOpen.dialog)
+    await applyWcagTextSpacing(page)
+    await expectTextSpacingLayout(page, {
+      content: [
+        firstOpen.dialog.getByRole('heading'),
+        firstOpen.dialog.getByText(
+          'Removing this entry permanently deletes its status, episode progress, personal episode total, rating, favourite, and viewing dates. This can’t be undone. The shared catalogue anime will remain.',
+          { exact: true },
+        ),
+      ],
+      controls: [
+        cancelButton,
+        firstOpen.dialog.getByRole('button', {
+          name: archiveActionName('Remove from archive', sharedTitle),
+          exact: true,
+        }),
+      ],
+    })
+    await page.emulateMedia({ forcedColors: 'active' })
+    await expect(cancelButton).toBeVisible()
+    await expect(firstOpen.dialog).toHaveClass(/\bza-dialog\b/)
+    spacingAuditCompleted = true
+  } finally {
+    await page.emulateMedia({ forcedColors: 'none' })
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = ''
+    })
+    await page.setViewportSize({ width: 1280, height: 960 })
+
+    if (!spacingAuditCompleted) {
+      await page.goto('/archive/anime?sort=alphabetical')
+    }
+  }
+  await cancelButton.focus()
+  await expect(cancelButton).toBeFocused()
   const dialogButtons = firstOpen.dialog.getByRole('button')
   await expect(dialogButtons.nth(0)).toHaveText('Cancel')
   await page.keyboard.press('Tab')
@@ -604,12 +650,16 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
   await page.keyboard.press('Enter')
   await expect(firstOpen.dialog).not.toBeVisible()
   await expect(firstOpen.launcher).toBeFocused()
+  await page.goto('/archive/anime?sort=alphabetical')
 
   const secondOpen = await openRemovalDialog(page, sharedTitle)
   await page.mouse.click(1, 1)
   await expect(secondOpen.dialog).toBeVisible()
   await secondOpen.dialog
-    .getByRole('button', { name: 'Cancel', exact: true })
+    .getByRole('button', {
+      name: archiveActionName('Cancel removal', sharedTitle),
+      exact: true,
+    })
     .click()
   await expect(secondOpen.dialog).not.toBeVisible()
   await expect(secondOpen.launcher).toBeFocused()
@@ -634,25 +684,25 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
   try {
     const pendingOpen = await openRemovalDialog(page, sharedTitle)
     const confirmButton = pendingOpen.dialog.getByRole('button', {
-      name: 'Remove from archive',
+      name: archiveActionName('Remove from archive', sharedTitle),
       exact: true,
     })
     await confirmButton.click()
     const pendingConfirmButton = pendingOpen.dialog.getByRole('button', {
-      name: 'Removing…',
+      name: archiveActionName('Removing…', sharedTitle),
       exact: true,
     })
     await expect(pendingConfirmButton).toBeDisabled()
     await expect(
       pendingOpen.dialog.getByRole('button', {
-        name: 'Cancel',
+        name: archiveActionName('Cancel removal', sharedTitle),
         exact: true,
       }),
     ).toBeDisabled()
     await expect(pendingOpen.dialog).toHaveAttribute('aria-busy', 'true')
     await expect(
       pendingOpen.card.getByRole('button', {
-        name: 'Remove from favourites',
+        name: archiveActionName('Remove from favourites', sharedTitle),
         exact: true,
       }),
     ).toBeDisabled()
@@ -828,7 +878,10 @@ test('rejects a mismatched-Origin destructive request without deleting the targe
   )
   try {
     await dialog
-      .getByRole('button', { name: 'Remove from archive', exact: true })
+      .getByRole('button', {
+        name: archiveActionName('Remove from archive', originTitle),
+        exact: true,
+      })
       .click()
     await expect.poll(() => modifiedRequest).toBe(true)
     await rejectionResponse
@@ -893,7 +946,7 @@ test('keeps private archives isolated across an A/B/A principal sequence', async
   ).toBeVisible()
   await expect(
     page.getByRole('button', {
-      name: 'Remove from archive',
+      name: /^Remove from archive — /,
       exact: true,
     }),
   ).toHaveCount(0)

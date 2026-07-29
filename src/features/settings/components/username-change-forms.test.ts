@@ -129,6 +129,9 @@ describe('UsernameChangeForms', () => {
     expect(markup).toMatch(/inputMode="numeric"/)
     expect(markup).toMatch(/maxLength="8"/)
     expect(markup).toMatch(/pattern="\[0-9\]\{8\}"/)
+    expect(markup).toMatch(
+      /aria-describedby="[^"]+"[^>]*autoComplete="one-time-code"/,
+    )
     expect(markup).toContain(
       'I understand that I can only change my username once.',
     )
@@ -156,6 +159,8 @@ describe('UsernameChangeForms', () => {
     expect(markup).toMatch(/disabled=""[^>]*>Send another code<\/button>/)
     expect(markup).toContain('You can send another code after a short wait.')
     expect(markup).toContain('Refresh settings if JavaScript is unavailable.')
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).not.toContain('You can request another code now.')
   })
 
   it('removes resend when the server says the reauthentication window cannot continue', () => {

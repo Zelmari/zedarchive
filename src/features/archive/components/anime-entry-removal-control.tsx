@@ -75,6 +75,9 @@ export function AnimeEntryRemovalControl({
   const handledFocusVersionRef = useRef(0)
   const hasPublishedRemovalRef = useRef(false)
   const isSubmittingRef = useRef(false)
+  const confirmLabel = isOwnOperationPending
+    ? 'Removing…'
+    : 'Remove from archive'
 
   useEffect(() => {
     if (state.mode === 'open' && !dialogRef.current?.open) {
@@ -160,6 +163,7 @@ export function AnimeEntryRemovalControl({
         }}
         ref={launcherRef}
         type="button"
+        aria-label={`Remove from archive — ${animeTitle}`}
       >
         Remove from archive
       </button>
@@ -206,6 +210,7 @@ export function AnimeEntryRemovalControl({
               onClick={cancelRemoval}
               ref={cancelRef}
               type="button"
+              aria-label={`Cancel removal — ${animeTitle}`}
             >
               Cancel
             </button>
@@ -213,8 +218,9 @@ export function AnimeEntryRemovalControl({
               className={destructiveButtonClassName}
               disabled={isPending}
               type="submit"
+              aria-label={`${confirmLabel} — ${animeTitle}`}
             >
-              {isOwnOperationPending ? 'Removing…' : 'Remove from archive'}
+              {confirmLabel}
             </button>
           </div>
         </form>

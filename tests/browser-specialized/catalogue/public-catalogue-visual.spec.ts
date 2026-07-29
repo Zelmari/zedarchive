@@ -2,6 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../../src/config/database-environment'
+import {
+  applyWcagTextSpacing,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from '../../browser/helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -312,6 +318,7 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
     await expect(
       page.getByRole('searchbox', { name: 'Search anime' }),
     ).toBeVisible()
+    await expectRepresentativeAccessibilityBasics(page)
     await expectRaisedPaper(page, page.locator('main > header'))
     await expectGridColumnCount(page, viewport.columns)
     const card = page.locator('article').first()
@@ -320,6 +327,12 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
     await expectReachable(
       page,
       page.getByRole('searchbox', { name: 'Search anime' }),
+    )
+    await expectTargetAtLeast24Px(
+      page.getByRole('searchbox', { name: 'Search anime' }),
+    )
+    await expectTargetAtLeast24Px(
+      page.getByRole('button', { name: 'Search', exact: true }),
     )
   }
   await expect
@@ -453,6 +466,18 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
     masthead,
   )
 
+  await applyWcagTextSpacing(page)
+  await expectTextSpacingLayout(page, {
+    content: [
+      page.getByRole('heading', { name: 'Anime catalogue', exact: true }),
+      page.locator('article').first().getByRole('heading'),
+    ],
+    controls: [
+      page.getByRole('searchbox', { name: 'Search anime' }),
+      page.getByRole('button', { name: 'Search', exact: true }),
+    ],
+  })
+
   await page.goto('/?q=Cowboy%20Bebop')
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%'
@@ -479,7 +504,7 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
   assertBoundedBrowserEvidence()
 })
 
-test('preserves the public GET shell and streamed response without JavaScript', async ({
+test('preserves complete public GET results and native recovery without JavaScript', async ({
   browser,
 }) => {
   const context = await browser.newContext({ javaScriptEnabled: false })
@@ -493,8 +518,12 @@ test('preserves the public GET shell and streamed response without JavaScript', 
       page.getByRole('searchbox', { name: 'Search anime' }),
     ).toBeVisible()
     await expect(
-      page.getByText('Loading anime catalogue…', { exact: true }),
+      page.getByRole('heading', { name: 'Cowboy Bebop', exact: true }),
     ).toBeVisible()
+    await expect(page.getByText(/^\d+ anime$/, { exact: true })).toBeVisible()
+    await expect(
+      page.getByText('Loading anime catalogue…', { exact: true }),
+    ).toHaveCount(0)
     await expect(
       page.locator('input[name="catalogueItemId"], select[name="status"]'),
     ).toHaveCount(0)
@@ -510,11 +539,19 @@ test('preserves the public GET shell and streamed response without JavaScript', 
     expect(searchHtml).toContain('1 result for')
     expect(searchHtml).toContain('Cowboy Bebop')
     await expect(
-      page.getByText('Loading anime catalogue…', { exact: true }),
+      page.getByRole('heading', { name: 'Cowboy Bebop', exact: true }),
     ).toBeVisible()
+    await expect(page.getByText('1 result for "Cowboy Bebop"')).toBeVisible()
     await expect(
-      page.getByRole('link', { name: 'Browse all anime' }),
-    ).toHaveAttribute('href', '/')
+      page.getByText('Loading anime catalogue…', { exact: true }),
+    ).toHaveCount(0)
+    const browseAllLink = page.getByRole('link', { name: 'Browse all anime' })
+    await expect(browseAllLink).toHaveAttribute('href', '/')
+    await Promise.all([page.waitForNavigation(), browseAllLink.click()])
+    await expect(page).toHaveURL('/')
+    await expect(
+      page.getByRole('heading', { name: 'Cowboy Bebop', exact: true }),
+    ).toBeVisible()
 
     const invalidResponse = await page.goto('/?q=one&q=two')
     expect(invalidResponse?.status()).toBe(200)
@@ -535,8 +572,21 @@ test('preserves the public GET shell and streamed response without JavaScript', 
     expect(await beyondFinalResponse!.text()).toContain(
       'Return to the first page to continue browsing.',
     )
+    const recoveryLink = page.getByRole('link', {
+      name: 'Return to the first page to continue browsing.',
+      exact: true,
+    })
+    await expect(
+      page.getByRole('heading', { name: 'This page has no results' }),
+    ).toBeVisible()
+    await expect(recoveryLink).toHaveAttribute('href', '/')
     await expect(
       page.getByText('Loading anime catalogue…', { exact: true }),
+    ).toHaveCount(0)
+    await Promise.all([page.waitForNavigation(), recoveryLink.click()])
+    await expect(page).toHaveURL('/')
+    await expect(
+      page.getByRole('heading', { name: 'Cowboy Bebop', exact: true }),
     ).toBeVisible()
   } finally {
     assertBoundedBrowserEvidence()

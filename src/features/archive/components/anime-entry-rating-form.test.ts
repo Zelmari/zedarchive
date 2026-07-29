@@ -90,9 +90,9 @@ describe('AnimeEntryRatingForm', () => {
     expect(markup).toContain('aria-invalid="true"')
     expect(markup).toMatch(/aria-describedby="[^"]+"/)
     expect(markup).toContain('role="alert" tabindex="-1"')
-    expect(markup).toContain('type="submit">Save rating')
-    expect(markup).toContain('type="button">Remove rating</button>')
-    expect(markup).toContain('type="button">Cancel</button>')
+    expect(markup).toContain('aria-label="Save rating — Rating fixture"')
+    expect(markup).toContain('aria-label="Remove rating — Rating fixture"')
+    expect(markup).toContain('aria-label="Cancel rating edit — Rating fixture"')
   })
 
   it('shows operation-specific pending copy without offering removal for unrated entries', () => {

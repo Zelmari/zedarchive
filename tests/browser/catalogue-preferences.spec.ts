@@ -4,6 +4,10 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import {
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+} from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -242,6 +246,10 @@ function cardForTitle(page: Page, title: string) {
   return page.locator('article').filter({
     has: page.getByRole('heading', { name: title, exact: true }),
   })
+}
+
+function animeActionName(action: string, title: string) {
+  return `${action} — ${title}`
 }
 
 async function expectPrivateNoStore(response: {
@@ -740,6 +748,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   await page.goto('/settings')
   const settingsSheets = page.locator('main#main-content .za-card--raised')
   await expect(settingsSheets).toHaveCount(4)
+  await expectRepresentativeAccessibilityBasics(page)
+  await expect(
+    page.getByRole('link', { name: 'Settings', exact: true }),
+  ).toHaveAttribute('aria-current', 'page')
   for (const heading of [
     'Catalogue preferences',
     'Username',
@@ -775,6 +787,12 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   await expect(
     page.getByRole('button', { name: 'Show adult content' }),
   ).toBeVisible()
+  await expectTargetAtLeast24Px(
+    page.getByRole('radio', { name: 'English (default)' }),
+  )
+  await expectTargetAtLeast24Px(
+    page.getByRole('button', { name: 'Show adult content' }),
+  )
   expect(await preferenceRow(ownerAId)).toBeUndefined()
 
   await page.goto(`/?q=${encodeURIComponent(languageSearchSentinel)}`)
@@ -1030,7 +1048,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   await expectInsideCardAndViewport(page, adultAddCard, adultStatusSelect)
 
   await adultAddCard
-    .getByRole('button', { name: 'Add to archive', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Add to archive', adultPublishedAddTitle),
+      exact: true,
+    })
     .click()
   const addValidationAlert = adultAddCard.getByRole('alert').filter({
     hasText: /^Select a status before adding this anime to your archive\.$/,
@@ -1043,7 +1064,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
 
   await adultStatusSelect.selectOption('planned')
   await adultAddCard
-    .getByRole('button', { name: 'Add to archive', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Add to archive', adultPublishedAddTitle),
+      exact: true,
+    })
     .click()
   await expect(
     adultAddCard.getByRole('status').filter({
@@ -1131,10 +1155,16 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
     const card = cardForTitle(page, title)
     await expect(card).toContainText('Adult content')
     await expect(
-      card.getByRole('button', { name: 'Edit status', exact: true }),
+      card.getByRole('button', {
+        name: animeActionName('Edit status', title),
+        exact: true,
+      }),
     ).toBeVisible()
     await expect(
-      card.getByRole('button', { name: 'Remove from archive', exact: true }),
+      card.getByRole('button', {
+        name: animeActionName('Remove from archive', title),
+        exact: true,
+      }),
     ).toBeVisible()
   }
   for (const title of [adultHiddenOwnedTitle, adultDraftRemovalTitle]) {
@@ -1145,13 +1175,19 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
 
   const publishedOwnedCard = cardForTitle(page, adultPublishedOwnedTitle)
   await publishedOwnedCard
-    .getByRole('button', { name: 'Edit status', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Edit status', adultPublishedOwnedTitle),
+      exact: true,
+    })
     .click()
   await publishedOwnedCard
     .getByRole('combobox', { name: 'Status' })
     .selectOption('in_progress')
   await publishedOwnedCard
-    .getByRole('button', { name: 'Save status', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Save status', adultPublishedOwnedTitle),
+      exact: true,
+    })
     .click()
   await expect(
     publishedOwnedCard.getByRole('status').filter({
@@ -1166,7 +1202,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
 
   const draftRemovalCard = cardForTitle(page, adultDraftRemovalTitle)
   await draftRemovalCard
-    .getByRole('button', { name: 'Remove from archive', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Remove from archive', adultDraftRemovalTitle),
+      exact: true,
+    })
     .click()
   const removalDialog = page.getByRole('dialog', {
     name: `Remove ${adultDraftRemovalTitle} from your archive?`,
@@ -1174,7 +1213,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   })
   await expect(removalDialog).toBeVisible()
   await removalDialog
-    .getByRole('button', { name: 'Remove from archive', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Remove from archive', adultDraftRemovalTitle),
+      exact: true,
+    })
     .click()
   await expect(cardForTitle(page, adultDraftRemovalTitle)).toHaveCount(0)
   const removedEntry = await pool.query<{ count: number }>(
@@ -1185,7 +1227,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
 
   const hiddenCardWithStaleAction = cardForTitle(page, adultHiddenOwnedTitle)
   await hiddenCardWithStaleAction
-    .getByRole('button', { name: 'Edit status', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Edit status', adultHiddenOwnedTitle),
+      exact: true,
+    })
     .click()
   await hiddenCardWithStaleAction
     .getByRole('combobox', { name: 'Status' })
@@ -1210,7 +1255,10 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   }
 
   await hiddenCardWithStaleAction
-    .getByRole('button', { name: 'Save status', exact: true })
+    .getByRole('button', {
+      name: animeActionName('Save status', adultHiddenOwnedTitle),
+      exact: true,
+    })
     .click()
   await expect(
     hiddenCardWithStaleAction.getByRole('alert').filter({
@@ -1243,7 +1291,7 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   ).toHaveCount(3)
   await expect(page.locator('input[name="entryId"], dialog')).toHaveCount(0)
   await expect(
-    page.getByRole('button', { name: 'Remove from archive', exact: true }),
+    page.getByRole('button', { name: /^Remove from archive — / }),
   ).toHaveCount(0)
 
   await signOutIfSignedIn(page)

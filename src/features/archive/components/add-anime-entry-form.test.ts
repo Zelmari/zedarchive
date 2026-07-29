@@ -83,6 +83,21 @@ describe('getAddAnimeEntryStatusValidationError', () => {
 })
 
 describe('AddAnimeEntryForm', () => {
+  it('keeps the visible action phrase while naming the anime for assistive technology', () => {
+    useActionState.mockReturnValue([{ kind: 'idle' }, vi.fn(), false])
+    useFormStatus.mockReturnValue({ pending: false })
+
+    const markup = renderToStaticMarkup(
+      createElement(AddAnimeEntryForm, {
+        animeTitle: 'Cowboy Bebop',
+        catalogueItemId: '550e8400-e29b-41d4-a716-446655440000',
+      }),
+    )
+
+    expect(markup).toContain('>Add to archive</button>')
+    expect(markup).toContain('aria-label="Add to archive — Cowboy Bebop"')
+  })
+
   it('renders a labeled, deliberate status form without user identity input', () => {
     useActionState.mockReturnValue([{ kind: 'idle' }, vi.fn(), false])
     useFormStatus.mockReturnValue({ pending: false })
@@ -149,7 +164,8 @@ describe('AddAnimeEntryForm', () => {
     expect(markup).toContain('required=""')
     expect(markup).toContain('disabled=""')
     expect(markup).toContain('<button class=')
-    expect(markup).toContain('disabled="" type="submit">Adding…</button>')
+    expect(markup).toContain('disabled="" type="submit"')
+    expect(markup).toContain('>Adding…</button>')
   })
 
   it('offers a focused alert with a sign-in recovery link', () => {

@@ -24,6 +24,7 @@ const subscribeToHydration = () => () => undefined
 
 type Props = {
   entryId: string
+  animeTitle: string
   isFavourite: boolean
   isPending: boolean
   isOwnOperationPending: boolean
@@ -34,6 +35,7 @@ type Props = {
 
 export function AnimeEntryFavouriteControl({
   entryId,
+  animeTitle,
   isFavourite,
   isPending,
   isOwnOperationPending,
@@ -83,6 +85,11 @@ export function AnimeEntryFavouriteControl({
   const pendingCopy = state.authoritativeFavourite
     ? 'Removing from favourites…'
     : 'Adding to favourites…'
+  const actionCopy = isOwnOperationPending
+    ? pendingCopy
+    : state.authoritativeFavourite
+      ? 'Remove from favourites'
+      : 'Add to favourites'
   const feedbackIsAlert =
     state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
 
@@ -99,12 +106,9 @@ export function AnimeEntryFavouriteControl({
           disabled={isPending}
           onClick={() => void submit()}
           type="button"
+          aria-label={`${actionCopy} — ${animeTitle}`}
         >
-          {isOwnOperationPending
-            ? pendingCopy
-            : state.authoritativeFavourite
-              ? 'Remove from favourites'
-              : 'Add to favourites'}
+          {actionCopy}
         </button>
       ) : null}
       {state.feedback === null ? null : (

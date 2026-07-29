@@ -37,6 +37,7 @@ const tertiaryButtonClassName = 'za-button za-button--tertiary'
 
 type Props = {
   entryId: string
+  animeTitle: string
   progress: number
   catalogueTotal: number | null
   personalTotal: number | null
@@ -121,6 +122,7 @@ function getMutationFeedbackTone(
 
 export function AnimeEntryEpisodeProgressControls({
   entryId,
+  animeTitle,
   progress,
   catalogueTotal,
   personalTotal,
@@ -169,6 +171,23 @@ export function AnimeEntryEpisodeProgressControls({
   const isCompleting = isPending && pendingCommand === 'completion'
   const feedbackIsAlert =
     feedbackTone === null ? false : isAlertFeedbackTone(feedbackTone)
+  const completionLabel = isCompleting ? 'Marking completed…' : 'Mark completed'
+  const resetLabel = isResettingProgress
+    ? 'Resetting progress…'
+    : 'Reset progress'
+  const saveTotalLabel = isSavingTotal
+    ? 'Saving personal total…'
+    : 'Save personal total'
+  const clearTotalLabel = isClearingTotal
+    ? catalogueTotal === null
+      ? 'Removing personal total…'
+      : 'Using catalogue total…'
+    : catalogueTotal === null
+      ? 'Remove personal total'
+      : 'Use catalogue total'
+  const saveProgressLabel = isSavingProgress
+    ? 'Saving progress…'
+    : 'Save progress'
 
   useEffect(() => {
     if (
@@ -347,6 +366,7 @@ export function AnimeEntryEpisodeProgressControls({
           }}
           ref={editProgressButtonRef}
           type="button"
+          aria-label={`Edit progress — ${animeTitle}`}
         >
           Edit progress
         </button>
@@ -377,8 +397,9 @@ export function AnimeEntryEpisodeProgressControls({
               disabled={isPending}
               onClick={markCompleted}
               type="button"
+              aria-label={`${completionLabel} — ${animeTitle}`}
             >
-              {isCompleting ? 'Marking completed…' : 'Mark completed'}
+              {completionLabel}
             </button>
             <button
               className={secondaryButtonClassName}
@@ -391,6 +412,7 @@ export function AnimeEntryEpisodeProgressControls({
                 )
               }}
               type="button"
+              aria-label={`Keep current status — ${animeTitle}`}
             >
               Keep current status
             </button>
@@ -413,8 +435,9 @@ export function AnimeEntryEpisodeProgressControls({
             onClick={() => submitProgress(0, true)}
             ref={resetConfirmButtonRef}
             type="button"
+            aria-label={`${resetLabel} — ${animeTitle}`}
           >
-            {isResettingProgress ? 'Resetting progress…' : 'Reset progress'}
+            {resetLabel}
           </button>
           <button
             className={tertiaryButtonClassName}
@@ -425,6 +448,7 @@ export function AnimeEntryEpisodeProgressControls({
               focusAfterRender(resetProgressButtonRef)
             }}
             type="button"
+            aria-label={`Cancel reset progress — ${animeTitle}`}
           >
             Cancel
           </button>
@@ -447,6 +471,7 @@ export function AnimeEntryEpisodeProgressControls({
     return (
       <form
         aria-busy={isPending}
+        aria-label={`Update personal episode total for ${animeTitle}`}
         className="space-y-2"
         noValidate
         onSubmit={(event) => {
@@ -491,8 +516,9 @@ export function AnimeEntryEpisodeProgressControls({
               isPending || !shouldEnableTotalSave(totalValue, personalTotal)
             }
             type="submit"
+            aria-label={`${saveTotalLabel} — ${animeTitle}`}
           >
-            {isSavingTotal ? 'Saving personal total…' : 'Save personal total'}
+            {saveTotalLabel}
           </button>
           {personalTotal === null ? null : (
             <button
@@ -502,14 +528,9 @@ export function AnimeEntryEpisodeProgressControls({
                 void submitTotal(episodeTotalNoneSentinel, 'clear_total')
               }
               type="button"
+              aria-label={`${clearTotalLabel} — ${animeTitle}`}
             >
-              {isClearingTotal
-                ? catalogueTotal === null
-                  ? 'Removing personal total…'
-                  : 'Using catalogue total…'
-                : catalogueTotal === null
-                  ? 'Remove personal total'
-                  : 'Use catalogue total'}
+              {clearTotalLabel}
             </button>
           )}
           <button
@@ -521,6 +542,7 @@ export function AnimeEntryEpisodeProgressControls({
               focusAfterRender(totalButtonRef)
             }}
             type="button"
+            aria-label={`Cancel personal total edit — ${animeTitle}`}
           >
             Cancel
           </button>
@@ -544,6 +566,7 @@ export function AnimeEntryEpisodeProgressControls({
     <div className="space-y-2">
       <form
         aria-busy={isPending}
+        aria-label={`Update episode progress for ${animeTitle}`}
         noValidate
         onSubmit={(event) => {
           event.preventDefault()
@@ -584,8 +607,9 @@ export function AnimeEntryEpisodeProgressControls({
             className={primaryButtonClassName}
             disabled={isPending || !shouldEnableProgressSave(value, progress)}
             type="submit"
+            aria-label={`${saveProgressLabel} — ${animeTitle}`}
           >
-            {isSavingProgress ? 'Saving progress…' : 'Save progress'}
+            {saveProgressLabel}
           </button>
           <button
             className={tertiaryButtonClassName}
@@ -596,6 +620,7 @@ export function AnimeEntryEpisodeProgressControls({
               focusAfterRender(editProgressButtonRef)
             }}
             type="button"
+            aria-label={`Cancel progress edit — ${animeTitle}`}
           >
             Cancel
           </button>
@@ -614,6 +639,7 @@ export function AnimeEntryEpisodeProgressControls({
         }}
         ref={totalButtonRef}
         type="button"
+        aria-label={`${personalTotal === null ? 'Set personal total' : 'Change personal total'} — ${animeTitle}`}
       >
         {personalTotal === null
           ? 'Set personal total'
@@ -630,6 +656,7 @@ export function AnimeEntryEpisodeProgressControls({
           }}
           ref={resetProgressButtonRef}
           type="button"
+          aria-label={`Reset progress — ${animeTitle}`}
         >
           Reset progress
         </button>

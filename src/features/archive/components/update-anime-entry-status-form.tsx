@@ -93,6 +93,7 @@ export function UpdateAnimeEntryStatusForm({
     feedback === null ? false : isAlertFeedbackTone(feedback.tone)
   const isSaveDisabled =
     isPending || formState.selectedStatus === formState.authoritativeStatus
+  const saveLabel = isPending ? 'Saving…' : 'Save status'
 
   return (
     <div className="space-y-2">
@@ -109,6 +110,7 @@ export function UpdateAnimeEntryStatusForm({
               onClick={() => dispatch({ kind: 'open' })}
               ref={editButtonRef}
               type="button"
+              aria-label={`Edit status — ${animeTitle}`}
             >
               Edit status
             </button>
@@ -166,14 +168,16 @@ export function UpdateAnimeEntryStatusForm({
               className={primaryButtonClassName}
               disabled={isSaveDisabled}
               type="submit"
+              aria-label={`${saveLabel} — ${animeTitle}`}
             >
-              {isPending ? 'Saving…' : 'Save status'}
+              {saveLabel}
             </button>
             <button
               className={tertiaryButtonClassName}
               disabled={isPending}
               onClick={() => dispatch({ kind: 'cancel' })}
               type="button"
+              aria-label={`Cancel status edit — ${animeTitle}`}
             >
               Cancel
             </button>

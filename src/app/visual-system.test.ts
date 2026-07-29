@@ -117,6 +117,7 @@ describe('visual system contract', () => {
     }
 
     expect(ratio('accent', 'accent-soft')).toBeGreaterThanOrEqual(4.5)
+    expect(ratio('accent', 'surface-subtle')).toBeGreaterThanOrEqual(4.5)
     expect(ratio('on-accent', 'accent')).toBeGreaterThanOrEqual(4.5)
     expect(ratio('on-accent', 'accent-hover')).toBeGreaterThanOrEqual(4.5)
     expect(ratio('on-accent', 'accent-active')).toBeGreaterThanOrEqual(4.5)
@@ -177,6 +178,51 @@ describe('visual system contract', () => {
 
     expect(css).toMatch(
       /\.za-button--selected\s*\{[\s\S]*?border-color: var\(--za-color-accent\);[\s\S]*?background: var\(--za-color-accent-soft\);[\s\S]*?color: var\(--za-color-accent\);/,
+    )
+  })
+
+  it('keeps current-page links exact, persistent, and visible without colour alone', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /\.za-current-page\s*\{[\s\S]*?background: var\(--za-color-accent-soft\);[\s\S]*?box-shadow: inset 0 -2px 0 var\(--za-color-accent\);[\s\S]*?font-weight: var\(--za-weight-heading\);[\s\S]*?text-decoration-thickness: 2px;/,
+    )
+    expect(css).toMatch(
+      /@media \(forced-colors: active\)\s*\{[\s\S]*?\.za-current-page\s*\{[\s\S]*?background: Canvas;[\s\S]*?box-shadow: inset 0 -2px 0 Highlight;[\s\S]*?color: LinkText;/,
+    )
+    expect(css).toMatch(
+      /@media \(forced-colors: active\)\s*\{[\s\S]*?\.za-wordmark\.za-current-page\s*\{\s*text-decoration-line: underline;\s*text-decoration-style: double;\s*text-underline-offset: 0\.15em;/,
+    )
+    expect(css).not.toContain('forced-color-adjust: none')
+  })
+
+  it('keeps a current secondary button selected after ordinary button variants', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+    const secondaryStart = css.indexOf('.za-button--secondary {')
+    const buttonStart = css.indexOf('.za-button {')
+    const currentButtonStart = css.indexOf('.za-button.za-current-page {')
+
+    expect(currentButtonStart).toBeGreaterThan(buttonStart)
+    expect(currentButtonStart).toBeGreaterThan(secondaryStart)
+    expect(css.slice(currentButtonStart)).toMatch(
+      /\.za-button\.za-current-page\s*\{\s*border-color: var\(--za-color-accent\);\s*background: var\(--za-color-accent-soft\);\s*color: var\(--za-color-accent\);\s*font-weight: var\(--za-weight-heading\);/,
+    )
+    expect(css.slice(currentButtonStart)).toMatch(
+      /\.za-button\.za-current-page:hover\s*\{\s*border-color: var\(--za-color-accent-hover\);\s*background: var\(--za-color-surface-subtle\);\s*color: var\(--za-color-accent-hover\);/,
+    )
+    expect(css.slice(currentButtonStart)).toMatch(
+      /\.za-button\.za-current-page:active\s*\{\s*border-color: var\(--za-color-accent-active\);\s*color: var\(--za-color-accent-active\);/,
+    )
+    expect(css).toMatch(
+      /@media \(forced-colors: active\)\s*\{[\s\S]*?\.za-button\.za-current-page\s*\{\s*border-color: Highlight;/,
+    )
+  })
+
+  it('strengthens muted text and decorative boundaries only in increased-contrast mode', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /@media \(prefers-contrast: more\)\s*\{\s*:root\s*\{\s*--za-color-text-muted: var\(--za-color-text\);\s*--za-color-border-decorative: var\(--za-color-border-required\);/,
     )
   })
 
@@ -293,6 +339,9 @@ describe('visual system contract', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     expect(css).toContain('@media (forced-colors: active)')
     expect(css).toContain('outline-color: Highlight;')
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?transition-duration: var\(--za-motion-reduced\);[\s\S]*?animation-duration: var\(--za-motion-reduced\);/,
+    )
     expect(css).toMatch(
       /\.za-site-header\s*\{[\s\S]*?background: var\(--za-color-surface\);/,
     )

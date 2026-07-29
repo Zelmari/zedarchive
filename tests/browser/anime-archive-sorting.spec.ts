@@ -4,6 +4,13 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import {
+  applyWcagTextSpacing,
+  expectNoDocumentHorizontalOverflow,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -427,6 +434,32 @@ test('sorts the complete private archive, persists only through Apply, and prese
   await expect(page.locator('body')).not.toContainText('M29 Favourite Alpha')
 
   await signIn(page, ownerA)
+  await page.goto('/archive/anime?sort=alphabetical')
+
+  await expectRepresentativeAccessibilityBasics(page)
+  await expect(
+    page.getByRole('link', { name: 'My anime', exact: true }),
+  ).toHaveAttribute('aria-current', 'page')
+  await expectTargetAtLeast24Px(page.locator('select[name="sort"]'))
+  await expectTargetAtLeast24Px(
+    page.getByRole('button', { name: 'Apply sort', exact: true }),
+  )
+  await page.setViewportSize({ width: 1280, height: 960 })
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  await expectNoDocumentHorizontalOverflow(page)
+  await applyWcagTextSpacing(page)
+  await expectTextSpacingLayout(page, {
+    content: [
+      page.getByRole('heading', { name: 'Your anime archive', exact: true }),
+      page.locator('article').first().getByRole('heading'),
+    ],
+    controls: [
+      page.locator('select[name="sort"]'),
+      page.getByRole('button', { name: 'Apply sort', exact: true }),
+    ],
+  })
   await page.goto('/archive/anime?sort=alphabetical')
 
   await expect(page.locator('select[name="sort"]')).toHaveValue('alphabetical')

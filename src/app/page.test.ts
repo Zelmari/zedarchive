@@ -1,0 +1,45 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
+
+const { AnimeCatalogueResults } = vi.hoisted(() => ({
+  AnimeCatalogueResults: vi.fn(({ pageQuery }) =>
+    createElement(
+      'section',
+      { 'data-catalogue-results': pageQuery.kind },
+      'Complete catalogue results',
+    ),
+  ),
+}))
+
+vi.mock('@/features/anime/catalogue/anime-catalogue-results', () => ({
+  AnimeCatalogueResults,
+}))
+
+import HomePage from '@/app/page'
+
+describe('HomePage catalogue rendering', () => {
+  it('renders complete valid results directly rather than a Suspense loading fallback', async () => {
+    const markup = renderToStaticMarkup(
+      await HomePage({ searchParams: Promise.resolve({ page: '2' }) }),
+    )
+
+    expect(markup).toContain('data-catalogue-results="browse"')
+    expect(markup).toContain('Complete catalogue results')
+    expect(markup).not.toContain('Loading anime catalogue')
+  })
+
+  it('associates invalid search feedback with the search input and skips results', async () => {
+    const markup = renderToStaticMarkup(
+      await HomePage({
+        searchParams: Promise.resolve({ q: ['Cowboy Bebop', 'Bebop'] }),
+      }),
+    )
+
+    expect(markup).toContain('aria-invalid="true"')
+    expect(markup).toContain('aria-describedby="anime-search-query-error"')
+    expect(markup).toContain('id="anime-search-query-error"')
+    expect(markup).toContain('role="alert"')
+    expect(markup).not.toContain('data-catalogue-results')
+  })
+})

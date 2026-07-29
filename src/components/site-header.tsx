@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import Link from 'next/link'
+import { CurrentPageLink } from '@/components/current-page-link'
 import { productName } from '@/config/product-identity'
 import { SignOutButton } from '@/features/auth/components/sign-out-button'
 import { PublicUsername } from '@/features/identity/components/public-username'
@@ -27,49 +27,52 @@ export async function SiteHeader() {
 
   return (
     <header className="za-site-header">
-      <div className="za-container za-container--wide flex flex-wrap items-center justify-between gap-4 py-4 sm:py-6">
-        <Link className="za-wordmark za-link" href="/">
+      <div className="za-container za-container--wide za-site-header__inner">
+        <CurrentPageLink
+          className="za-wordmark za-link za-site-header__brand"
+          href="/"
+        >
           {productName}
-        </Link>
+        </CurrentPageLink>
         {signedInUsername ? (
-          <nav
-            aria-label="Primary"
-            className="flex min-w-0 flex-wrap items-center gap-4"
-          >
-            <Link className={primaryArchiveLinkClassName} href="/archive/anime">
+          <nav aria-label="Primary" className="za-site-header__nav">
+            <CurrentPageLink
+              className={primaryArchiveLinkClassName}
+              href="/archive/anime"
+            >
               My anime
-            </Link>
+            </CurrentPageLink>
           </nav>
         ) : null}
-        <nav
-          aria-label="Account"
-          className="flex min-w-0 flex-wrap items-center gap-4"
-        >
+        <nav aria-label="Account" className="za-site-header__nav">
           {restricted ? (
             <>
-              <Link className={linkClassName} href="/account/deletion">
+              <CurrentPageLink
+                className={linkClassName}
+                href="/account/deletion"
+              >
                 Account deletion
-              </Link>
+              </CurrentPageLink>
               <SignOutButton />
             </>
           ) : signedInUsername ? (
             <>
-              <span className="min-w-0 break-all">
+              <span className="za-site-header__identity">
                 <PublicUsername username={signedInUsername} />
               </span>
-              <Link className={linkClassName} href="/settings">
+              <CurrentPageLink className={linkClassName} href="/settings">
                 Settings
-              </Link>
+              </CurrentPageLink>
               <SignOutButton />
             </>
           ) : (
             <>
-              <Link className={linkClassName} href="/sign-in">
+              <CurrentPageLink className={linkClassName} href="/sign-in">
                 Sign in
-              </Link>
-              <Link className={linkClassName} href="/register">
+              </CurrentPageLink>
+              <CurrentPageLink className={linkClassName} href="/register">
                 Register
-              </Link>
+              </CurrentPageLink>
             </>
           )}
         </nav>

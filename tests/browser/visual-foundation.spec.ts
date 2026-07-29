@@ -647,6 +647,21 @@ test('renders the compiled visual foundation specimen without changing the appli
       page.getByRole('button', { name: 'Save archive' }),
     ).toBeVisible()
     await expect(page.getByLabel('Search archive')).toBeVisible()
+    const increasedContrastTokens = await page.evaluate(() => {
+      const style = getComputedStyle(document.documentElement)
+      return {
+        decorative: style
+          .getPropertyValue('--za-color-border-decorative')
+          .trim(),
+        muted: style.getPropertyValue('--za-color-text-muted').trim(),
+        required: style.getPropertyValue('--za-color-border-required').trim(),
+        text: style.getPropertyValue('--za-color-text').trim(),
+      }
+    })
+    expect(increasedContrastTokens.muted).toBe(increasedContrastTokens.text)
+    expect(increasedContrastTokens.decorative).toBe(
+      increasedContrastTokens.required,
+    )
   } else {
     test.info().annotations.push({
       type: 'capability-gap',
@@ -767,6 +782,127 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
   assertBoundedBrowserEvidence()
 })
 
+test('exposes exact current-page semantics before and after hydration', async ({
+  browser,
+  page,
+}) => {
+  const assertBoundedBrowserEvidence = monitorBoundedBrowserEvidence(page)
+
+  for (const [route, label] of [
+    ['/', 'zedarchive'],
+    ['/sign-in?from=register', 'Sign in'],
+    ['/register', 'Register'],
+  ] as const) {
+    const response = await page.goto(route)
+    expect(response?.status()).toBe(200)
+    await expect(
+      page.getByRole('link', { name: label, exact: true }),
+    ).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('a[aria-current="page"]')).toHaveCount(1)
+  }
+
+  for (const route of ['/forgot-password', '/register/check-email'] as const) {
+    const response = await page.goto(route)
+    expect(response?.status()).toBe(200)
+    await expect(page.locator('a[aria-current="page"]')).toHaveCount(0)
+  }
+
+  await page.goto('/sign-in')
+  await page
+    .getByRole('navigation', { name: 'Account', exact: true })
+    .getByRole('link', { name: 'Register', exact: true })
+    .click()
+  await expect(page).toHaveURL('/register')
+  await expect(
+    page.getByRole('link', { name: 'Register', exact: true }),
+  ).toHaveAttribute('aria-current', 'page')
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Account', exact: true })
+      .getByRole('link', { name: 'Sign in', exact: true }),
+  ).not.toHaveAttribute('aria-current', 'page')
+
+  await page.emulateMedia({ forcedColors: 'active' })
+  const currentLink = page.getByRole('link', {
+    name: 'Register',
+    exact: true,
+  })
+  await expect(currentLink).toHaveAttribute('aria-current', 'page')
+  expect(
+    await computedValue(page, 'a[aria-current="page"]', 'font-weight'),
+  ).toBe('600')
+  expect(
+    await computedValue(page, 'a[aria-current="page"]', 'forced-color-adjust'),
+  ).not.toBe('none')
+
+  await page.goto('/')
+  const forcedColourHome = page.getByRole('link', {
+    name: 'zedarchive',
+    exact: true,
+  })
+  await expect(forcedColourHome).toHaveAttribute('aria-current', 'page')
+  expect(
+    await computedValue(
+      page,
+      '.za-wordmark[aria-current="page"]',
+      'text-decoration-line',
+    ),
+  ).toBe('underline')
+  expect(
+    await computedValue(
+      page,
+      '.za-wordmark[aria-current="page"]',
+      'text-decoration-style',
+    ),
+  ).toBe('double')
+  expect(
+    await computedValue(
+      page,
+      '.za-wordmark[aria-current="page"]',
+      'forced-color-adjust',
+    ),
+  ).not.toBe('none')
+
+  const noJavaScriptContext = await browser.newContext({
+    javaScriptEnabled: false,
+  })
+  const noJavaScriptPage = await noJavaScriptContext.newPage()
+  try {
+    for (const [route, label] of [
+      ['/sign-in?from=register', 'Sign in'],
+      ['/register', 'Register'],
+    ] as const) {
+      const response = await noJavaScriptPage.goto(
+        `${applicationOrigin}${route}`,
+      )
+      expect(response?.status()).toBe(200)
+      await expect(
+        noJavaScriptPage.getByRole('link', { name: label, exact: true }),
+      ).toHaveAttribute('aria-current', 'page')
+      await expect(
+        noJavaScriptPage.locator('a[aria-current="page"]'),
+      ).toHaveCount(1)
+    }
+
+    for (const route of [
+      '/forgot-password',
+      '/register/check-email',
+    ] as const) {
+      const response = await noJavaScriptPage.goto(
+        `${applicationOrigin}${route}`,
+      )
+      expect(response?.status()).toBe(200)
+      await expect(
+        noJavaScriptPage.locator('a[aria-current="page"]'),
+      ).toHaveCount(0)
+    }
+  } finally {
+    await noJavaScriptContext.close()
+  }
+
+  assertBoundedBrowserEvidence()
+})
+
 test('keeps the exact maximum-length signed-in username shell reachable at every M37 viewport', async ({
   page,
 }) => {
@@ -808,6 +944,8 @@ test('keeps the exact maximum-length signed-in username shell reachable at every
     await expect(identity).toBeVisible()
     await expect(settings).toBeVisible()
     await expect(signOut).toBeVisible()
+    await expect(brand).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('a[aria-current="page"]')).toHaveCount(1)
     await expectNoHorizontalOverflow(page)
 
     const landmarkOrder = await page.getByRole('banner').evaluate((header) => {
@@ -857,7 +995,7 @@ test('keeps the exact maximum-length signed-in username shell reachable at every
       scrollsHorizontally: false,
       textOverflow: 'clip',
       whiteSpace: 'normal',
-      wordBreak: 'break-all',
+      wordBreak: 'break-word',
     })
 
     for (const locator of [
@@ -874,6 +1012,101 @@ test('keeps the exact maximum-length signed-in username shell reachable at every
       expect(box!.x).toBeGreaterThanOrEqual(0)
       expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 0.5)
     }
+  }
+
+  await page.setViewportSize({ width: 1280, height: 960 })
+  await page.goto('/')
+  const ordinaryArchiveLink = page
+    .getByRole('navigation', { name: 'Primary', exact: true })
+    .getByRole('link', { name: 'My anime', exact: true })
+  const ordinarySecondarySurface = await resolvedTokenColour(
+    page,
+    '--za-color-surface',
+    'background-color',
+  )
+  const ordinarySecondaryBorder = await resolvedTokenColour(
+    page,
+    '--za-color-border-required',
+    'border-color',
+  )
+  expect(
+    await computedValue(
+      page,
+      'nav[aria-label="Primary"] a',
+      'background-color',
+    ),
+  ).toBe(ordinarySecondarySurface)
+  expect(
+    await computedValue(
+      page,
+      'nav[aria-label="Primary"] a',
+      'border-top-color',
+    ),
+  ).toBe(ordinarySecondaryBorder)
+  await expect(ordinaryArchiveLink).not.toHaveAttribute('aria-current', 'page')
+
+  await page.goto('/archive/anime')
+  const currentArchiveLink = page
+    .getByRole('navigation', { name: 'Primary', exact: true })
+    .getByRole('link', { name: 'My anime', exact: true })
+  const selectedSurface = await resolvedTokenColour(
+    page,
+    '--za-color-accent-soft',
+    'background-color',
+  )
+  const selectedBorder = await resolvedTokenColour(
+    page,
+    '--za-color-accent',
+    'border-color',
+  )
+  await expect(currentArchiveLink).toHaveAttribute('aria-current', 'page')
+  expect(
+    await computedValue(
+      page,
+      'nav[aria-label="Primary"] a',
+      'background-color',
+    ),
+  ).toBe(selectedSurface)
+  expect(
+    await computedValue(
+      page,
+      'nav[aria-label="Primary"] a',
+      'border-top-color',
+    ),
+  ).toBe(selectedBorder)
+  expect(
+    await computedValue(page, 'nav[aria-label="Primary"] a', 'font-weight'),
+  ).toBe('600')
+  await currentArchiveLink.focus()
+  expect(
+    await computedValue(page, 'nav[aria-label="Primary"] a', 'outline-width'),
+  ).toBe('3px')
+  expect(
+    await computedValue(page, 'nav[aria-label="Primary"] a', 'outline-offset'),
+  ).toBe('3px')
+
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.goto('/settings')
+  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  const account = page.getByRole('navigation', {
+    name: 'Account',
+    exact: true,
+  })
+  const identity = page.getByText(`@${owner.username}`, { exact: true })
+  const settings = account.getByRole('link', {
+    name: 'Settings',
+    exact: true,
+  })
+  const signOut = account.getByRole('button', {
+    name: 'Sign out',
+    exact: true,
+  })
+  await expect(settings).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('a[aria-current="page"]')).toHaveCount(1)
+  await expectNoHorizontalOverflow(page)
+  for (const locator of [account, identity, settings, signOut]) {
+    await locator.scrollIntoViewIfNeeded()
+    await expectLocatorHorizontallyReachable(page, locator)
   }
 
   assertBoundedBrowserEvidence()

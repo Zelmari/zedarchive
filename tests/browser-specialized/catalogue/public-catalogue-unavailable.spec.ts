@@ -80,14 +80,14 @@ test.beforeAll(async () => {
   await expectPortOneToRefuseConnections()
 })
 
-test('keeps database failures private and retryable in the production error boundary', async ({
+test('returns complete privacy-safe 500 catalogue failures through the production error boundary', async ({
   page,
 }) => {
   test.setTimeout(120_000)
   const assertBoundedUnavailableEvidence =
     monitorBoundedUnavailableEvidence(page)
   const initialResponse = await page.goto('/')
-  expect(initialResponse?.status()).toBe(200)
+  expect(initialResponse?.status()).toBe(500)
   await expectPrivacySafeUnavailableMarkup(page)
 
   await page.locator('#main-content').focus()

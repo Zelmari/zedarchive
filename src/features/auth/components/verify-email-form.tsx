@@ -7,6 +7,10 @@ import {
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
 import {
+  AuthNoScriptNotice,
+  useAuthHydrated,
+} from '@/features/auth/components/auth-hydration'
+import {
   AUTH_INVALID_VERIFICATION_LINK_MESSAGE,
   translateAuthError,
 } from '@/features/auth/domain/auth-error-messages'
@@ -27,6 +31,7 @@ function readVerificationTokenFromLocation(): string | null {
 
 export function VerifyEmailForm() {
   const statusRef = useRef<HTMLParagraphElement>(null)
+  const hasHydrated = useAuthHydrated()
   const tokenRef = useRef<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -119,7 +124,11 @@ export function VerifyEmailForm() {
 
       <p>Confirm that you want to verify the email address for this account.</p>
 
-      <button className={buttonClassName} disabled={isPending} type="submit">
+      <button
+        className={buttonClassName}
+        disabled={!hasHydrated || isPending}
+        type="submit"
+      >
         {isPending ? 'Verifying email…' : 'Verify email'}
       </button>
 
@@ -130,6 +139,10 @@ export function VerifyEmailForm() {
           </a>
         </p>
       ) : null}
+      <AuthNoScriptNotice>
+        JavaScript is required to verify your email. Enable JavaScript and try
+        again.
+      </AuthNoScriptNotice>
     </form>
   )
 }

@@ -288,6 +288,7 @@ export function AnimeEntryTrackingCoordinator({
         />
         <AnimeEntryFavouriteControl
           entryId={entryId}
+          animeTitle={animeTitle}
           isFavourite={state.isFavourite}
           isOwnOperationPending={isFavouritePending}
           isPending={isPending}
@@ -336,6 +337,7 @@ export function AnimeEntryTrackingCoordinator({
           <AnimeEntryEpisodeProgressControls
             catalogueTotal={state.catalogueTotal}
             entryId={entryId}
+            animeTitle={animeTitle}
             isPending={isPending}
             onProgressSubmit={(formData, operation) =>
               runMutation(

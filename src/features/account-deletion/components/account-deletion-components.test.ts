@@ -143,6 +143,9 @@ describe('AccountDeletionForms', () => {
     expect(markup).toMatch(/autoComplete="one-time-code"/)
     expect(markup).toMatch(/inputMode="numeric"/)
     expect(markup).toMatch(/pattern="\[0-9\]\{8\}"/)
+    expect(markup).toMatch(
+      /aria-describedby="[^"]+"[^>]*autoComplete="one-time-code"/,
+    )
     expect(markup.indexOf('Deletion code')).toBeLessThan(
       markup.indexOf('I understand that this account'),
     )
@@ -171,6 +174,8 @@ describe('AccountDeletionForms', () => {
     expect(markup).toContain(
       'Refresh settings after the cooldown if JavaScript is unavailable.',
     )
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).not.toContain('You can request another code now.')
   })
 })
 
@@ -227,6 +232,7 @@ describe('account deletion recovery presentation', () => {
       '<time dateTime="2026-08-25T14:30:00.000Z">25 August 2026 at 14:30 UTC</time>',
     )
     expect(markup).toContain('Cancel account deletion')
+    expect(markup).toMatch(/<form[^>]*aria-busy="false"/)
     expect(markup).not.toContain('username=')
     expect(markup).toMatch(
       /<p aria-live="polite" id="[^"]+" role="status" tabindex="-1"><\/p>/,

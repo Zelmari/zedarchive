@@ -7,6 +7,10 @@ import {
   getAuthClientErrorInput,
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
+import {
+  AuthNoScriptNotice,
+  useAuthHydrated,
+} from '@/features/auth/components/auth-hydration'
 import { forgotPasswordFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
   AUTH_VALIDATION_ERROR_MESSAGE,
@@ -21,6 +25,7 @@ const linkClassName = 'za-link'
 
 export function ForgotPasswordForm() {
   const router = useRouter()
+  const hasHydrated = useAuthHydrated()
   const statusRef = useRef<HTMLParagraphElement>(null)
   const emailId = useId()
 
@@ -96,7 +101,7 @@ export function ForgotPasswordForm() {
           aria-invalid={fieldError ? true : undefined}
           autoComplete="email"
           className={fieldClassName}
-          disabled={isPending}
+          disabled={!hasHydrated || isPending}
           id={emailId}
           name="email"
           onChange={(event) => setEmail(event.target.value)}
@@ -115,7 +120,11 @@ export function ForgotPasswordForm() {
         ) : null}
       </div>
 
-      <button className={buttonClassName} disabled={isPending} type="submit">
+      <button
+        className={buttonClassName}
+        disabled={!hasHydrated || isPending}
+        type="submit"
+      >
         {isPending ? 'Sending reset link…' : 'Send reset link'}
       </button>
 
@@ -124,6 +133,10 @@ export function ForgotPasswordForm() {
           Back to sign in
         </a>
       </p>
+      <AuthNoScriptNotice>
+        JavaScript is required to request a password reset. Enable JavaScript
+        and try again.
+      </AuthNoScriptNotice>
     </form>
   )
 }

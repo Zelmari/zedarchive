@@ -7,6 +7,9 @@ const SESSION_LOOKUP_PRIVATE_DETAIL =
 const { resolveAccountAccess } = vi.hoisted(() => ({
   resolveAccountAccess: vi.fn(),
 }))
+const { pathname } = vi.hoisted(() => ({
+  pathname: { value: '/' },
+}))
 
 vi.mock('@/server/auth/auth', () => ({
   resolveAccountAccess,
@@ -14,6 +17,10 @@ vi.mock('@/server/auth/auth', () => ({
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
+}))
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname.value,
 }))
 
 vi.mock('@/features/auth/components/sign-out-button', () => ({
@@ -27,6 +34,7 @@ describe('SiteHeader', () => {
 
   beforeEach(() => {
     resolveAccountAccess.mockReset()
+    pathname.value = '/'
     consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)
@@ -87,13 +95,114 @@ describe('SiteHeader', () => {
 
     expect(markup).toContain('<header class="za-site-header">')
     expect(markup).toContain('za-container za-container--wide')
-    expect(markup).toContain('class="za-wordmark za-link"')
+    expect(markup).toContain(
+      'class="za-wordmark za-link za-site-header__brand za-current-page"',
+    )
     expect(markup).toContain('href="/"')
     expect(markup).toContain('class="za-link" href="/sign-in"')
     expect(markup).toContain('class="za-link" href="/register"')
     expect(markup).toContain('aria-label="Account"')
     expect(markup).not.toContain('aria-label="Primary"')
     expect(markup).not.toContain('href="/archive/anime"')
+  })
+
+  it.each([
+    {
+      access: { status: 'signed_out' },
+      label: 'zedarchive',
+      route: '/',
+    },
+    {
+      access: { status: 'signed_out' },
+      label: 'Sign in',
+      route: '/sign-in',
+    },
+    {
+      access: { status: 'signed_out' },
+      label: 'Register',
+      route: '/register',
+    },
+    {
+      access: {
+        status: 'active',
+        session: {
+          user: { id: 'user-id', name: 'Zelmari' },
+          session: { id: 'session-id', userId: 'user-id' },
+        },
+      },
+      label: 'My anime',
+      route: '/archive/anime',
+    },
+    {
+      access: {
+        status: 'active',
+        session: {
+          user: { id: 'user-id', name: 'Zelmari' },
+          session: { id: 'session-id', userId: 'user-id' },
+        },
+      },
+      label: 'Settings',
+      route: '/settings',
+    },
+    {
+      access: {
+        status: 'deletion_due',
+        session: {
+          user: { id: 'user-id', name: 'PrivateName' },
+          session: { id: 'session-id', userId: 'user-id' },
+        },
+      },
+      label: 'Account deletion',
+      route: '/account/deletion',
+    },
+  ])(
+    'marks only $label current on $route',
+    async ({ access, label, route }) => {
+      pathname.value = route
+      resolveAccountAccess.mockResolvedValue(access)
+
+      const markup = renderToStaticMarkup(await SiteHeader())
+      const currentLink = markup.match(
+        /<a aria-current="page" class="[^"]+" href="[^"]+">([^<]+)<\/a>/,
+      )
+
+      expect(currentLink?.[1]).toBe(label)
+      expect(markup.match(/aria-current="page"/g)).toHaveLength(1)
+    },
+  )
+
+  it('does not imply that a visible parent link is current on a child route', async () => {
+    pathname.value = '/register/check-email'
+    resolveAccountAccess.mockResolvedValue({ status: 'signed_out' })
+
+    const markup = renderToStaticMarkup(await SiteHeader())
+
+    expect(markup).not.toContain('aria-current')
+  })
+
+  it('adds the current recipe to My anime only on its exact route', async () => {
+    resolveAccountAccess.mockResolvedValue({
+      status: 'active',
+      session: {
+        user: { id: 'user-id', name: 'Zelmari' },
+        session: { id: 'session-id', userId: 'user-id' },
+      },
+    })
+
+    pathname.value = '/'
+    const ordinaryMarkup = renderToStaticMarkup(await SiteHeader())
+    expect(ordinaryMarkup).toContain(
+      'class="za-button za-button--secondary" href="/archive/anime"',
+    )
+    expect(ordinaryMarkup).not.toContain(
+      'class="za-button za-button--secondary za-current-page"',
+    )
+
+    pathname.value = '/archive/anime'
+    const currentMarkup = renderToStaticMarkup(await SiteHeader())
+    expect(currentMarkup).toContain(
+      'aria-current="page" class="za-button za-button--secondary za-current-page" href="/archive/anime"',
+    )
   })
 
   it('does not expose primary archive navigation when signed out', async () => {

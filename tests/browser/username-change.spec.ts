@@ -5,6 +5,13 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import {
+  applyWcagTextSpacing,
+  expectNoDocumentHorizontalOverflow as expectNoDocumentHorizontalOverflowForAccessibility,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -448,6 +455,39 @@ test('protects and completes the one-time username-change journey', async ({
     ).toHaveCount(0)
 
     await signIn(page, owners.a)
+    await page.goto('/settings')
+    await expectRepresentativeAccessibilityBasics(page)
+    await expectTargetAtLeast24Px(
+      getUsernameSection(page).getByRole('button', {
+        name: 'Send verification code',
+        exact: true,
+      }),
+    )
+    await page.setViewportSize({ width: 1280, height: 960 })
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%'
+    })
+    await expectNoDocumentHorizontalOverflowForAccessibility(page)
+    await applyWcagTextSpacing(page)
+    await expectTextSpacingLayout(page, {
+      content: [
+        page.getByRole('heading', { name: 'Username', exact: true }),
+        getUsernameSection(page).getByText(
+          'Your username is public and can only be changed once.',
+          { exact: true },
+        ),
+      ],
+      controls: [
+        getUsernameSection(page).getByRole('textbox', {
+          name: 'New username',
+        }),
+        getUsernameSection(page).getByRole('button', {
+          name: 'Send verification code',
+          exact: true,
+        }),
+      ],
+    })
+    await page.goto('/settings')
     for (const viewport of [
       { width: 390, height: 844 },
       { width: 768, height: 1024 },
@@ -515,6 +555,12 @@ test('protects and completes the one-time username-change journey', async ({
     await expect(
       page.getByText('Check your verified email for an eight-digit code.'),
     ).toBeVisible()
+    await expectRepresentativeAccessibilityBasics(page)
+    await expectTargetAtLeast24Px(
+      getUsernameSection(page).getByRole('textbox', {
+        name: 'Verification code',
+      }),
+    )
     expect(await challengeFor(ownerAId)).toMatchObject({
       failed_code_attempts: 0,
       proposed_username: changedUsername,
@@ -526,6 +572,40 @@ test('protects and completes the one-time username-change journey', async ({
       ownerAId,
       ownerBId,
     ])
+
+    const cooldownPage = await page.context().newPage()
+    await cooldownPage.clock.install()
+    const cooldownResponse = await cooldownPage.goto('/settings')
+    expect(cooldownResponse?.status()).toBe(200)
+    await expectPrivateNoStore(cooldownResponse!)
+    const cooldownForm = getUsernameSection(cooldownPage)
+      .getByRole('button', { name: 'Send another code', exact: true })
+      .locator('..')
+    const cooldownStatus = cooldownForm.locator('[role="status"]')
+    await expect(cooldownStatus).toHaveAttribute('aria-live', 'polite')
+    await expect(cooldownStatus).toHaveText('')
+    const cooldownStatusElement = await cooldownStatus.elementHandle()
+    if (cooldownStatusElement === null) {
+      throw new Error('Username cooldown status region was not rendered')
+    }
+    await cooldownPage.clock.fastForward(60_000)
+    await expect(cooldownStatus).toHaveText('You can request another code now.')
+    expect(
+      await cooldownStatusElement.evaluate((element) => ({
+        connected: element.isConnected,
+        text: element.textContent,
+      })),
+    ).toEqual({
+      connected: true,
+      text: 'You can request another code now.',
+    })
+    await expect(
+      cooldownForm.getByRole('button', {
+        name: 'Send another code',
+        exact: true,
+      }),
+    ).toBeEnabled()
+    await cooldownPage.close()
 
     const privateHtml = await page.content()
     for (const privateValue of [

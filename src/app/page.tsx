@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { AnimeCatalogueResults } from '@/features/anime/catalogue/anime-catalogue-results'
 import {
   buildAnimeCataloguePageHref,
@@ -29,13 +28,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     showBrowseClearLink = true
   }
 
-  const resultsKey =
-    pageQuery.kind === 'browse'
-      ? `browse:${pageQuery.page}`
-      : pageQuery.kind === 'search'
-        ? `search:${pageQuery.query}:${pageQuery.page}`
-        : null
-
   return (
     <main
       id="main-content"
@@ -56,6 +48,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               Search anime
             </label>
             <input
+              aria-describedby={
+                isQueryFieldInvalid ? 'anime-search-query-error' : undefined
+              }
               aria-invalid={isQueryFieldInvalid ? true : undefined}
               className="za-field"
               defaultValue={searchDefaultValue}
@@ -75,23 +70,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           ) : null}
         </form>
         {pageQuery.kind === 'validation-error' ? (
-          <p className="za-notice za-notice--error" role="alert">
+          <p
+            className="za-notice za-notice--error"
+            id="anime-search-query-error"
+            role="alert"
+          >
             {pageQuery.message}
           </p>
         ) : null}
       </header>
 
       {pageQuery.kind === 'validation-error' ? null : (
-        <Suspense
-          fallback={
-            <p className="za-notice za-notice--information" role="status">
-              Loading anime catalogue…
-            </p>
-          }
-          key={resultsKey}
-        >
-          <AnimeCatalogueResults pageQuery={pageQuery} />
-        </Suspense>
+        <AnimeCatalogueResults pageQuery={pageQuery} />
       )}
     </main>
   )

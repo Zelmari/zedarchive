@@ -6,6 +6,10 @@ import {
   getAuthClientErrorInput,
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
+import {
+  AuthNoScriptNotice,
+  useAuthHydrated,
+} from '@/features/auth/components/auth-hydration'
 import { PasswordField } from '@/features/auth/components/password-field'
 import { resetPasswordFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
@@ -34,6 +38,7 @@ function readResetTokenFromLocation(): string | null {
 
 export function ResetPasswordForm() {
   const statusRef = useRef<HTMLParagraphElement>(null)
+  const hasHydrated = useAuthHydrated()
   const tokenRef = useRef<string | null>(null)
   const passwordId = useId()
 
@@ -172,7 +177,7 @@ export function ResetPasswordForm() {
       <PasswordField
         autoComplete="new-password"
         describedBy={fieldError ? `${passwordId}-error` : undefined}
-        disabled={isPending}
+        disabled={!hasHydrated || isPending}
         hint={`${passwordMinimumLength}–${passwordMaximumLength} characters. Spaces are allowed. Passwords that have appeared in known data breaches are rejected.`}
         id={passwordId}
         invalid={Boolean(fieldError)}
@@ -191,7 +196,11 @@ export function ResetPasswordForm() {
         </p>
       ) : null}
 
-      <button className={buttonClassName} disabled={isPending} type="submit">
+      <button
+        className={buttonClassName}
+        disabled={!hasHydrated || isPending}
+        type="submit"
+      >
         {isPending ? 'Changing password…' : 'Change password'}
       </button>
 
@@ -200,6 +209,10 @@ export function ResetPasswordForm() {
           Request a new reset link
         </a>
       </p>
+      <AuthNoScriptNotice>
+        JavaScript is required to reset your password. Enable JavaScript and try
+        again.
+      </AuthNoScriptNotice>
     </form>
   )
 }

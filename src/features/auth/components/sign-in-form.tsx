@@ -7,6 +7,10 @@ import {
   getAuthClientErrorInput,
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
+import {
+  AuthNoScriptNotice,
+  useAuthHydrated,
+} from '@/features/auth/components/auth-hydration'
 import { PasswordField } from '@/features/auth/components/password-field'
 import { signInFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
@@ -30,6 +34,7 @@ type FieldName = 'email' | 'password'
 
 export function SignInForm() {
   const router = useRouter()
+  const hasHydrated = useAuthHydrated()
   const statusRef = useRef<HTMLParagraphElement>(null)
   const emailId = useId()
   const passwordId = useId()
@@ -171,7 +176,7 @@ export function SignInForm() {
           aria-invalid={fieldErrors.email ? true : undefined}
           autoComplete="email"
           className={fieldClassName}
-          disabled={isPending || isResendPending}
+          disabled={!hasHydrated || isPending || isResendPending}
           id={emailId}
           name="email"
           onChange={(event) => setEmail(event.target.value)}
@@ -193,7 +198,7 @@ export function SignInForm() {
       <PasswordField
         autoComplete="current-password"
         describedBy={fieldErrors.password ? `${passwordId}-error` : undefined}
-        disabled={isPending || isResendPending}
+        disabled={!hasHydrated || isPending || isResendPending}
         id={passwordId}
         invalid={Boolean(fieldErrors.password)}
         label="Password"
@@ -213,7 +218,7 @@ export function SignInForm() {
 
       <button
         className={buttonClassName}
-        disabled={isPending || isResendPending}
+        disabled={!hasHydrated || isPending || isResendPending}
         type="submit"
       >
         {isPending ? 'Signing in…' : 'Sign in'}
@@ -223,7 +228,7 @@ export function SignInForm() {
         <div className="space-y-2">
           <button
             className={secondaryButtonClassName}
-            disabled={isPending || isResendPending}
+            disabled={!hasHydrated || isPending || isResendPending}
             onClick={() => void handleResendVerification()}
             type="button"
           >
@@ -246,6 +251,9 @@ export function SignInForm() {
           Register
         </a>
       </p>
+      <AuthNoScriptNotice>
+        JavaScript is required to sign in. Enable JavaScript and try again.
+      </AuthNoScriptNotice>
     </form>
   )
 }

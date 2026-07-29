@@ -7,6 +7,10 @@ import {
   getAuthClientErrorInput,
 } from '@/features/auth/client/auth-client'
 import { AuthFormStatus } from '@/features/auth/components/auth-form-status'
+import {
+  AuthNoScriptNotice,
+  useAuthHydrated,
+} from '@/features/auth/components/auth-hydration'
 import { PasswordField } from '@/features/auth/components/password-field'
 import { registrationFormSchema } from '@/features/auth/domain/auth-form-validation'
 import {
@@ -52,6 +56,7 @@ type FieldName = 'username' | 'email' | 'password'
 
 export function RegisterForm() {
   const router = useRouter()
+  const hasHydrated = useAuthHydrated()
   const statusRef = useRef<HTMLParagraphElement>(null)
   const usernameId = useId()
   const emailId = useId()
@@ -378,7 +383,7 @@ export function RegisterForm() {
           aria-invalid={usernameIsInvalid ? true : undefined}
           autoComplete="username"
           className={fieldClassName}
-          disabled={isPending}
+          disabled={!hasHydrated || isPending}
           id={usernameId}
           maxLength={usernameMaximumLength}
           minLength={usernameMinimumLength}
@@ -394,54 +399,35 @@ export function RegisterForm() {
           numbers, hyphens, and underscores. Must start and end with a letter or
           number.
         </p>
-        {showAvailabilityStatus && availability.status === 'checking' ? (
-          <p
-            aria-live="polite"
-            className="text-sm text-ink-muted"
-            id={usernameStatusId}
-            role="status"
-          >
-            {USERNAME_AVAILABILITY_CHECKING_MESSAGE}
-          </p>
-        ) : null}
-        {showAvailabilityStatus && availability.status === 'available' ? (
-          <p
-            aria-live={
-              currentAvailableDisplayUsername === availability.displayUsername
-                ? 'polite'
-                : undefined
-            }
-            className="text-sm text-ink-muted"
-            id={usernameStatusId}
-            role={
-              currentAvailableDisplayUsername === availability.displayUsername
-                ? 'status'
-                : undefined
-            }
-          >
-            <PublicUsername
-              username={
-                currentAvailableDisplayUsername ?? availability.displayUsername
-              }
-            />{' '}
-            is available.
-          </p>
-        ) : null}
-        {showAvailabilityStatus && availability.status === 'unavailable' ? (
-          <p className="text-sm text-destructive" id={usernameStatusId}>
-            {USERNAME_AVAILABILITY_UNAVAILABLE_MESSAGE}
-          </p>
-        ) : null}
-        {showAvailabilityStatus && availability.status === 'unknown' ? (
-          <p
-            aria-live="polite"
-            className="text-sm text-ink-muted"
-            id={usernameStatusId}
-            role="status"
-          >
-            {USERNAME_AVAILABILITY_UNKNOWN_MESSAGE}
-          </p>
-        ) : null}
+        <p
+          aria-live="polite"
+          className={
+            availability.status === 'unavailable'
+              ? 'text-sm text-destructive'
+              : 'text-sm text-ink-muted'
+          }
+          id={usernameStatusId}
+          role="status"
+        >
+          {showAvailabilityStatus && availability.status === 'checking' ? (
+            USERNAME_AVAILABILITY_CHECKING_MESSAGE
+          ) : showAvailabilityStatus && availability.status === 'available' ? (
+            <>
+              <PublicUsername
+                username={
+                  currentAvailableDisplayUsername ??
+                  availability.displayUsername
+                }
+              />{' '}
+              is available.
+            </>
+          ) : showAvailabilityStatus &&
+            availability.status === 'unavailable' ? (
+            USERNAME_AVAILABILITY_UNAVAILABLE_MESSAGE
+          ) : showAvailabilityStatus && availability.status === 'unknown' ? (
+            USERNAME_AVAILABILITY_UNKNOWN_MESSAGE
+          ) : null}
+        </p>
         {fieldErrors.username ? (
           <p
             className="text-sm text-destructive"
@@ -462,7 +448,7 @@ export function RegisterForm() {
           aria-invalid={fieldErrors.email ? true : undefined}
           autoComplete="email"
           className={fieldClassName}
-          disabled={isPending}
+          disabled={!hasHydrated || isPending}
           id={emailId}
           name="email"
           onChange={(event) => setEmail(event.target.value)}
@@ -487,7 +473,7 @@ export function RegisterForm() {
       <PasswordField
         autoComplete="new-password"
         describedBy={fieldErrors.password ? `${passwordId}-error` : undefined}
-        disabled={isPending}
+        disabled={!hasHydrated || isPending}
         hint={`${passwordMinimumLength}–${passwordMaximumLength} characters. Spaces are allowed. Passwords that have appeared in known data breaches are rejected.`}
         id={passwordId}
         invalid={Boolean(fieldErrors.password)}
@@ -506,7 +492,11 @@ export function RegisterForm() {
         </p>
       ) : null}
 
-      <button className={buttonClassName} disabled={isPending} type="submit">
+      <button
+        className={buttonClassName}
+        disabled={!hasHydrated || isPending}
+        type="submit"
+      >
         {isPending ? 'Creating account…' : 'Create account'}
       </button>
 
@@ -516,6 +506,10 @@ export function RegisterForm() {
           Sign in
         </a>
       </p>
+      <AuthNoScriptNotice>
+        JavaScript is required to create an account. Enable JavaScript and try
+        again.
+      </AuthNoScriptNotice>
     </form>
   )
 }

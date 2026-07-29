@@ -114,6 +114,7 @@ export function AnimeEntryDateRangeForm({
     state.authoritativeFinishDate === null
   const feedbackIsAlert =
     state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
+  const saveLabel = isOwnOperationPending ? 'Saving dates…' : 'Save dates'
 
   if (state.mode === 'read') {
     return (
@@ -127,6 +128,7 @@ export function AnimeEntryDateRangeForm({
             onClick={() => dispatch({ kind: 'open' })}
             ref={launcherRef}
             type="button"
+            aria-label={`${hasNoDates ? 'Set dates' : 'Edit dates'} — ${animeTitle}`}
           >
             {hasNoDates ? 'Set dates' : 'Edit dates'}
           </button>
@@ -234,14 +236,16 @@ export function AnimeEntryDateRangeForm({
             className={primaryButtonClassName}
             disabled={isSaveDisabled}
             type="submit"
+            aria-label={`${saveLabel} — ${animeTitle}`}
           >
-            {isOwnOperationPending ? 'Saving dates…' : 'Save dates'}
+            {saveLabel}
           </button>
           <button
             className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => dispatch({ kind: 'cancel' })}
             type="button"
+            aria-label={`Cancel date edit — ${animeTitle}`}
           >
             Cancel
           </button>

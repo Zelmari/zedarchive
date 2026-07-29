@@ -11,6 +11,13 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import {
+  applyWcagTextSpacing,
+  expectNoDocumentHorizontalOverflow as expectNoDocumentHorizontalOverflowForAccessibility,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 test.describe.configure({ mode: 'serial' })
@@ -892,6 +899,10 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
 
     const settingsSheets = page.locator('main#main-content .za-card--raised')
     await expect(settingsSheets).toHaveCount(4)
+    await expectRepresentativeAccessibilityBasics(page)
+    await expectTargetAtLeast24Px(
+      page.getByRole('button', { name: 'Send deletion code', exact: true }),
+    )
     const settingsDeletionSheet = page
       .getByRole('heading', { name: 'Delete account', exact: true })
       .locator('xpath=ancestor::section[1]')
@@ -914,6 +925,24 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     await page.evaluate(() => {
       document.documentElement.style.fontSize = ''
     })
+
+    await page.setViewportSize({ width: 1280, height: 960 })
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%'
+    })
+    await expectNoDocumentHorizontalOverflowForAccessibility(page)
+    await applyWcagTextSpacing(page)
+    await expectTextSpacingLayout(page, {
+      content: [
+        page.getByRole('heading', { name: 'Delete account', exact: true }),
+        deletionSection(page).getByText('Current password', { exact: true }),
+      ],
+      controls: [
+        currentPasswordField(page),
+        page.getByRole('button', { name: 'Send deletion code', exact: true }),
+      ],
+    })
+    await page.goto('/settings')
 
     const preservedBefore = await preservedOwnerAData()
     const staleSettingsPage = await page.context().newPage()
@@ -958,6 +987,40 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       ),
     ).toBeVisible()
 
+    const cooldownPage = await page.context().newPage()
+    await cooldownPage.clock.install()
+    const cooldownResponse = await cooldownPage.goto('/settings')
+    expect(cooldownResponse?.status()).toBe(200)
+    await expectPrivateNoStore(cooldownResponse!)
+    const cooldownForm = cooldownPage
+      .getByRole('button', { name: 'Send another code', exact: true })
+      .locator('..')
+    const cooldownStatus = cooldownForm.locator('[role="status"]')
+    await expect(cooldownStatus).toHaveAttribute('aria-live', 'polite')
+    await expect(cooldownStatus).toHaveText('')
+    const cooldownStatusElement = await cooldownStatus.elementHandle()
+    if (cooldownStatusElement === null) {
+      throw new Error('Deletion cooldown status region was not rendered')
+    }
+    await cooldownPage.clock.fastForward(60_000)
+    await expect(cooldownStatus).toHaveText('You can request another code now.')
+    expect(
+      await cooldownStatusElement.evaluate((element) => ({
+        connected: element.isConnected,
+        text: element.textContent,
+      })),
+    ).toEqual({
+      connected: true,
+      text: 'You can request another code now.',
+    })
+    await expect(
+      cooldownForm.getByRole('button', {
+        name: 'Send another code',
+        exact: true,
+      }),
+    ).toBeEnabled()
+    await cooldownPage.close()
+
     await pool.query(
       `update deletion_challenges
        set last_sent_at = last_sent_at - interval '61 seconds',
@@ -978,6 +1041,9 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
 
     const codeInput = page.getByRole('textbox', { name: 'Deletion code' })
     const confirmation = deletionConfirmation(page)
+    await expectRepresentativeAccessibilityBasics(page)
+    await expectTargetAtLeast24Px(codeInput)
+    await expectTargetAtLeast24Px(confirmation)
     await codeInput.fill(firstCode)
     await page.getByRole('button', { name: 'Request account deletion' }).click()
     await expect(

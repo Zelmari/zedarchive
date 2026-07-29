@@ -209,6 +209,32 @@
     background: var(--za-color-surface);
   }
 
+  .za-site-header__inner {
+    display: grid;
+    align-items: start;
+    gap: var(--za-space-4);
+    padding-block: var(--za-space-4);
+  }
+
+  .za-site-header__brand,
+  .za-site-header__nav,
+  .za-site-header__identity {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .za-site-header__nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--za-space-4);
+  }
+
+  .za-site-header__identity {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .za-wordmark {
     color: var(--za-color-text);
     font-size: var(--za-text-heading-sm);
@@ -229,6 +255,14 @@
 
   .za-wordmark.za-link {
     color: var(--za-color-text);
+  }
+
+  .za-current-page {
+    border-radius: var(--za-radius-small);
+    background: var(--za-color-accent-soft);
+    box-shadow: inset 0 -2px 0 var(--za-color-accent);
+    font-weight: var(--za-weight-heading);
+    text-decoration-thickness: 2px;
   }
 
   .za-link:hover {
@@ -324,6 +358,24 @@
   }
 
   .za-button--selected:active {
+    border-color: var(--za-color-accent-active);
+    color: var(--za-color-accent-active);
+  }
+
+  .za-button.za-current-page {
+    border-color: var(--za-color-accent);
+    background: var(--za-color-accent-soft);
+    color: var(--za-color-accent);
+    font-weight: var(--za-weight-heading);
+  }
+
+  .za-button.za-current-page:hover {
+    border-color: var(--za-color-accent-hover);
+    background: var(--za-color-surface-subtle);
+    color: var(--za-color-accent-hover);
+  }
+
+  .za-button.za-current-page:active {
     border-color: var(--za-color-accent-active);
     color: var(--za-color-accent-active);
   }
@@ -570,6 +622,32 @@
     .za-container {
       --za-page-gutter: 1.5rem;
     }
+
+    .za-site-header__inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding-block: var(--za-space-6);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .za-current-page {
+      background: Canvas;
+      box-shadow: inset 0 -2px 0 Highlight;
+      color: LinkText;
+    }
+
+    .za-wordmark.za-current-page {
+      text-decoration-line: underline;
+      text-decoration-style: double;
+      text-underline-offset: 0.15em;
+    }
+
+    .za-button.za-current-page {
+      border-color: Highlight;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -581,5 +659,12 @@
       animation-duration: var(--za-motion-reduced);
       animation-iteration-count: 1;
     }
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --za-color-text-muted: var(--za-color-text);
+    --za-color-border-decorative: var(--za-color-border-required);
   }
 }

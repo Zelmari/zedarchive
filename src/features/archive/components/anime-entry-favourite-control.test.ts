@@ -17,6 +17,7 @@ import { AnimeEntryFavouriteControl } from '@/features/archive/components/anime-
 
 const props = {
   entryId: '550e8400-e29b-41d4-a716-446655440000',
+  animeTitle: 'Cowboy Bebop',
   isFavourite: false,
   isPending: false,
   isOwnOperationPending: false,
@@ -68,7 +69,10 @@ describe('AnimeEntryFavouriteControl', () => {
 
     expect(markup).toContain('Favourite — Yes')
     expect(markup).toContain('class="za-button za-button--selected"')
-    expect(markup).toContain('type="button">Remove from favourites</button>')
+    expect(markup).toContain('>Remove from favourites</button>')
+    expect(markup).toContain(
+      'aria-label="Remove from favourites — Cowboy Bebop"',
+    )
     expect(markup).toContain('role="status" tabindex="-1"')
     expect(markup).toContain('aria-live="polite"')
     expect(markup).toContain('za-notice--success')

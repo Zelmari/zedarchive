@@ -1,4 +1,11 @@
 import { expect, test } from '@playwright/test'
+import {
+  applyWcagTextSpacing,
+  expectNoDocumentHorizontalOverflow,
+  expectRepresentativeAccessibilityBasics,
+  expectTargetAtLeast24Px,
+  expectTextSpacingLayout,
+} from './helpers/accessibility'
 
 function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
   let hasConsoleError = false
@@ -45,6 +52,14 @@ test('renders the public sign-in page from the production server', async ({
   await expect(
     page.getByRole('button', { name: 'Sign in', exact: true }),
   ).toBeVisible()
+  await expectRepresentativeAccessibilityBasics(page)
+  await expect(
+    page.getByRole('link', { name: 'Sign in', exact: true }),
+  ).toHaveAttribute('aria-current', 'page')
+  await expectTargetAtLeast24Px(page.getByRole('textbox', { name: 'Email' }))
+  await expectTargetAtLeast24Px(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
+  )
   await expectNarrowRaisedAuthSheet(page)
 
   assertNoUnexpectedErrors()
@@ -68,13 +83,7 @@ for (const viewport of [
     await expect(
       page.getByRole('button', { name: 'Sign in', exact: true }),
     ).toBeVisible()
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      )
-      .toBe(true)
+    await expectNoDocumentHorizontalOverflow(page)
 
     assertNoUnexpectedErrors()
   })
@@ -101,13 +110,7 @@ for (const route of [
       page.getByRole('heading', { name: route.heading }),
     ).toBeVisible()
     await expectNarrowRaisedAuthSheet(page)
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      )
-      .toBe(true)
+    await expectNoDocumentHorizontalOverflow(page)
 
     assertNoUnexpectedErrors()
   })
@@ -129,13 +132,35 @@ test('keeps the sign-in sheet reachable at 320px with 200% root text', async ({
   await expect(
     page.getByRole('button', { name: 'Sign in', exact: true }),
   ).toBeVisible()
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    )
-    .toBe(true)
+  await expectNoDocumentHorizontalOverflow(page)
+
+  assertNoUnexpectedErrors()
+})
+
+test('keeps public authentication usable with enlarged text and WCAG text spacing', async ({
+  page,
+}) => {
+  const assertNoUnexpectedErrors = monitorUnexpectedBrowserErrors(page)
+
+  await page.setViewportSize({ width: 1280, height: 960 })
+  await page.goto('/sign-in')
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  await expectNoDocumentHorizontalOverflow(page)
+  await expectTargetAtLeast24Px(page.getByRole('textbox', { name: 'Email' }))
+  await expectTargetAtLeast24Px(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
+  )
+
+  await applyWcagTextSpacing(page)
+  await expectTextSpacingLayout(page, {
+    content: [page.getByRole('heading', { name: 'Sign in' })],
+    controls: [
+      page.getByRole('textbox', { name: 'Email' }),
+      page.getByRole('button', { name: 'Sign in', exact: true }),
+    ],
+  })
 
   assertNoUnexpectedErrors()
 })
@@ -155,4 +180,76 @@ test('activates the skip link and moves keyboard focus to the main content', asy
   await expect(page.locator('main#main-content')).toBeFocused()
 
   assertNoUnexpectedErrors()
+})
+
+test('keeps client-only account mutations disabled and explains the requirement without JavaScript', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    baseURL: 'http://127.0.0.1:3100',
+    javaScriptEnabled: false,
+  })
+
+  try {
+    const page = await context.newPage()
+    const cases = [
+      {
+        path: '/sign-in',
+        notice:
+          'JavaScript is required to sign in. Enable JavaScript and try again.',
+      },
+      {
+        path: '/register',
+        notice:
+          'JavaScript is required to create an account. Enable JavaScript and try again.',
+      },
+      {
+        path: '/forgot-password',
+        notice:
+          'JavaScript is required to request a password reset. Enable JavaScript and try again.',
+      },
+      {
+        path: '/reset-password',
+        notice:
+          'JavaScript is required to reset your password. Enable JavaScript and try again.',
+      },
+      {
+        path: '/verify-email',
+        notice:
+          'JavaScript is required to verify your email. Enable JavaScript and try again.',
+      },
+    ]
+
+    for (const current of cases) {
+      const response = await page.goto(current.path)
+      expect(response?.status()).toBe(200)
+      await expect(
+        page.getByText(current.notice, { exact: true }),
+      ).toBeVisible()
+      await expect
+        .poll(() =>
+          page
+            .locator('form input:not([type="hidden"]), form button')
+            .evaluateAll((controls) =>
+              controls.every((control) => control.matches(':disabled')),
+            ),
+        )
+        .toBe(true)
+      await expect
+        .poll(() =>
+          page
+            .locator('form')
+            .evaluateAll((forms) =>
+              forms.every(
+                (form) =>
+                  form instanceof HTMLFormElement &&
+                  new FormData(form).entries().next().done,
+              ),
+            ),
+        )
+        .toBe(true)
+    }
+  } finally {
+    await context.close()
+  }
 })

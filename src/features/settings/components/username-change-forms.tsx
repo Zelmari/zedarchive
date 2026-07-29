@@ -104,10 +104,12 @@ function useResendAvailability(
 ) {
   const [previousResend, setPreviousResend] = useState(resend)
   const [isAvailable, setIsAvailable] = useState(resend.kind === 'available')
+  const [cooldownExpired, setCooldownExpired] = useState(false)
 
   if (resend !== previousResend) {
     setPreviousResend(resend)
     setIsAvailable(resend.kind === 'available')
+    setCooldownExpired(false)
   }
 
   useEffect(() => {
@@ -115,12 +117,13 @@ function useResendAvailability(
 
     const timeout = window.setTimeout(() => {
       setIsAvailable(true)
+      setCooldownExpired(true)
     }, resend.retryAfterMilliseconds)
 
     return () => window.clearTimeout(timeout)
   }, [isAvailable, resend])
 
-  return isAvailable
+  return { cooldownExpired, isAvailable }
 }
 
 function StartUsernameChangeForm({
@@ -245,6 +248,8 @@ function CompletionUsernameChangeForm({
   proposedUsername: string
 }) {
   const codeId = useId()
+  const codeGuidanceId = useId()
+  const cooldownStatusId = useId()
   const confirmationId = useId()
   const confirmationRef = useRef<HTMLInputElement>(null)
   const hasHydrated = useSyncExternalStore(
@@ -252,14 +257,17 @@ function CompletionUsernameChangeForm({
     getHydratedSnapshot,
     getServerHydrationSnapshot,
   )
-  const resendAvailable = useResendAvailability(resend)
+  const { cooldownExpired, isAvailable: resendAvailable } =
+    useResendAvailability(resend)
   return (
     <div className="space-y-4">
       <p>
         You are changing <PublicUsername username={username} /> to{' '}
         <PublicUsername username={proposedUsername} />.
       </p>
-      <p>Check your verified email for an eight-digit code.</p>
+      <p id={codeGuidanceId}>
+        Check your verified email for an eight-digit code.
+      </p>
       <p>
         Changing your username cannot be undone. Your previous username will be
         unavailable for 14 days.
@@ -287,9 +295,7 @@ function CompletionUsernameChangeForm({
             Verification code
           </label>
           <input
-            aria-describedby={
-              feedback?.field === 'code' ? feedbackId : undefined
-            }
+            aria-describedby={`${codeGuidanceId}${feedback?.field === 'code' ? ` ${feedbackId}` : ''}`}
             aria-invalid={feedback?.field === 'code' ? true : undefined}
             autoComplete="one-time-code"
             className={fieldClassName}
@@ -351,11 +357,19 @@ function CompletionUsernameChangeForm({
               variant="secondary"
             />
             {resend.kind === 'cooldown' && !resendAvailable ? (
-              <p className="mt-2 text-sm text-ink-muted" role="status">
+              <p className="mt-2 text-sm text-ink-muted">
                 You can send another code after a short wait. Refresh settings
                 if JavaScript is unavailable.
               </p>
             ) : null}
+            <p
+              aria-live="polite"
+              className="mt-2 text-sm text-ink-muted"
+              id={cooldownStatusId}
+              role="status"
+            >
+              {cooldownExpired ? 'You can request another code now.' : ''}
+            </p>
           </form>
         )}
         <form
