@@ -17,7 +17,6 @@ const AnimePrivateListRemovalContext = createContext<(() => void) | null>(null)
 // One delayed retry recovers a lost RSC refresh without turning success into polling.
 export const animePrivateListRemovalRefreshWatchdogDelayMilliseconds = 3_000
 export const maxAnimePrivateListRemovalRefreshAttempts = 2
-export const maxAnimePrivateListRemovalStatusFocusVerificationFrames = 2
 
 export type AnimePrivateListRemovalRefreshState = {
   activeRenderRevision: string | null
@@ -52,30 +51,79 @@ export function focusAnimePrivateListRemovalStatus(
 export function getAnimePrivateListRemovalStatusFocusPlan({
   activeElement,
   status,
-  verificationFrames,
 }: {
   activeElement: object | null
   status: object | null
-  verificationFrames: number
 }): { shouldFocusStatus: boolean; shouldRetainFocusIntent: boolean } {
-  if (status === activeElement && status !== null) {
-    return {
-      shouldFocusStatus: false,
-      shouldRetainFocusIntent:
-        verificationFrames <
-        maxAnimePrivateListRemovalStatusFocusVerificationFrames,
-    }
-  }
-
-  if (
-    status === null ||
-    verificationFrames >=
-      maxAnimePrivateListRemovalStatusFocusVerificationFrames
-  ) {
+  if (status === null) {
     return { shouldFocusStatus: false, shouldRetainFocusIntent: false }
   }
 
-  return { shouldFocusStatus: true, shouldRetainFocusIntent: true }
+  return {
+    shouldFocusStatus: status !== activeElement,
+    shouldRetainFocusIntent: true,
+  }
+}
+
+export function isAnimePrivateListRemovalUserFocusMove(
+  eventType: string,
+): boolean {
+  return eventType === 'keydown' || eventType === 'pointerdown'
+}
+
+export type AnimePrivateListRemovalStatusFocusIntent = {
+  nextEpoch: number
+  pendingEpoch: number | null
+}
+
+export const initialAnimePrivateListRemovalStatusFocusIntent: AnimePrivateListRemovalStatusFocusIntent =
+  {
+    nextEpoch: 1,
+    pendingEpoch: null,
+  }
+
+export function beginAnimePrivateListRemovalStatusFocusIntent(
+  intent: AnimePrivateListRemovalStatusFocusIntent,
+): AnimePrivateListRemovalStatusFocusIntent {
+  return {
+    nextEpoch: intent.nextEpoch + 1,
+    pendingEpoch: intent.nextEpoch,
+  }
+}
+
+export function cancelAnimePrivateListRemovalStatusFocusIntent(
+  intent: AnimePrivateListRemovalStatusFocusIntent,
+): AnimePrivateListRemovalStatusFocusIntent {
+  return {
+    ...intent,
+    pendingEpoch: null,
+  }
+}
+
+export function claimAnimePrivateListRemovalStatusFocusIntent(
+  intent: AnimePrivateListRemovalStatusFocusIntent,
+): {
+  nextIntent: AnimePrivateListRemovalStatusFocusIntent
+  shouldClaimFocus: boolean
+} {
+  return {
+    nextIntent: cancelAnimePrivateListRemovalStatusFocusIntent(intent),
+    shouldClaimFocus: intent.pendingEpoch !== null,
+  }
+}
+
+export function scheduleAnimePrivateListRemovalStatusFocusRepair({
+  currentFrame,
+  repairFocus,
+  requestFrame,
+}: {
+  currentFrame: number | null
+  repairFocus: () => void
+  requestFrame: (callback: () => void) => number
+}): number {
+  if (currentFrame !== null) return currentFrame
+
+  return requestFrame(repairFocus)
 }
 
 export function scheduleAnimePrivateListRemovalRefreshWatchdog({
@@ -235,35 +283,31 @@ export function AnimePrivateListRemovalBoundary({
   const observedRenderRevisionRef = useRef(`${renderRevision}:0`)
   const hasObservedChildrenRef = useRef(false)
   const shouldFocusStatusRef = useRef(false)
-  const statusFocusVerificationFramesRef = useRef(0)
+  const statusFocusIntentRef = useRef(
+    initialAnimePrivateListRemovalStatusFocusIntent,
+  )
   const refreshAttemptCountRef = useRef(0)
   const scheduledRefreshTimeoutRef = useRef<number | null>(null)
   const scheduledRefreshWatchdogTimeoutRef = useRef<number | null>(null)
-  const scheduledStatusFocusVerificationFrameRef = useRef<number | null>(null)
+  const scheduledStatusFocusRepairFrameRef = useRef<number | null>(null)
   const refreshArchiveRef = useRef<() => void>(() => undefined)
   const maintainStatusFocusRef = useRef<() => void>(() => undefined)
 
-  const clearPendingStatusFocus = useCallback(() => {
+  const clearStatusFocusOwnership = useCallback(() => {
     shouldFocusStatusRef.current = false
-    statusFocusVerificationFramesRef.current = 0
-    if (scheduledStatusFocusVerificationFrameRef.current !== null) {
-      window.cancelAnimationFrame(
-        scheduledStatusFocusVerificationFrameRef.current,
-      )
-      scheduledStatusFocusVerificationFrameRef.current = null
+    if (scheduledStatusFocusRepairFrameRef.current !== null) {
+      window.cancelAnimationFrame(scheduledStatusFocusRepairFrameRef.current)
+      scheduledStatusFocusRepairFrameRef.current = null
     }
   }, [])
 
-  const scheduleStatusFocusVerification = useCallback(() => {
-    if (scheduledStatusFocusVerificationFrameRef.current !== null) return
-
-    scheduledStatusFocusVerificationFrameRef.current =
-      window.requestAnimationFrame(() => {
-        scheduledStatusFocusVerificationFrameRef.current = null
-        statusFocusVerificationFramesRef.current += 1
-        maintainStatusFocusRef.current()
-      })
-  }, [])
+  const cancelStatusFocusIntent = useCallback(() => {
+    statusFocusIntentRef.current =
+      cancelAnimePrivateListRemovalStatusFocusIntent(
+        statusFocusIntentRef.current,
+      )
+    clearStatusFocusOwnership()
+  }, [clearStatusFocusOwnership])
 
   const maintainStatusFocus = useCallback(() => {
     if (!shouldFocusStatusRef.current) return
@@ -271,23 +315,47 @@ export function AnimePrivateListRemovalBoundary({
     const plan = getAnimePrivateListRemovalStatusFocusPlan({
       activeElement: document.activeElement,
       status: statusRef.current,
-      verificationFrames: statusFocusVerificationFramesRef.current,
     })
     if (plan.shouldFocusStatus) {
       focusAnimePrivateListRemovalStatus(statusRef.current)
     }
-    if (plan.shouldRetainFocusIntent) {
-      scheduleStatusFocusVerification()
-      return
-    }
-
-    shouldFocusStatusRef.current = false
-    statusFocusVerificationFramesRef.current = 0
-  }, [scheduleStatusFocusVerification])
+    shouldFocusStatusRef.current = plan.shouldRetainFocusIntent
+  }, [])
 
   useEffect(() => {
     maintainStatusFocusRef.current = maintainStatusFocus
   }, [maintainStatusFocus])
+
+  const scheduleStatusFocusRepair = useCallback(() => {
+    if (!shouldFocusStatusRef.current) return
+
+    scheduledStatusFocusRepairFrameRef.current =
+      scheduleAnimePrivateListRemovalStatusFocusRepair({
+        currentFrame: scheduledStatusFocusRepairFrameRef.current,
+        repairFocus: () => {
+          scheduledStatusFocusRepairFrameRef.current = null
+          maintainStatusFocusRef.current()
+        },
+        requestFrame: (callback) => window.requestAnimationFrame(callback),
+      })
+  }, [])
+
+  useEffect(() => {
+    // A completed removal owns focus until the person deliberately moves it.
+    const releaseFocusOwnership = (event: Event) => {
+      if (isAnimePrivateListRemovalUserFocusMove(event.type)) {
+        cancelStatusFocusIntent()
+      }
+    }
+
+    window.addEventListener('keydown', releaseFocusOwnership, true)
+    window.addEventListener('pointerdown', releaseFocusOwnership, true)
+
+    return () => {
+      window.removeEventListener('keydown', releaseFocusOwnership, true)
+      window.removeEventListener('pointerdown', releaseFocusOwnership, true)
+    }
+  }, [cancelStatusFocusIntent])
 
   const clearRefreshWatchdog = useCallback(() => {
     if (scheduledRefreshWatchdogTimeoutRef.current === null) return
@@ -308,7 +376,7 @@ export function AnimePrivateListRemovalBoundary({
           )
           refreshStateRef.current = plan.nextState
           refreshAttemptCountRef.current = 0
-          clearPendingStatusFocus()
+          cancelStatusFocusIntent()
           if (plan.shouldRefresh) refreshArchiveRef.current()
         },
         onRetry: () => {
@@ -321,7 +389,7 @@ export function AnimePrivateListRemovalBoundary({
         scheduleTimeout: (callback, delayMilliseconds) =>
           window.setTimeout(callback, delayMilliseconds),
       })
-  }, [clearPendingStatusFocus])
+  }, [cancelStatusFocusIntent])
 
   const refreshArchive = useCallback(() => {
     if (scheduledRefreshTimeoutRef.current !== null) return
@@ -348,13 +416,13 @@ export function AnimePrivateListRemovalBoundary({
 
   useEffect(
     () => () => {
-      clearPendingStatusFocus()
+      cancelStatusFocusIntent()
       clearRefreshWatchdog()
       if (scheduledRefreshTimeoutRef.current !== null) {
         window.clearTimeout(scheduledRefreshTimeoutRef.current)
       }
     },
-    [clearPendingStatusFocus, clearRefreshWatchdog],
+    [cancelStatusFocusIntent, clearRefreshWatchdog],
   )
 
   useEffect(() => {
@@ -380,7 +448,7 @@ export function AnimePrivateListRemovalBoundary({
     }
 
     if (plan.shouldRefresh) {
-      clearPendingStatusFocus()
+      clearStatusFocusOwnership()
       clearRefreshWatchdog()
       refreshAttemptCountRef.current = 0
       refreshArchive()
@@ -390,13 +458,18 @@ export function AnimePrivateListRemovalBoundary({
     if (plan.shouldFocusStatus) {
       clearRefreshWatchdog()
       refreshAttemptCountRef.current = 0
-      shouldFocusStatusRef.current = true
-      statusFocusVerificationFramesRef.current = 0
-      maintainStatusFocus()
+      const focusClaim = claimAnimePrivateListRemovalStatusFocusIntent(
+        statusFocusIntentRef.current,
+      )
+      statusFocusIntentRef.current = focusClaim.nextIntent
+      if (focusClaim.shouldClaimFocus) {
+        shouldFocusStatusRef.current = true
+        maintainStatusFocus()
+      }
     }
   }, [
     children,
-    clearPendingStatusFocus,
+    clearStatusFocusOwnership,
     clearRefreshWatchdog,
     maintainStatusFocus,
     refreshArchive,
@@ -415,7 +488,11 @@ export function AnimePrivateListRemovalBoundary({
   }, [])
 
   const reportRemoval = useCallback(() => {
-    clearPendingStatusFocus()
+    clearStatusFocusOwnership()
+    statusFocusIntentRef.current =
+      beginAnimePrivateListRemovalStatusFocusIntent(
+        statusFocusIntentRef.current,
+      )
     const plan = reportAnimePrivateListRemoval(
       refreshStateRef.current,
       observedRenderRevisionRef.current,
@@ -428,12 +505,18 @@ export function AnimePrivateListRemovalBoundary({
       refreshArchive()
     }
     setHasRemovalStatus(true)
-  }, [clearPendingStatusFocus, clearRefreshWatchdog, refreshArchive])
+  }, [clearStatusFocusOwnership, clearRefreshWatchdog, refreshArchive])
 
   return (
     <AnimePrivateListRemovalContext.Provider value={reportRemoval}>
       {hasRemovalStatus ? (
-        <p aria-live="polite" ref={setStatusRef} role="status" tabIndex={-1}>
+        <p
+          aria-live="polite"
+          onBlur={scheduleStatusFocusRepair}
+          ref={setStatusRef}
+          role="status"
+          tabIndex={-1}
+        >
           Anime removed from your archive.
         </p>
       ) : null}

@@ -841,12 +841,14 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
     ),
   ).toHaveText('AM')
 
-  const authenticatedNoJavaScriptContext = await browser.newContext({
-    javaScriptEnabled: false,
-    storageState: await page.context().storageState(),
-  })
+  const noJavaScriptPage = await page.context().newPage()
+  const noJavaScriptCdpSession = await page
+    .context()
+    .newCDPSession(noJavaScriptPage)
   try {
-    const noJavaScriptPage = await authenticatedNoJavaScriptContext.newPage()
+    await noJavaScriptCdpSession.send('Emulation.setScriptExecutionDisabled', {
+      value: true,
+    })
     const applicationOrigin = new URL(page.url()).origin
 
     const authenticatedSettingsResponse =
@@ -868,10 +870,9 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
     await expect(noJavaScriptPage.locator('input[name="entryId"]')).toHaveCount(
       0,
     )
-    const nativeSortResponse =
-      await authenticatedNoJavaScriptContext.request.get(
-        `${applicationOrigin}/archive/anime?sort=recently-added`,
-      )
+    const nativeSortResponse = await page
+      .context()
+      .request.get(`${applicationOrigin}/archive/anime?sort=recently-added`)
     expect(nativeSortResponse.status()).toBe(200)
     expect(nativeSortResponse.headers()['cache-control']).toContain('private')
     expect(nativeSortResponse.headers()['cache-control']).toContain('no-store')
@@ -967,16 +968,31 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
       adultContentEnabled: false,
       titleLanguage: 'romaji',
     })
+  } finally {
+    await noJavaScriptCdpSession.send('Emulation.setScriptExecutionDisabled', {
+      value: false,
+    })
+    await noJavaScriptCdpSession.detach()
+    await noJavaScriptPage.close()
+  }
 
-    await authenticatedNoJavaScriptContext.clearCookies()
-    await noJavaScriptPage.goto('/settings')
+  const anonymousNoJavaScriptContext = await browser.newContext({
+    javaScriptEnabled: false,
+  })
+  try {
+    const anonymousNoJavaScriptPage =
+      await anonymousNoJavaScriptContext.newPage()
+    const anonymousSettingsResponse =
+      await anonymousNoJavaScriptPage.goto('/settings')
+    expect(anonymousSettingsResponse?.status()).toBe(200)
+    await expectPrivateNoStore(anonymousSettingsResponse!)
     await expect(
-      noJavaScriptPage
+      anonymousNoJavaScriptPage
         .locator('#main-content')
         .getByRole('link', { name: 'Sign in', exact: true }),
     ).toBeVisible()
   } finally {
-    await authenticatedNoJavaScriptContext.close()
+    await anonymousNoJavaScriptContext.close()
   }
 
   await page.goto('/settings')

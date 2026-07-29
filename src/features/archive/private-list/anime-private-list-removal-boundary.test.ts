@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   animePrivateListRemovalRefreshWatchdogDelayMilliseconds,
+  beginAnimePrivateListRemovalStatusFocusIntent,
+  cancelAnimePrivateListRemovalStatusFocusIntent,
+  claimAnimePrivateListRemovalStatusFocusIntent,
   expireAnimePrivateListRemovalRefresh,
   focusAnimePrivateListRemovalStatus,
   getAnimePrivateListRemovalStatusFocusPlan,
   initialAnimePrivateListRemovalRefreshState,
+  initialAnimePrivateListRemovalStatusFocusIntent,
+  isAnimePrivateListRemovalUserFocusMove,
   maxAnimePrivateListRemovalRefreshAttempts,
-  maxAnimePrivateListRemovalStatusFocusVerificationFrames,
   reconcileAnimePrivateListRemovalRefresh,
   reportAnimePrivateListRemoval,
   scheduleAnimePrivateListRemovalRefreshWatchdog,
+  scheduleAnimePrivateListRemovalStatusFocusRepair,
 } from '@/features/archive/private-list/anime-private-list-removal-boundary'
 
 describe('anime private-list removal boundary', () => {
@@ -159,32 +164,111 @@ describe('anime private-list removal boundary', () => {
     expect(focus).toHaveBeenCalledOnce()
   })
 
-  it('keeps focus intent through a stable post-commit frame for a replacement status node', () => {
-    const firstStatus = {}
-    const replacementStatus = {}
+  it('restores status focus after an authoritative refresh displaces it', () => {
+    const status = {}
+    const routerFocusTarget = {}
 
     expect(
       getAnimePrivateListRemovalStatusFocusPlan({
-        activeElement: firstStatus,
-        status: firstStatus,
-        verificationFrames: 1,
-      }),
-    ).toEqual({ shouldFocusStatus: false, shouldRetainFocusIntent: true })
-    expect(
-      getAnimePrivateListRemovalStatusFocusPlan({
-        activeElement: firstStatus,
-        status: replacementStatus,
-        verificationFrames: 1,
+        activeElement: routerFocusTarget,
+        status,
       }),
     ).toEqual({ shouldFocusStatus: true, shouldRetainFocusIntent: true })
     expect(
       getAnimePrivateListRemovalStatusFocusPlan({
-        activeElement: replacementStatus,
-        status: replacementStatus,
-        verificationFrames:
-          maxAnimePrivateListRemovalStatusFocusVerificationFrames,
+        activeElement: status,
+        status,
+      }),
+    ).toEqual({ shouldFocusStatus: false, shouldRetainFocusIntent: true })
+  })
+
+  it("releases status focus ownership only for a person's keyboard or pointer action", () => {
+    expect(isAnimePrivateListRemovalUserFocusMove('keydown')).toBe(true)
+    expect(isAnimePrivateListRemovalUserFocusMove('pointerdown')).toBe(true)
+    expect(isAnimePrivateListRemovalUserFocusMove('focusin')).toBe(false)
+    expect(
+      getAnimePrivateListRemovalStatusFocusPlan({
+        activeElement: {},
+        status: null,
       }),
     ).toEqual({ shouldFocusStatus: false, shouldRetainFocusIntent: false })
+  })
+
+  it('coalesces focusout repair until the browser focus algorithm settles', () => {
+    const repairFocus = vi.fn()
+    const scheduled: Array<() => void> = []
+    const requestFrame = vi.fn((callback: () => void) => {
+      scheduled.push(callback)
+      return 42
+    })
+
+    const firstFrame = scheduleAnimePrivateListRemovalStatusFocusRepair({
+      currentFrame: null,
+      repairFocus,
+      requestFrame,
+    })
+    const coalescedFrame = scheduleAnimePrivateListRemovalStatusFocusRepair({
+      currentFrame: firstFrame,
+      repairFocus,
+      requestFrame,
+    })
+
+    expect(firstFrame).toBe(42)
+    expect(coalescedFrame).toBe(42)
+    expect(requestFrame).toHaveBeenCalledOnce()
+    expect(repairFocus).not.toHaveBeenCalled()
+
+    scheduled[0]?.()
+    expect(repairFocus).toHaveBeenCalledOnce()
+  })
+
+  it('claims post-refresh focus when no user movement cancels the removal intent', () => {
+    const reported = beginAnimePrivateListRemovalStatusFocusIntent(
+      initialAnimePrivateListRemovalStatusFocusIntent,
+    )
+
+    expect(claimAnimePrivateListRemovalStatusFocusIntent(reported)).toEqual({
+      nextIntent: {
+        nextEpoch: 2,
+        pendingEpoch: null,
+      },
+      shouldClaimFocus: true,
+    })
+  })
+
+  it('does not claim post-refresh focus after user movement during the refresh gap', () => {
+    const reported = beginAnimePrivateListRemovalStatusFocusIntent(
+      initialAnimePrivateListRemovalStatusFocusIntent,
+    )
+    const cancelled = cancelAnimePrivateListRemovalStatusFocusIntent(reported)
+
+    expect(claimAnimePrivateListRemovalStatusFocusIntent(cancelled)).toEqual({
+      nextIntent: {
+        nextEpoch: 2,
+        pendingEpoch: null,
+      },
+      shouldClaimFocus: false,
+    })
+  })
+
+  it('starts a fresh focus intent for a later removal after cancellation', () => {
+    const firstRemoval = beginAnimePrivateListRemovalStatusFocusIntent(
+      initialAnimePrivateListRemovalStatusFocusIntent,
+    )
+    const cancelledFirstRemoval =
+      cancelAnimePrivateListRemovalStatusFocusIntent(firstRemoval)
+    const laterRemoval = beginAnimePrivateListRemovalStatusFocusIntent(
+      cancelledFirstRemoval,
+    )
+
+    expect(laterRemoval).toEqual({
+      nextEpoch: 3,
+      pendingEpoch: 2,
+    })
+    expect(
+      claimAnimePrivateListRemovalStatusFocusIntent(laterRemoval)
+        .shouldClaimFocus,
+    ).toBe(true)
   })
 
   it('schedules one bounded watchdog retry after an unsettled refresh', () => {

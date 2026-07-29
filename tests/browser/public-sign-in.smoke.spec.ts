@@ -7,6 +7,8 @@ import {
   expectTextSpacingLayout,
 } from './helpers/accessibility'
 
+test.use({ screenshot: 'only-on-failure', trace: 'off' })
+
 function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
   let hasConsoleError = false
   let hasPageError = false

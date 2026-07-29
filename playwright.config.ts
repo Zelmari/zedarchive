@@ -23,7 +23,7 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     baseURL,
-    screenshot: 'only-on-failure',
+    screenshot: 'off',
     trace: 'off',
   },
   webServer: {
