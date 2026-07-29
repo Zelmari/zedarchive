@@ -4,9 +4,10 @@ import {
   type CalendarDate,
 } from '@/features/archive/domain/entry-date-range'
 import type { UpdateAnimeEntryDateRangeActionState } from '@/features/archive/domain/update-anime-entry-date-range'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 type DateRangeFeedback = {
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
   inputError: 'start' | 'finish' | 'both' | null
   currentDates?: {
@@ -166,7 +167,7 @@ export function animeEntryDateRangeFormReducer(
               finishDateValue: formatEditorValue(result.finishDate),
             },
             {
-              tone: 'status',
+              tone: 'success',
               message: 'Viewing dates updated.',
               inputError: null,
             },
@@ -182,7 +183,7 @@ export function animeEntryDateRangeFormReducer(
               finishDateValue: formatEditorValue(result.finishDate),
             },
             {
-              tone: 'status',
+              tone: 'information',
               message: 'Viewing dates are already up to date.',
               inputError: null,
             },
@@ -195,7 +196,7 @@ export function animeEntryDateRangeFormReducer(
               authoritativeFinishDate: result.currentFinishDate,
             },
             {
-              tone: 'error',
+              tone: 'warning',
               message:
                 'These dates changed elsewhere. Review the saved dates and try again.',
               inputError: null,

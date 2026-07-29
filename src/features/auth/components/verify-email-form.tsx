@@ -12,11 +12,9 @@ import {
 } from '@/features/auth/domain/auth-error-messages'
 import { parseVerifyEmailToken } from '@/features/auth/domain/verify-email-token'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button za-button--primary'
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const linkClassName = 'za-link'
 
 function readVerificationTokenFromLocation(): string | null {
   const tokens = new URLSearchParams(window.location.hash.slice(1)).getAll(

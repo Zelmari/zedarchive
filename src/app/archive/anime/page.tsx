@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { AnimePrivateListRouteContent } from '@/features/archive/private-list/anime-private-list-presentation'
+import {
+  AnimePrivateListMasthead,
+  AnimePrivateListRouteContent,
+} from '@/features/archive/private-list/anime-private-list-presentation'
 import { createAnimePrivateListCoordinator } from '@/features/archive/private-list/anime-private-list-coordinator'
 import type { AnimePrivateListPageQueryInput } from '@/features/archive/private-list/anime-private-list-query'
 import { resolveAccountAccess } from '@/server/auth/auth'
@@ -37,9 +40,13 @@ export default async function AnimeArchivePage({
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6"
+      className="za-container za-container--wide space-y-6 py-6 sm:py-8"
     >
-      <h1 className="text-2xl font-semibold">Your anime archive</h1>
+      <AnimePrivateListMasthead
+        totalItems={
+          model.kind === 'archive' ? model.page.pagination.totalItems : null
+        }
+      />
       <AnimePrivateListRouteContent
         model={model}
         renderRevision={randomUUID()}

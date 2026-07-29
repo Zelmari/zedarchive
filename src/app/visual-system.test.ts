@@ -161,6 +161,25 @@ describe('visual system contract', () => {
     ).toHaveLength(3)
   })
 
+  it('keeps destructive launchers distinct from irreversible confirmation', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /\.za-button--destructive\s*\{[\s\S]*?background: var\(--za-color-destructive\);[\s\S]*?color: var\(--za-color-on-destructive\);/,
+    )
+    expect(css).toMatch(
+      /\.za-button--destructive-outline\s*\{[\s\S]*?border-color: var\(--za-color-destructive\);[\s\S]*?background: var\(--za-color-surface\);[\s\S]*?color: var\(--za-color-destructive\);/,
+    )
+  })
+
+  it('keeps selected actions distinct without relying on colour alone', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /\.za-button--selected\s*\{[\s\S]*?border-color: var\(--za-color-accent\);[\s\S]*?background: var\(--za-color-accent-soft\);[\s\S]*?color: var\(--za-color-accent\);/,
+    )
+  })
+
   it('maps semantic Tailwind utilities to the canonical source roles', async () => {
     const css = await readFile(globalsPath, 'utf8')
 
@@ -195,6 +214,12 @@ describe('visual system contract', () => {
       /\.za-card--raised\s*\{\s*box-shadow: var\(--za-shadow-raised\);\s*\}/,
     )
     expect(css).not.toMatch(/\.za-card--raised[^}]*:(?:hover|active)/)
+    expect(css).toMatch(
+      /\.za-dialog\s*\{[\s\S]*?max-block-size: calc\(100dvh[\s\S]*?background: var\(--za-color-surface\);[\s\S]*?box-shadow: var\(--za-shadow-layered\);/,
+    )
+    expect(css).toMatch(
+      /\.za-dialog::backdrop\s*\{\s*background: var\(--za-backdrop-modal\);\s*\}/,
+    )
   })
 
   it('keeps the catalogue action zone visually divided without creating another card', async () => {
@@ -202,6 +227,26 @@ describe('visual system contract', () => {
 
     expect(css).toMatch(
       /\.za-catalogue-card__action\s*\{[\s\S]*?inline-size: 100%;[\s\S]*?margin-block-start: auto;[\s\S]*?border-block-start: var\(--za-border-width\) solid\s*var\(--za-color-border-decorative\);[\s\S]*?padding-block-start: var\(--za-space-3\);/,
+    )
+  })
+
+  it('keeps archive objects naturally sized with distinct tracking zones', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    expect(css).toMatch(
+      /\.za-archive-card\s*\{[\s\S]*?block-size: 100%;[\s\S]*?flex-direction: column;[\s\S]*?gap: var\(--za-space-4\);/,
+    )
+    expect(css).toMatch(
+      /\.za-archive-card__summary\s*\{[\s\S]*?flex-wrap: wrap;[\s\S]*?align-items: flex-start;/,
+    )
+    expect(css).toMatch(
+      /\.za-archive-card__details\s*\{[\s\S]*?min-inline-size: 0;[\s\S]*?overflow-wrap: anywhere;/,
+    )
+    expect(css).toMatch(
+      /\.za-archive-card > \.za-archive-card__tracking\s*\{[\s\S]*?margin-block-start: auto;[\s\S]*?border-block-start: var\(--za-border-width\) solid\s*var\(--za-color-border-decorative\);/,
+    )
+    expect(css).toMatch(
+      /\.za-card--restricted\s*\{[\s\S]*?background: var\(--za-color-surface-subtle\);[\s\S]*?box-shadow: none;/,
     )
   })
 

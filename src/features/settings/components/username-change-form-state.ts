@@ -2,10 +2,11 @@ import {
   initialUsernameChangeActionState,
   type UsernameChangeActionState,
 } from '@/features/settings/domain/username-change'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 export type UsernameChangeFeedback = {
   field?: 'username' | 'password' | 'code' | 'confirmation'
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
 }
 
@@ -61,27 +62,27 @@ export function getUsernameChangeFeedback(
       }
     case 'code_sent':
       return {
-        tone: 'status',
+        tone: 'information',
         message: 'Check your verified email for a verification code.',
       }
     case 'code_resent':
       return {
-        tone: 'status',
+        tone: 'information',
         message:
           'A new verification code was sent. Only the newest code works.',
       }
     case 'resend_cooldown':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'Wait a moment before sending another code.',
       }
     case 'send_limit':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'Too many codes were requested. Start again later.',
       }
     case 'cancelled':
-      return { tone: 'status', message: 'Username change cancelled.' }
+      return { tone: 'success', message: 'Username change cancelled.' }
     case 'confirmation_required':
       return {
         field: 'confirmation',
@@ -97,19 +98,19 @@ export function getUsernameChangeFeedback(
       }
     case 'code_expired':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'This verification code has expired. Send another code.',
       }
     case 'reauthentication_required':
     case 'attempts_exhausted':
     case 'restart_required':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'This verification code is no longer valid. Start again.',
       }
     case 'changed':
       return {
-        tone: 'status',
+        tone: 'success',
         message: `Your username has been changed to @${state.username}.`,
       }
   }

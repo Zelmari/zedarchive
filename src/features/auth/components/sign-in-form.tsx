@@ -18,14 +18,13 @@ import {
   passwordMinimumLength,
 } from '@/features/auth/domain/password-policy'
 
-const fieldClassName =
-  'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button za-button--primary'
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+
+const linkClassName = 'za-link'
 
 type FieldName = 'email' | 'password'
 
@@ -182,7 +181,7 @@ export function SignInForm() {
         />
         {fieldErrors.email ? (
           <p
-            className="text-sm text-red-700"
+            className="text-sm text-destructive"
             id={`${emailId}-error`}
             role="alert"
           >
@@ -204,7 +203,7 @@ export function SignInForm() {
       />
       {fieldErrors.password ? (
         <p
-          className="text-sm text-red-700"
+          className="text-sm text-destructive"
           id={`${passwordId}-error`}
           role="alert"
         >
@@ -223,7 +222,7 @@ export function SignInForm() {
       {verificationRequired ? (
         <div className="space-y-2">
           <button
-            className={buttonClassName}
+            className={secondaryButtonClassName}
             disabled={isPending || isResendPending}
             onClick={() => void handleResendVerification()}
             type="button"

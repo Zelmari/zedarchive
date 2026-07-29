@@ -35,6 +35,11 @@ const applicationOrigin = 'http://127.0.0.1:3100'
 const fakeResendPort = 43_132
 const expectedFakeResendBaseUrl = `http://127.0.0.1:${fakeResendPort}`
 const { databaseUrl } = readDatabaseRuntimeEnvironment()
+const expectedEmailFromAddress = process.env.AUTH_EMAIL_FROM
+const expectedEmailReplyToAddress = process.env.AUTH_EMAIL_REPLY_TO
+if (!expectedEmailFromAddress || !expectedEmailReplyToAddress) {
+  throw new Error('Browser email sender environment is unavailable')
+}
 const pool = new Pool({ connectionString: databaseUrl })
 const sharedVerifyPasswordRateLimitKey = 'no-trusted-ip|/verify-password'
 type SharedVerifyPasswordRateLimit = {
@@ -115,6 +120,23 @@ async function expectPrivateNoStore(response: {
   const cacheControl = await response.headerValue('cache-control')
   expect(cacheControl).toContain('private')
   expect(cacheControl).toContain('no-store')
+}
+
+async function expectRaisedPaper(locator: Locator) {
+  await expect(locator).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await locator.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).not.toBe('none')
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    )
+    .toBe(true)
 }
 
 async function insertUser(owner: (typeof owners)[keyof typeof owners]) {
@@ -536,8 +558,8 @@ function assertMinimalEmail(
     ['from', 'html', 'reply_to', 'subject', 'tags', 'text', 'to'].sort(),
   )
   expect(message.body).toMatchObject({
-    from: 'zedarchive <accounts@auth.example.com>',
-    reply_to: 'reply@example.com',
+    from: `zedarchive <${expectedEmailFromAddress}>`,
+    reply_to: expectedEmailReplyToAddress,
     subject: input.subject,
     tags: [{ name: 'category', value: input.category }],
     text: input.text,
@@ -769,9 +791,6 @@ test.beforeAll(async () => {
     'select current_database() as name',
   )
   assertAllowedFixtureDatabase(target.rows[0]?.name)
-  const sharedRateLimit = await readSharedVerifyPasswordRateLimit()
-  sharedVerifyPasswordRateLimitBefore = sharedRateLimit.rows[0] ?? null
-  sharedVerifyPasswordRateLimitExpected = sharedRateLimit.rows[0] ?? null
   ownerAId = await insertUser(owners.a)
   ownerBId = await insertUser(owners.b)
   ownerCId = await insertUser(owners.c)
@@ -851,8 +870,12 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     await authenticateContext(secondA, owners.a)
     await authenticateContext(ownerB, owners.b)
     await signIn(page, owners.a)
+    const sharedRateLimit = await readSharedVerifyPasswordRateLimit()
+    sharedVerifyPasswordRateLimitBefore = sharedRateLimit.rows[0] ?? null
+    sharedVerifyPasswordRateLimitExpected = sharedRateLimit.rows[0] ?? null
 
     for (const viewport of [
+      { width: 320, height: 568 },
       { width: 390, height: 844 },
       { width: 768, height: 1024 },
       { width: 1280, height: 960 },
@@ -864,12 +887,33 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       await expect(
         page.getByRole('heading', { name: 'Delete account' }),
       ).toBeVisible()
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      ).toBe(true)
+      await expectNoHorizontalOverflow(page)
     }
+
+    const settingsSheets = page.locator('main#main-content .za-card--raised')
+    await expect(settingsSheets).toHaveCount(4)
+    const settingsDeletionSheet = page
+      .getByRole('heading', { name: 'Delete account', exact: true })
+      .locator('xpath=ancestor::section[1]')
+    await expect(settingsDeletionSheet).toHaveClass(/\bborder-destructive\b/)
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%'
+    })
+    await expect
+      .poll(() =>
+        page
+          .locator('main#main-content')
+          .evaluate((main) => main.scrollWidth <= main.clientWidth),
+      )
+      .toBe(true)
+    await expect(
+      page.getByRole('button', { name: 'Send deletion code' }),
+    ).toBeVisible()
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = ''
+    })
 
     const preservedBefore = await preservedOwnerAData()
     const staleSettingsPage = await page.context().newPage()
@@ -1041,6 +1085,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     await expect(
       page.getByRole('heading', { name: 'Account deletion requested' }),
     ).toBeVisible()
+    await expectRaisedPaper(page.locator('main#main-content > section'))
     await expect(page.getByText('Recovery ends on')).toBeVisible()
     await expect(
       page.getByRole('navigation', { name: 'Account' }).getByRole('link', {
@@ -1102,7 +1147,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
     expect(pendingHome?.status()).toBe(200)
     await expectPrivateNoStore(pendingHome!)
     await expect(
-      page.getByRole('heading', { name: 'M33 Public English' }),
+      page.getByRole('heading', { name: 'M33 Public English' }).first(),
     ).toBeVisible()
     await expect(
       page.getByRole('heading', { name: 'M33 Public Original' }),
@@ -1461,6 +1506,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       await expect(
         duePage.getByRole('button', { name: 'Cancel account deletion' }),
       ).toBeVisible()
+      await expectRaisedPaper(duePage.locator('main#main-content > section'))
       const dueRequestedAt = new Date(
         initialCRequestedAt.getTime() - 15 * 24 * 60 * 60 * 1000,
       )
@@ -1500,6 +1546,7 @@ test('requests, restricts, and cancels deletion without cross-owner disclosure',
       await expect(
         duePage.getByRole('button', { name: 'Cancel account deletion' }),
       ).toHaveCount(0)
+      await expectRaisedPaper(duePage.locator('main#main-content > section'))
       assertNoDueErrors()
     } finally {
       await signOutContext(due)

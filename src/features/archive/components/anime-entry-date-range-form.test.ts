@@ -104,7 +104,7 @@ describe('AnimeEntryDateRangeForm', () => {
       startDateValue: '2024-01-01',
       finishDateValue: '2024-01-02',
       feedback: {
-        tone: 'status',
+        tone: 'success',
         message: 'Viewing dates updated.',
         inputError: null,
       },
@@ -123,6 +123,7 @@ describe('AnimeEntryDateRangeForm', () => {
     expect(markup).toContain('Edit dates')
     expect(markup).toContain('role="status" tabindex="-1"')
     expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('za-notice--success')
   })
 
   it('keeps attempted editor values while exposing the bounded saved pair on conflict', () => {
@@ -133,7 +134,7 @@ describe('AnimeEntryDateRangeForm', () => {
       startDateValue: '2024-01-01',
       finishDateValue: '2024-01-10',
       feedback: {
-        tone: 'error',
+        tone: 'warning',
         message:
           'These dates changed elsewhere. Review the saved dates and try again.',
         inputError: null,
@@ -153,6 +154,8 @@ describe('AnimeEntryDateRangeForm', () => {
     expect(markup).toContain('value="2024-01-01"')
     expect(markup).toContain('value="2024-01-10"')
     expect(markup).toContain('Saved start date — 2024-01-02')
+    expect(markup).toContain('za-notice--warning')
+    expect(markup).toContain('role="alert"')
     expect(markup).toContain('saved finish date — Not set.')
   })
 

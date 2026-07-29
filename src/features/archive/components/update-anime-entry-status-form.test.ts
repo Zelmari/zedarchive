@@ -99,6 +99,9 @@ describe('UpdateAnimeEntryStatusForm', () => {
       'type="hidden" name="expectedStatus" value="in_progress"',
     )
     expect(markup).toContain('name="requestedStatus"')
+    expect(markup).toContain('class="za-select"')
+    expect(markup).toContain('class="za-button za-button--primary"')
+    expect(markup).toContain('class="za-button za-button--tertiary"')
     expect(markup).toContain('<option value="planned">Plan to watch</option>')
     expect(markup).toContain(
       '<option value="in_progress" selected="">In progress</option>',
@@ -183,6 +186,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
     expect(markup).toContain(
       'This status changed elsewhere. It is now On hold. Review your selection and try again.',
     )
+    expect(markup).toContain('za-notice--warning')
     expect(markup).toContain('role="alert" tabindex="-1"')
   })
 
@@ -190,7 +194,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
     mockState({
       ...createInitialUpdateAnimeEntryStatusFormState('completed'),
       feedback: {
-        tone: 'status',
+        tone: 'success',
         message: 'Status updated to Completed.',
         selectError: false,
       },
@@ -202,6 +206,7 @@ describe('UpdateAnimeEntryStatusForm', () => {
 
     expect(markup).toContain('In your archive — Completed')
     expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('za-notice--success')
     expect(markup).toContain('role="status" tabindex="-1"')
     expect(markup).toContain('Status updated to Completed.')
   })

@@ -21,14 +21,19 @@ import type { UpdateAnimeEntryEpisodeProgressActionState } from '@/features/arch
 import type { UpdateAnimeEntryEpisodeTotalActionState } from '@/features/archive/domain/update-anime-entry-episode-total'
 import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+  type FeedbackPresentationTone,
+} from '@/features/feedback/feedback-presentation'
 
 const subscribeToHydration = () => () => undefined
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 aria-invalid:border-red-600 aria-invalid:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const primaryButtonClassName = 'za-button za-button--primary'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+const tertiaryButtonClassName = 'za-button za-button--tertiary'
 
 type Props = {
   entryId: string
@@ -103,6 +108,17 @@ export function getTotalFeedback(
   }
 }
 
+function getMutationFeedbackTone(
+  kind:
+    | UpdateAnimeEntryEpisodeProgressActionState['kind']
+    | UpdateAnimeEntryEpisodeTotalActionState['kind'],
+): FeedbackPresentationTone {
+  if (kind === 'updated') return 'success'
+  if (kind === 'unchanged') return 'information'
+  if (kind === 'conflict') return 'warning'
+  return 'error'
+}
+
 export function AnimeEntryEpisodeProgressControls({
   entryId,
   progress,
@@ -124,9 +140,8 @@ export function AnimeEntryEpisodeProgressControls({
   const [message, setMessage] = useState<string | null>(null)
   const [fieldError, setFieldError] = useState(false)
   const [completionOffered, setCompletionOffered] = useState(false)
-  const [completionFeedbackTone, setCompletionFeedbackTone] = useState<
-    'error' | 'status' | null
-  >(null)
+  const [feedbackTone, setFeedbackTone] =
+    useState<FeedbackPresentationTone | null>(null)
   const [pendingCommand, setPendingCommand] = useState<
     'progress' | 'total' | 'clear_total' | 'reset' | 'completion' | null
   >(null)
@@ -152,21 +167,27 @@ export function AnimeEntryEpisodeProgressControls({
   const isClearingTotal = isPending && pendingCommand === 'clear_total'
   const isResettingProgress = isPending && pendingCommand === 'reset'
   const isCompleting = isPending && pendingCommand === 'completion'
+  const feedbackIsAlert =
+    feedbackTone === null ? false : isAlertFeedbackTone(feedbackTone)
 
   useEffect(() => {
-    if (completionFeedbackTone === 'error' && message !== null) {
+    if (
+      feedbackTone !== null &&
+      isAlertFeedbackTone(feedbackTone) &&
+      message !== null
+    ) {
       feedbackRef.current?.focus()
     } else if (completionOffered) {
       completionRef.current?.focus()
     } else if (message !== null) {
       feedbackRef.current?.focus()
     }
-  }, [completionFeedbackTone, completionOffered, message])
+  }, [completionOffered, feedbackTone, message])
 
   function clearFieldFeedback() {
     setMessage(null)
     setFieldError(false)
-    setCompletionFeedbackTone(null)
+    setFeedbackTone(null)
   }
 
   function focusAfterRender(target: RefObject<HTMLElement | null>) {
@@ -210,7 +231,7 @@ export function AnimeEntryEpisodeProgressControls({
     }
     setValue(reconcileProgressEditorValue(value, result))
     setFieldError(result.kind !== 'updated' && result.kind !== 'unchanged')
-    setCompletionFeedbackTone(null)
+    setFeedbackTone(getMutationFeedbackTone(result.kind))
     setMessage(getProgressFeedback(result, reset))
     setPendingCommand(null)
   }
@@ -245,7 +266,7 @@ export function AnimeEntryEpisodeProgressControls({
     }
     setTotalValue(reconcileTotalEditorValue(totalValue, result))
     setFieldError(result.kind !== 'updated' && result.kind !== 'unchanged')
-    setCompletionFeedbackTone(null)
+    setFeedbackTone(getMutationFeedbackTone(result.kind))
     setMessage(getTotalFeedback(result))
     setPendingCommand(null)
   }
@@ -264,7 +285,7 @@ export function AnimeEntryEpisodeProgressControls({
 
     if (result.kind === 'updated' || result.kind === 'unchanged') {
       setCompletionOffered(false)
-      setCompletionFeedbackTone('status')
+      setFeedbackTone(result.kind === 'updated' ? 'success' : 'information')
       setMessage(
         `Progress updated to ${episodeLabel(progress)}. Status updated to ${getEntryStatusDisplayLabel(result.status)}.`,
       )
@@ -273,14 +294,14 @@ export function AnimeEntryEpisodeProgressControls({
     }
     if (result.kind === 'conflict' && result.currentStatus === 'completed') {
       setCompletionOffered(false)
-      setCompletionFeedbackTone('status')
+      setFeedbackTone('information')
       setMessage(
         `Status is already ${getEntryStatusDisplayLabel(result.currentStatus)}.`,
       )
       setPendingCommand(null)
       return
     }
-    setCompletionFeedbackTone('error')
+    setFeedbackTone(result.kind === 'conflict' ? 'warning' : 'error')
     setMessage(
       result.kind === 'conflict'
         ? `This status changed elsewhere. It is now ${getEntryStatusDisplayLabel(result.currentStatus)}. Review your entry and try again.`
@@ -317,7 +338,7 @@ export function AnimeEntryEpisodeProgressControls({
             : `${episodeLabel(total)}${personalTotal === null ? '' : ' (your total)'}`}
         </p>
         <button
-          className={buttonClassName}
+          className={secondaryButtonClassName}
           disabled={isPending}
           onClick={() => {
             clearFieldFeedback()
@@ -331,24 +352,28 @@ export function AnimeEntryEpisodeProgressControls({
         </button>
         {message === null ? null : (
           <p
-            aria-live={
-              completionFeedbackTone === 'error' ? undefined : 'polite'
-            }
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={getFeedbackNoticeClassName(feedbackTone ?? 'error')}
             ref={feedbackRef}
-            role={completionFeedbackTone === 'error' ? 'alert' : 'status'}
+            role={feedbackIsAlert ? 'alert' : 'status'}
             tabIndex={-1}
           >
             {message}
           </p>
         )}
         {completionOffered && status !== 'completed' ? (
-          <div ref={completionRef} role="alert" tabIndex={-1}>
+          <div
+            className="za-notice za-notice--warning"
+            ref={completionRef}
+            role="alert"
+            tabIndex={-1}
+          >
             <p>
               You’ve reached the total of {episodeLabel(total ?? 0)}. Mark this
               entry as Completed?
             </p>
             <button
-              className={buttonClassName}
+              className={primaryButtonClassName}
               disabled={isPending}
               onClick={markCompleted}
               type="button"
@@ -356,11 +381,11 @@ export function AnimeEntryEpisodeProgressControls({
               {isCompleting ? 'Marking completed…' : 'Mark completed'}
             </button>
             <button
-              className={buttonClassName}
+              className={secondaryButtonClassName}
               disabled={isPending}
               onClick={() => {
                 setCompletionOffered(false)
-                setCompletionFeedbackTone('status')
+                setFeedbackTone('information')
                 setMessage(
                   `Progress updated to ${episodeLabel(progress)}. Status remains ${getEntryStatusDisplayLabel(status)}.`,
                 )
@@ -377,13 +402,13 @@ export function AnimeEntryEpisodeProgressControls({
   if (mode === 'reset')
     return (
       <div className="space-y-2">
-        <p role="alert">
+        <p className="za-notice za-notice--warning" role="alert">
           Reset progress to 0 episodes? Your personal total and status will stay
           the same.
         </p>
         <div className="flex flex-wrap gap-2">
           <button
-            className={buttonClassName}
+            className={secondaryButtonClassName}
             disabled={isPending}
             onClick={() => submitProgress(0, true)}
             ref={resetConfirmButtonRef}
@@ -392,7 +417,7 @@ export function AnimeEntryEpisodeProgressControls({
             {isResettingProgress ? 'Resetting progress…' : 'Reset progress'}
           </button>
           <button
-            className={buttonClassName}
+            className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => {
               clearFieldFeedback()
@@ -405,7 +430,13 @@ export function AnimeEntryEpisodeProgressControls({
           </button>
         </div>
         {message === null ? null : (
-          <p ref={feedbackRef} role="alert" tabIndex={-1}>
+          <p
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={getFeedbackNoticeClassName(feedbackTone ?? 'error')}
+            ref={feedbackRef}
+            role={feedbackIsAlert ? 'alert' : 'status'}
+            tabIndex={-1}
+          >
             {message}
           </p>
         )}
@@ -424,6 +455,7 @@ export function AnimeEntryEpisodeProgressControls({
           if (requested === null) {
             if (parseEpisodeTotalControlInput(totalValue) === null) {
               setFieldError(true)
+              setFeedbackTone('error')
               setMessage('Enter a whole personal total of at least 1 episode.')
             }
             return
@@ -454,7 +486,7 @@ export function AnimeEntryEpisodeProgressControls({
         </label>
         <div className="flex flex-wrap gap-2">
           <button
-            className={buttonClassName}
+            className={primaryButtonClassName}
             disabled={
               isPending || !shouldEnableTotalSave(totalValue, personalTotal)
             }
@@ -464,7 +496,7 @@ export function AnimeEntryEpisodeProgressControls({
           </button>
           {personalTotal === null ? null : (
             <button
-              className={buttonClassName}
+              className={secondaryButtonClassName}
               disabled={isPending}
               onClick={() =>
                 void submitTotal(episodeTotalNoneSentinel, 'clear_total')
@@ -481,7 +513,7 @@ export function AnimeEntryEpisodeProgressControls({
             </button>
           )}
           <button
-            className={buttonClassName}
+            className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => {
               clearFieldFeedback()
@@ -494,7 +526,14 @@ export function AnimeEntryEpisodeProgressControls({
           </button>
         </div>
         {message === null ? null : (
-          <p id={feedbackId} ref={feedbackRef} role="alert" tabIndex={-1}>
+          <p
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={getFeedbackNoticeClassName(feedbackTone ?? 'error')}
+            id={feedbackId}
+            ref={feedbackRef}
+            role={feedbackIsAlert ? 'alert' : 'status'}
+            tabIndex={-1}
+          >
             {message}
           </p>
         )}
@@ -512,6 +551,7 @@ export function AnimeEntryEpisodeProgressControls({
           if (requested === null) {
             if (parseEpisodeProgressControlInput(value) === null) {
               setFieldError(true)
+              setFeedbackTone('error')
               setMessage('Enter a whole number of episodes, 0 or more.')
             }
             return
@@ -541,14 +581,14 @@ export function AnimeEntryEpisodeProgressControls({
         </label>
         <div className="flex flex-wrap gap-2">
           <button
-            className={buttonClassName}
+            className={primaryButtonClassName}
             disabled={isPending || !shouldEnableProgressSave(value, progress)}
             type="submit"
           >
             {isSavingProgress ? 'Saving progress…' : 'Save progress'}
           </button>
           <button
-            className={buttonClassName}
+            className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => {
               clearFieldFeedback()
@@ -562,7 +602,7 @@ export function AnimeEntryEpisodeProgressControls({
         </div>
       </form>
       <button
-        className={buttonClassName}
+        className={secondaryButtonClassName}
         disabled={isPending}
         onClick={() => {
           clearFieldFeedback()
@@ -581,7 +621,7 @@ export function AnimeEntryEpisodeProgressControls({
       </button>
       {progress > 0 ? (
         <button
-          className={buttonClassName}
+          className={secondaryButtonClassName}
           disabled={isPending}
           onClick={() => {
             clearFieldFeedback()
@@ -595,7 +635,14 @@ export function AnimeEntryEpisodeProgressControls({
         </button>
       ) : null}
       {message === null ? null : (
-        <p id={feedbackId} ref={feedbackRef} role="alert" tabIndex={-1}>
+        <p
+          aria-live={feedbackIsAlert ? undefined : 'polite'}
+          className={getFeedbackNoticeClassName(feedbackTone ?? 'error')}
+          id={feedbackId}
+          ref={feedbackRef}
+          role={feedbackIsAlert ? 'alert' : 'status'}
+          tabIndex={-1}
+        >
           {message}
         </p>
       )}

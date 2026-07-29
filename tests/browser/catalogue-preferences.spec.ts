@@ -738,6 +738,36 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
   }
 
   await page.goto('/settings')
+  const settingsSheets = page.locator('main#main-content .za-card--raised')
+  await expect(settingsSheets).toHaveCount(4)
+  for (const heading of [
+    'Catalogue preferences',
+    'Username',
+    'Archive data',
+    'Delete account',
+  ]) {
+    await expect(
+      page.getByRole('heading', { name: heading, exact: true }),
+    ).toBeVisible()
+  }
+  const backupLink = page.getByRole('link', {
+    name: 'Download archive backup (JSON)',
+    exact: true,
+  })
+  await expect(backupLink).toHaveAttribute(
+    'href',
+    '/api/account/archive-backup',
+  )
+  await expect(backupLink).toHaveClass(/\bza-button--secondary\b/)
+  const deletionSheet = page
+    .getByRole('heading', { name: 'Delete account', exact: true })
+    .locator('xpath=ancestor::section[1]')
+  await expect(deletionSheet).toHaveClass(/\bborder-destructive\b/)
+  expect(
+    await deletionSheet.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    ),
+  ).toBe('1px')
   await expect(
     page.getByRole('radio', { name: 'English (default)' }),
   ).toBeChecked()
@@ -795,25 +825,11 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
 
   const authenticatedNoJavaScriptContext = await browser.newContext({
     javaScriptEnabled: false,
+    storageState: await page.context().storageState(),
   })
   try {
     const noJavaScriptPage = await authenticatedNoJavaScriptContext.newPage()
-    await noJavaScriptPage.goto('/sign-in')
-    const applicationOrigin = new URL(noJavaScriptPage.url()).origin
-    const noJavaScriptSignIn =
-      await authenticatedNoJavaScriptContext.request.post(
-        `${applicationOrigin}/api/auth/sign-in/email`,
-        {
-          data: {
-            email: ownerA.email,
-            password,
-          },
-          headers: {
-            origin: applicationOrigin,
-          },
-        },
-      )
-    expect(noJavaScriptSignIn.status()).toBe(200)
+    const applicationOrigin = new URL(page.url()).origin
 
     const authenticatedSettingsResponse =
       await noJavaScriptPage.goto('/settings')
@@ -823,6 +839,29 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
       noJavaScriptPage.getByRole('radio', { name: 'Romaji' }),
     ).toBeChecked()
 
+    const noJavaScriptArchiveResponse = await noJavaScriptPage.goto(
+      '/archive/anime?sort=alphabetical',
+    )
+    expect(noJavaScriptArchiveResponse?.status()).toBe(200)
+    await expectPrivateNoStore(noJavaScriptArchiveResponse!)
+    await expect(noJavaScriptPage.locator('select[name="sort"]')).toHaveValue(
+      'alphabetical',
+    )
+    await expect(noJavaScriptPage.locator('input[name="entryId"]')).toHaveCount(
+      0,
+    )
+    const nativeSortResponse =
+      await authenticatedNoJavaScriptContext.request.get(
+        `${applicationOrigin}/archive/anime?sort=recently-added`,
+      )
+    expect(nativeSortResponse.status()).toBe(200)
+    expect(nativeSortResponse.headers()['cache-control']).toContain('private')
+    expect(nativeSortResponse.headers()['cache-control']).toContain('no-store')
+    expect(nativeSortResponse.url()).toMatch(
+      /\/archive\/anime\?sort=recently-added$/,
+    )
+
+    await noJavaScriptPage.goto('/settings')
     await noJavaScriptPage.getByRole('radio', { name: 'Original' }).check()
     await noJavaScriptPage
       .getByRole('button', { name: 'Save title language', exact: true })
@@ -911,17 +950,7 @@ test('persists catalogue preferences, gates adult data and controls, and isolate
       titleLanguage: 'romaji',
     })
 
-    const noJavaScriptSignOut =
-      await authenticatedNoJavaScriptContext.request.post(
-        `${applicationOrigin}/api/auth/sign-out`,
-        {
-          data: {},
-          headers: {
-            origin: applicationOrigin,
-          },
-        },
-      )
-    expect(noJavaScriptSignOut.status()).toBe(200)
+    await authenticatedNoJavaScriptContext.clearCookies()
     await noJavaScriptPage.goto('/settings')
     await expect(
       noJavaScriptPage

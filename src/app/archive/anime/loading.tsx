@@ -3,10 +3,14 @@ export default function AnimeArchiveLoading() {
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6"
+      className="za-container za-container--wide space-y-4 py-6 sm:py-8"
     >
-      <h1 className="text-2xl font-semibold">Your anime archive</h1>
-      <p role="status">Loading your anime archive…</p>
+      <header className="za-card za-card--raised space-y-2">
+        <h1 className="text-2xl font-semibold">Your anime archive</h1>
+      </header>
+      <p className="za-notice za-notice--information" role="status">
+        Loading your anime archive…
+      </p>
     </main>
   )
 }

@@ -68,6 +68,7 @@
   --za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);
   --za-shadow-raised:
     0 1px 2px rgb(36 35 33 / 8%), 0 6px 16px rgb(36 35 33 / 6%);
+  --za-backdrop-modal: rgb(23 23 22 / 48%);
   --za-layer-content: 0;
   --za-layer-skip-link: 50;
   --za-layer-modal: 100;
@@ -310,6 +311,23 @@
     color: var(--za-color-accent-active);
   }
 
+  .za-button--selected {
+    border-color: var(--za-color-accent);
+    background: var(--za-color-accent-soft);
+    color: var(--za-color-accent);
+  }
+
+  .za-button--selected:hover {
+    border-color: var(--za-color-accent-hover);
+    background: var(--za-color-surface-subtle);
+    color: var(--za-color-accent-hover);
+  }
+
+  .za-button--selected:active {
+    border-color: var(--za-color-accent-active);
+    color: var(--za-color-accent-active);
+  }
+
   .za-button--destructive {
     border-color: var(--za-color-destructive);
     background: var(--za-color-destructive);
@@ -326,6 +344,23 @@
     background: var(--za-color-destructive-active);
   }
 
+  .za-button--destructive-outline {
+    border-color: var(--za-color-destructive);
+    background: var(--za-color-surface);
+    color: var(--za-color-destructive);
+  }
+
+  .za-button--destructive-outline:hover {
+    border-color: var(--za-color-destructive-hover);
+    background: var(--za-color-error-surface);
+    color: var(--za-color-destructive-hover);
+  }
+
+  .za-button--destructive-outline:active {
+    border-color: var(--za-color-destructive-active);
+    color: var(--za-color-destructive-active);
+  }
+
   .za-button:disabled,
   .za-field:disabled,
   .za-select:disabled {
@@ -338,6 +373,8 @@
   .za-field,
   .za-select {
     inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
     background: var(--za-color-surface);
     padding: var(--za-space-2) var(--za-space-3);
     color: var(--za-color-text);
@@ -375,10 +412,13 @@
   }
 
   .za-card {
+    min-inline-size: 0;
+    max-inline-size: 100%;
     border: var(--za-border-width) solid var(--za-color-border-required);
     border-radius: var(--za-radius-control);
     background: var(--za-color-surface);
     padding: var(--za-space-4);
+    overflow-wrap: anywhere;
   }
 
   .za-card--layered {
@@ -388,6 +428,31 @@
 
   .za-card--raised {
     box-shadow: var(--za-shadow-raised);
+  }
+
+  .za-card--restricted {
+    border-color: var(--za-color-border-decorative);
+    background: var(--za-color-surface-subtle);
+    box-shadow: none;
+  }
+
+  .za-dialog {
+    z-index: var(--za-layer-modal);
+    max-block-size: calc(100dvh - (var(--za-space-4) * 2));
+    inline-size: calc(100% - (var(--za-space-4) * 2));
+    max-inline-size: 32rem;
+    margin: auto;
+    overflow-y: auto;
+    border: var(--za-border-width) solid var(--za-color-border-required);
+    border-radius: var(--za-radius-layered);
+    background: var(--za-color-surface);
+    box-shadow: var(--za-shadow-layered);
+    padding: var(--za-space-4);
+    color: var(--za-color-text);
+  }
+
+  .za-dialog::backdrop {
+    background: var(--za-backdrop-modal);
   }
 
   .za-title-tile {
@@ -444,6 +509,61 @@
     background: var(--za-color-accent-soft);
     padding: var(--za-space-3);
     color: var(--za-color-accent);
+  }
+
+  .za-archive-card {
+    display: flex;
+    block-size: 100%;
+    flex-direction: column;
+    gap: var(--za-space-4);
+  }
+
+  .za-archive-card__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--za-space-4);
+  }
+
+  .za-archive-card__tile {
+    inline-size: min(7rem, 100%);
+    max-inline-size: 100%;
+    flex: 0 1 7rem;
+  }
+
+  .za-archive-card__details {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 10rem;
+    align-content: start;
+    gap: var(--za-space-2);
+    overflow-wrap: anywhere;
+  }
+
+  .za-archive-card > .za-archive-card__tracking {
+    inline-size: 100%;
+    margin-block-start: auto;
+    border-block-start: var(--za-border-width) solid
+      var(--za-color-border-decorative);
+    padding-block-start: var(--za-space-3);
+  }
+
+  .za-archive-card__editor {
+    display: grid;
+    gap: var(--za-space-4);
+  }
+
+  .za-archive-card__editor > .za-archive-card__tracking,
+  .za-archive-card__removal {
+    display: grid;
+    gap: var(--za-space-4);
+    border-block-start: var(--za-border-width) solid
+      var(--za-color-border-decorative);
+    padding-block-start: var(--za-space-3);
+  }
+
+  .za-archive-card__removal {
+    inline-size: 100%;
   }
 
   @media (min-width: 40rem) {

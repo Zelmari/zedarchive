@@ -253,146 +253,155 @@ export function AnimeEntryTrackingCoordinator({
   }
 
   return (
-    <div className="space-y-2">
-      <UpdateAnimeEntryStatusForm
-        animeTitle={animeTitle}
-        currentStatus={state.status}
-        entryId={entryId}
-        isPending={isPending}
-        onSubmit={submitStatus}
-      />
-      <AnimeEntryRatingForm
-        animeTitle={animeTitle}
-        entryId={entryId}
-        isPending={isPending}
-        onSubmit={(formData) =>
-          runMutation(
-            'rating',
-            async () => {
-              try {
-                return await updateAnimeEntryRating({ kind: 'idle' }, formData)
-              } catch {
-                return { kind: 'retry' } as const
-              }
-            },
-            getRatingReconciliation,
-          )
-        }
-        rating={state.rating}
-      />
-      <AnimeEntryFavouriteControl
-        entryId={entryId}
-        isFavourite={state.isFavourite}
-        isOwnOperationPending={isFavouritePending}
-        isPending={isPending}
-        onSubmit={(formData) =>
-          runMutation(
-            'favourite',
-            async () => {
-              try {
-                return await updateAnimeEntryFavourite(
-                  { kind: 'idle' },
-                  formData,
-                )
-              } catch {
-                return { kind: 'retry' } as const
-              }
-            },
-            getFavouriteReconciliation,
-          )
-        }
-      />
-      <AnimeEntryDateRangeForm
-        animeTitle={animeTitle}
-        entryId={entryId}
-        finishDate={state.finishDate}
-        isOwnOperationPending={isDateRangePending}
-        isPending={isPending}
-        onSubmit={(formData) =>
-          runMutation(
-            'dates',
-            async () => {
-              try {
-                return await updateAnimeEntryDateRange(
-                  { kind: 'idle' },
-                  formData,
-                )
-              } catch {
-                return { kind: 'retry' } as const
-              }
-            },
-            getDateRangeReconciliation,
-          )
-        }
-        startDate={state.startDate}
-      />
-      {progressState.kind === 'trackable' ? (
-        <AnimeEntryEpisodeProgressControls
-          catalogueTotal={state.catalogueTotal}
+    <div className="za-archive-card__editor">
+      <div className="za-archive-card__status">
+        <UpdateAnimeEntryStatusForm
+          animeTitle={animeTitle}
+          currentStatus={state.status}
           entryId={entryId}
           isPending={isPending}
-          onProgressSubmit={(formData, operation) =>
-            runMutation(
-              operation,
-              async () => {
-                try {
-                  return await updateAnimeEntryEpisodeProgress(
-                    { kind: 'idle' },
-                    formData,
-                  )
-                } catch {
-                  return { kind: 'retry' } as const
-                }
-              },
-              (result) => getProgressReconciliation(operation, result),
-            )
-          }
-          onStatusSubmit={(formData) => submitStatus(formData, 'completion')}
-          onTotalSubmit={(formData) =>
-            runMutation(
-              'total',
-              async () => {
-                try {
-                  return await updateAnimeEntryEpisodeTotalOverride(
-                    { kind: 'idle' },
-                    formData,
-                  )
-                } catch {
-                  return { kind: 'retry' } as const
-                }
-              },
-              getTotalReconciliation,
-            )
-          }
-          personalTotal={state.personalTotal}
-          progress={state.progress}
-          status={state.status}
+          onSubmit={submitStatus}
         />
-      ) : progressState.kind === 'format_unknown' ? (
-        <p>
-          Episode tracking isn’t available until this anime’s format is known.
-        </p>
-      ) : null}
-      <AnimeEntryRemovalControl
-        animeTitle={animeTitle}
-        entryId={entryId}
-        isOwnOperationPending={isRemovalPending}
-        isPending={isPending}
-        onRemoved={reportRemoval}
-        onSubmit={(formData) =>
-          runMutation<RemoveAnimeEntryActionState>(
-            'removal',
-            async () => {
-              try {
-                return await removeAnimeEntry({ kind: 'idle' }, formData)
-              } catch {
-                return { kind: 'retry' } as const
-              }
-            },
-            () => null,
-          )
-        }
-      />
+      </div>
+      <div className="za-archive-card__tracking">
+        <AnimeEntryRatingForm
+          animeTitle={animeTitle}
+          entryId={entryId}
+          isPending={isPending}
+          onSubmit={(formData) =>
+            runMutation(
+              'rating',
+              async () => {
+                try {
+                  return await updateAnimeEntryRating(
+                    { kind: 'idle' },
+                    formData,
+                  )
+                } catch {
+                  return { kind: 'retry' } as const
+                }
+              },
+              getRatingReconciliation,
+            )
+          }
+          rating={state.rating}
+        />
+        <AnimeEntryFavouriteControl
+          entryId={entryId}
+          isFavourite={state.isFavourite}
+          isOwnOperationPending={isFavouritePending}
+          isPending={isPending}
+          onSubmit={(formData) =>
+            runMutation(
+              'favourite',
+              async () => {
+                try {
+                  return await updateAnimeEntryFavourite(
+                    { kind: 'idle' },
+                    formData,
+                  )
+                } catch {
+                  return { kind: 'retry' } as const
+                }
+              },
+              getFavouriteReconciliation,
+            )
+          }
+        />
+        <AnimeEntryDateRangeForm
+          animeTitle={animeTitle}
+          entryId={entryId}
+          finishDate={state.finishDate}
+          isOwnOperationPending={isDateRangePending}
+          isPending={isPending}
+          onSubmit={(formData) =>
+            runMutation(
+              'dates',
+              async () => {
+                try {
+                  return await updateAnimeEntryDateRange(
+                    { kind: 'idle' },
+                    formData,
+                  )
+                } catch {
+                  return { kind: 'retry' } as const
+                }
+              },
+              getDateRangeReconciliation,
+            )
+          }
+          startDate={state.startDate}
+        />
+        {progressState.kind === 'trackable' ? (
+          <AnimeEntryEpisodeProgressControls
+            catalogueTotal={state.catalogueTotal}
+            entryId={entryId}
+            isPending={isPending}
+            onProgressSubmit={(formData, operation) =>
+              runMutation(
+                operation,
+                async () => {
+                  try {
+                    return await updateAnimeEntryEpisodeProgress(
+                      { kind: 'idle' },
+                      formData,
+                    )
+                  } catch {
+                    return { kind: 'retry' } as const
+                  }
+                },
+                (result) => getProgressReconciliation(operation, result),
+              )
+            }
+            onStatusSubmit={(formData) => submitStatus(formData, 'completion')}
+            onTotalSubmit={(formData) =>
+              runMutation(
+                'total',
+                async () => {
+                  try {
+                    return await updateAnimeEntryEpisodeTotalOverride(
+                      { kind: 'idle' },
+                      formData,
+                    )
+                  } catch {
+                    return { kind: 'retry' } as const
+                  }
+                },
+                getTotalReconciliation,
+              )
+            }
+            personalTotal={state.personalTotal}
+            progress={state.progress}
+            status={state.status}
+          />
+        ) : progressState.kind === 'format_unknown' ? (
+          <p>
+            Episode tracking isn’t available until this anime’s format is known.
+          </p>
+        ) : null}
+      </div>
+      <div className="za-archive-card__removal">
+        <AnimeEntryRemovalControl
+          animeTitle={animeTitle}
+          entryId={entryId}
+          isOwnOperationPending={isRemovalPending}
+          isPending={isPending}
+          onRemoved={reportRemoval}
+          onSubmit={(formData) =>
+            runMutation<RemoveAnimeEntryActionState>(
+              'removal',
+              async () => {
+                try {
+                  return await removeAnimeEntry({ kind: 'idle' }, formData)
+                } catch {
+                  return { kind: 'retry' } as const
+                }
+              },
+              () => null,
+            )
+          }
+        />
+      </div>
     </div>
   )
 }

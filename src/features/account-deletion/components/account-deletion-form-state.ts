@@ -1,8 +1,9 @@
 import type { AccountDeletionActionState } from '@/features/account-deletion/domain/account-deletion'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 export type AccountDeletionFeedback = {
   field?: 'password' | 'code' | 'confirmation'
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
 }
 
@@ -34,27 +35,27 @@ export function getAccountDeletionFeedback(
       }
     case 'code_sent':
       return {
-        tone: 'status',
+        tone: 'information',
         message: 'Check your verified email for a deletion code.',
       }
     case 'code_resent':
       return {
-        tone: 'status',
+        tone: 'information',
         message: 'A new deletion code was sent. Only the newest code works.',
       }
     case 'resend_cooldown':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'Wait a moment before sending another code.',
       }
     case 'send_limit':
       return {
-        tone: 'error',
+        tone: 'warning',
         message:
           'No more deletion codes can be sent right now. Use the newest code.',
       }
     case 'setup_cancelled':
-      return { tone: 'status', message: 'Deletion setup cancelled.' }
+      return { tone: 'success', message: 'Deletion setup cancelled.' }
     case 'confirmation_required':
       return {
         field: 'confirmation',
@@ -70,19 +71,19 @@ export function getAccountDeletionFeedback(
       }
     case 'code_expired':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'This deletion code has expired. Send another code.',
       }
     case 'reauthentication_required':
     case 'attempts_exhausted':
     case 'restart_required':
       return {
-        tone: 'error',
+        tone: 'warning',
         message: 'This deletion code is no longer valid. Start again.',
       }
     case 'deletion_cancelled':
       return {
-        tone: 'status',
+        tone: 'success',
         message:
           'Account deletion cancelled. Your account and archive are available again.',
       }

@@ -1,9 +1,10 @@
 import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domain/update-anime-entry-status'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 export type UpdateAnimeEntryStatusFeedback = {
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
   selectError: boolean
 }
@@ -102,7 +103,7 @@ export function updateAnimeEntryStatusFormReducer(
               selectedStatus: result.status,
             },
             {
-              tone: 'status',
+              tone: 'success',
               message: `Status updated to ${getEntryStatusDisplayLabel(result.status)}.`,
               selectError: false,
             },
@@ -116,7 +117,7 @@ export function updateAnimeEntryStatusFormReducer(
               selectedStatus: result.status,
             },
             {
-              tone: 'status',
+              tone: 'information',
               message: `Status is already ${getEntryStatusDisplayLabel(result.status)}.`,
               selectError: false,
             },
@@ -129,7 +130,7 @@ export function updateAnimeEntryStatusFormReducer(
               authoritativeStatus: result.currentStatus,
             },
             {
-              tone: 'error',
+              tone: 'warning',
               message: `This status changed elsewhere. It is now ${getEntryStatusDisplayLabel(result.currentStatus)}. Review your selection and try again.`,
               selectError: false,
             },

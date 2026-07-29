@@ -19,6 +19,20 @@ function monitorUnexpectedBrowserErrors(page: import('@playwright/test').Page) {
   }
 }
 
+async function expectNarrowRaisedAuthSheet(
+  page: import('@playwright/test').Page,
+) {
+  const sheet = page.locator('main#main-content > section').first()
+
+  await expect(sheet).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await sheet.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).not.toBe('none')
+  expect(
+    await sheet.evaluate((element) => element.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(448)
+}
+
 test('renders the public sign-in page from the production server', async ({
   page,
 }) => {
@@ -31,6 +45,7 @@ test('renders the public sign-in page from the production server', async ({
   await expect(
     page.getByRole('button', { name: 'Sign in', exact: true }),
   ).toBeVisible()
+  await expectNarrowRaisedAuthSheet(page)
 
   assertNoUnexpectedErrors()
 })
@@ -64,6 +79,66 @@ for (const viewport of [
     assertNoUnexpectedErrors()
   })
 }
+
+for (const route of [
+  { path: '/sign-in', heading: 'Sign in' },
+  { path: '/register', heading: 'Register' },
+  { path: '/register/check-email', heading: 'Check your email' },
+  { path: '/verify-email', heading: 'Verify email' },
+  { path: '/forgot-password', heading: 'Forgot password' },
+  { path: '/forgot-password/sent', heading: 'Check your email' },
+  { path: '/reset-password', heading: 'Reset password' },
+]) {
+  test(`renders ${route.path} as a narrow raised authentication sheet`, async ({
+    page,
+  }) => {
+    const assertNoUnexpectedErrors = monitorUnexpectedBrowserErrors(page)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(route.path)
+
+    await expect(
+      page.getByRole('heading', { name: route.heading }),
+    ).toBeVisible()
+    await expectNarrowRaisedAuthSheet(page)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      )
+      .toBe(true)
+
+    assertNoUnexpectedErrors()
+  })
+}
+
+test('keeps the sign-in sheet reachable at 320px with 200% root text', async ({
+  page,
+}) => {
+  const assertNoUnexpectedErrors = monitorUnexpectedBrowserErrors(page)
+
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.goto('/sign-in')
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+
+  await expectNarrowRaisedAuthSheet(page)
+  await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    )
+    .toBe(true)
+
+  assertNoUnexpectedErrors()
+})
 
 test('activates the skip link and moves keyboard focus to the main content', async ({
   page,

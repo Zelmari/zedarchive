@@ -16,6 +16,10 @@ import {
   initialAccountDeletionActionState,
 } from '@/features/account-deletion/domain/account-deletion'
 import { cancelAccountDeletion } from '@/features/account-deletion/actions/cancel-account-deletion'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
 const subscribeToHydration = () => () => undefined
 const hydratedSnapshot = () => true
@@ -26,7 +30,7 @@ function CancelButton() {
 
   return (
     <button
-      className="rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+      className="za-button za-button--primary"
       disabled={pending}
       type="submit"
     >
@@ -47,6 +51,8 @@ export function RecoverableAccountDeletion({
   const feedback = getAccountDeletionFeedback(state)
   const feedbackRef = useRef<HTMLParagraphElement>(null)
   const feedbackId = useId()
+  const feedbackIsAlert =
+    feedback === null ? false : isAlertFeedbackTone(feedback.tone)
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     hydratedSnapshot,
@@ -61,14 +67,16 @@ export function RecoverableAccountDeletion({
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Account deletion requested</h1>
-        <p ref={feedbackRef} role="status" tabIndex={-1}>
+        <p
+          className="za-notice za-notice--success"
+          ref={feedbackRef}
+          role="status"
+          tabIndex={-1}
+        >
           Account deletion cancelled. Your account and archive are available
           again.
         </p>
-        <Link
-          className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          href="/settings"
-        >
+        <Link className="za-link" href="/settings">
           Return to settings
         </Link>
       </div>
@@ -80,7 +88,7 @@ export function RecoverableAccountDeletion({
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Recovery period ended</h1>
         <p
-          className="text-sm text-red-700"
+          className="za-notice za-notice--error text-sm"
           ref={feedbackRef}
           role="alert"
           tabIndex={-1}
@@ -99,7 +107,7 @@ export function RecoverableAccountDeletion({
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Account deletion requested</h1>
-      <p>
+      <p className="za-notice za-notice--warning">
         Your account is restricted. Normal account features are unavailable.
       </p>
       <p>
@@ -116,7 +124,10 @@ export function RecoverableAccountDeletion({
         unavailable until deletion succeeds. Encrypted backups may retain copies
         until they expire.
       </p>
-      <form action={action} aria-describedby={feedbackId}>
+      <form
+        action={action}
+        aria-describedby={feedback ? feedbackId : undefined}
+      >
         {hydrated ? (
           <input
             name="hydrated"
@@ -127,12 +138,15 @@ export function RecoverableAccountDeletion({
         <CancelButton />
       </form>
       <p
+        aria-live={feedbackIsAlert ? undefined : 'polite'}
         className={
-          feedback?.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
+          feedback === null
+            ? undefined
+            : `${getFeedbackNoticeClassName(feedback.tone)} text-sm`
         }
         id={feedbackId}
         ref={feedbackRef}
-        role={feedback?.tone === 'error' ? 'alert' : 'status'}
+        role={feedbackIsAlert ? 'alert' : 'status'}
         tabIndex={-1}
       >
         {feedback?.message ?? ''}
@@ -144,8 +158,10 @@ export function RecoverableAccountDeletion({
 export function DueAccountDeletion() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Recovery period ended</h1>
-      <p>
+      <h1 className="text-2xl font-semibold text-destructive">
+        Recovery period ended
+      </h1>
+      <p className="za-notice za-notice--error" role="alert">
         The recovery period for this account has ended. Account recovery and
         cancellation are no longer available.
       </p>

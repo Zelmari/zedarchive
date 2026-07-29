@@ -2,11 +2,9 @@
 
 import { useId, useState } from 'react'
 
-const fieldClassName =
-  'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const toggleButtonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 text-sm transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const toggleButtonClassName = 'za-button za-button--secondary shrink-0 text-sm'
 
 type PasswordFieldProps = Readonly<{
   autoComplete: 'new-password' | 'current-password'
@@ -72,7 +70,7 @@ export function PasswordField({
         </button>
       </div>
       {hint ? (
-        <p className="text-sm text-gray-700" id={hintId}>
+        <p className="text-sm text-ink-muted" id={hintId}>
           {hint}
         </p>
       ) : null}

@@ -31,6 +31,11 @@ const fakeResendPort = 43_132
 const expectedFakeResendBaseUrl = `http://127.0.0.1:${fakeResendPort}`
 
 const { databaseUrl } = readDatabaseRuntimeEnvironment()
+const expectedEmailFromAddress = process.env.AUTH_EMAIL_FROM
+const expectedEmailReplyToAddress = process.env.AUTH_EMAIL_REPLY_TO
+if (!expectedEmailFromAddress || !expectedEmailReplyToAddress) {
+  throw new Error('Browser email sender environment is unavailable')
+}
 const pool = new Pool({ connectionString: databaseUrl })
 const fixtureUserIds: string[] = []
 let ownerAId = ''
@@ -56,7 +61,10 @@ function monitorUnexpectedBrowserErrors(page: Page) {
   const pageErrors: string[] = []
 
   page.on('console', (message) => {
-    if (message.type() === 'error') {
+    if (
+      message.type() === 'error' &&
+      !isExpectedSignInRateLimitError(message)
+    ) {
       consoleErrors.push(message.text())
     }
   })
@@ -67,6 +75,19 @@ function monitorUnexpectedBrowserErrors(page: Page) {
   return () => {
     expect(consoleErrors).toEqual([])
     expect(pageErrors).toEqual([])
+  }
+}
+
+function isExpectedSignInRateLimitError(
+  message: import('@playwright/test').ConsoleMessage,
+) {
+  try {
+    return (
+      new URL(message.location().url).pathname === '/api/auth/sign-in/email' &&
+      message.text().includes('429')
+    )
+  } catch {
+    return false
   }
 }
 
@@ -300,8 +321,8 @@ async function readCollectedUsernameCode(
     throw new Error('Synthetic email was not collected')
   const serialized = JSON.stringify(message.body)
   expect(message.body).toMatchObject({
-    from: 'zedarchive <accounts@auth.example.com>',
-    reply_to: 'reply@example.com',
+    from: `zedarchive <${expectedEmailFromAddress}>`,
+    reply_to: expectedEmailReplyToAddress,
     subject: 'Your zedarchive username change code',
     tags: [{ name: 'category', value: 'username_change' }],
   })

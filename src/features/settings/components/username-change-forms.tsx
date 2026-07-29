@@ -32,12 +32,14 @@ import {
   usernameMaximumLength,
   usernameMinimumLength,
 } from '@/features/identity/domain/username'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button'
 
-const fieldClassName =
-  'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
 const subscribeToHydration = () => () => undefined
 const getHydratedSnapshot = () => true
@@ -52,15 +54,20 @@ function Feedback({
   feedbackRef: RefObject<HTMLParagraphElement | null>
   id: string
 }) {
+  const feedbackIsAlert =
+    feedback === null ? false : isAlertFeedbackTone(feedback.tone)
+
   return (
     <p
-      aria-live={feedback?.tone === 'status' ? 'polite' : undefined}
+      aria-live={feedbackIsAlert ? undefined : 'polite'}
       className={
-        feedback?.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
+        feedback === null
+          ? undefined
+          : `${getFeedbackNoticeClassName(feedback.tone)} text-sm`
       }
       id={id}
       ref={feedbackRef}
-      role={feedback?.tone === 'error' ? 'alert' : 'status'}
+      role={feedbackIsAlert ? 'alert' : 'status'}
       tabIndex={-1}
     >
       {feedback?.message ?? ''}
@@ -72,16 +79,18 @@ function SubmitButton({
   disabled = false,
   idleLabel,
   pendingLabel,
+  variant = 'primary',
 }: {
   disabled?: boolean
   idleLabel: string
   pendingLabel: string
+  variant?: 'primary' | 'secondary'
 }) {
   const { pending } = useFormStatus()
 
   return (
     <button
-      className={buttonClassName}
+      className={`${buttonClassName} za-button--${variant}`}
       disabled={pending || disabled}
       type="submit"
     >
@@ -164,7 +173,7 @@ function StartUsernameChangeForm({
           required
           type="text"
         />
-        <p className="text-sm text-gray-700" id={`${usernameId}-hint`}>
+        <p className="text-sm text-ink-muted" id={`${usernameId}-hint`}>
           {usernameMinimumLength}–{usernameMaximumLength} characters. Letters,
           numbers, hyphens, and underscores. Must start and end with a letter or
           number.
@@ -324,7 +333,7 @@ function CompletionUsernameChangeForm({
             This verification code is no longer valid. Cancel it to start again.
           </p>
         ) : resend.kind === 'unavailable' ? (
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-ink-muted">
             {resend.reason === 'send_limit'
               ? 'No more verification codes can be sent right now. Use the newest code.'
               : 'Use the newest verification code before it expires.'}
@@ -339,9 +348,10 @@ function CompletionUsernameChangeForm({
               disabled={!resendAvailable}
               idleLabel="Send another code"
               pendingLabel="Sending another code…"
+              variant="secondary"
             />
             {resend.kind === 'cooldown' && !resendAvailable ? (
-              <p className="mt-2 text-sm text-gray-700" role="status">
+              <p className="mt-2 text-sm text-ink-muted" role="status">
                 You can send another code after a short wait. Refresh settings
                 if JavaScript is unavailable.
               </p>
@@ -356,6 +366,7 @@ function CompletionUsernameChangeForm({
           <SubmitButton
             idleLabel="Cancel username change"
             pendingLabel="Cancelling…"
+            variant="secondary"
           />
         </form>
       </div>
@@ -406,7 +417,7 @@ export function UsernameChangeForms({
   if (model.kind === 'unavailable') {
     return (
       <>
-        <div className="space-y-2" role="alert">
+        <div className="za-notice za-notice--error space-y-2" role="alert">
           <p>Username settings are temporarily unavailable.</p>
           <p>Try again in a moment.</p>
         </div>

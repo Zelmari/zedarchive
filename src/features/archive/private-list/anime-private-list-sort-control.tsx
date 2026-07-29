@@ -11,12 +11,6 @@ import {
 } from '@/features/archive/private-list/anime-private-list-sort'
 import { buildAnimePrivateListPageHref } from '@/features/archive/private-list/anime-private-list-query'
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-
 let shouldRestoreApplyFocus = false
 
 export function requestAnimePrivateListSortControlApplyFocus(): void {
@@ -123,6 +117,7 @@ export function synchronizeAnimePrivateListSortControlSelect(
 type AnimePrivateListSortControlProps = {
   sort: AnimePrivateListSort
   isSortExplicit: boolean
+  isEmbedded?: boolean
   viewKey: string
   preferenceStorage?: AnimePrivateListSortPreferenceStorage | null
 }
@@ -130,6 +125,7 @@ type AnimePrivateListSortControlProps = {
 export function AnimePrivateListSortControl({
   sort,
   isSortExplicit,
+  isEmbedded = false,
   viewKey,
   preferenceStorage,
 }: AnimePrivateListSortControlProps) {
@@ -184,16 +180,16 @@ export function AnimePrivateListSortControl({
   return (
     <form
       action="/archive/anime"
-      className="flex flex-wrap items-end gap-3"
+      className={`${isEmbedded ? '' : 'za-card za-card--raised '}flex flex-wrap items-end gap-3`}
       method="get"
       onSubmit={handleSubmit}
     >
-      <div className="flex min-w-[12rem] flex-1 flex-col gap-1">
+      <div className="flex min-w-0 basis-48 flex-1 flex-col gap-1">
         <label className="text-sm font-medium" htmlFor={selectId}>
           Sort by
         </label>
         <select
-          className={fieldClassName}
+          className="za-select"
           defaultValue={sort}
           id={selectId}
           name="sort"
@@ -206,7 +202,11 @@ export function AnimePrivateListSortControl({
           ))}
         </select>
       </div>
-      <button className={buttonClassName} ref={applyButtonRef} type="submit">
+      <button
+        className="za-button za-button--primary"
+        ref={applyButtonRef}
+        type="submit"
+      >
         Apply sort
       </button>
     </form>

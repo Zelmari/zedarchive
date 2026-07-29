@@ -60,22 +60,19 @@ export default async function SettingsPage() {
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6"
+      className="za-container za-container--medium space-y-8 py-6 sm:py-8"
     >
       <h1 className="text-2xl font-semibold">Settings</h1>
       {model.kind === 'signed_out' ? (
-        <p>
-          <a
-            className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            href="/sign-in"
-          >
+        <p className="za-card za-card--raised">
+          <a className="za-link" href="/sign-in">
             Sign in
           </a>{' '}
           to manage settings.
         </p>
       ) : null}
       {model.kind === 'unavailable' ? (
-        <div className="space-y-2" role="alert">
+        <div className="za-notice za-notice--error space-y-2" role="alert">
           <p>Settings are temporarily unavailable.</p>
           <p>Try again in a moment.</p>
         </div>
@@ -84,7 +81,7 @@ export default async function SettingsPage() {
         <>
           <section
             aria-labelledby="catalogue-preferences-heading"
-            className="space-y-6"
+            className="za-card za-card--raised space-y-6"
           >
             <h2
               className="text-xl font-semibold"
@@ -98,7 +95,10 @@ export default async function SettingsPage() {
             <h2 className="text-xl font-semibold" id="account-heading">
               Account
             </h2>
-            <section aria-labelledby="username-heading" className="space-y-4">
+            <section
+              aria-labelledby="username-heading"
+              className="za-card za-card--raised space-y-4"
+            >
               <h3 className="font-semibold" id="username-heading">
                 Username
               </h3>
@@ -106,7 +106,7 @@ export default async function SettingsPage() {
             </section>
             <section
               aria-labelledby="archive-data-heading"
-              className="space-y-4 border-t border-gray-300 pt-6"
+              className="za-card za-card--raised space-y-4"
             >
               <h3 className="font-semibold" id="archive-data-heading">
                 Archive data
@@ -116,13 +116,13 @@ export default async function SettingsPage() {
                 catalogue preferences. It excludes your account identity,
                 sign-in information, and images.
               </p>
-              <p>
+              <p className="za-notice za-notice--information">
                 The JSON file contains your complete saved anime data, including
                 entries currently hidden by your adult-content setting. Store it
                 somewhere private.
               </p>
               <a
-                className="rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="za-button za-button--secondary"
                 href="/api/account/archive-backup"
               >
                 Download archive backup (JSON)
@@ -130,9 +130,12 @@ export default async function SettingsPage() {
             </section>
             <section
               aria-labelledby="delete-account-heading"
-              className="space-y-4 border-t border-gray-300 pt-6"
+              className="za-card za-card--raised space-y-4 border-destructive"
             >
-              <h3 className="font-semibold" id="delete-account-heading">
+              <h3
+                className="font-semibold text-destructive"
+                id="delete-account-heading"
+              >
                 Delete account
               </h3>
               <AccountDeletionForms

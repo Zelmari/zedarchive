@@ -42,14 +42,11 @@ import {
   usernameMinimumLength,
 } from '@/features/identity/domain/username'
 
-const fieldClassName =
-  'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button za-button--primary'
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const linkClassName = 'za-link'
 
 type FieldName = 'username' | 'email' | 'password'
 
@@ -392,7 +389,7 @@ export function RegisterForm() {
           type="text"
           value={username}
         />
-        <p className="text-sm text-gray-700" id={usernameHintId}>
+        <p className="text-sm text-ink-muted" id={usernameHintId}>
           {usernameMinimumLength}–{usernameMaximumLength} characters. Letters,
           numbers, hyphens, and underscores. Must start and end with a letter or
           number.
@@ -400,7 +397,7 @@ export function RegisterForm() {
         {showAvailabilityStatus && availability.status === 'checking' ? (
           <p
             aria-live="polite"
-            className="text-sm text-gray-700"
+            className="text-sm text-ink-muted"
             id={usernameStatusId}
             role="status"
           >
@@ -414,7 +411,7 @@ export function RegisterForm() {
                 ? 'polite'
                 : undefined
             }
-            className="text-sm text-gray-700"
+            className="text-sm text-ink-muted"
             id={usernameStatusId}
             role={
               currentAvailableDisplayUsername === availability.displayUsername
@@ -431,14 +428,14 @@ export function RegisterForm() {
           </p>
         ) : null}
         {showAvailabilityStatus && availability.status === 'unavailable' ? (
-          <p className="text-sm text-red-700" id={usernameStatusId}>
+          <p className="text-sm text-destructive" id={usernameStatusId}>
             {USERNAME_AVAILABILITY_UNAVAILABLE_MESSAGE}
           </p>
         ) : null}
         {showAvailabilityStatus && availability.status === 'unknown' ? (
           <p
             aria-live="polite"
-            className="text-sm text-gray-700"
+            className="text-sm text-ink-muted"
             id={usernameStatusId}
             role="status"
           >
@@ -447,7 +444,7 @@ export function RegisterForm() {
         ) : null}
         {fieldErrors.username ? (
           <p
-            className="text-sm text-red-700"
+            className="text-sm text-destructive"
             id={`${usernameId}-error`}
             role="alert"
           >
@@ -473,12 +470,12 @@ export function RegisterForm() {
           type="email"
           value={email}
         />
-        <p className="text-sm text-gray-700" id={emailHintId}>
+        <p className="text-sm text-ink-muted" id={emailHintId}>
           A verification email is required before you can sign in.
         </p>
         {fieldErrors.email ? (
           <p
-            className="text-sm text-red-700"
+            className="text-sm text-destructive"
             id={`${emailId}-error`}
             role="alert"
           >
@@ -501,7 +498,7 @@ export function RegisterForm() {
       />
       {fieldErrors.password ? (
         <p
-          className="text-sm text-red-700"
+          className="text-sm text-destructive"
           id={`${passwordId}-error`}
           role="alert"
         >

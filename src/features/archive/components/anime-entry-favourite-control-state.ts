@@ -1,7 +1,8 @@
 import type { UpdateAnimeEntryFavouriteActionState } from '@/features/archive/domain/update-anime-entry-favourite'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 type FavouriteFeedback = {
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
 }
 
@@ -56,7 +57,7 @@ export function animeEntryFavouriteControlReducer(
           return withFeedback(
             { ...state, authoritativeFavourite: result.isFavourite },
             {
-              tone: 'status',
+              tone: 'success',
               message: result.isFavourite
                 ? 'Added to favourites.'
                 : 'Removed from favourites.',
@@ -66,7 +67,7 @@ export function animeEntryFavouriteControlReducer(
           return withFeedback(
             { ...state, authoritativeFavourite: result.isFavourite },
             {
-              tone: 'status',
+              tone: 'information',
               message: result.isFavourite
                 ? 'This anime is already a favourite.'
                 : 'This anime is not a favourite.',
@@ -76,7 +77,7 @@ export function animeEntryFavouriteControlReducer(
           return withFeedback(
             { ...state, authoritativeFavourite: result.currentFavourite },
             {
-              tone: 'error',
+              tone: 'warning',
               message:
                 'This favourite changed elsewhere. Review the current state and try again.',
             },

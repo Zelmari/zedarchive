@@ -798,9 +798,13 @@ test('keeps the exact maximum-length signed-in username shell reachable at every
     })
 
     await expect(brand).toBeVisible()
-    await expect(
-      primary.getByRole('link', { name: 'My anime', exact: true }),
-    ).toBeVisible()
+    const archiveLink = primary.getByRole('link', {
+      name: 'My anime',
+      exact: true,
+    })
+    await expect(archiveLink).toBeVisible()
+    await expect(archiveLink).toHaveClass(/\bza-button--secondary\b/)
+    await expect(archiveLink).toHaveCSS('display', /^(flex|inline-flex)$/)
     await expect(identity).toBeVisible()
     await expect(settings).toBeVisible()
     await expect(signOut).toBeVisible()

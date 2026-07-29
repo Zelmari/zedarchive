@@ -26,13 +26,14 @@ import { cancelAccountDeletionSetup } from '@/features/account-deletion/actions/
 import { completeAccountDeletion } from '@/features/account-deletion/actions/complete-account-deletion'
 import { requestAccountDeletion } from '@/features/account-deletion/actions/request-account-deletion'
 import { resendDeletionCode } from '@/features/account-deletion/actions/resend-account-deletion-code'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
-const destructiveButtonClassName =
-  'rounded border border-red-700 bg-white px-3 py-2 text-red-800 transition-colors hover:bg-red-50 active:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
-const fieldClassName =
-  'w-full rounded border border-gray-300 px-3 py-2 transition-colors aria-invalid:border-red-600 aria-invalid:bg-red-50 aria-invalid:outline-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const buttonClassName = 'za-button'
+const destructiveButtonClassName = 'za-button za-button--destructive'
+const fieldClassName = 'za-field'
 
 const subscribeToHydration = () => () => undefined
 const hydratedSnapshot = () => true
@@ -47,15 +48,20 @@ function Feedback({
   feedbackRef: RefObject<HTMLParagraphElement | null>
   id: string
 }) {
+  const feedbackIsAlert =
+    feedback === null ? false : isAlertFeedbackTone(feedback.tone)
+
   return (
     <p
-      aria-live={feedback?.tone === 'status' ? 'polite' : undefined}
+      aria-live={feedbackIsAlert ? undefined : 'polite'}
       className={
-        feedback?.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
+        feedback === null
+          ? undefined
+          : `${getFeedbackNoticeClassName(feedback.tone)} text-sm`
       }
       id={id}
       ref={feedbackRef}
-      role={feedback?.tone === 'error' ? 'alert' : 'status'}
+      role={feedbackIsAlert ? 'alert' : 'status'}
       tabIndex={-1}
     >
       {feedback?.message ?? ''}
@@ -65,20 +71,30 @@ function Feedback({
 
 function SubmitButton({
   destructive = false,
+  destructiveOutline = false,
   disabled = false,
   idleLabel,
   pendingLabel,
+  variant = 'primary',
 }: {
   destructive?: boolean
+  destructiveOutline?: boolean
   disabled?: boolean
   idleLabel: string
   pendingLabel: string
+  variant?: 'primary' | 'secondary'
 }) {
   const { pending } = useFormStatus()
 
   return (
     <button
-      className={destructive ? destructiveButtonClassName : buttonClassName}
+      className={
+        destructive
+          ? destructiveButtonClassName
+          : destructiveOutline
+            ? 'za-button za-button--destructive-outline'
+            : `${buttonClassName} za-button--${variant}`
+      }
       disabled={pending || disabled}
       type="submit"
     >
@@ -130,6 +146,7 @@ function StartForm({
         />
       </div>
       <SubmitButton
+        destructiveOutline
         idleLabel="Send deletion code"
         pendingLabel="Sending deletion code…"
       />
@@ -284,7 +301,7 @@ function CompletionForm({
             start again.
           </p>
         ) : resend.kind === 'unavailable' ? (
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-ink-muted">
             {resend.reason === 'send_limit'
               ? 'No more deletion codes can be sent right now. Use the newest code.'
               : 'Use the newest deletion code before it expires.'}
@@ -299,9 +316,10 @@ function CompletionForm({
               disabled={!resendAvailable || anyPending}
               idleLabel="Send another code"
               pendingLabel="Sending another code…"
+              variant="secondary"
             />
             {resend.kind === 'cooldown' && !resendAvailable ? (
-              <p className="mt-2 text-sm text-gray-700" role="status">
+              <p className="mt-2 text-sm text-ink-muted" role="status">
                 Wait a moment before sending another code. Refresh settings
                 after the cooldown if JavaScript is unavailable.
               </p>
@@ -317,6 +335,7 @@ function CompletionForm({
             disabled={anyPending}
             idleLabel="Cancel deletion setup"
             pendingLabel="Cancelling…"
+            variant="secondary"
           />
         </form>
       </div>
@@ -368,7 +387,7 @@ export function AccountDeletionForms({
 
   if (model.kind === 'unavailable') {
     return (
-      <p role="alert">
+      <p className="za-notice za-notice--error" role="alert">
         Account deletion is temporarily unavailable. Try again.
       </p>
     )

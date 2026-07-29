@@ -78,7 +78,14 @@ describe('SettingsPage', () => {
     expect(markup).toContain(
       'The JSON file contains your complete saved anime data, including entries currently hidden by your adult-content setting. Store it somewhere private.',
     )
+    expect(markup).toContain('za-notice za-notice--information')
     expect(markup).toContain('href="/api/account/archive-backup"')
     expect(markup).toContain('Download archive backup (JSON)')
+    expect(markup).toContain('za-container za-container--medium')
+    expect(markup).toContain('za-card za-card--raised space-y-6')
+    expect(markup).toContain(
+      'za-card za-card--raised space-y-4 border-destructive',
+    )
+    expect(markup).toContain('za-button za-button--secondary')
   })
 })

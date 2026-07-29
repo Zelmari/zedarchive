@@ -10,19 +10,21 @@ export default function SettingsError({ unstable_retry }: SettingsErrorProps) {
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6"
+      className="za-container za-container--medium py-6 sm:py-8"
     >
-      <h1 className="text-2xl font-semibold">
-        Settings are temporarily unavailable
-      </h1>
-      <p>Try again in a moment.</p>
-      <button
-        className="rounded border border-gray-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-        onClick={() => unstable_retry()}
-        type="button"
-      >
-        Try again
-      </button>
+      <section className="za-card za-card--raised space-y-4">
+        <h1 className="text-2xl font-semibold">
+          Settings are temporarily unavailable
+        </h1>
+        <p>Try again in a moment.</p>
+        <button
+          className="za-button za-button--primary"
+          onClick={() => unstable_retry()}
+          type="button"
+        >
+          Try again
+        </button>
+      </section>
     </main>
   )
 }

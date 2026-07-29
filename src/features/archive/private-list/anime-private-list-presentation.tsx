@@ -19,13 +19,29 @@ import type {
   AnimePrivateListPage,
 } from '@/features/archive/private-list/anime-private-list-model'
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const linkClassName = 'za-link'
 
-function formatArchiveSummary(totalItems: number): string {
+export function formatAnimePrivateListSummary(totalItems: number): string {
   return totalItems === 1
     ? '1 anime in your archive'
     : `${totalItems} anime in your archive`
+}
+
+export function AnimePrivateListMasthead({
+  totalItems,
+}: {
+  totalItems: number | null
+}) {
+  return (
+    <header className="za-card za-card--raised space-y-2">
+      <h1 className="text-2xl font-semibold">Your anime archive</h1>
+      {totalItems !== null && totalItems > 0 ? (
+        <p className="text-sm text-ink-muted">
+          {formatAnimePrivateListSummary(totalItems)}
+        </p>
+      ) : null}
+    </header>
+  )
 }
 
 export function getAnimePrivateListSortControlViewKey({
@@ -52,7 +68,7 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
 
   if (entry.kind === 'restricted') {
     return (
-      <article className="rounded border border-gray-300 p-4">
+      <article className="za-card za-card--restricted">
         <div className="space-y-2">
           <h2 className="text-lg font-medium">Restricted anime</h2>
           <p>{archiveStatus}</p>
@@ -65,24 +81,25 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
   const titleInitials = getAnimeCatalogueTitleInitials(entry.title)
   const episodeTotal = formatAnimeEpisodeTotal(entry.episodeCount)
   return (
-    <article className="overflow-hidden rounded border border-gray-300">
-      <div
-        aria-hidden="true"
-        className="flex aspect-[2/3] items-center justify-center border-b border-gray-300 bg-gray-100 px-4 text-4xl font-semibold text-gray-700"
-      >
-        {titleInitials}
-      </div>
-      <div className="space-y-2 p-4">
-        <h2 className="text-lg font-medium">{entry.title}</h2>
-        <div className="space-y-1 text-sm">
-          {entry.isAdult ? <p>Adult content</p> : null}
-          <p>{formatAnimeReleaseYear(entry.releaseYear)}</p>
-          {episodeTotal === null ? null : <p>{episodeTotal}</p>}
-          <p>{formatAnimeReleaseStatus(entry.releaseStatus)}</p>
-          {entry.kind === 'unavailable_in_catalogue' ? (
-            <p>Not currently available in the catalogue</p>
-          ) : null}
+    <article className="za-archive-card za-card za-card--raised">
+      <div className="za-archive-card__summary">
+        <div aria-hidden="true" className="za-archive-card__tile za-title-tile">
+          {titleInitials}
         </div>
+        <div className="za-archive-card__details">
+          <h2 className="text-lg font-medium">{entry.title}</h2>
+          <div className="space-y-1 text-sm text-ink-muted">
+            {entry.isAdult ? <p>Adult content</p> : null}
+            <p>{formatAnimeReleaseYear(entry.releaseYear)}</p>
+            {episodeTotal === null ? null : <p>{episodeTotal}</p>}
+            <p>{formatAnimeReleaseStatus(entry.releaseStatus)}</p>
+            {entry.kind === 'unavailable_in_catalogue' ? (
+              <p>Not currently available in the catalogue</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="za-archive-card__tracking">
         <AnimeEntryTrackingCoordinator
           animeTitle={entry.title}
           entryId={entry.entryId}
@@ -112,7 +129,7 @@ function AnimePrivateListPagination({
   return (
     <nav
       aria-label="Anime archive pagination"
-      className="flex flex-wrap items-center gap-4 text-sm"
+      className="za-card za-card--raised flex flex-wrap items-center gap-4 text-sm"
     >
       {page.hasPreviousPage ? (
         <Link
@@ -148,12 +165,16 @@ export function AnimePrivateListValidationError({
 }: {
   message: string
 }) {
-  return <p role="alert">{message}</p>
+  return (
+    <p className="za-notice za-notice--error" role="alert">
+      {message}
+    </p>
+  )
 }
 
 export function AnimePrivateListSignedOutGate() {
   return (
-    <p>
+    <p className="za-notice za-notice--information">
       <Link className={linkClassName} href="/sign-in">
         Sign in
       </Link>{' '}
@@ -202,7 +223,7 @@ function AnimePrivateListResultsContent({
 
   if (pagination.totalItems === 0) {
     return (
-      <section className="space-y-2">
+      <section className="za-card za-card--raised space-y-2">
         <h2 className="text-xl font-semibold">Your anime archive is empty</h2>
         <p>Save anime from the catalogue to see it here.</p>
         <Link className={linkClassName} href="/">
@@ -214,18 +235,19 @@ function AnimePrivateListResultsContent({
 
   if (entries.length === 0) {
     return (
-      <section className="space-y-2">
+      <section className="za-card za-card--raised space-y-4">
         <h2 className="text-xl font-semibold">
           There are no anime on this page
         </h2>
         <p>Your archive has saved anime on another page.</p>
         <AnimePrivateListSortControl
+          isEmbedded
           isSortExplicit={isSortExplicit}
           sort={sort}
           viewKey={sortControlViewKey}
         />
         <noscript>
-          <p>
+          <p className="za-notice za-notice--information">
             Archive editing requires JavaScript. Sorting works without it, but
             your sort preference cannot be saved on this device.
           </p>
@@ -247,14 +269,13 @@ function AnimePrivateListResultsContent({
 
   return (
     <>
-      <p>{formatArchiveSummary(pagination.totalItems)}</p>
       <AnimePrivateListSortControl
         isSortExplicit={isSortExplicit}
         sort={sort}
         viewKey={sortControlViewKey}
       />
       <noscript>
-        <p>
+        <p className="za-notice za-notice--information">
           Archive editing requires JavaScript. Sorting works without it, but
           your sort preference cannot be saved on this device.
         </p>

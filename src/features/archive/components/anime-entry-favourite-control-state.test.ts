@@ -13,7 +13,7 @@ describe('animeEntryFavouriteControlReducer', () => {
 
     expect(updated).toMatchObject({
       authoritativeFavourite: true,
-      feedback: { tone: 'status', message: 'Added to favourites.' },
+      feedback: { tone: 'success', message: 'Added to favourites.' },
       focusTarget: 'feedback',
       focusVersion: 1,
     })
@@ -31,7 +31,7 @@ describe('animeEntryFavouriteControlReducer', () => {
     expect(conflicted).toMatchObject({
       authoritativeFavourite: true,
       feedback: {
-        tone: 'error',
+        tone: 'warning',
         message:
           'This favourite changed elsewhere. Review the current state and try again.',
       },
@@ -53,6 +53,7 @@ describe('animeEntryFavouriteControlReducer', () => {
     })
 
     expect(unchanged.feedback?.message).toBe('This anime is not a favourite.')
+    expect(unchanged.feedback?.tone).toBe('information')
     expect(unavailable.feedback).toEqual({
       tone: 'error',
       message:

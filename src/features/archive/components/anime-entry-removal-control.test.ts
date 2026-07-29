@@ -77,6 +77,9 @@ describe('AnimeEntryRemovalControl', () => {
     )
 
     expect(markup).toContain('<dialog aria-busy="false"')
+    expect(markup).toContain('class="za-dialog"')
+    expect(markup).toContain('class="za-button za-button--destructive-outline"')
+    expect(markup).toContain('class="za-button za-button--destructive"')
     expect(markup).toMatch(/aria-describedby="[^"]+"/)
     expect(markup).toMatch(/aria-labelledby="[^"]+"/)
     expect(markup).toContain('Remove Cowboy Bebop from your archive?')
@@ -108,6 +111,7 @@ describe('AnimeEntryRemovalControl', () => {
     )
 
     expect(markup).toContain('role="alert" tabindex="-1"')
+    expect(markup).toContain('class="za-notice za-notice--error text-sm"')
     expect(markup).toContain(
       'This archive entry is no longer available. Refresh your archive.',
     )

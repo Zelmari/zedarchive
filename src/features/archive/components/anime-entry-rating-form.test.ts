@@ -126,7 +126,7 @@ describe('AnimeEntryRatingForm', () => {
       authoritativeRating: 7,
       value: '7.0',
       feedback: {
-        tone: 'status',
+        tone: 'success',
         message: 'Rating updated to 7.0/10.',
         inputError: false,
       },
@@ -140,6 +140,7 @@ describe('AnimeEntryRatingForm', () => {
 
     expect(markup).toContain('Rating — 7.0/10')
     expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('za-notice--success')
     expect(markup).toContain('role="status" tabindex="-1"')
     expect(markup).toContain('Rating updated to 7.0/10.')
   })

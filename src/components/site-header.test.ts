@@ -70,7 +70,9 @@ describe('SiteHeader', () => {
 
     expect(markup).toContain('aria-label="Primary"')
     expect(markup).toContain('aria-label="Account"')
-    expect(markup).toContain('href="/archive/anime"')
+    expect(markup).toContain(
+      'class="za-button za-button--secondary" href="/archive/anime"',
+    )
     expect(markup).toContain('My anime')
     expect(markup).toContain('@Zelmari')
     expect(markup).toContain('href="/settings"')
@@ -91,6 +93,7 @@ describe('SiteHeader', () => {
     expect(markup).toContain('class="za-link" href="/register"')
     expect(markup).toContain('aria-label="Account"')
     expect(markup).not.toContain('aria-label="Primary"')
+    expect(markup).not.toContain('href="/archive/anime"')
   })
 
   it('does not expose primary archive navigation when signed out', async () => {

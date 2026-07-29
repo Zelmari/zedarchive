@@ -18,6 +18,7 @@ import {
   getAdultVisibilityFeedback,
   getTitleLanguageFeedback,
   missingAdultConfirmationMessage,
+  type CataloguePreferenceFeedback,
 } from '@/features/settings/components/catalogue-preferences-form-state'
 import {
   animeTitleLanguageValues,
@@ -25,9 +26,12 @@ import {
   type AnimeTitleLanguage,
   type UserCataloguePreferences,
 } from '@/features/settings/domain/catalogue-preferences'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button za-button--primary'
 
 const languageLabels = {
   english: 'English (default)',
@@ -44,19 +48,24 @@ function Feedback({
   id,
   feedbackRef,
 }: {
-  feedback: { tone: 'error' | 'status'; message: string } | null
+  feedback: CataloguePreferenceFeedback | null
   id?: string
   feedbackRef: RefObject<HTMLParagraphElement | null>
 }) {
+  const feedbackIsAlert =
+    feedback === null ? false : isAlertFeedbackTone(feedback.tone)
+
   return (
     <p
-      aria-live={feedback?.tone === 'status' ? 'polite' : undefined}
+      aria-live={feedbackIsAlert ? undefined : 'polite'}
       className={
-        feedback?.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
+        feedback === null
+          ? undefined
+          : `${getFeedbackNoticeClassName(feedback.tone)} text-sm`
       }
       id={id}
       ref={feedbackRef}
-      role={feedback?.tone === 'error' ? 'alert' : 'status'}
+      role={feedbackIsAlert ? 'alert' : 'status'}
       tabIndex={-1}
     >
       {feedback?.message ?? ''}
@@ -105,7 +114,7 @@ export function AnimeTitleLanguageForm({
         disabled={isPending}
       >
         <legend className="font-semibold">Anime title language</legend>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-ink-muted">
           Choose which primary title zedarchive shows first. If it is
           unavailable, another primary title will be used.
         </p>

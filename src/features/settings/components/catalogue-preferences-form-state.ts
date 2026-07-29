@@ -1,7 +1,8 @@
 import type { CataloguePreferenceActionState } from '@/features/settings/domain/catalogue-preferences'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 export type CataloguePreferenceFeedback = {
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
 }
 
@@ -12,8 +13,9 @@ export function getTitleLanguageFeedback(
     case 'idle':
       return null
     case 'updated':
+      return { tone: 'success', message: 'Title language saved.' }
     case 'unchanged':
-      return { tone: 'status', message: 'Title language saved.' }
+      return { tone: 'information', message: 'Title language saved.' }
     case 'invalid':
       return {
         tone: 'error',
@@ -41,9 +43,16 @@ export function getAdultVisibilityFeedback(
     case 'idle':
       return null
     case 'updated':
+      return {
+        tone: 'success',
+        message:
+          command === 'enable'
+            ? 'Adult content is now shown for your account.'
+            : 'Adult content is now hidden.',
+      }
     case 'unchanged':
       return {
-        tone: 'status',
+        tone: 'information',
         message:
           command === 'enable'
             ? 'Adult content is now shown for your account.'

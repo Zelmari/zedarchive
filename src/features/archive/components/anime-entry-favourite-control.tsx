@@ -12,9 +12,13 @@ import {
   createInitialAnimeEntryFavouriteControlState,
 } from '@/features/archive/components/anime-entry-favourite-control-state'
 import type { UpdateAnimeEntryFavouriteActionState } from '@/features/archive/domain/update-anime-entry-favourite'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+const selectedButtonClassName = 'za-button za-button--selected'
 
 const subscribeToHydration = () => () => undefined
 
@@ -79,13 +83,19 @@ export function AnimeEntryFavouriteControl({
   const pendingCopy = state.authoritativeFavourite
     ? 'Removing from favourites…'
     : 'Adding to favourites…'
+  const feedbackIsAlert =
+    state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
 
   return (
     <div className="space-y-2">
       <p>Favourite — {state.authoritativeFavourite ? 'Yes' : 'No'}</p>
       {hasHydrated ? (
         <button
-          className={buttonClassName}
+          className={
+            state.authoritativeFavourite
+              ? selectedButtonClassName
+              : secondaryButtonClassName
+          }
           disabled={isPending}
           onClick={() => void submit()}
           type="button"
@@ -99,13 +109,11 @@ export function AnimeEntryFavouriteControl({
       ) : null}
       {state.feedback === null ? null : (
         <p
-          aria-live={state.feedback.tone === 'status' ? 'polite' : undefined}
-          className={
-            state.feedback.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
-          }
+          aria-live={feedbackIsAlert ? undefined : 'polite'}
+          className={`${getFeedbackNoticeClassName(state.feedback.tone)} text-sm`}
           id={feedbackId}
           ref={feedbackRef}
-          role={state.feedback.tone === 'error' ? 'alert' : 'status'}
+          role={feedbackIsAlert ? 'alert' : 'status'}
           tabIndex={-1}
         >
           {state.feedback.message}

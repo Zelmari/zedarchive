@@ -46,7 +46,10 @@ describe('username change feedback', () => {
     ['resend_cooldown', 'Wait a moment before sending another code.'],
     ['send_limit', 'Too many codes were requested. Start again later.'],
   ] as const)('maps %s to its approved recovery copy', (kind, message) => {
-    expect(getUsernameChangeFeedback({ kind })).toMatchObject({ message })
+    expect(getUsernameChangeFeedback({ kind })).toMatchObject({
+      message,
+      tone: 'warning',
+    })
   })
 
   it.each([
@@ -99,6 +102,8 @@ describe('UsernameChangeForms', () => {
     expect(markup).not.toContain('is available')
     expect(markup).not.toContain('userId')
     expect(markup).not.toContain('aria-invalid="true"')
+    expect(markup.match(/role="status"/g)).toHaveLength(1)
+    expect(markup).not.toContain('za-notice')
   })
 
   it('renders the server-owned confirmation target, leading-zero-capable code input, and irreversible confirmation', () => {
@@ -226,9 +231,24 @@ describe('UsernameChangeForms', () => {
         resendState: { kind: 'idle' },
       }),
     ).toMatchObject({
-      tone: 'status',
+      tone: 'success',
       message: 'Your username has been changed to @NewName.',
     })
+  })
+
+  it('renders code-delivery feedback as a polite information notice', () => {
+    useActionState.mockReturnValue([{ kind: 'code_sent' }, vi.fn(), false])
+    useFormStatus.mockReturnValue({ pending: false })
+
+    const markup = renderToStaticMarkup(
+      createElement(UsernameChangeForms, {
+        model: { kind: 'available', username: 'CurrentName' },
+      }),
+    )
+
+    expect(markup).toContain('za-notice--information')
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('role="status"')
   })
 
   it.each([

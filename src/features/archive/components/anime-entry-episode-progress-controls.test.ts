@@ -17,6 +17,7 @@ import {
   AnimeEntryEpisodeProgressControls,
   getTotalFeedback,
 } from '@/features/archive/components/anime-entry-episode-progress-controls'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 const props = {
   entryId: '550e8400-e29b-41d4-a716-446655440000',
@@ -37,7 +38,7 @@ function mockControlState(
   message: string | null,
   fieldError: boolean,
   completionOffered = false,
-  completionFeedbackTone: 'error' | 'status' | null = null,
+  feedbackTone: FeedbackPresentationTone | null = null,
   pendingCommand:
     'progress' | 'total' | 'clear_total' | 'reset' | 'completion' | null = null,
 ) {
@@ -48,7 +49,7 @@ function mockControlState(
     message,
     fieldError,
     completionOffered,
-    completionFeedbackTone,
+    feedbackTone,
     pendingCommand,
   ]
   useState.mockImplementation((initial) => [
@@ -70,6 +71,8 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       '1e2',
       'Enter a whole personal total of at least 1 episode.',
       true,
+      false,
+      'error',
     )
 
     const markup = renderToStaticMarkup(
@@ -77,6 +80,10 @@ describe('AnimeEntryEpisodeProgressControls', () => {
     )
 
     expect(markup).toContain('aria-invalid="true"')
+    expect(markup).toContain('class="za-field"')
+    expect(markup).toContain('class="za-button za-button--primary"')
+    expect(markup).toContain('class="za-button za-button--tertiary"')
+    expect(markup).toContain('class="za-notice za-notice--error"')
     expect(markup).toMatch(/aria-describedby="[^\"]+"/)
     expect(markup).toContain('role="alert" tabindex="-1"')
     expect(markup).toContain(
@@ -117,16 +124,37 @@ describe('AnimeEntryEpisodeProgressControls', () => {
       'This status changed elsewhere. It is now On hold. Review your entry and try again.',
       false,
       true,
-      'error',
+      'warning',
     )
 
     const markup = renderToStaticMarkup(
       createElement(AnimeEntryEpisodeProgressControls, props),
     )
 
+    expect(markup).toContain('za-notice--warning')
     expect(markup).toContain('role="alert" tabindex="-1"')
     expect(markup).toContain('Mark completed')
     expect(markup).toContain('Keep current status')
+  })
+
+  it('renders unchanged feedback as a polite information notice', () => {
+    mockControlState(
+      'read',
+      '7',
+      '12',
+      'Progress is already 7 episodes.',
+      false,
+      false,
+      'information',
+    )
+
+    const markup = renderToStaticMarkup(
+      createElement(AnimeEntryEpisodeProgressControls, props),
+    )
+
+    expect(markup).toContain('za-notice--information')
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('role="status" tabindex="-1"')
   })
 
   it('uses operation-specific pending labels only for the active command', () => {

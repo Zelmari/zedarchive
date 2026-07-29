@@ -272,6 +272,36 @@ async function openRemovalDialog(page: Page, title: string) {
   return { card, dialog, launcher }
 }
 
+async function expectRemovalDialogPresentation(
+  page: Page,
+  dialog: ReturnType<Page['locator']>,
+) {
+  await expect(dialog).toHaveClass(/\bza-dialog\b/)
+  expect(
+    await dialog.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).not.toBe('none')
+  expect(
+    await dialog.evaluate((element) => getComputedStyle(element).overflowY),
+  ).toBe('auto')
+
+  const [dialogBox, viewport] = await Promise.all([
+    dialog.boundingBox(),
+    page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    })),
+  ])
+  expect(dialogBox).not.toBeNull()
+  expect(dialogBox!.x).toBeGreaterThanOrEqual(-0.5)
+  expect(dialogBox!.y).toBeGreaterThanOrEqual(-0.5)
+  expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(
+    viewport.width + 0.5,
+  )
+  expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(
+    viewport.height + 0.5,
+  )
+}
+
 async function confirmRemoval(page: Page, title: string) {
   const { dialog } = await openRemovalDialog(page, title)
   await dialog
@@ -551,6 +581,20 @@ test('confirms an owner-scoped removal, serializes duplicate submission, and pre
     exact: true,
   })
   await expect(cancelButton).toBeFocused()
+  await expectRemovalDialogPresentation(page, firstOpen.dialog)
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  await expectRemovalDialogPresentation(page, firstOpen.dialog)
+  await page.emulateMedia({ forcedColors: 'active' })
+  await expect(cancelButton).toBeVisible()
+  await expect(firstOpen.dialog).toHaveClass(/\bza-dialog\b/)
+  await page.emulateMedia({ forcedColors: 'none' })
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = ''
+  })
+  await page.setViewportSize({ width: 1280, height: 960 })
   const dialogButtons = firstOpen.dialog.getByRole('button')
   await expect(dialogButtons.nth(0)).toHaveText('Cancel')
   await page.keyboard.press('Tab')

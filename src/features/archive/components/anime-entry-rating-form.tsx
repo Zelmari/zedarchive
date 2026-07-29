@@ -20,12 +20,16 @@ import {
   type Rating,
 } from '@/features/archive/domain/rating'
 import type { UpdateAnimeEntryRatingActionState } from '@/features/archive/domain/update-anime-entry-rating'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 aria-invalid:border-red-600 aria-invalid:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const primaryButtonClassName = 'za-button za-button--primary'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+const tertiaryButtonClassName = 'za-button za-button--tertiary'
 
 const subscribeToHydration = () => () => undefined
 
@@ -93,6 +97,8 @@ export function AnimeEntryRatingForm({
     isPending || !shouldEnableRatingSave(state.value, state.authoritativeRating)
   const isSaving = isPending && pendingCommand === 'save'
   const isRemoving = isPending && pendingCommand === 'remove'
+  const feedbackIsAlert =
+    state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
 
   async function submit(formData: FormData, command: 'save' | 'remove') {
     setPendingCommand(command)
@@ -132,7 +138,7 @@ export function AnimeEntryRatingForm({
         </p>
         {hasHydrated ? (
           <button
-            className={buttonClassName}
+            className={secondaryButtonClassName}
             disabled={isPending}
             onClick={() => dispatch({ kind: 'open' })}
             ref={launcherRef}
@@ -143,15 +149,11 @@ export function AnimeEntryRatingForm({
         ) : null}
         {state.feedback === null ? null : (
           <p
-            aria-live={state.feedback.tone === 'status' ? 'polite' : undefined}
-            className={
-              state.feedback.tone === 'error'
-                ? 'text-sm text-red-700'
-                : 'text-sm'
-            }
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={`${getFeedbackNoticeClassName(state.feedback.tone)} text-sm`}
             id={feedbackId}
             ref={feedbackRef}
-            role={state.feedback.tone === 'error' ? 'alert' : 'status'}
+            role={feedbackIsAlert ? 'alert' : 'status'}
             tabIndex={-1}
           >
             {state.feedback.message}
@@ -211,7 +213,7 @@ export function AnimeEntryRatingForm({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            className={buttonClassName}
+            className={primaryButtonClassName}
             disabled={isSaveDisabled}
             type="submit"
           >
@@ -219,7 +221,7 @@ export function AnimeEntryRatingForm({
           </button>
           {state.authoritativeRating === null ? null : (
             <button
-              className={buttonClassName}
+              className={secondaryButtonClassName}
               disabled={isPending}
               onClick={submitRemove}
               type="button"
@@ -228,7 +230,7 @@ export function AnimeEntryRatingForm({
             </button>
           )}
           <button
-            className={buttonClassName}
+            className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => dispatch({ kind: 'cancel' })}
             type="button"
@@ -239,13 +241,11 @@ export function AnimeEntryRatingForm({
       </form>
       {state.feedback === null ? null : (
         <p
-          aria-live={state.feedback.tone === 'status' ? 'polite' : undefined}
-          className={
-            state.feedback.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
-          }
+          aria-live={feedbackIsAlert ? undefined : 'polite'}
+          className={`${getFeedbackNoticeClassName(state.feedback.tone)} text-sm`}
           id={feedbackId}
           ref={feedbackRef}
-          role={state.feedback.tone === 'error' ? 'alert' : 'status'}
+          role={feedbackIsAlert ? 'alert' : 'status'}
           tabIndex={-1}
         >
           {state.feedback.message}

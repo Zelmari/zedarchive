@@ -52,12 +52,14 @@ describe('updateAnimeEntryStatusFormReducer', () => {
     [
       { kind: 'updated', status: 'completed' } as const,
       'Status updated to Completed.',
+      'success',
     ],
     [
       { kind: 'unchanged', status: 'completed' } as const,
       'Status is already Completed.',
+      'information',
     ],
-  ])('returns to read mode for %o', (result, message) => {
+  ] as const)('returns to read mode for %o', (result, message, tone) => {
     const state = updateAnimeEntryStatusFormReducer(editingState(), {
       kind: 'action_result',
       result,
@@ -67,7 +69,7 @@ describe('updateAnimeEntryStatusFormReducer', () => {
       mode: 'read',
       authoritativeStatus: 'completed',
       selectedStatus: 'completed',
-      feedback: { tone: 'status', message, selectError: false },
+      feedback: { tone, message, selectError: false },
       focusTarget: 'feedback',
     })
   })
@@ -83,7 +85,7 @@ describe('updateAnimeEntryStatusFormReducer', () => {
       authoritativeStatus: 'on_hold',
       selectedStatus: 'completed',
       feedback: {
-        tone: 'error',
+        tone: 'warning',
         message:
           'This status changed elsewhere. It is now On hold. Review your selection and try again.',
         selectError: false,

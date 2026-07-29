@@ -212,7 +212,23 @@ async function applySort(
   sort:
     'alphabetical' | 'recently-updated' | 'recently-added' | 'highest-rated',
 ) {
-  await page.locator('select[name="sort"]').selectOption(sort)
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      }),
+  )
+  const select = page.locator('select[name="sort"]')
+  await select.selectOption(sort)
+  await expect(select).toHaveValue(sort)
+  expect(
+    await select.evaluate((element) => {
+      if (!(element instanceof HTMLSelectElement) || element.form === null) {
+        return null
+      }
+      return new FormData(element.form).get('sort')
+    }),
+  ).toBe(sort)
   await page.getByRole('button', { name: 'Apply sort' }).click()
   await expect(page).toHaveURL(`/archive/anime?sort=${sort}`)
 }
@@ -223,6 +239,46 @@ async function expectLeadingTitles(page: Page, expectedTitles: string[]) {
   for (const [index, expectedTitle] of expectedTitles.entries()) {
     await expect(headings.nth(index)).toHaveText(expectedTitle)
   }
+}
+
+function cardForTitle(page: Page, title: string) {
+  return page
+    .locator('article')
+    .filter({
+      has: page.getByRole('heading', { name: title, exact: true }),
+    })
+    .first()
+}
+
+async function expectArchiveGridColumns(page: Page, expectedColumns: number) {
+  const grid = page
+    .locator('ul.grid')
+    .filter({ has: page.locator('article') })
+    .first()
+
+  await expect(grid).toBeVisible()
+  expect(
+    await grid.evaluate(
+      (element) =>
+        getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean)
+          .length,
+    ),
+  ).toBe(expectedColumns)
+  expect(
+    await grid.evaluate((element) =>
+      element.parentElement?.classList.contains('za-card'),
+    ),
+  ).toBe(false)
+}
+
+async function expectRaisedOrdinaryArchiveCard(page: Page, title: string) {
+  const card = cardForTitle(page, title)
+
+  await expect(card).toHaveClass(/\bza-archive-card\b/)
+  await expect(card).toHaveClass(/\bza-card--raised\b/)
+  expect(
+    await card.evaluate((element) => getComputedStyle(element).boxShadow),
+  ).not.toBe('none')
 }
 
 test.beforeAll(async () => {
@@ -430,6 +486,20 @@ test('sorts the complete private archive, persists only through Apply, and prese
   await expect(
     page.getByRole('heading', { name: 'Restricted anime' }),
   ).toHaveCount(2)
+  const restrictedCard = page
+    .locator('article')
+    .filter({ has: page.getByRole('heading', { name: 'Restricted anime' }) })
+    .first()
+  await expect(restrictedCard).toHaveClass(/\bza-card--restricted\b/)
+  expect(
+    await restrictedCard.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toBe('none')
+  await expect(restrictedCard.locator('[aria-hidden="true"]')).toHaveCount(0)
+  await expect(
+    restrictedCard.locator('form, input, button, dialog'),
+  ).toHaveCount(0)
   await expect(page.locator('body')).not.toContainText(adultTitleSentinel)
 
   await page.locator('select[name="sort"]').selectOption('recently-added')
@@ -480,14 +550,24 @@ test('sorts the complete private archive, persists only through Apply, and prese
   )
 
   for (const viewport of [
-    { width: 390, height: 844 },
-    { width: 768, height: 1024 },
-    { width: 1280, height: 960 },
+    { width: 320, height: 568, columns: 1 },
+    { width: 390, height: 844, columns: 1 },
+    { width: 768, height: 1024, columns: 2 },
+    { width: 1280, height: 960, columns: 3 },
   ]) {
     await page.setViewportSize(viewport)
     await page.goto('/archive/anime?sort=alphabetical')
+    const masthead = page.locator('main#main-content > header').first()
+    const sortForm = page.locator('form[action="/archive/anime"]').first()
+    await expect(masthead).toHaveClass(/\bza-card--raised\b/)
+    await expect(sortForm).toHaveClass(/\bza-card--raised\b/)
     await expect(page.locator('select[name="sort"]')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Apply sort' })).toBeVisible()
+    await expectArchiveGridColumns(page, viewport.columns)
+    await expectRaisedOrdinaryArchiveCard(page, 'M29 Favourite Alpha')
+    await expect(
+      cardForTitle(page, 'M29 Favourite Alpha').locator('.za-title-tile'),
+    ).toHaveCSS('aspect-ratio', '2 / 3')
     await expect
       .poll(() =>
         page.evaluate(
@@ -496,6 +576,25 @@ test('sorts the complete private archive, persists only through Apply, and prese
       )
       .toBe(true)
   }
+
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.goto('/archive/anime?sort=alphabetical')
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%'
+  })
+  await expectArchiveGridColumns(page, 1)
+  await expectRaisedOrdinaryArchiveCard(page, 'M29 Favourite Alpha')
+  await expect
+    .poll(() =>
+      page
+        .locator('main#main-content')
+        .first()
+        .evaluate((main) => main.scrollWidth <= main.clientWidth),
+    )
+    .toBe(true)
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = ''
+  })
 
   await signOut(page)
   await signIn(page, ownerB)

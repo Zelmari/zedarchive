@@ -34,20 +34,29 @@ import { CataloguePreferencesRouteContent } from '@/features/settings/components
 
 describe('catalogue preference feedback', () => {
   it.each([
-    [{ kind: 'updated' } as const, 'Title language saved.'],
-    [{ kind: 'unchanged' } as const, 'Title language saved.'],
-    [{ kind: 'invalid' } as const, 'Choose a valid anime title language.'],
+    [{ kind: 'updated' } as const, 'Title language saved.', 'success'],
+    [{ kind: 'unchanged' } as const, 'Title language saved.', 'information'],
+    [
+      { kind: 'invalid' } as const,
+      'Choose a valid anime title language.',
+      'error',
+    ],
     [
       { kind: 'sign_in_required' } as const,
       'Your session has expired. Sign in and try again.',
+      'error',
     ],
     [
       { kind: 'retry' } as const,
       'We couldn’t save your title language right now. Try again.',
+      'error',
     ],
-  ])('maps title state %o to fixed feedback', (state, message) => {
-    expect(getTitleLanguageFeedback(state)).toMatchObject({ message })
-  })
+  ] as const)(
+    'maps title state %o to fixed feedback',
+    (state, message, tone) => {
+      expect(getTitleLanguageFeedback(state)).toMatchObject({ message, tone })
+    },
+  )
 
   it('uses command-specific adult success and validation copy', () => {
     expect(
@@ -99,6 +108,8 @@ describe('CataloguePreferencesForms', () => {
     )
     expect(markup).toContain('Show adult content')
     expect(markup).not.toContain('userId')
+    expect(markup.match(/role="status"/g)).toHaveLength(2)
+    expect(markup).not.toContain('za-notice')
   })
 
   it('renders the authoritative title selection and direct adult hide command', () => {
@@ -147,6 +158,7 @@ describe('CataloguePreferencesForms', () => {
     expect(markup).toContain('Title language saved.')
     expect(markup).toContain('role="status"')
     expect(markup).toContain('tabindex="-1"')
+    expect(markup).toContain('za-notice--success')
   })
 })
 

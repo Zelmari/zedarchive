@@ -4,9 +4,10 @@ import {
   type Rating,
 } from '@/features/archive/domain/rating'
 import type { UpdateAnimeEntryRatingActionState } from '@/features/archive/domain/update-anime-entry-rating'
+import type { FeedbackPresentationTone } from '@/features/feedback/feedback-presentation'
 
 type RatingFeedback = {
-  tone: 'error' | 'status'
+  tone: FeedbackPresentationTone
   message: string
   inputError: boolean
 }
@@ -114,7 +115,7 @@ export function animeEntryRatingFormReducer(
               value: formatEditorValue(result.rating),
             },
             {
-              tone: 'status',
+              tone: 'success',
               message:
                 result.rating === null
                   ? 'Rating removed.'
@@ -131,7 +132,7 @@ export function animeEntryRatingFormReducer(
               value: formatEditorValue(result.rating),
             },
             {
-              tone: 'status',
+              tone: 'information',
               message: `Rating is already ${getRatingFeedback(result.rating)}.`,
               inputError: false,
             },
@@ -140,7 +141,7 @@ export function animeEntryRatingFormReducer(
           return withFeedback(
             { ...state, authoritativeRating: result.currentRating },
             {
-              tone: 'error',
+              tone: 'warning',
               message: `This rating changed elsewhere. It is now ${getRatingFeedback(result.currentRating)}. Review your entry and try again.`,
               inputError: false,
             },

@@ -54,7 +54,7 @@ describe('AnimeEntryFavouriteControl', () => {
   it('renders a direct text action and focusable bounded feedback after hydration', () => {
     mockState({
       authoritativeFavourite: true,
-      feedback: { tone: 'status', message: 'Added to favourites.' },
+      feedback: { tone: 'success', message: 'Added to favourites.' },
       focusTarget: 'feedback',
       focusVersion: 1,
     })
@@ -67,9 +67,11 @@ describe('AnimeEntryFavouriteControl', () => {
     )
 
     expect(markup).toContain('Favourite — Yes')
+    expect(markup).toContain('class="za-button za-button--selected"')
     expect(markup).toContain('type="button">Remove from favourites</button>')
     expect(markup).toContain('role="status" tabindex="-1"')
     expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('za-notice--success')
     expect(markup).not.toContain('<form')
   })
 
@@ -94,6 +96,7 @@ describe('AnimeEntryFavouriteControl', () => {
     )
 
     expect(markup).toContain('Adding to favourites…')
+    expect(markup).toContain('class="za-button za-button--secondary"')
     expect(markup).toContain('disabled=""')
     expect(markup).toContain('role="alert" tabindex="-1"')
   })

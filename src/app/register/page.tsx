@@ -10,8 +10,7 @@ export const metadata: Metadata = {
   description: 'Create a zedarchive account.',
 }
 
-const linkClassName =
-  'rounded underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+const linkClassName = 'za-link'
 
 export default async function RegisterPage() {
   const access = await resolveAccountAccess(await headers())
@@ -27,38 +26,40 @@ export default async function RegisterPage() {
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto max-w-md space-y-6 p-4 sm:p-6"
+      className="za-container za-container--narrow py-6 sm:py-8"
     >
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Register</h1>
-        <p className="text-sm text-gray-700">
-          Create an account with a username, email address, and password.
-        </p>
-      </header>
+      <section className="za-card za-card--raised space-y-6">
+        <header className="space-y-2">
+          <h1 className="text-2xl font-semibold">Register</h1>
+          <p className="text-sm text-ink-muted">
+            Create an account with a username, email address, and password.
+          </p>
+        </header>
 
-      {access.status === 'unavailable' ? (
-        <p role="alert">
-          Account access is temporarily unavailable. Try again later or sign
-          out.
-        </p>
-      ) : session?.user ? (
-        <section className="space-y-4">
-          <p>
-            You are already signed in as{' '}
-            <strong>
-              <PublicUsername username={session.user.name} />
-            </strong>
-            .
+        {access.status === 'unavailable' ? (
+          <p className="za-notice za-notice--error" role="alert">
+            Account access is temporarily unavailable. Try again later or sign
+            out.
           </p>
-          <p className="text-sm">
-            <a className={linkClassName} href="/sign-in">
-              Go to sign in
-            </a>
-          </p>
-        </section>
-      ) : (
-        <RegisterForm />
-      )}
+        ) : session?.user ? (
+          <section className="space-y-4">
+            <p>
+              You are already signed in as{' '}
+              <strong>
+                <PublicUsername username={session.user.name} />
+              </strong>
+              .
+            </p>
+            <p className="text-sm">
+              <a className={linkClassName} href="/sign-in">
+                Go to sign in
+              </a>
+            </p>
+          </section>
+        ) : (
+          <RegisterForm />
+        )}
+      </section>
     </main>
   )
 }

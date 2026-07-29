@@ -15,12 +15,16 @@ import type { UpdateAnimeEntryStatusActionState } from '@/features/archive/domai
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { entryStatusValues } from '@/features/archive/domain/entry-status'
 import { getEntryStatusDisplayLabel } from '@/features/archive/domain/entry-status-display'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 aria-invalid:border-red-600 aria-invalid:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-select'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const primaryButtonClassName = 'za-button za-button--primary'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+const tertiaryButtonClassName = 'za-button za-button--tertiary'
 
 const subscribeToHydration = () => () => undefined
 
@@ -85,6 +89,8 @@ export function UpdateAnimeEntryStatusForm({
   }, [formState.focusTarget, formState.focusVersion])
 
   const feedback = formState.feedback
+  const feedbackIsAlert =
+    feedback === null ? false : isAlertFeedbackTone(feedback.tone)
   const isSaveDisabled =
     isPending || formState.selectedStatus === formState.authoritativeStatus
 
@@ -98,7 +104,7 @@ export function UpdateAnimeEntryStatusForm({
           </p>
           {hasHydrated ? (
             <button
-              className={buttonClassName}
+              className={secondaryButtonClassName}
               disabled={isPending}
               onClick={() => dispatch({ kind: 'open' })}
               ref={editButtonRef}
@@ -157,14 +163,14 @@ export function UpdateAnimeEntryStatusForm({
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className={buttonClassName}
+              className={primaryButtonClassName}
               disabled={isSaveDisabled}
               type="submit"
             >
               {isPending ? 'Saving…' : 'Save status'}
             </button>
             <button
-              className={buttonClassName}
+              className={tertiaryButtonClassName}
               disabled={isPending}
               onClick={() => dispatch({ kind: 'cancel' })}
               type="button"
@@ -176,13 +182,11 @@ export function UpdateAnimeEntryStatusForm({
       )}
       {feedback === null ? null : (
         <p
-          aria-live={feedback.tone === 'status' ? 'polite' : undefined}
-          className={
-            feedback.tone === 'error' ? 'text-sm text-red-700' : 'text-sm'
-          }
+          aria-live={feedbackIsAlert ? undefined : 'polite'}
+          className={`${getFeedbackNoticeClassName(feedback.tone)} text-sm`}
           id={feedbackId}
           ref={feedbackRef}
-          role={feedback.tone === 'error' ? 'alert' : 'status'}
+          role={feedbackIsAlert ? 'alert' : 'status'}
           tabIndex={-1}
         >
           {feedback.message}

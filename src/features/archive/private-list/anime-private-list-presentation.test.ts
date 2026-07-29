@@ -32,6 +32,7 @@ vi.mock('next/navigation', () => ({
 }))
 import AnimeArchiveError from '@/app/archive/anime/error'
 import {
+  AnimePrivateListMasthead,
   AnimePrivateListResults,
   AnimePrivateListRouteContent,
   getAnimePrivateListSortControlViewKey,
@@ -72,6 +73,18 @@ function renderResults(
 }
 
 describe('AnimePrivateListResults', () => {
+  it('keeps the populated summary inside the raised archive masthead', () => {
+    const markup = renderToStaticMarkup(
+      createElement(AnimePrivateListMasthead, { totalItems: 49 }),
+    )
+
+    expect(markup).toContain(
+      '<header class="za-card za-card--raised space-y-2">',
+    )
+    expect(markup).toContain('<h1 class="text-2xl font-semibold">')
+    expect(markup).toContain('49 anime in your archive')
+  })
+
   it('keys each server-described sort-control view distinctly', () => {
     const firstExplicitView = getAnimePrivateListSortControlViewKey({
       isSortExplicit: true,
@@ -187,6 +200,12 @@ describe('AnimePrivateListResults', () => {
     )
 
     expect(markup).toContain('CB')
+    expect(markup).toContain('class="za-archive-card za-card za-card--raised"')
+    expect(markup).toContain('class="za-archive-card__summary"')
+    expect(markup).toContain('class="za-archive-card__tile za-title-tile"')
+    expect(markup).toContain('class="za-archive-card__details"')
+    expect(markup).toContain('class="za-archive-card__tracking"')
+    expect(markup).toContain('class="za-card za-card--restricted"')
     expect(markup).toContain('Cowboy Bebop')
     expect(markup).toContain('1998')
     expect(markup).toContain('26 episodes')
@@ -203,10 +222,16 @@ describe('AnimePrivateListResults', () => {
       'Tracking controls aren’t available for restricted anime yet.',
     )
     expect(markup).toContain(
-      '<noscript><p>Archive editing requires JavaScript. Sorting works without it, but your sort preference cannot be saved on this device.</p></noscript>',
+      '<noscript><p class="za-notice za-notice--information">Archive editing requires JavaScript. Sorting works without it, but your sort preference cannot be saved on this device.</p></noscript>',
     )
+    expect(markup).not.toContain('49 anime in your archive')
     expect(markup).toContain('Sort by')
     expect(markup).toContain('Apply sort')
+    expect(markup).toContain(
+      'class="za-card za-card--raised flex flex-wrap items-end gap-3"',
+    )
+    expect(markup).toContain('class="za-select"')
+    expect(markup).toContain('class="za-button za-button--primary"')
     expect(markup).toContain('action="/archive/anime"')
     expect(markup).toContain('method="get"')
     expect(markup).toContain('name="sort"')
@@ -215,6 +240,9 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('value="recently-added"')
     expect(markup).toContain('value="highest-rated"')
     expect(markup).toContain('Anime archive pagination')
+    expect(markup).toContain(
+      'class="za-card za-card--raised flex flex-wrap items-center gap-4 text-sm"',
+    )
     expect(markup).toContain('href="/archive/anime?sort=alphabetical"')
     expect(markup).toContain(
       'href="/archive/anime?sort=alphabetical&amp;page=3"',
@@ -274,10 +302,18 @@ describe('AnimePrivateListResults', () => {
     )
 
     expect(emptyMarkup).toContain('Your anime archive is empty')
+    expect(emptyMarkup).toContain('class="za-card za-card--raised space-y-2"')
     expect(emptyMarkup).toContain('Browse anime catalogue')
     expect(beyondFinalMarkup).not.toContain('Your anime archive is empty')
     expect(beyondFinalMarkup).toContain('There are no anime on this page')
     expect(beyondFinalMarkup).toContain('Sort by')
+    expect(beyondFinalMarkup.match(/za-card--raised/g)).toHaveLength(1)
+    expect(beyondFinalMarkup).toContain(
+      'class="flex flex-wrap items-end gap-3"',
+    )
+    expect(beyondFinalMarkup).toContain(
+      '<noscript><p class="za-notice za-notice--information">',
+    )
     expect(beyondFinalMarkup).toContain('value="highest-rated" selected=""')
     expect(beyondFinalMarkup).toContain('Go to the first page')
     expect(beyondFinalMarkup).toContain(
@@ -300,6 +336,7 @@ describe('AnimePrivateListRouteContent', () => {
     )
 
     expect(markup).toContain('role="alert"')
+    expect(markup).toContain('class="za-notice za-notice--error"')
     expect(markup).toContain('Page must be a whole number from 1 to 10000')
     expect(markup).not.toContain('Restricted anime')
     expect(markup).not.toContain('Browse anime catalogue')
@@ -316,6 +353,7 @@ describe('AnimePrivateListRouteContent', () => {
 
     expect(markup.match(/href="\/sign-in"/g)).toHaveLength(1)
     expect(markup).toContain('Sign in</a> to view your anime archive.')
+    expect(markup).toContain('class="za-notice za-notice--information"')
     expect(markup).not.toContain('returnTo')
     expect(markup).not.toContain('Restricted anime')
     expect(markup).not.toContain('Browse anime catalogue')
@@ -335,6 +373,7 @@ describe('AnimeArchiveError', () => {
     expect(markup).toContain('Your anime archive is temporarily unavailable')
     expect(markup).toContain('Try again in a moment.')
     expect(markup).toContain('<button')
+    expect(markup).toContain('class="za-button za-button--secondary"')
     expect(markup).toContain('Try again')
     expect(markup).not.toContain('private service failure')
   })

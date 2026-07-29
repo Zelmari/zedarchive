@@ -41,7 +41,7 @@ describe('animeEntryRatingFormReducer', () => {
       authoritativeRating: 7.5,
       value: '8.5',
       feedback: {
-        tone: 'error',
+        tone: 'warning',
         message:
           'This rating changed elsewhere. It is now 7.5/10. Review your entry and try again.',
       },
@@ -81,13 +81,16 @@ describe('animeEntryRatingFormReducer', () => {
     expect(set).toMatchObject({
       mode: 'read',
       authoritativeRating: 7,
-      feedback: { tone: 'status', message: 'Rating updated to 7.0/10.' },
+      feedback: { tone: 'success', message: 'Rating updated to 7.0/10.' },
       focusTarget: 'feedback',
       focusVersion: 1,
     })
     expect(unchanged).toMatchObject({
       mode: 'read',
-      feedback: { tone: 'status', message: 'Rating is already 7.0/10.' },
+      feedback: {
+        tone: 'information',
+        message: 'Rating is already 7.0/10.',
+      },
       focusTarget: 'feedback',
       focusVersion: 1,
     })
@@ -107,7 +110,7 @@ describe('animeEntryRatingFormReducer', () => {
       mode: 'read',
       authoritativeRating: null,
       value: '',
-      feedback: { tone: 'status', message: 'Rating removed.' },
+      feedback: { tone: 'success', message: 'Rating removed.' },
       focusTarget: 'feedback',
       focusVersion: 1,
     })

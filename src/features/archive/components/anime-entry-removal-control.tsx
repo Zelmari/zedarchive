@@ -16,11 +16,11 @@ import {
 } from '@/features/archive/components/anime-entry-removal-control-state'
 import type { RemoveAnimeEntryActionState } from '@/features/archive/domain/remove-anime-entry'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const buttonClassName = 'za-button za-button--secondary'
 
-const destructiveButtonClassName =
-  'rounded border border-red-700 bg-white px-3 py-2 text-red-700 transition-colors hover:bg-red-50 active:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const destructiveButtonClassName = 'za-button za-button--destructive'
+const destructiveOutlineButtonClassName =
+  'za-button za-button--destructive-outline'
 
 const subscribeToHydration = () => () => undefined
 
@@ -151,7 +151,7 @@ export function AnimeEntryRemovalControl({
   return (
     <div>
       <button
-        className={buttonClassName}
+        className={destructiveOutlineButtonClassName}
         disabled={isPending}
         onClick={() => {
           hasPublishedRemovalRef.current = false
@@ -167,7 +167,7 @@ export function AnimeEntryRemovalControl({
         aria-busy={isOwnOperationPending}
         aria-describedby={descriptionId}
         aria-labelledby={headingId}
-        className="m-auto max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded border border-gray-300 p-4 backdrop:bg-black/40"
+        className="za-dialog"
         onCancel={handleDialogCancel}
         ref={dialogRef}
       >
@@ -190,7 +190,7 @@ export function AnimeEntryRemovalControl({
           </div>
           {state.feedback === null ? null : (
             <p
-              className="text-sm text-red-700"
+              className="za-notice za-notice--error text-sm"
               id={feedbackId}
               ref={feedbackRef}
               role="alert"

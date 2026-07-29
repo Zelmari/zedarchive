@@ -68,7 +68,7 @@ describe('animeEntryDateRangeFormReducer', () => {
       startDateValue: '2024-01-01',
       finishDateValue: '2024-01-10',
       feedback: {
-        tone: 'error',
+        tone: 'warning',
         message:
           'These dates changed elsewhere. Review the saved dates and try again.',
         currentDates: {

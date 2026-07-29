@@ -15,12 +15,16 @@ import {
 import type { CalendarDate } from '@/features/archive/domain/entry-date-range'
 import { entryDateNoneSentinel } from '@/features/archive/domain/update-anime-entry-date-range'
 import type { UpdateAnimeEntryDateRangeActionState } from '@/features/archive/domain/update-anime-entry-date-range'
+import {
+  getFeedbackNoticeClassName,
+  isAlertFeedbackTone,
+} from '@/features/feedback/feedback-presentation'
 
-const fieldClassName =
-  'rounded border border-gray-300 px-3 py-2 aria-invalid:border-red-600 aria-invalid:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500'
+const fieldClassName = 'za-field'
 
-const buttonClassName =
-  'rounded border border-gray-300 bg-white px-3 py-2 transition-colors hover:bg-gray-100 active:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-70'
+const primaryButtonClassName = 'za-button za-button--primary'
+const secondaryButtonClassName = 'za-button za-button--secondary'
+const tertiaryButtonClassName = 'za-button za-button--tertiary'
 
 const subscribeToHydration = () => () => undefined
 
@@ -108,6 +112,8 @@ export function AnimeEntryDateRangeForm({
   const hasNoDates =
     state.authoritativeStartDate === null &&
     state.authoritativeFinishDate === null
+  const feedbackIsAlert =
+    state.feedback === null ? false : isAlertFeedbackTone(state.feedback.tone)
 
   if (state.mode === 'read') {
     return (
@@ -116,7 +122,7 @@ export function AnimeEntryDateRangeForm({
         <p>Finish date — {state.authoritativeFinishDate ?? 'Not set'}</p>
         {hasHydrated ? (
           <button
-            className={buttonClassName}
+            className={secondaryButtonClassName}
             disabled={isPending}
             onClick={() => dispatch({ kind: 'open' })}
             ref={launcherRef}
@@ -127,15 +133,11 @@ export function AnimeEntryDateRangeForm({
         ) : null}
         {state.feedback === null ? null : (
           <p
-            aria-live={state.feedback.tone === 'status' ? 'polite' : undefined}
-            className={
-              state.feedback.tone === 'error'
-                ? 'text-sm text-red-700'
-                : 'text-sm'
-            }
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={`${getFeedbackNoticeClassName(state.feedback.tone)} text-sm`}
             id={feedbackId}
             ref={feedbackRef}
-            role={state.feedback.tone === 'error' ? 'alert' : 'status'}
+            role={feedbackIsAlert ? 'alert' : 'status'}
             tabIndex={-1}
           >
             {state.feedback.message}
@@ -229,14 +231,14 @@ export function AnimeEntryDateRangeForm({
         </p>
         <div className="flex flex-wrap gap-2">
           <button
-            className={buttonClassName}
+            className={primaryButtonClassName}
             disabled={isSaveDisabled}
             type="submit"
           >
             {isOwnOperationPending ? 'Saving dates…' : 'Save dates'}
           </button>
           <button
-            className={buttonClassName}
+            className={tertiaryButtonClassName}
             disabled={isPending}
             onClick={() => dispatch({ kind: 'cancel' })}
             type="button"
@@ -248,15 +250,11 @@ export function AnimeEntryDateRangeForm({
       {state.feedback === null ? null : (
         <div className="space-y-1">
           <p
-            aria-live={state.feedback.tone === 'status' ? 'polite' : undefined}
-            className={
-              state.feedback.tone === 'error'
-                ? 'text-sm text-red-700'
-                : 'text-sm'
-            }
+            aria-live={feedbackIsAlert ? undefined : 'polite'}
+            className={`${getFeedbackNoticeClassName(state.feedback.tone)} text-sm`}
             id={feedbackId}
             ref={feedbackRef}
-            role={state.feedback.tone === 'error' ? 'alert' : 'status'}
+            role={feedbackIsAlert ? 'alert' : 'status'}
             tabIndex={-1}
           >
             {state.feedback.message}

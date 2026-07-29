@@ -6,6 +6,7 @@ import { PublicUsername } from '@/features/identity/components/public-username'
 import { resolveAccountAccess } from '@/server/auth/auth'
 
 const linkClassName = 'za-link'
+const primaryArchiveLinkClassName = 'za-button za-button--secondary'
 
 export async function SiteHeader() {
   let access: Awaited<ReturnType<typeof resolveAccountAccess>>
@@ -35,7 +36,7 @@ export async function SiteHeader() {
             aria-label="Primary"
             className="flex min-w-0 flex-wrap items-center gap-4"
           >
-            <Link className={linkClassName} href="/archive/anime">
+            <Link className={primaryArchiveLinkClassName} href="/archive/anime">
               My anime
             </Link>
           </nav>

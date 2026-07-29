@@ -62,7 +62,10 @@ describe('account deletion feedback', () => {
       'No more deletion codes can be sent right now. Use the newest code.',
     ],
   ] as const)('maps %s to approved recovery copy', (kind, message) => {
-    expect(getAccountDeletionFeedback({ kind })).toMatchObject({ message })
+    expect(getAccountDeletionFeedback({ kind })).toMatchObject({
+      message,
+      tone: 'warning',
+    })
   })
 
   it('reports the unchecked confirmation of a blocked completion attempt', () => {
@@ -107,11 +110,27 @@ describe('AccountDeletionForms', () => {
     expect(markup).toContain('Send deletion code')
     expect(markup).toContain('14-day recovery period')
     expect(markup).toContain('Encrypted backups may retain copies')
+    expect(markup).toContain('za-button za-button--destructive-outline')
     expect(markup).not.toContain('userId')
     expect(markup).not.toContain('sessionId')
+    expect(markup.match(/role="status"/g)).toHaveLength(1)
+    expect(markup).not.toContain('za-notice')
   })
 
-  it('renders code then checkbox then the red-outline final action', () => {
+  it('renders code-delivery feedback as a polite information notice', () => {
+    useActionState.mockReturnValue([{ kind: 'code_sent' }, vi.fn(), false])
+    useFormStatus.mockReturnValue({ pending: false })
+
+    const markup = renderToStaticMarkup(
+      createElement(AccountDeletionForms, { model: { kind: 'start' } }),
+    )
+
+    expect(markup).toContain('za-notice--information')
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('role="status"')
+  })
+
+  it('renders code then checkbox then the destructive final action', () => {
     useActionState.mockReturnValue([{ kind: 'idle' }, vi.fn(), false])
     useFormStatus.mockReturnValue({ pending: false })
 
@@ -130,7 +149,7 @@ describe('AccountDeletionForms', () => {
     expect(markup.indexOf('I understand that this account')).toBeLessThan(
       markup.indexOf('Request account deletion'),
     )
-    expect(markup).toContain('border-red-700')
+    expect(markup).toContain('za-button za-button--destructive')
     expect(markup).toContain('Send another code')
     expect(markup).toContain('Cancel deletion setup')
   })
@@ -171,8 +190,27 @@ describe('account deletion recovery presentation', () => {
     )
     expect(markup.match(/<h1\b/gu)).toHaveLength(1)
     expect(markup).toContain('role="alert"')
+    expect(markup).toContain('za-notice--error')
     expect(markup).toContain('awaiting permanent deletion')
     expect(markup).not.toContain('Cancel account deletion')
+  })
+
+  it('renders completed recovery feedback as a success notice', () => {
+    useActionState.mockReturnValue([
+      { kind: 'deletion_cancelled' },
+      vi.fn(),
+      false,
+    ])
+    useFormStatus.mockReturnValue({ pending: false })
+
+    const markup = renderToStaticMarkup(
+      createElement(RecoverableAccountDeletion, {
+        purgeAfter: new Date('2026-08-25T14:30:00.000Z'),
+      }),
+    )
+
+    expect(markup).toContain('za-notice--success')
+    expect(markup).toContain('role="status"')
   })
 
   it('renders the exact UTC deadline in a semantic time element', () => {
@@ -190,6 +228,9 @@ describe('account deletion recovery presentation', () => {
     )
     expect(markup).toContain('Cancel account deletion')
     expect(markup).not.toContain('username=')
+    expect(markup).toMatch(
+      /<p aria-live="polite" id="[^"]+" role="status" tabindex="-1"><\/p>/,
+    )
   })
 
   it('renders due state without a cancellation control or purge promise', () => {
