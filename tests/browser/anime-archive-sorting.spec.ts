@@ -31,6 +31,24 @@ const pool = new Pool({ connectionString: databaseUrl })
 
 const fixtureUserIds: string[] = []
 const fixtureCatalogueItemIds: string[] = []
+type RateLimitSnapshot = Readonly<{
+  count: number
+  id: string
+  key: string
+  lastRequest: string
+}>
+type RateLimitRequestExpectation = Readonly<{
+  minimumLastRequest: bigint
+}>
+
+const sharedAuthRateLimitKeys = [
+  '127.0.0.1|/sign-in/email',
+  '127.0.0.1|/sign-out',
+] as const
+const sharedAuthRateLimitBefore = new Map<string, RateLimitSnapshot | null>()
+const sharedAuthRateLimitExpected = new Map<string, RateLimitSnapshot | null>()
+let fixtureCleanupCompleted = false
+let poolClosed = false
 
 function monitorUnexpectedBrowserErrors(page: Page) {
   let hasConsoleError = false
@@ -74,6 +92,171 @@ function assertAllowedFixtureDatabase(databaseName: string | undefined) {
   if (databaseName !== expectedDatabaseName) {
     throw new Error('Browser fixture database target is not allowed')
   }
+}
+
+async function snapshotSharedAuthRateLimits() {
+  const result = await pool.query<RateLimitSnapshot>(
+    `
+      select id, key, count, last_request::text as "lastRequest"
+      from rate_limits
+      where key = any($1::text[])
+      order by key
+    `,
+    [sharedAuthRateLimitKeys],
+  )
+
+  return result.rows
+}
+
+function getSharedAuthRateLimit(
+  rows: RateLimitSnapshot[],
+  key: (typeof sharedAuthRateLimitKeys)[number],
+) {
+  return rows.find((row) => row.key === key) ?? null
+}
+
+async function prepareSharedAuthRateLimits() {
+  const snapshot = await snapshotSharedAuthRateLimits()
+
+  for (const key of sharedAuthRateLimitKeys) {
+    const before = getSharedAuthRateLimit(snapshot, key)
+    sharedAuthRateLimitBefore.set(key, before)
+    sharedAuthRateLimitExpected.set(key, before)
+  }
+}
+
+async function prepareSharedAuthRateLimitRequest(
+  key: (typeof sharedAuthRateLimitKeys)[number],
+): Promise<RateLimitRequestExpectation> {
+  const expected = sharedAuthRateLimitExpected.get(key)
+  if (expected === undefined) {
+    throw new Error('Shared authentication rate limit was not prepared')
+  }
+
+  const current = getSharedAuthRateLimit(
+    await snapshotSharedAuthRateLimits(),
+    key,
+  )
+  expect(current).toEqual(expected)
+
+  const minimumLastRequest = BigInt(Date.now())
+  if (expected === null) return { minimumLastRequest }
+
+  const cleared = await pool.query<RateLimitSnapshot>(
+    `
+      update rate_limits
+      set count = 0, last_request = last_request - 61_000
+      where key = $1
+        and id = $2::uuid
+        and count = $3
+        and last_request = $4::bigint
+      returning id, key, count, last_request::text as "lastRequest"
+    `,
+    [key, expected.id, expected.count, expected.lastRequest],
+  )
+  expect(cleared.rows).toHaveLength(1)
+  const [currentAfterClear] = cleared.rows
+  if (currentAfterClear === undefined) {
+    throw new Error('Shared authentication rate limit changed before request')
+  }
+  sharedAuthRateLimitExpected.set(key, currentAfterClear)
+  return { minimumLastRequest }
+}
+
+async function recordSharedAuthRateLimit(
+  key: (typeof sharedAuthRateLimitKeys)[number],
+  request: RateLimitRequestExpectation,
+) {
+  const expected = sharedAuthRateLimitExpected.get(key)
+  if (expected === undefined) {
+    throw new Error('Shared authentication rate limit was not prepared')
+  }
+
+  const current = getSharedAuthRateLimit(
+    await snapshotSharedAuthRateLimits(),
+    key,
+  )
+  if (current === null) {
+    throw new Error('Authentication request did not create its rate limit')
+  }
+  expect(current.count).toBe(1)
+  expect(BigInt(current.lastRequest)).toBeGreaterThanOrEqual(
+    request.minimumLastRequest,
+  )
+  if (expected !== null) {
+    expect(current.id).toBe(expected.id)
+    expect(BigInt(current.lastRequest)).toBeGreaterThan(
+      BigInt(expected.lastRequest),
+    )
+  }
+  sharedAuthRateLimitExpected.set(key, current)
+}
+
+async function restoreSharedAuthRateLimits() {
+  for (const key of sharedAuthRateLimitKeys) {
+    const before = sharedAuthRateLimitBefore.get(key)
+    const expected = sharedAuthRateLimitExpected.get(key)
+    if (before === undefined || expected === undefined) continue
+
+    if (before === null) {
+      if (expected === null) {
+        expect(
+          getSharedAuthRateLimit(await snapshotSharedAuthRateLimits(), key),
+        ).toBe(null)
+        continue
+      }
+
+      const deleted = await pool.query<RateLimitSnapshot>(
+        `
+          delete from rate_limits
+          where key = $1
+            and id = $2::uuid
+            and count = $3
+            and last_request = $4::bigint
+          returning id, key, count, last_request::text as "lastRequest"
+        `,
+        [key, expected.id, expected.count, expected.lastRequest],
+      )
+      expect(deleted.rows).toEqual([expected])
+      continue
+    }
+
+    if (expected === null) {
+      throw new Error(
+        'Shared authentication rate limit disappeared during test',
+      )
+    }
+
+    const restored = await pool.query<RateLimitSnapshot>(
+      `
+        update rate_limits
+        set id = $2::uuid, count = $3, last_request = $4::bigint
+        where key = $1
+          and id = $5::uuid
+          and count = $6
+          and last_request = $7::bigint
+        returning id, key, count, last_request::text as "lastRequest"
+      `,
+      [
+        key,
+        before.id,
+        before.count,
+        before.lastRequest,
+        expected.id,
+        expected.count,
+        expected.lastRequest,
+      ],
+    )
+    expect(restored.rows).toEqual([before])
+  }
+
+  const restored = await snapshotSharedAuthRateLimits()
+  expect(restored).toEqual(
+    sharedAuthRateLimitKeys.flatMap((key) => {
+      const before = sharedAuthRateLimitBefore.get(key)
+      return before === null || before === undefined ? [] : [before]
+    }),
+  )
 }
 
 async function insertUser(owner: typeof ownerA): Promise<string> {
@@ -173,27 +356,23 @@ async function insertEntry({
 
 async function signIn(page: Page, owner: typeof ownerA) {
   await page.goto('/sign-in')
-  let status = 0
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    await page
-      .getByRole('textbox', { name: 'Email', exact: true })
-      .fill(owner.email)
-    await page
-      .getByRole('textbox', { name: 'Password', exact: true })
-      .fill(password)
-    const signInResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'POST' &&
-        new URL(response.url()).pathname === '/api/auth/sign-in/email',
-    )
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    status = (await signInResponse).status()
-    if (status !== 429) break
-    await page.waitForTimeout(60_000)
-  }
-
-  expect(status).toBe(200)
+  await page
+    .getByRole('textbox', { name: 'Email', exact: true })
+    .fill(owner.email)
+  await page
+    .getByRole('textbox', { name: 'Password', exact: true })
+    .fill(password)
+  const signInResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/api/auth/sign-in/email',
+  )
+  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
+    '127.0.0.1|/sign-in/email',
+  )
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  expect((await signInResponse).status()).toBe(200)
+  await recordSharedAuthRateLimit('127.0.0.1|/sign-in/email', rateLimitRequest)
   await expect(page.getByText('Signed in as')).toBeVisible()
 }
 
@@ -203,8 +382,12 @@ async function signOut(page: Page) {
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/api/auth/sign-out',
   )
+  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
+    '127.0.0.1|/sign-out',
+  )
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   expect((await signOutResponse).status()).toBe(200)
+  await recordSharedAuthRateLimit('127.0.0.1|/sign-out', rateLimitRequest)
   await page.reload()
   await expect(
     page
@@ -288,101 +471,16 @@ async function expectRaisedOrdinaryArchiveCard(page: Page, title: string) {
   ).not.toBe('none')
 }
 
-test.beforeAll(async () => {
+async function cleanupFixtureState() {
+  if (fixtureCleanupCompleted) return
+
   const databaseResult = await pool.query<{ databaseName: string }>(
     'select current_database() as "databaseName"',
   )
   assertAllowedFixtureDatabase(databaseResult.rows[0]?.databaseName)
 
-  const [ownerAId, ownerBId] = await Promise.all([
-    insertUser(ownerA),
-    insertUser(ownerB),
-  ])
-  const baseTime = Date.parse('2026-07-24T12:00:00.000Z')
-
-  const ownerAEntries = [
-    {
-      title: 'M29 Favourite Alpha',
-      isFavourite: true,
-      rating: 8,
-      createdOffset: 1,
-      updatedOffset: 3,
-    },
-    {
-      title: 'M29 Favourite Bravo',
-      isFavourite: true,
-      rating: 8,
-      createdOffset: 2,
-      updatedOffset: 5,
-    },
-    {
-      title: 'M29 Favourite Unrated',
-      isFavourite: true,
-      rating: null,
-      createdOffset: 3,
-      updatedOffset: 4,
-    },
-    {
-      title: 'M29 Normal Ten',
-      isFavourite: false,
-      rating: 10,
-      createdOffset: 4,
-      updatedOffset: 4,
-    },
-    ...Array.from({ length: 22 }, (_, index) => ({
-      title: `M29 Regular ${String(index + 1).padStart(2, '0')}`,
-      isFavourite: false,
-      rating: index === 0 ? 8 : null,
-      createdOffset: index + 5,
-      updatedOffset: index + 6,
-    })),
-  ]
-
-  for (const entry of ownerAEntries) {
-    const catalogueItemId = await insertCatalogueItem({ title: entry.title })
-    await insertEntry({
-      userId: ownerAId,
-      catalogueItemId,
-      isFavourite: entry.isFavourite,
-      rating: entry.rating,
-      createdAt: new Date(baseTime + entry.createdOffset * 1_000),
-      updatedAt: new Date(baseTime + entry.updatedOffset * 1_000),
-    })
-  }
-
-  for (const suffix of ['a', 'b']) {
-    const catalogueItemId = await insertCatalogueItem({
-      title: `${adultTitleSentinel}-${suffix}`,
-      maturity: 'adult',
-    })
-    await insertEntry({
-      userId: ownerAId,
-      catalogueItemId,
-      isFavourite: true,
-      rating: 10,
-      createdAt: new Date(baseTime + 80_000),
-      updatedAt: new Date(baseTime + 90_000),
-    })
-  }
-
-  const ownerBCatalogueItemId = await insertCatalogueItem({
-    title: ownerBTitleSentinel,
-  })
-  await insertEntry({
-    userId: ownerBId,
-    catalogueItemId: ownerBCatalogueItemId,
-    createdAt: new Date(baseTime),
-    updatedAt: new Date(baseTime),
-  })
-})
-
-test.afterAll(async () => {
+  let cleanupError: unknown
   try {
-    const databaseResult = await pool.query<{ databaseName: string }>(
-      'select current_database() as "databaseName"',
-    )
-    assertAllowedFixtureDatabase(databaseResult.rows[0]?.databaseName)
-
     if (fixtureUserIds.length > 0) {
       await pool.query('delete from users where id = any($1::uuid[])', [
         fixtureUserIds,
@@ -405,8 +503,130 @@ test.afterAll(async () => {
       )
       expect(catalogueItemCount.rows[0]?.count).toBe('0')
     }
+  } catch (error) {
+    cleanupError = error
+  }
+
+  try {
+    await restoreSharedAuthRateLimits()
+  } catch (error) {
+    cleanupError ??= error
+  }
+
+  if (cleanupError !== undefined) throw cleanupError
+  fixtureCleanupCompleted = true
+}
+
+test.beforeAll(async () => {
+  try {
+    const databaseResult = await pool.query<{ databaseName: string }>(
+      'select current_database() as "databaseName"',
+    )
+    assertAllowedFixtureDatabase(databaseResult.rows[0]?.databaseName)
+    await prepareSharedAuthRateLimits()
+
+    const [ownerAId, ownerBId] = await Promise.all([
+      insertUser(ownerA),
+      insertUser(ownerB),
+    ])
+    const baseTime = Date.parse('2026-07-24T12:00:00.000Z')
+
+    const ownerAEntries = [
+      {
+        title: 'M29 Favourite Alpha',
+        isFavourite: true,
+        rating: 8,
+        createdOffset: 1,
+        updatedOffset: 3,
+      },
+      {
+        title: 'M29 Favourite Bravo',
+        isFavourite: true,
+        rating: 8,
+        createdOffset: 2,
+        updatedOffset: 5,
+      },
+      {
+        title: 'M29 Favourite Unrated',
+        isFavourite: true,
+        rating: null,
+        createdOffset: 3,
+        updatedOffset: 4,
+      },
+      {
+        title: 'M29 Normal Ten',
+        isFavourite: false,
+        rating: 10,
+        createdOffset: 4,
+        updatedOffset: 4,
+      },
+      ...Array.from({ length: 22 }, (_, index) => ({
+        title: `M29 Regular ${String(index + 1).padStart(2, '0')}`,
+        isFavourite: false,
+        rating: index === 0 ? 8 : null,
+        createdOffset: index + 5,
+        updatedOffset: index + 6,
+      })),
+    ]
+
+    for (const entry of ownerAEntries) {
+      const catalogueItemId = await insertCatalogueItem({ title: entry.title })
+      await insertEntry({
+        userId: ownerAId,
+        catalogueItemId,
+        isFavourite: entry.isFavourite,
+        rating: entry.rating,
+        createdAt: new Date(baseTime + entry.createdOffset * 1_000),
+        updatedAt: new Date(baseTime + entry.updatedOffset * 1_000),
+      })
+    }
+
+    for (const suffix of ['a', 'b']) {
+      const catalogueItemId = await insertCatalogueItem({
+        title: `${adultTitleSentinel}-${suffix}`,
+        maturity: 'adult',
+      })
+      await insertEntry({
+        userId: ownerAId,
+        catalogueItemId,
+        isFavourite: true,
+        rating: 10,
+        createdAt: new Date(baseTime + 80_000),
+        updatedAt: new Date(baseTime + 90_000),
+      })
+    }
+
+    const ownerBCatalogueItemId = await insertCatalogueItem({
+      title: ownerBTitleSentinel,
+    })
+    await insertEntry({
+      userId: ownerBId,
+      catalogueItemId: ownerBCatalogueItemId,
+      createdAt: new Date(baseTime),
+      updatedAt: new Date(baseTime),
+    })
+  } catch (error) {
+    let cleanupError: unknown
+    try {
+      await cleanupFixtureState()
+    } catch (candidate) {
+      cleanupError = candidate
+    } finally {
+      await pool.end()
+      poolClosed = true
+    }
+    throw cleanupError ?? error
+  }
+})
+
+test.afterAll(async () => {
+  if (poolClosed) return
+
+  try {
+    await cleanupFixtureState()
   } finally {
     await pool.end()
+    poolClosed = true
   }
 })
 
