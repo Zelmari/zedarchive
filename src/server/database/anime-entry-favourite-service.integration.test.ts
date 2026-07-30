@@ -305,7 +305,7 @@ describe('anime entry favourite service', () => {
     })
   })
 
-  it('serializes concurrent favourite CAS and permits a deliberate retry', async () => {
+  it('accepts both valid serialized outcomes for concurrent favourite CAS and permits a deliberate retry', async () => {
     const owner = await insertUser()
     const item = await insertCatalogueItem()
     const entry = await insertEntry(owner.id, item.id)
@@ -323,22 +323,38 @@ describe('anime entry favourite service', () => {
         requestedFavourite: false,
       }),
     ])
-    expect(
-      [first, second].filter((result) => result.kind === 'updated'),
-    ).toHaveLength(1)
-    const currentFavourite = (await readEntry(entry.id))!.isFavourite
-    const conflict = [first, second].find(
-      (result) => result.kind === 'conflict',
-    )
-    expect(conflict).toEqual({ kind: 'conflict', currentFavourite })
+    expect([
+      [
+        { kind: 'updated', isFavourite: true },
+        { kind: 'conflict', currentFavourite: true },
+      ],
+      [
+        { kind: 'updated', isFavourite: true },
+        { kind: 'unchanged', isFavourite: false },
+      ],
+    ]).toContainEqual([first, second])
+    await expect(readEntry(entry.id)).resolves.toMatchObject({
+      isFavourite: true,
+    })
     await expect(
       updateAnimeEntryFavourite(database, {
         userId: owner.id,
         entryId: entry.id,
-        expectedFavourite: currentFavourite,
-        requestedFavourite: !currentFavourite,
+        expectedFavourite: false,
+        requestedFavourite: false,
       }),
-    ).resolves.toEqual({ kind: 'updated', isFavourite: !currentFavourite })
+    ).resolves.toEqual({ kind: 'conflict', currentFavourite: true })
+    await expect(
+      updateAnimeEntryFavourite(database, {
+        userId: owner.id,
+        entryId: entry.id,
+        expectedFavourite: true,
+        requestedFavourite: false,
+      }),
+    ).resolves.toEqual({ kind: 'updated', isFavourite: false })
+    await expect(readEntry(entry.id)).resolves.toMatchObject({
+      isFavourite: false,
+    })
   })
 
   it('allows independent favourite and date-range mutations on one entry without false conflicts', async () => {
