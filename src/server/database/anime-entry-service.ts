@@ -29,6 +29,7 @@ import {
   userCataloguePreferences,
 } from '@/server/database/schema'
 import { establishActiveAccount } from '@/server/database/active-account-transaction'
+import { monotonicAnimeEntryUpdatedAt } from '@/server/database/anime-entry-timestamp'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type CreateAnimeEntryRequest = AddAnimeEntryInput & {
@@ -344,7 +345,7 @@ export async function updateAnimeEntryStatus(
         .update(animeEntries)
         .set({
           status: request.requestedStatus,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(

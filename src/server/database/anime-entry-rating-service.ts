@@ -9,6 +9,7 @@ import type {
 } from '@/features/archive/domain/update-anime-entry-rating'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
 import { establishActiveAccount } from '@/server/database/active-account-transaction'
+import { monotonicAnimeEntryUpdatedAt } from '@/server/database/anime-entry-timestamp'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryRatingRequest = UpdateAnimeEntryRatingInput & {
@@ -102,7 +103,7 @@ export async function updateAnimeEntryRating(
         .update(animeEntries)
         .set({
           rating: request.requestedRating,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(

@@ -22,6 +22,7 @@ import type {
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
 import { establishActiveAccount } from '@/server/database/active-account-transaction'
+import { monotonicAnimeEntryUpdatedAt } from '@/server/database/anime-entry-timestamp'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryEpisodeProgressRequest =
@@ -196,7 +197,7 @@ export async function updateAnimeEntryEpisodeProgress(
         .update(animeEntries)
         .set({
           episodeProgress: request.requestedEpisodeProgress,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(
@@ -311,7 +312,7 @@ export async function updateAnimeEntryEpisodeTotalOverride(
         .update(animeEntries)
         .set({
           episodeTotalOverride: request.requestedEpisodeTotalOverride,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(

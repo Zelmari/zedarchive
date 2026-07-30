@@ -319,7 +319,7 @@ describe('episode progress and total services', () => {
       finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
-    expect(afterProgress?.updatedAt.getTime()).toBeGreaterThan(
+    expect(afterProgress?.updatedAt.getTime()).toBeGreaterThanOrEqual(
       afterTotal!.updatedAt.getTime(),
     )
 

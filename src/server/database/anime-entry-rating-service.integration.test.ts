@@ -234,7 +234,7 @@ describe('anime entry rating service', () => {
       finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
-    expect(afterChange?.updatedAt.getTime()).toBeGreaterThan(
+    expect(afterChange?.updatedAt.getTime()).toBeGreaterThanOrEqual(
       afterSet!.updatedAt.getTime(),
     )
 
@@ -258,7 +258,7 @@ describe('anime entry rating service', () => {
       finishDate: '2024-01-03',
       createdAt: baselineCreatedAt,
     })
-    expect(afterRemove?.updatedAt.getTime()).toBeGreaterThan(
+    expect(afterRemove?.updatedAt.getTime()).toBeGreaterThanOrEqual(
       afterChange!.updatedAt.getTime(),
     )
   })

@@ -194,9 +194,9 @@ describe('anime entry date range service', () => {
         requestedFinishDate: null,
       }),
     ).resolves.toEqual({ kind: 'updated', startDate: null, finishDate: null })
-    expect((await readEntry(entry.id))?.updatedAt.getTime()).toBeGreaterThan(
-      afterStart!.updatedAt.getTime(),
-    )
+    expect(
+      (await readEntry(entry.id))?.updatedAt.getTime(),
+    ).toBeGreaterThanOrEqual(afterStart!.updatedAt.getTime())
   })
 
   it('permits date ranges for every status and format, including hidden and draft entries', async () => {

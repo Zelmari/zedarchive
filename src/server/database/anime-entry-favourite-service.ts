@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { z } from 'zod'
 import type {
@@ -9,6 +9,7 @@ import type {
 } from '@/features/archive/domain/update-anime-entry-favourite'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
 import { establishActiveAccount } from '@/server/database/active-account-transaction'
+import { monotonicAnimeEntryUpdatedAt } from '@/server/database/anime-entry-timestamp'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryFavouriteRequest =
@@ -105,7 +106,7 @@ export async function updateAnimeEntryFavourite(
         .update(animeEntries)
         .set({
           isFavourite: request.requestedFavourite,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(

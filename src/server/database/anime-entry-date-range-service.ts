@@ -12,6 +12,7 @@ import type {
 } from '@/features/archive/domain/update-anime-entry-date-range'
 import { animeCatalogueItems, animeEntries } from '@/server/database/schema'
 import { establishActiveAccount } from '@/server/database/active-account-transaction'
+import { monotonicAnimeEntryUpdatedAt } from '@/server/database/anime-entry-timestamp'
 import { lockAdultContentPreferenceForShare } from '@/server/database/user-catalogue-preferences-service'
 
 export type UpdateAnimeEntryDateRangeRequest =
@@ -158,7 +159,7 @@ export async function updateAnimeEntryDateRange(
         .set({
           startDate: request.requestedStartDate,
           finishDate: request.requestedFinishDate,
-          updatedAt: sql`current_timestamp`,
+          updatedAt: monotonicAnimeEntryUpdatedAt,
         })
         .where(
           and(
