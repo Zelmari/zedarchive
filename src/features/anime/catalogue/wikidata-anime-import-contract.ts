@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import { animeCatalogueStateSchema } from '@/features/anime/catalogue/anime-catalogue-state'
 import {
   animeCatalogueItemIdSchema,

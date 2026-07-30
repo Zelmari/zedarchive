@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const entryStatusValues = [
   'planned',

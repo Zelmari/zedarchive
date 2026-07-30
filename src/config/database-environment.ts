@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 type Environment = Readonly<Record<string, unknown>>
 

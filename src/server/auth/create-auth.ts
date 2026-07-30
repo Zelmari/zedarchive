@@ -225,6 +225,9 @@ export function createAuthOptions(
     ],
     advanced: {
       disableOriginCheck: false,
+      ipAddress: {
+        ipAddressHeaders: ['x-vercel-forwarded-for'],
+      },
       database: {
         generateId: 'uuid',
       },

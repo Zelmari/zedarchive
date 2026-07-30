@@ -60,37 +60,48 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Assert pinned Node.js and npm
+        run: |
+          node --input-type=module -e "if (process.versions.node.split('.')[0] !== '24') process.exit(1)"
+          corepack npm --version | grep -Fx '11.18.0'
+
       - name: Install dependencies
-        run: npm ci
+        run: corepack npm ci
+
+      - name: Verify lifecycle-script policy
+        run: corepack npm run verify:install-script-policy
 
       - name: Check formatting
-        run: npm run format:check
+        run: corepack npm run format:check
 
       - name: Lint
-        run: npm run lint
+        run: corepack npm run lint
 
       - name: Type check
-        run: npm run typecheck
+        run: corepack npm run typecheck
+
+      - name: Audit production dependencies
+        run: corepack npm audit --omit=dev --audit-level=high
 
       - name: Validate development catalogue seed
-        run: npm run db:seed:check
+        run: corepack npm run db:seed:check
 
       - name: Validate Wikidata import inputs
-        run: npm run catalogue:import:wikidata:check
+        run: corepack npm run catalogue:import:wikidata:check
 
       - name: Verify migration is current
         run: |
-          npm run db:generate
+          corepack npm run db:generate
           git diff --exit-code -- drizzle
 
       - name: Unit test
-        run: npm test
+        run: corepack npm test
 
       - name: Test release-critical browser helpers
-        run: npm run test:browser:critical:helpers
+        run: corepack npm run test:browser:critical:helpers
 
       - name: Database integration test
-        run: npm run test:integration
+        run: corepack npm run test:integration
 
   browser-release-critical:
     name: Release-critical browser
@@ -137,17 +148,22 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Assert pinned Node.js and npm
+        run: |
+          node --input-type=module -e "if (process.versions.node.split('.')[0] !== '24') process.exit(1)"
+          corepack npm --version | grep -Fx '11.18.0'
+
       - name: Install dependencies
-        run: npm ci
+        run: corepack npm ci
 
       - name: Apply migrations for release-critical browser testing
-        run: npm run db:migrate
+        run: corepack npm run db:migrate
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: corepack npm exec -- playwright install --with-deps chromium
 
       - name: Run release-critical browser tests
-        run: npm run test:browser:critical
+        run: corepack npm run test:browser:critical
 
       - name: Audit release-critical diagnostics before upload
         id: audit-release-critical-diagnostics
@@ -217,17 +233,22 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Assert pinned Node.js and npm
+        run: |
+          node --input-type=module -e "if (process.versions.node.split('.')[0] !== '24') process.exit(1)"
+          corepack npm --version | grep -Fx '11.18.0'
+
       - name: Install dependencies
-        run: npm ci
+        run: corepack npm ci
 
       - name: Apply migrations for extended browser testing
-        run: npm run db:migrate
+        run: corepack npm run db:migrate
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: corepack npm exec -- playwright install --with-deps chromium
 
       - name: Run extended browser tests
-        run: npm run test:browser:extended
+        run: corepack npm run test:browser:extended
 
       - name: Upload allowlisted public failure screenshots
         if: failure()
@@ -289,8 +310,13 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Assert pinned Node.js and npm
+        run: |
+          node --input-type=module -e "if (process.versions.node.split('.')[0] !== '24') process.exit(1)"
+          corepack npm --version | grep -Fx '11.18.0'
+
       - name: Install dependencies
-        run: npm ci
+        run: corepack npm ci
 
       - name: Run account-purge operational evidence
-        run: npm run test:operational:account-purge
+        run: corepack npm run test:operational:account-purge

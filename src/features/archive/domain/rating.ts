@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const ratingMinimum = 1
 export const ratingMaximum = 10

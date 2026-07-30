@@ -25,7 +25,9 @@ describe('verifyCurrentPassword', () => {
       Cookie: 'opaque-session-cookie',
       Origin: authUrl,
       Referer: `${authUrl}/settings`,
-      'X-Forwarded-For': '203.0.113.1',
+      'X-Vercel-Forwarded-For': '203.0.113.10',
+      'X-Forwarded-For': '203.0.113.11',
+      'X-Real-IP': '203.0.113.12',
       'X-Unrelated': 'do-not-forward',
     })
 
@@ -43,11 +45,34 @@ describe('verifyCurrentPassword', () => {
     expect(request.headers.get('origin')).toBe(authUrl)
     expect(request.headers.get('referer')).toBe(`${authUrl}/settings`)
     expect(request.headers.get('content-type')).toBe('application/json')
+    expect(request.headers.get('x-vercel-forwarded-for')).toBe('203.0.113.10')
     expect(request.headers.get('x-forwarded-for')).toBeNull()
+    expect(request.headers.get('x-real-ip')).toBeNull()
     expect(request.headers.get('x-unrelated')).toBeNull()
     await expect(request.json()).resolves.toEqual({
       password: 'current password',
     })
+  })
+
+  it('keeps an absent canonical header absent instead of forwarding a fallback', async () => {
+    const auth = createHandler(new Response(JSON.stringify({ status: true })))
+    const source = new Headers({
+      Origin: authUrl,
+      'X-Forwarded-For': '203.0.113.11',
+      'X-Real-IP': '203.0.113.12',
+    })
+
+    await expect(
+      verifyCurrentPassword(auth, authUrl, source, 'current password'),
+    ).resolves.toEqual({ kind: 'verified' })
+
+    const request = auth.receivedRequest()
+    expect(request).toBeDefined()
+    if (request === undefined)
+      throw new Error('Auth handler did not receive a request')
+    expect(request.headers.get('x-vercel-forwarded-for')).toBeNull()
+    expect(request.headers.get('x-forwarded-for')).toBeNull()
+    expect(request.headers.get('x-real-ip')).toBeNull()
   })
 
   it.each([

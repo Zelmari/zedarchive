@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import { episodeProgressMaximum } from '@/features/archive/domain/episode-progress'
 
 export const episodeTotalMinimum = 1

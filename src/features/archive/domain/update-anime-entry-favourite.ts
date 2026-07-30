@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const updateAnimeEntryFavouriteInputSchema = z.strictObject({
   entryId: z.uuidv4(),

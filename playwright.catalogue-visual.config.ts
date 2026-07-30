@@ -19,7 +19,7 @@ export default defineConfig({
     trace: 'off',
   },
   webServer: {
-    command: `npm run build && npm run start -- --port ${port}`,
+    command: `corepack npm run build && corepack npm run start -- --port ${port}`,
     env: {
       ...process.env,
       ACCOUNT_PURGE_ENABLED: 'false',

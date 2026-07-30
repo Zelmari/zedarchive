@@ -50,7 +50,7 @@ export default defineConfig({
     video: 'off',
   },
   webServer: {
-    command: `npm run db:migrate && npm run build && node ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${port}`,
+    command: `corepack npm run db:migrate && corepack npm run build && node ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${port}`,
     env: {
       ...process.env,
       ACCOUNT_PURGE_ENABLED: accountPurgeEnabled,

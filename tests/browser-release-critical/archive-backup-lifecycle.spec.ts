@@ -13,6 +13,12 @@ import {
   writeReleaseCriticalFailureDiagnostic,
 } from './fixtures/diagnostic-manifest'
 import { failReleaseCriticalIfRequested } from './fixtures/controlled-failure'
+import {
+  assertDynamicResponsePolicy,
+  assertReleaseCriticalSecurityEvidence,
+  installReleaseCriticalContextSecurityEvidence,
+  installReleaseCriticalSecurityEvidence,
+} from './fixtures/response-policy'
 
 test.use({
   acceptDownloads: true,
@@ -388,20 +394,18 @@ async function excludesPrivateSentinels(
 }
 
 async function settingsFlightResponse(page: Page) {
-  const session = await page.context().newCDPSession(page)
-  try {
-    await session.send('Network.enable')
-    await session.send('Network.setExtraHTTPHeaders', { headers: { rsc: '1' } })
-    const response = await page.goto('/settings')
-    if (response === null) {
-      throw new TypeError('M42 settings Flight response is unavailable')
-    }
-    return response
-  } finally {
-    await session.send('Network.setExtraHTTPHeaders', { headers: {} })
-    await session.send('Network.disable')
-    await session.detach()
-  }
+  await page.goto('/archive/anime')
+  const response = page.waitForResponse((candidate) => {
+    const requestHeaders = candidate.request().headers()
+    return (
+      new URL(candidate.url()).pathname === '/settings' &&
+      requestHeaders.rsc === '1' &&
+      requestHeaders['next-router-prefetch'] === undefined &&
+      requestHeaders.purpose?.toLowerCase() !== 'prefetch'
+    )
+  })
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
+  return response
 }
 
 function isExpectedDownloadNavigationError(error: unknown): boolean {
@@ -520,7 +524,12 @@ test.beforeAll(async () => {
   )
 })
 
-test.afterEach(async ({}, testInfo) => {
+test.beforeEach(async ({ page }) => {
+  await installReleaseCriticalContextSecurityEvidence(page.context())
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await assertReleaseCriticalSecurityEvidence(page.context())
   const outputEntries = await readdir(testInfo.outputDir).catch(() => [])
   expect(outputEntries).toEqual([])
   await writeReleaseCriticalFailureDiagnostic(testInfo, diagnostic)
@@ -653,12 +662,31 @@ test('archive backup lifecycle preserves privacy, ownership, state boundaries, a
     diagnostic.checkpoint('signedIn')
     const settings = await page.goto('/settings')
     expect(settings?.status()).toBe(200)
+    if (settings === null) {
+      throw new TypeError('M44 settings response is unavailable')
+    }
+    await assertDynamicResponsePolicy(settings, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
     expect(await settings?.headerValue('cache-control')).toContain('private')
     expect(await settings?.headerValue('cache-control')).toContain('no-store')
     await expect(page.getByText(titles.aAdult, { exact: true })).toHaveCount(0)
     await expect(page.getByText(titles.source, { exact: true })).toHaveCount(0)
     const settingsFlightResponseValue = await settingsFlightResponse(page)
     expect(settingsFlightResponseValue.status()).toBe(200)
+    expect(await settingsFlightResponseValue.request().headerValue('rsc')).toBe(
+      '1',
+    )
+    expect(
+      await settingsFlightResponseValue.headerValue('content-type'),
+    ).toContain('text/x-component')
+    await assertDynamicResponsePolicy(settingsFlightResponseValue, {
+      cache: 'private-no-store',
+      contentType: 'flight',
+      status: 200,
+    })
     expect(
       await settingsFlightResponseValue.headerValue('cache-control'),
     ).toContain('private')
@@ -699,6 +727,12 @@ test('archive backup lifecycle preserves privacy, ownership, state boundaries, a
     )
     expect(await response.headerValue('pragma')).toBe('no-cache')
     expect(await response.headerValue('x-content-type-options')).toBe('nosniff')
+    await assertDynamicResponsePolicy(response, {
+      cache: 'private-no-store',
+      contentType: 'json',
+      referrerPolicy: 'no-referrer',
+      status: 200,
+    })
     expect(await response.headerValue('referrer-policy')).toBe('no-referrer')
     expect(await response.headerValue('x-robots-tag')).toBe('noindex, nofollow')
     expect(await response.headerValue('cross-origin-resource-policy')).toBe(
@@ -717,6 +751,7 @@ test('archive backup lifecycle preserves privacy, ownership, state boundaries, a
     expect(await fixtureFingerprint()).toBe(backupBefore)
 
     const directNavigationPage = await page.context().newPage()
+    await installReleaseCriticalSecurityEvidence(directNavigationPage)
     try {
       const directDownloadPromise =
         directNavigationPage.waitForEvent('download')
@@ -735,6 +770,7 @@ test('archive backup lifecycle preserves privacy, ownership, state boundaries, a
     }
 
     const noJavaScriptPage = await page.context().newPage()
+    await installReleaseCriticalSecurityEvidence(noJavaScriptPage)
     const cdp = await page.context().newCDPSession(noJavaScriptPage)
     try {
       await cdp.send('Emulation.setScriptExecutionDisabled', { value: true })

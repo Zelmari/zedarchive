@@ -9,6 +9,14 @@ import {
   writeReleaseCriticalFailureDiagnostic,
 } from './fixtures/diagnostic-manifest'
 import { failReleaseCriticalIfRequested } from './fixtures/controlled-failure'
+import {
+  assertDynamicResponsePolicy,
+  assertReleaseCriticalSecurityEvidence,
+  assertAdversarialCspEvidenceUnchanged,
+  installReleaseCriticalContextSecurityEvidence,
+  installReleaseCriticalSecurityEvidence,
+  snapshotAdversarialCspViolationEvidence,
+} from './fixtures/response-policy'
 
 test.use({ screenshot: 'off', trace: 'off', video: 'off' })
 test.describe.configure({ mode: 'serial' })
@@ -95,7 +103,12 @@ let serialCatalogueItemId = ''
 let poolClosed = false
 const diagnostic = new ReleaseCriticalDiagnostic('archive tracking lifecycle')
 
-test.afterEach(async ({}, testInfo) => {
+test.beforeEach(async ({ page }) => {
+  await installReleaseCriticalContextSecurityEvidence(page.context())
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await assertReleaseCriticalSecurityEvidence(page.context())
   await writeReleaseCriticalFailureDiagnostic(testInfo, diagnostic)
 })
 
@@ -680,6 +693,41 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
     await signIn(page, ownerA)
     mainPageSignedIn = true
     diagnostic.checkpoint('signedIn')
+    const archiveResponse = await page.goto('/archive/anime?sort=alphabetical')
+    if (archiveResponse === null) {
+      throw new TypeError('M44 archive response is unavailable')
+    }
+    await assertDynamicResponsePolicy(archiveResponse, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
+    expect(await archiveResponse.headerValue('cache-control')).toContain(
+      'private',
+    )
+    expect(await archiveResponse.headerValue('cache-control')).toContain(
+      'no-store',
+    )
+    const flightResponse = page.waitForResponse((response) => {
+      const requestHeaders = response.request().headers()
+      return (
+        new URL(response.url()).pathname === '/settings' &&
+        requestHeaders.rsc === '1' &&
+        requestHeaders['next-router-prefetch'] === undefined &&
+        requestHeaders.purpose?.toLowerCase() !== 'prefetch'
+      )
+    })
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
+    const resolvedFlightResponse = await flightResponse
+    expect(await resolvedFlightResponse.request().headerValue('rsc')).toBe('1')
+    expect(await resolvedFlightResponse.headerValue('content-type')).toContain(
+      'text/x-component',
+    )
+    await assertDynamicResponsePolicy(resolvedFlightResponse, {
+      cache: 'private-no-store',
+      contentType: 'flight',
+      status: 200,
+    })
     await page.goto('/archive/anime?sort=alphabetical')
 
     await expect(
@@ -920,8 +968,11 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
 
     freshContext = await browser.newContext({
       baseURL: releaseCriticalApplicationOrigin,
+      extraHTTPHeaders: { 'x-vercel-forwarded-for': '127.0.0.1' },
     })
+    await installReleaseCriticalContextSecurityEvidence(freshContext)
     const freshPage = await freshContext.newPage()
+    await installReleaseCriticalSecurityEvidence(freshPage)
     await signIn(freshPage, ownerA)
     await freshPage.goto('/archive/anime')
     await expect(freshPage.locator('select[name="sort"]')).toHaveValue(
@@ -931,6 +982,7 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
       titles.favouriteAlpha,
     )
     await signOutIfSignedIn(freshPage)
+    await assertReleaseCriticalSecurityEvidence(freshContext)
     await freshContext.close()
     freshContext = undefined
 
@@ -939,6 +991,8 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
       'x-forwarded-host': 'm42-host-mismatch.invalid',
       origin: 'http://m42-origin-mismatch.invalid',
     })
+    const originCspSnapshot =
+      await snapshotAdversarialCspViolationEvidence(page)
     try {
       const originCard = cardForTitle(page, titles.origin)
       await originCard
@@ -951,12 +1005,20 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
         name: `Remove ${titles.origin} from your archive?`,
         exact: true,
       })
+      const rejectedOrigin = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/archive/anime',
+      )
       await originDialog
         .getByRole('button', {
           name: actionName('Remove from archive', titles.origin),
           exact: true,
         })
         .click()
+      const rejectedOriginResponse = await rejectedOrigin
+      expect(rejectedOriginResponse.status()).toBeGreaterThanOrEqual(400)
+      expect(rejectedOriginResponse.request().method()).toBe('POST')
       await expect(
         originDialog.getByRole('alert').filter({
           hasText: 'We couldn’t remove this entry right now. Try again.',
@@ -967,6 +1029,7 @@ test('composes archive progress, rating, sorting, removal, owner isolation, and 
     } finally {
       await page.setExtraHTTPHeaders({})
     }
+    await assertAdversarialCspEvidenceUnchanged(page, originCspSnapshot)
 
     await page.goto('/archive/anime?sort=alphabetical&page=2')
     await expect(page.locator('article')).toHaveCount(1)

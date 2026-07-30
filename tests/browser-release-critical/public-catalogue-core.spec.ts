@@ -5,6 +5,13 @@ import {
 } from './fixtures/diagnostic-manifest'
 import { failReleaseCriticalIfRequested } from './fixtures/controlled-failure'
 import { ReleaseCriticalFixture } from './fixtures/release-critical-fixture'
+import {
+  assertDistinctDynamicHtmlPolicies,
+  assertDynamicResponsePolicy,
+  assertImageOptimizerIsUnreachable,
+  assertReleaseCriticalSecurityEvidence,
+  installReleaseCriticalContextSecurityEvidence,
+} from './fixtures/response-policy'
 
 test.use({ screenshot: 'off', trace: 'off', video: 'off' })
 test.describe.configure({ mode: 'serial' })
@@ -17,7 +24,12 @@ function cardForTitle(page: Page, title: string) {
   })
 }
 
-test.afterEach(async ({}, testInfo) => {
+test.beforeEach(async ({ page }) => {
+  await installReleaseCriticalContextSecurityEvidence(page.context())
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await assertReleaseCriticalSecurityEvidence(page.context())
   await writeReleaseCriticalFailureDiagnostic(testInfo, diagnostic)
 })
 
@@ -34,6 +46,28 @@ test('public catalogue core', async ({ page }) => {
     const browseResponse = await page.goto('/')
     diagnostic.responseStatus(browseResponse?.status() ?? 500)
     expect(browseResponse?.status()).toBe(200)
+    if (browseResponse === null) {
+      throw new TypeError('M44 public catalogue response is unavailable')
+    }
+    await assertDynamicResponsePolicy(browseResponse, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
+    const secondBrowseResponse = await page.reload()
+    if (secondBrowseResponse === null) {
+      throw new TypeError('M44 public catalogue response is unavailable')
+    }
+    await assertDynamicResponsePolicy(secondBrowseResponse, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
+    await assertDistinctDynamicHtmlPolicies(
+      browseResponse,
+      secondBrowseResponse,
+    )
+    await assertImageOptimizerIsUnreachable(page)
     await expect(
       page.getByRole('heading', { name: 'Anime catalogue', exact: true }),
     ).toBeVisible()

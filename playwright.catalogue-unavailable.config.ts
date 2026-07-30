@@ -28,7 +28,7 @@ export default defineConfig({
     trace: 'off',
   },
   webServer: {
-    command: `node --input-type=module -e ${JSON.stringify(portOnePreflight)} && npm run build && npm run start -- --port ${port} 2>/dev/null`,
+    command: `node --input-type=module -e ${JSON.stringify(portOnePreflight)} && corepack npm run build && corepack npm run start -- --port ${port} 2>/dev/null`,
     env: {
       ...process.env,
       ACCOUNT_PURGE_ENABLED: 'false',

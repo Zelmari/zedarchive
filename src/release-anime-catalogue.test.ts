@@ -31,7 +31,7 @@ describe('release anime catalogue script', () => {
     expect(openDatabase).not.toHaveBeenCalled()
   })
 
-  it('refuses apply before opening a database unless every M43 guard is present', async () => {
+  it('refuses apply before opening a database unless every M47 guard is present', async () => {
     const openDatabase = vi.fn()
     await expect(
       runReleaseAnimeCatalogueCommand(

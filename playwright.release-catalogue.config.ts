@@ -15,11 +15,16 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     baseURL,
+    // Production receives this only from Vercel. The local runner supplies the
+    // same canonical test address so Better Auth exercises its approved bucket.
+    extraHTTPHeaders: {
+      'x-vercel-forwarded-for': '127.0.0.1',
+    },
     screenshot: 'off',
     trace: 'off',
   },
   webServer: {
-    command: `npm run build && npm run start -- --port ${port}`,
+    command: `corepack npm run build && corepack npm run start -- --port ${port}`,
     env: {
       ...process.env,
       ACCOUNT_PURGE_ENABLED: 'false',

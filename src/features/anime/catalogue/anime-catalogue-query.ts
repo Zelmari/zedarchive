@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import { animeCatalogueItemSchema } from '@/features/anime/domain/anime-catalogue-item'
 
 const animeCataloguePageNumberSchema = z.number().int().min(1).max(10_000)

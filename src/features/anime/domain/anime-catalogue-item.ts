@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 const animeTitleSchema = z.string().trim().min(1)
 const animeReleaseYearSchema = z.number().int().min(1).max(9999)

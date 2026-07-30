@@ -4,6 +4,7 @@ import { hashPassword } from 'better-auth/crypto'
 import 'dotenv/config'
 import { Pool } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '../../src/config/database-environment'
+import { applyRootTextScale } from './helpers/accessibility'
 
 test.use({ screenshot: 'off', trace: 'off' })
 
@@ -671,7 +672,7 @@ test('renders the compiled visual foundation specimen without changing the appli
   }
 
   await page.emulateMedia({ contrast: 'no-preference', forcedColors: 'none' })
-  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  await applyRootTextScale(page)
   await expectNoHorizontalOverflow(page)
   for (const selector of [
     '#foundation-search',
@@ -756,7 +757,7 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
   expect(iconMarkup).not.toMatch(/\b(?:href|src)\s*=\s*["'](?:https?:|data:)/iu)
 
   await page.goto('/sign-in')
-  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  await applyRootTextScale(page)
   const email = page.getByRole('textbox', { name: 'Email', exact: true })
   const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
   await expect(email).toBeVisible()
@@ -768,7 +769,7 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
   await expectNoHorizontalOverflow(page)
 
   await page.goto('/')
-  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  await applyRootTextScale(page)
   const search = page.getByRole('searchbox', { name: 'Search anime' })
   const searchSubmit = page.getByRole('button', { name: 'Search', exact: true })
   await expect(search).toBeVisible()
@@ -1087,7 +1088,7 @@ test('keeps the exact maximum-length signed-in username shell reachable at every
 
   await page.setViewportSize({ width: 320, height: 568 })
   await page.goto('/settings')
-  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+  await applyRootTextScale(page)
   const account = page.getByRole('navigation', {
     name: 'Account',
     exact: true,

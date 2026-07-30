@@ -1,6 +1,40 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
 const targetTolerance = 0.5
+const rootTextScaleStylesheetPath =
+  '/__zedarchive-browser-test/root-text-scale.css'
+const wcagTextSpacingStylesheetPath =
+  '/__zedarchive-browser-test/wcag-text-spacing.css'
+
+async function addCspCompatibleTestStylesheet(
+  page: Page,
+  path: string,
+  body: string,
+) {
+  const stylesheetUrl = new URL(path, page.url()).href
+
+  await page.route(stylesheetUrl, async (route) => {
+    await route.fulfill({
+      body,
+      contentType: 'text/css; charset=utf-8',
+      status: 200,
+    })
+  })
+
+  try {
+    return await page.addStyleTag({ url: stylesheetUrl })
+  } finally {
+    await page.unroute(stylesheetUrl)
+  }
+}
+
+export async function applyRootTextScale(page: Page) {
+  return addCspCompatibleTestStylesheet(
+    page,
+    rootTextScaleStylesheetPath,
+    'html { font-size: 200% !important; }',
+  )
+}
 
 export async function expectNoPositiveTabindex(page: Page) {
   await expect
@@ -52,12 +86,10 @@ export async function expectNoDocumentHorizontalOverflow(page: Page) {
 }
 
 export async function applyWcagTextSpacing(page: Page) {
-  await page.evaluate(() => {
-    document.getElementById('m40-wcag-text-spacing')?.remove()
-
-    const style = document.createElement('style')
-    style.id = 'm40-wcag-text-spacing'
-    style.textContent = `
+  await addCspCompatibleTestStylesheet(
+    page,
+    wcagTextSpacingStylesheetPath,
+    `
       * {
         line-height: 1.5 !important;
         letter-spacing: 0.12em !important;
@@ -67,9 +99,8 @@ export async function applyWcagTextSpacing(page: Page) {
       p {
         margin-bottom: 2em !important;
       }
-    `
-    document.head.append(style)
-  })
+    `,
+  )
 }
 
 export async function expectTextSpacingLayout(

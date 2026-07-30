@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  buildDynamicContentSecurityPolicy,
+  commonSecurityHeaders,
+} from '../../../src/config/security-headers'
+import {
   accountPurgeMaximumAggregateResponseBytes,
   auditAccountPurgeResponse,
 } from './purge-response-auditor'
@@ -18,7 +22,12 @@ test('accepts only the bounded fixed aggregate contract', async () => {
     new Response(validAggregate, {
       headers: {
         'cache-control': 'private, no-store, max-age=0',
-        'x-content-type-options': 'nosniff',
+        ...commonSecurityHeaders,
+        'content-security-policy': buildDynamicContentSecurityPolicy(
+          'YWJjZA==',
+          { development: false },
+        ),
+        'content-type': 'application/json; charset=utf-8',
       },
       status: 200,
     }),
@@ -26,6 +35,9 @@ test('accepts only the bounded fixed aggregate contract', async () => {
   assert.deepEqual(result, {
     aggregate: JSON.parse(validAggregate),
     cachePrivateNoStore: true,
+    commonSecurityPolicy: true,
+    dynamicContentSecurityPolicy: true,
+    jsonContentType: true,
     nosniff: true,
     status: 200,
   })

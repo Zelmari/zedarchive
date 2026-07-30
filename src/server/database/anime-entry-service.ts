@@ -2,7 +2,7 @@ import 'server-only'
 
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import type { AddAnimeEntryInput } from '@/features/archive/domain/add-anime-entry'
 import type { EntryStatus } from '@/features/archive/domain/entry-status'
 import { getAnimeEpisodeProgressSupport } from '@/features/archive/domain/anime-episode-progress-support'

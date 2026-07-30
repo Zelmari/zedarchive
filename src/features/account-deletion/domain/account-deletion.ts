@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const accountDeletionConfirmationValue =
   'request-account-deletion' as const

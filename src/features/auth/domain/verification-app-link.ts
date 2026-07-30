@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1'])
 

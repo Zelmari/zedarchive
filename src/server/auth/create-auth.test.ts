@@ -138,6 +138,9 @@ describe('createAuthOptions', () => {
       },
     })
     expect(options.advanced?.disableOriginCheck).toBe(false)
+    expect(options.advanced?.ipAddress).toEqual({
+      ipAddressHeaders: ['x-vercel-forwarded-for'],
+    })
     expect(options.advanced?.database?.generateId).toBe('uuid')
   })
 

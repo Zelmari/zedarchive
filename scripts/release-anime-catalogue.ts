@@ -139,7 +139,7 @@ function assertApplyArguments(
 ): string {
   if (environment.CATALOGUE_RELEASE_APPLY_ENABLED !== 'true') {
     throw new ReleaseAnimeCatalogueLoaderError(
-      'Release apply is disabled until Milestone 43.',
+      'Release apply is disabled until Milestone 47.',
     )
   }
   if (

@@ -13,6 +13,12 @@ import {
 } from './fixtures/diagnostic-manifest'
 import { failReleaseCriticalIfRequested } from './fixtures/controlled-failure'
 import { releaseCriticalApplicationOrigin } from './fixtures/release-critical-constants'
+import {
+  assertDynamicResponsePolicy,
+  assertReleaseCriticalSecurityEvidence,
+  installReleaseCriticalContextSecurityEvidence,
+  installReleaseCriticalSecurityEvidence,
+} from './fixtures/response-policy'
 
 test.use({
   acceptDownloads: false,
@@ -26,7 +32,12 @@ const diagnostic = new ReleaseCriticalDiagnostic(
   'account recovery and deletion lifecycle',
 )
 
-test.afterEach(async ({}, testInfo) => {
+test.beforeEach(async ({ page }) => {
+  await installReleaseCriticalContextSecurityEvidence(page.context())
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await assertReleaseCriticalSecurityEvidence(page.context())
   await writeReleaseCriticalFailureDiagnostic(testInfo, diagnostic)
 })
 
@@ -187,10 +198,14 @@ async function withPageScopedExtraHeaders<T>(
   const session = await page.context().newCDPSession(page)
   try {
     await session.send('Network.enable')
-    await session.send('Network.setExtraHTTPHeaders', { headers })
+    await session.send('Network.setExtraHTTPHeaders', {
+      headers: { 'x-vercel-forwarded-for': '127.0.0.1', ...headers },
+    })
     return await run()
   } finally {
-    await session.send('Network.setExtraHTTPHeaders', { headers: {} })
+    await session.send('Network.setExtraHTTPHeaders', {
+      headers: { 'x-vercel-forwarded-for': '127.0.0.1' },
+    })
     await session.send('Network.disable')
     await session.detach()
   }
@@ -203,6 +218,7 @@ async function authenticatedPage(
   password: string,
 ) {
   const page = await context.newPage()
+  await installReleaseCriticalSecurityEvidence(page)
   await signIn(fixture, page, identity, password)
   await expect(page.getByText('Signed in as', { exact: false })).toBeVisible()
   return page
@@ -213,10 +229,14 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
   const fixture = new AccountLifecycleFixture()
   const ownerASecondContext = await browser.newContext({
     baseURL: releaseCriticalApplicationOrigin,
+    extraHTTPHeaders: { 'x-vercel-forwarded-for': '127.0.0.1' },
   })
   const ownerBContext = await browser.newContext({
     baseURL: releaseCriticalApplicationOrigin,
+    extraHTTPHeaders: { 'x-vercel-forwarded-for': '127.0.0.1' },
   })
+  await installReleaseCriticalContextSecurityEvidence(ownerASecondContext)
+  await installReleaseCriticalContextSecurityEvidence(ownerBContext)
   let ownerASecondPage: Page | undefined
   let ownerBPage: Page | undefined
   let staleSettingsPage: Page | undefined
@@ -238,6 +258,11 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
     }
     expect(signedOutSettings.status()).toBe(200)
     await expectPrivateNoStore(signedOutSettings)
+    await assertDynamicResponsePolicy(signedOutSettings, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
     await expect(
       page
         .getByRole('main')
@@ -301,12 +326,14 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
     expect(fixture.collectors.lifecycleEvidence().deletionCodeCount).toBe(0)
 
     staleSettingsPage = await page.context().newPage()
+    await installReleaseCriticalSecurityEvidence(staleSettingsPage)
     const staleSettingsResponse = await staleSettingsPage.goto('/settings')
     if (staleSettingsResponse === null) {
       throw new TypeError('M42 stale settings response is unavailable')
     }
     await expectPrivateNoStore(staleSettingsResponse)
     staleArchivePage = await page.context().newPage()
+    await installReleaseCriticalSecurityEvidence(staleArchivePage)
     const staleArchiveResponse = await staleArchivePage.goto('/archive/anime')
     if (staleArchiveResponse === null) {
       throw new TypeError('M42 stale archive response is unavailable')
@@ -324,6 +351,7 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
     await sendDeletionCode(fixture, page, fixture.originalPassword)
     await fixture.collectors.waitForLifecycleMessage('account_deletion_code', 1)
     noJavaScriptPage = await page.context().newPage()
+    await installReleaseCriticalSecurityEvidence(noJavaScriptPage)
     noJavaScriptSession = await page.context().newCDPSession(noJavaScriptPage)
     await noJavaScriptSession.send('Emulation.setScriptExecutionDisabled', {
       value: true,
@@ -630,7 +658,16 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
     await captureCleanupFailure(
       () => staleArchivePage?.close() ?? Promise.resolve(),
     )
+    await captureCleanupFailure(() =>
+      assertReleaseCriticalSecurityEvidence(page.context()),
+    )
     await captureCleanupFailure(() => page.close())
+    await captureCleanupFailure(() =>
+      assertReleaseCriticalSecurityEvidence(ownerASecondContext),
+    )
+    await captureCleanupFailure(() =>
+      assertReleaseCriticalSecurityEvidence(ownerBContext),
+    )
     await captureCleanupFailure(() => ownerASecondContext.close())
     await captureCleanupFailure(() => ownerBContext.close())
     await captureCleanupFailure(async () => {

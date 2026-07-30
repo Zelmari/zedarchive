@@ -66,6 +66,6 @@ The release commands preserve this boundary: `catalogue:release:check`
 validates committed data without a database, `plan` is read-only against an
 allowed target, and `rehearse` writes atomically only to the exact disposable
 local rehearsal database. The production-capable `apply` mode remains disabled
-until Milestone 43. Corrections use reviewed successor releases, and disputed
+until Milestone 47. Corrections use reviewed successor releases, and disputed
 public records move to `hidden`; ordinary correction does not delete shared
 catalogue identities that user archives may reference.

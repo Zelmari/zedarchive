@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const episodeProgressMinimum = 0
 export const episodeProgressMaximum = Number.MAX_SAFE_INTEGER

@@ -14,7 +14,7 @@ type AuthHandler = Readonly<{
 function copyHeader(
   source: Headers,
   destination: Headers,
-  name: 'cookie' | 'origin' | 'referer',
+  name: 'cookie' | 'origin' | 'referer' | 'x-vercel-forwarded-for',
 ): void {
   const value = source.get(name)
   if (value !== null) destination.set(name, value)
@@ -23,8 +23,8 @@ function copyHeader(
 /**
  * Runs the pinned provider endpoint through its router rather than calling
  * auth.api directly, preserving its authoritative-session, CSRF and shared
- * database rate-limit boundary. IP forwarding remains intentionally disabled
- * until the production proxy decision at Gate G.
+ * database rate-limit boundary. Only Vercel's canonical client-IP header is
+ * forwarded; fallback forwarded headers never cross this internal boundary.
  */
 export async function verifyCurrentPassword(
   auth: AuthHandler,
@@ -36,6 +36,7 @@ export async function verifyCurrentPassword(
   copyHeader(sourceHeaders, headers, 'cookie')
   copyHeader(sourceHeaders, headers, 'origin')
   copyHeader(sourceHeaders, headers, 'referer')
+  copyHeader(sourceHeaders, headers, 'x-vercel-forwarded-for')
 
   let response: Response
   try {

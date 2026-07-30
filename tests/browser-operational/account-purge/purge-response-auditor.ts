@@ -1,3 +1,8 @@
+import {
+  commonSecurityHeaders,
+  hasExpectedDynamicContentSecurityPolicyShape,
+} from '../../../src/config/security-headers'
+
 const maximumAggregateResponseBytes = 4 * 1024
 
 export type AccountPurgeAggregate = Readonly<{
@@ -10,6 +15,9 @@ export type AccountPurgeAggregate = Readonly<{
 
 export type AccountPurgeEvidence = Readonly<{
   cachePrivateNoStore: boolean
+  commonSecurityPolicy: boolean
+  dynamicContentSecurityPolicy: boolean
+  jsonContentType: boolean
   nosniff: boolean
   status: number
   aggregate: AccountPurgeAggregate
@@ -112,6 +120,22 @@ export async function auditAccountPurgeResponse(
     cachePrivateNoStore:
       response.headers.get('cache-control')?.includes('private, no-store') ===
       true,
+    commonSecurityPolicy:
+      response.headers.get('permissions-policy') ===
+        commonSecurityHeaders['Permissions-Policy'] &&
+      response.headers.get('referrer-policy') ===
+        commonSecurityHeaders['Referrer-Policy'] &&
+      response.headers.get('x-frame-options') ===
+        commonSecurityHeaders['X-Frame-Options'],
+    dynamicContentSecurityPolicy: hasExpectedDynamicContentSecurityPolicyShape(
+      response.headers.get('content-security-policy') ?? '',
+      { development: false },
+    ),
+    jsonContentType:
+      response.headers
+        .get('content-type')
+        ?.toLowerCase()
+        .startsWith('application/json') === true,
     nosniff: response.headers.get('x-content-type-options') === 'nosniff',
     status: response.status,
   }

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 
 export const removeAnimeEntryInputSchema = z.strictObject({
   entryId: z.uuidv4(),

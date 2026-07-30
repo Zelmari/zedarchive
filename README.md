@@ -99,7 +99,7 @@ read-only with an explicitly allowed database, and `rehearse` atomically loads
 only the exact disposable local rehearsal database.
 
 `apply` is implemented as a guarded production-capable path but remains
-disabled until Milestone 43 supplies and approves the production target,
+disabled until Milestone 47 supplies and approves the production target,
 enablement flag, release identity, and exact committed hash. Do not run it
 during ordinary development. Catalogue mistakes are repaired with a reviewed
 forward release; unsafe or disputed records move to `hidden`. Ordinary

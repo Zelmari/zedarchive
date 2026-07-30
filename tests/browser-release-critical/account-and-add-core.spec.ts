@@ -5,6 +5,11 @@ import {
 } from './fixtures/diagnostic-manifest'
 import { failReleaseCriticalIfRequested } from './fixtures/controlled-failure'
 import { ReleaseCriticalFixture } from './fixtures/release-critical-fixture'
+import {
+  assertDynamicResponsePolicy,
+  assertReleaseCriticalSecurityEvidence,
+  installReleaseCriticalContextSecurityEvidence,
+} from './fixtures/response-policy'
 
 test.use({ screenshot: 'off', trace: 'off', video: 'off' })
 test.describe.configure({ mode: 'serial' })
@@ -25,7 +30,12 @@ function authResponse(page: Page, pathname: string) {
   )
 }
 
-test.afterEach(async ({}, testInfo) => {
+test.beforeEach(async ({ page }) => {
+  await installReleaseCriticalContextSecurityEvidence(page.context())
+})
+
+test.afterEach(async ({ page }, testInfo) => {
+  await assertReleaseCriticalSecurityEvidence(page.context())
   await writeReleaseCriticalFailureDiagnostic(testInfo, diagnostic)
 })
 
@@ -41,7 +51,15 @@ test('account and add core', async ({ page }) => {
     diagnostic.checkpoint('databaseGuarded')
 
     diagnostic.stage('registration', '/register')
-    await page.goto('/register')
+    const registerPage = await page.goto('/register')
+    if (registerPage === null) {
+      throw new TypeError('M44 registration page response is unavailable')
+    }
+    await assertDynamicResponsePolicy(registerPage, {
+      cache: 'private-no-store',
+      contentType: 'html',
+      status: 200,
+    })
     await expect(
       page.getByRole('heading', { name: 'Register', exact: true }),
     ).toBeVisible()
@@ -65,6 +83,11 @@ test('account and add core', async ({ page }) => {
     const registered = await registrationResponse
     diagnostic.responseStatus(registered.status())
     expect(registered.status()).toBe(200)
+    await assertDynamicResponsePolicy(registered, {
+      cache: 'no-store',
+      contentType: 'json',
+      status: 200,
+    })
     await expect(
       page.getByRole('heading', { name: 'Check your email', exact: true }),
     ).toBeVisible()
@@ -97,6 +120,11 @@ test('account and add core', async ({ page }) => {
     const rejectedSignIn = await rejectedSignInResponse
     diagnostic.responseStatus(rejectedSignIn.status())
     expect(rejectedSignIn.status()).toBe(403)
+    await assertDynamicResponsePolicy(rejectedSignIn, {
+      cache: 'no-store',
+      contentType: 'json',
+      status: 403,
+    })
     await expect(
       page.getByText('Verify your email before signing in.', { exact: true }),
     ).toBeFocused()
@@ -110,12 +138,15 @@ test('account and add core', async ({ page }) => {
     const inboxResponse = await page.goto(fixture.collectors.inboxUrl)
     expect(inboxResponse?.status()).toBe(200)
     await page.getByRole('link', { name: 'Verify email', exact: true }).click()
-    expect(await page.evaluate(() => window.location.pathname)).toBe(
-      '/verify-email',
-    )
-    expect(await page.evaluate(() => window.location.hash.length > 0)).toBe(
-      true,
-    )
+    expect(
+      await page.evaluate(() => ({
+        hasFragment: window.location.hash.length > 0,
+        isVerificationPath: window.location.pathname === '/verify-email',
+      })),
+    ).toEqual({
+      hasFragment: true,
+      isVerificationPath: true,
+    })
     const verificationResponse = authResponse(page, '/api/auth/verify-email')
     await page
       .getByRole('button', { name: 'Verify email', exact: true })
@@ -123,6 +154,11 @@ test('account and add core', async ({ page }) => {
     const verified = await verificationResponse
     diagnostic.responseStatus(verified.status())
     expect(verified.status()).toBe(200)
+    await assertDynamicResponsePolicy(verified, {
+      cache: 'no-store',
+      contentType: 'json',
+      status: 200,
+    })
     await expect(
       page.getByText('Your email is verified. You can sign in now.', {
         exact: true,
@@ -147,6 +183,11 @@ test('account and add core', async ({ page }) => {
     const signedIn = await signInResponse
     diagnostic.responseStatus(signedIn.status())
     expect(signedIn.status()).toBe(200)
+    await assertDynamicResponsePolicy(signedIn, {
+      cache: 'no-store',
+      contentType: 'json',
+      status: 200,
+    })
     await expect(page.getByText('Signed in as')).toBeVisible()
     await expect(
       page.getByRole('link', { name: 'My anime', exact: true }),
@@ -171,7 +212,13 @@ test('account and add core', async ({ page }) => {
         exact: true,
       })
       .click()
-    expect((await addResponse).status()).toBe(200)
+    const added = await addResponse
+    expect(added.status()).toBe(200)
+    await assertDynamicResponsePolicy(added, {
+      cache: 'no-store',
+      contentType: 'flight',
+      status: 200,
+    })
     await expect(
       catalogueCard.getByRole('status').filter({
         hasText: 'Added to your archive as Plan to watch.',
@@ -200,6 +247,11 @@ test('account and add core', async ({ page }) => {
     const signedOut = await signOutResponse
     diagnostic.responseStatus(signedOut.status())
     expect(signedOut.status()).toBe(200)
+    await assertDynamicResponsePolicy(signedOut, {
+      cache: 'no-store',
+      contentType: 'json',
+      status: 200,
+    })
     await page.reload()
     await expect(
       page

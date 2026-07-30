@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import { animeCatalogueItemIdSchema } from '@/features/anime/domain/anime-catalogue-item'
 import {
   entryStatusSchema,

@@ -17,7 +17,7 @@ export const accountLifecycleRateLimitKeys = {
   'sign-out': '127.0.0.1|/sign-out',
   'request-password-reset': '127.0.0.1|/request-password-reset',
   'reset-password': '127.0.0.1|/reset-password',
-  'verify-password': 'no-trusted-ip|/verify-password',
+  'verify-password': '127.0.0.1|/verify-password',
 } as const satisfies Readonly<
   Record<AccountLifecycleRateLimitOperation, string>
 >

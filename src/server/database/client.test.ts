@@ -18,6 +18,8 @@ vi.mock('@/config/database-environment', () => ({
   }),
 }))
 
+vi.mock('server-only', () => ({}))
+
 vi.mock('drizzle-orm/node-postgres', () => ({
   drizzle: vi.fn(() => ({})),
 }))

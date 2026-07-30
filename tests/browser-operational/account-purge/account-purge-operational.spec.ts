@@ -212,6 +212,9 @@ test('account purge operational', async () => {
       skippedCount: 0,
     },
     cachePrivateNoStore: true,
+    commonSecurityPolicy: true,
+    dynamicContentSecurityPolicy: true,
+    jsonContentType: true,
     nosniff: true,
     status: 200,
   })

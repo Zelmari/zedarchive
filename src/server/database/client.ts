@@ -1,3 +1,5 @@
+import 'server-only'
+
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { Pool, type PoolClient } from 'pg'
 import { readDatabaseRuntimeEnvironment } from '@/config/database-environment'

@@ -2,7 +2,7 @@ import 'server-only'
 
 import { sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { z } from 'zod'
+import { z } from '@/config/zod'
 import {
   archiveBackupMaximumBytes,
   archiveBackupMaximumEntries,

@@ -55,12 +55,17 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     acceptDownloads: false,
     baseURL,
+    // Production receives this only from Vercel. The local runner supplies the
+    // same canonical test address so Better Auth exercises its approved bucket.
+    extraHTTPHeaders: {
+      'x-vercel-forwarded-for': '127.0.0.1',
+    },
     screenshot: 'off',
     trace: 'off',
     video: 'off',
   },
   webServer: {
-    command: `npm run db:migrate && npm run build && node --import ./tests/browser-release-critical/fixtures/hibp-fetch-redirect.mjs ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${port}`,
+    command: `corepack npm run db:migrate && corepack npm run build && node --import ./tests/browser-release-critical/fixtures/hibp-fetch-redirect.mjs ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${port}`,
     env: {
       ...process.env,
       ACCOUNT_PURGE_ENABLED: 'false',
