@@ -6,6 +6,7 @@ import {
   getAnimePrivateListSortSubmissionHref,
   readAnimePrivateListSortPreference,
   requestAnimePrivateListSortControlApplyFocus,
+  shouldSynchronizeAnimePrivateListSortControlSelect,
   synchronizeAnimePrivateListSortControlSelect,
   writeAnimePrivateListSortPreference,
   type AnimePrivateListSortPreferenceStorage,
@@ -101,6 +102,21 @@ describe('anime private-list sort navigation helpers', () => {
     expect(() =>
       synchronizeAnimePrivateListSortControlSelect(null, 'highest-rated'),
     ).not.toThrow()
+  })
+
+  it('skips initial hydration reconciliation but reconciles a changed view', () => {
+    expect(
+      shouldSynchronizeAnimePrivateListSortControlSelect(
+        'alphabetical:explicit:1',
+        'alphabetical:explicit:1',
+      ),
+    ).toBe(false)
+    expect(
+      shouldSynchronizeAnimePrivateListSortControlSelect(
+        'alphabetical:explicit:1',
+        'recently-updated:explicit:1',
+      ),
+    ).toBe(true)
   })
 
   it('resets the bare-route read guard after an explicit route', () => {

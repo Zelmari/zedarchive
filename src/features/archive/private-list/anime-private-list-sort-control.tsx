@@ -114,6 +114,13 @@ export function synchronizeAnimePrivateListSortControlSelect(
   if (select !== null) select.value = sort
 }
 
+export function shouldSynchronizeAnimePrivateListSortControlSelect(
+  synchronizedViewKey: string,
+  viewKey: string,
+): boolean {
+  return synchronizedViewKey !== viewKey
+}
+
 type AnimePrivateListSortControlProps = {
   sort: AnimePrivateListSort
   isSortExplicit: boolean
@@ -134,9 +141,19 @@ export function AnimePrivateListSortControl({
   const selectRef = useRef<HTMLSelectElement>(null)
   const applyButtonRef = useRef<HTMLButtonElement>(null)
   const restoredPreferenceRef = useRef(false)
+  const synchronizedViewKeyRef = useRef(viewKey)
 
   useEffect(() => {
-    synchronizeAnimePrivateListSortControlSelect(selectRef.current, sort)
+    if (
+      shouldSynchronizeAnimePrivateListSortControlSelect(
+        synchronizedViewKeyRef.current,
+        viewKey,
+      )
+    ) {
+      synchronizeAnimePrivateListSortControlSelect(selectRef.current, sort)
+      synchronizedViewKeyRef.current = viewKey
+    }
+
     if (consumeAnimePrivateListSortControlApplyFocus()) {
       applyButtonRef.current?.focus()
     }

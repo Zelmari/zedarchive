@@ -450,12 +450,6 @@ async function applySort(
   sort:
     'alphabetical' | 'recently-updated' | 'recently-added' | 'highest-rated',
 ) {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      }),
-  )
   const select = page.locator('select[name="sort"]')
   await select.selectOption(sort)
   await expect(select).toHaveValue(sort)
