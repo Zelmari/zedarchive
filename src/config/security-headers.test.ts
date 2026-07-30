@@ -14,7 +14,6 @@ const expectedDeniedPermissionsPolicyFeatures = [
   'accelerometer',
   'attribution-reporting',
   'autoplay',
-  'bluetooth',
   'browsing-topics',
   'camera',
   'captured-surface-control',
@@ -125,6 +124,9 @@ describe('security header policy', () => {
     expect(
       Object.hasOwn(commonSecurityHeaders, 'Strict-Transport-Security'),
     ).toBe(false)
+    expect(commonSecurityHeaders['Permissions-Policy']).not.toContain(
+      'bluetooth=',
+    )
   })
 
   it('classifies only the approved cacheable paths as static', () => {

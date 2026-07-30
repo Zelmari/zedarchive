@@ -5,7 +5,6 @@ export const deniedPermissionsPolicyFeatures = [
   'accelerometer',
   'attribution-reporting',
   'autoplay',
-  'bluetooth',
   'browsing-topics',
   'camera',
   'captured-surface-control',
