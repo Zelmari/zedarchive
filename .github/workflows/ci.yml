@@ -149,14 +149,22 @@ jobs:
       - name: Run release-critical browser tests
         run: npm run test:browser:critical
 
-      - name: Upload allowlisted release-critical diagnostics
+      - name: Audit release-critical diagnostics before upload
+        id: audit-release-critical-diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        run: node --import tsx tests/browser-release-critical/fixtures/artifact-audit.ts
+
+      - name: Upload allowlisted release-critical diagnostics
+        if: failure() && steps.audit-release-critical-diagnostics.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-critical-browser-diagnostics
           path: |
             test-results-release-critical/diagnostics/public-catalogue-core.json
             test-results-release-critical/diagnostics/account-and-add-core.json
+            test-results-release-critical/diagnostics/archive-tracking-lifecycle.json
+            test-results-release-critical/diagnostics/archive-backup-lifecycle.json
+            test-results-release-critical/diagnostics/account-recovery-deletion-lifecycle.json
           if-no-files-found: ignore
           retention-days: 7
 
@@ -223,10 +231,66 @@ jobs:
 
       - name: Upload allowlisted public failure screenshots
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: extended-public-browser-screenshots
           path: |
             test-results/playwright/public-sign-in.smoke-*/test-failed-*.png
           if-no-files-found: ignore
           retention-days: 7
+
+  account-purge-operational:
+    name: Account-purge operational
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      }}
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ACCOUNT_PURGE_ENABLED: 'true'
+      BETTER_AUTH_SECRET: ci-disposable-better-auth-secret-32chars-min
+      BETTER_AUTH_URL: http://127.0.0.1:3106
+      DATABASE_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
+      DATABASE_MIGRATION_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
+      DATABASE_TEST_URL: postgresql://zedarchive_app:zedarchive_ci_password@localhost:5432/zedarchive_test
+      RESEND_API_KEY: re_ci_disposable_key_that_cannot_send
+      RESEND_BASE_URL: http://127.0.0.1:43132
+      AUTH_EMAIL_FROM: accounts@auth.example.com
+      AUTH_EMAIL_REPLY_TO: reply@example.com
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_DB: zedarchive_test
+          POSTGRES_PASSWORD: zedarchive_ci_password
+          POSTGRES_USER: zedarchive_app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run account-purge operational evidence
+        run: npm run test:operational:account-purge

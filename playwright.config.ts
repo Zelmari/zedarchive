@@ -13,7 +13,17 @@ export default defineConfig({
   // The real-corpus M36 browser evidence has an exact rehearsal-database
   // baseline. It must be selected through its dedicated runner, never the
   // ordinary browser suite's development/test-database environments.
-  testIgnore: '**/release-anime-catalogue.spec.ts',
+  testIgnore: [
+    '**/release-anime-catalogue.spec.ts',
+    // M42 reallocates these lifecycle journeys to the five-test
+    // release-critical runner after old/new overlap verification.
+    '**/account-deletion.spec.ts',
+    '**/anime-entry-removal.spec.ts',
+    '**/archive-backup.spec.ts',
+    // M34 purge evidence is production HTTP rather than an interactive
+    // browser journey and now has a dedicated operational runner.
+    '**/account-purge.spec.ts',
+  ],
   forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
   outputDir: 'test-results/playwright',

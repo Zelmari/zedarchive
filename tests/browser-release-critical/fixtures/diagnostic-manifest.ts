@@ -6,6 +6,9 @@ import { releaseCriticalDiagnosticDirectory } from './release-critical-constants
 export const releaseCriticalTestTitles = [
   'public catalogue core',
   'account and add core',
+  'archive tracking lifecycle',
+  'archive backup lifecycle',
+  'account recovery and deletion lifecycle',
 ] as const
 
 export const releaseCriticalStages = [
@@ -19,6 +22,15 @@ export const releaseCriticalStages = [
   'add',
   'persistence',
   'sign-out',
+  'archive-progress',
+  'archive-rating',
+  'archive-sorting',
+  'archive-removal',
+  'archive-backup',
+  'archive-access',
+  'account-recovery',
+  'account-deletion',
+  'account-restriction',
   'cleanup',
 ] as const
 
@@ -35,6 +47,20 @@ export const releaseCriticalCheckpointKeys = [
   'entrySaved',
   'persistenceConfirmed',
   'signedOut',
+  'progressConfirmed',
+  'ratingConfirmed',
+  'sortConfirmed',
+  'removalConfirmed',
+  'ownerIsolationConfirmed',
+  'originRejected',
+  'backupDownloaded',
+  'backupAudited',
+  'downloadDeleted',
+  'backupDenied',
+  'rateLimitsRestored',
+  'recoveryConfirmed',
+  'deletionConfirmed',
+  'restrictionConfirmed',
 ] as const
 
 type ReleaseCriticalTestTitle = (typeof releaseCriticalTestTitles)[number]
@@ -179,10 +205,15 @@ export async function writeReleaseCriticalFailureDiagnostic(
   }
 
   const manifest = diagnostic.snapshot()
-  const filename =
-    manifest.testTitle === 'public catalogue core'
-      ? 'public-catalogue-core.json'
-      : 'account-and-add-core.json'
+  const filenameByTitle = {
+    'public catalogue core': 'public-catalogue-core.json',
+    'account and add core': 'account-and-add-core.json',
+    'archive tracking lifecycle': 'archive-tracking-lifecycle.json',
+    'archive backup lifecycle': 'archive-backup-lifecycle.json',
+    'account recovery and deletion lifecycle':
+      'account-recovery-deletion-lifecycle.json',
+  } as const
+  const filename = filenameByTitle[manifest.testTitle]
   const outputPath = path.resolve(
     process.cwd(),
     releaseCriticalDiagnosticDirectory,

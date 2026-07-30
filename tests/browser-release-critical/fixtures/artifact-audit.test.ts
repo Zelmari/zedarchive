@@ -3,7 +3,10 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { auditReleaseCriticalArtifacts } from './artifact-audit'
+import {
+  auditReleaseCriticalArtifacts,
+  containsProviderResetCredentialPath,
+} from './artifact-audit'
 
 const validManifest = {
   schemaVersion: 1,
@@ -41,9 +44,49 @@ test('accepts only validated allowlisted diagnostic manifests', async () => {
   })
 })
 
+test('accepts every static lifecycle diagnostic filename', async () => {
+  await withOutput(async (root, diagnostics) => {
+    for (const [filename, testTitle] of [
+      ['public-catalogue-core.json', 'public catalogue core'],
+      ['account-and-add-core.json', 'account and add core'],
+      ['archive-tracking-lifecycle.json', 'archive tracking lifecycle'],
+      ['archive-backup-lifecycle.json', 'archive backup lifecycle'],
+      [
+        'account-recovery-deletion-lifecycle.json',
+        'account recovery and deletion lifecycle',
+      ],
+    ] as const) {
+      await writeFile(
+        path.join(diagnostics, filename),
+        JSON.stringify({ ...validManifest, testTitle }),
+      )
+    }
+    await assert.doesNotReject(async () => {
+      assert.deepEqual(await auditReleaseCriticalArtifacts(root), {
+        manifestCount: 5,
+      })
+    })
+  })
+})
+
 test('rejects non-allowlisted paths without reading their content', async () => {
   await withOutput(async (root) => {
     await writeFile(path.join(root, 'error-context.md'), 'safe test content')
+    await assert.rejects(() => auditReleaseCriticalArtifacts(root), {
+      message: 'M41 artifact audit rejected output',
+    })
+  })
+})
+
+test('rejects a sensitive manifest under another allowlisted filename', async () => {
+  await withOutput(async (root, diagnostics) => {
+    await writeFile(
+      path.join(diagnostics, 'public-catalogue-core.json'),
+      JSON.stringify({
+        ...validManifest,
+        testTitle: 'account recovery and deletion lifecycle',
+      }),
+    )
     await assert.rejects(() => auditReleaseCriticalArtifacts(root), {
       message: 'M41 artifact audit rejected output',
     })
@@ -57,6 +100,14 @@ test('rejects malformed, schema-invalid, and prohibited manifest content', async
     'm41-00000000000000000000000000000000@example.test',
     'M4100000000000000',
     'M41-00000000-0000-4000-8000-000000000000-00000000-0000-4000-8000-000000000000',
+    'm42-backup-fixture-owner@example.test',
+    'M42BackupA000000000000',
+    'M42-00000000-0000-4000-8000-000000000000-00000000-0000-4000-8000-000000000000',
+    '/reset-password?token=safe-test-marker',
+    '/api/auth/reset-password/safe-test-marker',
+    '/api/auth/reset-password/safe-test-marker?callbackURL=%2Freset-password%2Fcontinue',
+    '/account/deletion?code=safe-test-marker',
+    '12345678',
     'raw body marker',
     'raw error marker',
     'raw stack marker',
@@ -81,6 +132,21 @@ test('rejects malformed, schema-invalid, and prohibited manifest content', async
       })
     })
   }
+})
+
+test('rejects provider reset paths containing an opaque credential', () => {
+  assert.equal(
+    containsProviderResetCredentialPath(
+      '/api/auth/reset-password/safe-test-marker',
+    ),
+    true,
+  )
+  assert.equal(
+    containsProviderResetCredentialPath(
+      '/api/auth/reset-password?callbackURL=%2Freset-password%2Fcontinue',
+    ),
+    false,
+  )
 })
 
 test('rejects empty output and unexpected nested directories', async () => {

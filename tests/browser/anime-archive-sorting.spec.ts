@@ -28,6 +28,7 @@ const adultTitleSentinel = `${fixturePrefix}-adult-title`
 const ownerBTitleSentinel = `${fixturePrefix}-owner-b-title`
 const { databaseUrl } = readDatabaseRuntimeEnvironment()
 const pool = new Pool({ connectionString: databaseUrl })
+const authRateLimitWindowMilliseconds = 60_000
 
 const fixtureUserIds: string[] = []
 const fixtureCatalogueItemIds: string[] = []
@@ -115,6 +116,16 @@ function getSharedAuthRateLimit(
   return rows.find((row) => row.key === key) ?? null
 }
 
+function hasSharedAuthRateLimitExpired(
+  rateLimit: RateLimitSnapshot,
+  now = BigInt(Date.now()),
+) {
+  return (
+    now >=
+    BigInt(rateLimit.lastRequest) + BigInt(authRateLimitWindowMilliseconds)
+  )
+}
+
 async function prepareSharedAuthRateLimits() {
   const snapshot = await snapshotSharedAuthRateLimits()
 
@@ -137,9 +148,16 @@ async function prepareSharedAuthRateLimitRequest(
     await snapshotSharedAuthRateLimits(),
     key,
   )
-  expect(current).toEqual(expected)
-
   const minimumLastRequest = BigInt(Date.now())
+  if (
+    current === null &&
+    expected !== null &&
+    hasSharedAuthRateLimitExpired(expected, minimumLastRequest)
+  ) {
+    sharedAuthRateLimitExpected.set(key, null)
+    return { minimumLastRequest }
+  }
+  expect(current).toEqual(expected)
   if (expected === null) return { minimumLastRequest }
 
   const cleared = await pool.query<RateLimitSnapshot>(
@@ -198,12 +216,18 @@ async function restoreSharedAuthRateLimits() {
     const expected = sharedAuthRateLimitExpected.get(key)
     if (before === undefined || expected === undefined) continue
 
+    const current = getSharedAuthRateLimit(
+      await snapshotSharedAuthRateLimits(),
+      key,
+    )
+
     if (before === null) {
-      if (expected === null) {
-        expect(
-          getSharedAuthRateLimit(await snapshotSharedAuthRateLimits(), key),
-        ).toBe(null)
-        continue
+      if (current === null) continue
+      if (
+        expected === null ||
+        JSON.stringify(current) !== JSON.stringify(expected)
+      ) {
+        throw new Error('Shared authentication rate limit changed during test')
       }
 
       const deleted = await pool.query<RateLimitSnapshot>(
@@ -221,10 +245,28 @@ async function restoreSharedAuthRateLimits() {
       continue
     }
 
-    if (expected === null) {
-      throw new Error(
-        'Shared authentication rate limit disappeared during test',
+    if (current === null) {
+      if (expected === null || !hasSharedAuthRateLimitExpired(expected)) {
+        throw new Error('Shared authentication rate limit changed during test')
+      }
+      const restored = await pool.query<RateLimitSnapshot>(
+        `
+          insert into rate_limits (id, key, count, last_request)
+          values ($1::uuid, $2, $3, $4::bigint)
+          on conflict (key) do nothing
+          returning id, key, count, last_request::text as "lastRequest"
+        `,
+        [before.id, key, before.count, before.lastRequest],
       )
+      expect(restored.rows).toEqual([before])
+      continue
+    }
+
+    if (
+      expected === null ||
+      JSON.stringify(current) !== JSON.stringify(expected)
+    ) {
+      throw new Error('Shared authentication rate limit changed during test')
     }
 
     const restored = await pool.query<RateLimitSnapshot>(
@@ -242,9 +284,9 @@ async function restoreSharedAuthRateLimits() {
         before.id,
         before.count,
         before.lastRequest,
-        expected.id,
-        expected.count,
-        expected.lastRequest,
+        current.id,
+        current.count,
+        current.lastRequest,
       ],
     )
     expect(restored.rows).toEqual([before])
@@ -362,30 +404,36 @@ async function signIn(page: Page, owner: typeof ownerA) {
   await page
     .getByRole('textbox', { name: 'Password', exact: true })
     .fill(password)
+  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
+    '127.0.0.1|/sign-in/email',
+  )
   const signInResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/api/auth/sign-in/email',
+    { timeout: 5_000 },
   )
-  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
-    '127.0.0.1|/sign-in/email',
-  )
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Sign in', exact: true })
+    .click({ timeout: 5_000 })
   expect((await signInResponse).status()).toBe(200)
   await recordSharedAuthRateLimit('127.0.0.1|/sign-in/email', rateLimitRequest)
   await expect(page.getByText('Signed in as')).toBeVisible()
 }
 
 async function signOut(page: Page) {
+  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
+    '127.0.0.1|/sign-out',
+  )
   const signOutResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/api/auth/sign-out',
+    { timeout: 5_000 },
   )
-  const rateLimitRequest = await prepareSharedAuthRateLimitRequest(
-    '127.0.0.1|/sign-out',
-  )
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Sign out', exact: true })
+    .click({ timeout: 5_000 })
   expect((await signOutResponse).status()).toBe(200)
   await recordSharedAuthRateLimit('127.0.0.1|/sign-out', rateLimitRequest)
   await page.reload()

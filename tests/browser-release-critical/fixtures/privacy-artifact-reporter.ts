@@ -6,7 +6,13 @@ import { releaseCriticalDiagnosticDirectory } from './release-critical-constants
 
 const outputRoot = path.resolve(process.cwd(), 'test-results-release-critical')
 const allowlistedFiles = new Set(
-  ['public-catalogue-core.json', 'account-and-add-core.json'].map((filename) =>
+  [
+    'public-catalogue-core.json',
+    'account-and-add-core.json',
+    'archive-tracking-lifecycle.json',
+    'archive-backup-lifecycle.json',
+    'account-recovery-deletion-lifecycle.json',
+  ].map((filename) =>
     path.resolve(process.cwd(), releaseCriticalDiagnosticDirectory, filename),
   ),
 )

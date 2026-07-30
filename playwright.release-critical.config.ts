@@ -35,7 +35,13 @@ const port = new URL(baseURL).port
 
 export default defineConfig({
   testDir: './tests/browser-release-critical',
-  testMatch: ['public-catalogue-core.spec.ts', 'account-and-add-core.spec.ts'],
+  testMatch: [
+    'public-catalogue-core.spec.ts',
+    'account-and-add-core.spec.ts',
+    'archive-tracking-lifecycle.spec.ts',
+    'archive-backup-lifecycle.spec.ts',
+    'account-recovery-deletion-lifecycle.spec.ts',
+  ],
   forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
   outputDir: 'test-results-release-critical',

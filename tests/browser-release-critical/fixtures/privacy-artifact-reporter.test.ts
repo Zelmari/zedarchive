@@ -3,10 +3,13 @@ import path from 'node:path'
 import test from 'node:test'
 import { isAllowlistedReleaseCriticalArtifact } from './privacy-artifact-reporter'
 
-test('allowlists only the two fixed diagnostic manifests', () => {
+test('allowlists only the five fixed diagnostic manifests', () => {
   for (const filename of [
     'public-catalogue-core.json',
     'account-and-add-core.json',
+    'archive-tracking-lifecycle.json',
+    'archive-backup-lifecycle.json',
+    'account-recovery-deletion-lifecycle.json',
   ]) {
     assert.equal(
       isAllowlistedReleaseCriticalArtifact(
