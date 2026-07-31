@@ -70,6 +70,9 @@ jobs:
       - name: Verify lifecycle-script policy
         run: corepack npm run verify:install-script-policy
 
+      - name: Validate every materialized catalogue release
+        run: corepack npm run catalogue:release:check
+
       - name: Check formatting
         run: corepack npm run format:check
 

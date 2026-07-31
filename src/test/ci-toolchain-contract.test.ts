@@ -25,4 +25,24 @@ describe('CI toolchain contract', () => {
     ).toBe(4)
     expect(occurrences(/run: corepack npm ci/gu)).toBe(4)
   })
+
+  it('validates every materialized catalogue release after lifecycle policy and before quality checks', () => {
+    const lifecyclePolicy = workflow.indexOf(
+      'run: corepack npm run verify:install-script-policy',
+    )
+    const releaseCheck = workflow.indexOf(
+      'run: corepack npm run catalogue:release:check',
+    )
+    const formatting = workflow.indexOf('run: corepack npm run format:check')
+
+    expect(
+      occurrences(/run: corepack npm run catalogue:release:check$/gmu),
+    ).toBe(1)
+    expect(lifecyclePolicy).toBeGreaterThanOrEqual(0)
+    expect(releaseCheck).toBeGreaterThan(lifecyclePolicy)
+    expect(formatting).toBeGreaterThan(releaseCheck)
+    expect(workflow).not.toMatch(
+      /catalogue:release:check\s+--release\s+anime-v[0-9]+/gu,
+    )
+  })
 })

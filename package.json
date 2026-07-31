@@ -17,6 +17,8 @@
     "db:seed:check": "tsx scripts/seed-development-anime-catalogue.ts --check",
     "catalogue:import:wikidata": "tsx scripts/wikidata-anime-import.ts",
     "catalogue:import:wikidata:check": "tsx scripts/wikidata-anime-import.ts check",
+    "catalogue:discover:wikidata": "tsx scripts/discover-wikidata-anime-v2.ts",
+    "catalogue:discover:wikidata:check": "tsx scripts/discover-wikidata-anime-v2.ts check",
     "catalogue:release:prepare": "tsx scripts/wikidata-anime-release-prepare.ts",
     "catalogue:release:check": "tsx scripts/release-anime-catalogue.ts check",
     "catalogue:release:plan": "tsx scripts/release-anime-catalogue.ts plan",

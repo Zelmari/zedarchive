@@ -11,11 +11,104 @@ import {
 } from '@/features/anime/domain/anime-catalogue-item'
 import { wikidataQidSchema } from '@/integrations/wikidata/wikidata-entity'
 
-export const animeReleaseName = 'anime-v1'
-export const animeReleaseVersion = 1
-export const animeReleaseItemCount = 500
-export const animeReleaseBatchCount = 20
-export const animeReleaseBatchSize = 25
+export type AnimeReleaseName = 'anime-v1' | 'anime-v2'
+export type AnimeReleaseVersion = 1 | 2
+
+export type AnimeReleaseDescriptor = Readonly<{
+  name: AnimeReleaseName
+  version: AnimeReleaseVersion
+  files: Readonly<{
+    corpus: string
+    index: string
+    reviewLedger: string
+    manifestDirectory: string
+    manifestFilePrefix: string
+    manifestFileDigits: number
+    discoveryLedger?: string
+    semanticDiff?: string
+  }>
+  expected: Readonly<{
+    exactItemCount?: number
+    exactPublishedCount?: number
+    manifest: Readonly<{
+      exactCount?: number
+      batchSize: number
+      finalBatchMayBeShort: boolean
+    }>
+    predecessor: AnimeReleaseName | null
+  }>
+  supportedModes: readonly ('check' | 'plan' | 'rehearse' | 'apply')[]
+}>
+
+export const animeReleaseDescriptors = [
+  {
+    name: 'anime-v1',
+    version: 1,
+    files: {
+      corpus: 'data/releases/anime-catalogue.v1.json',
+      index: 'data/releases/anime-catalogue.v1.index.json',
+      reviewLedger: 'data/releases/anime-catalogue.v1.review.json',
+      manifestDirectory: 'data/imports/releases/anime-v1',
+      manifestFilePrefix: 'batch-',
+      manifestFileDigits: 2,
+    },
+    expected: {
+      exactItemCount: 500,
+      manifest: {
+        exactCount: 20,
+        batchSize: 25,
+        finalBatchMayBeShort: false,
+      },
+      predecessor: null,
+    },
+    supportedModes: ['check', 'plan', 'rehearse', 'apply'],
+  },
+  {
+    name: 'anime-v2',
+    version: 2,
+    files: {
+      corpus: 'data/releases/anime-catalogue.v2.json',
+      index: 'data/releases/anime-catalogue.v2.index.json',
+      reviewLedger: 'data/releases/anime-catalogue.v2.review.json',
+      discoveryLedger: 'data/releases/anime-catalogue.v2.discovery.json',
+      semanticDiff: 'data/releases/anime-catalogue.v2.diff.json',
+      manifestDirectory: 'data/imports/releases/anime-v2',
+      manifestFilePrefix: 'batch-',
+      manifestFileDigits: 3,
+    },
+    expected: {
+      exactPublishedCount: 5000,
+      manifest: {
+        batchSize: 50,
+        finalBatchMayBeShort: true,
+      },
+      predecessor: 'anime-v1',
+    },
+    // M45-09 extends the transactional loader and explicitly enables its
+    // database modes. Until then the successor is checkable only.
+    supportedModes: ['check'],
+  },
+] as const satisfies readonly AnimeReleaseDescriptor[]
+
+export function findAnimeReleaseDescriptor(
+  name: string,
+): AnimeReleaseDescriptor | undefined {
+  return animeReleaseDescriptors.find((descriptor) => descriptor.name === name)
+}
+
+export const animeReleaseV1Descriptor = animeReleaseDescriptors[0]
+export const animeReleaseV2Descriptor = animeReleaseDescriptors[1]
+
+// Kept as v1 aliases for the acquisition-preparation contract. New release
+// tooling must select a descriptor instead of treating these as global limits.
+export const animeReleaseName = animeReleaseV1Descriptor.name
+export const animeReleaseVersion = animeReleaseV1Descriptor.version
+export const animeReleaseItemCount =
+  animeReleaseV1Descriptor.expected.exactItemCount
+export const animeReleaseBatchCount =
+  animeReleaseV1Descriptor.expected.manifest.exactCount
+export const animeReleaseBatchSize =
+  animeReleaseV1Descriptor.expected.manifest.batchSize
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
 const releaseSourceSchema = z.strictObject({
@@ -426,6 +519,120 @@ export type AnimeReleaseBundle = Readonly<{
   manifests: readonly AnimeReleaseManifest[]
   reviewLedger: AnimeReleaseReviewLedger
   index: AnimeReleaseIndex
+}>
+
+const animeReleaseV2CorpusSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-release-corpus'),
+  version: z.literal(animeReleaseV2Descriptor.version),
+  release: z.literal(animeReleaseV2Descriptor.version),
+  items: z
+    .array(animeReleaseItemSchema)
+    .min(animeReleaseV2Descriptor.expected.exactPublishedCount),
+})
+
+const animeReleaseV2ManifestSchema = z
+  .strictObject({
+    version: z.literal(animeReleaseV2Descriptor.version),
+    sourceKey: z.literal('wikidata'),
+    release: z.literal(animeReleaseV2Descriptor.name),
+    batch: z.number().int().min(1),
+    candidates: z
+      .array(releaseManifestCandidateSchema)
+      .min(1)
+      .max(animeReleaseV2Descriptor.expected.manifest.batchSize),
+  })
+  .superRefine(({ candidates }, context) => {
+    const ids = new Set<string>()
+    const qids = new Set<string>()
+    candidates.forEach((candidate, index) => {
+      if (ids.has(candidate.catalogueItemId)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['candidates', index, 'catalogueItemId'],
+          message: 'Catalogue item IDs must be unique within a release batch',
+        })
+      }
+      if (qids.has(candidate.sourceItemId)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['candidates', index, 'sourceItemId'],
+          message: 'Wikidata QIDs must be unique within a release batch',
+        })
+      }
+      ids.add(candidate.catalogueItemId)
+      qids.add(candidate.sourceItemId)
+    })
+  })
+
+const animeReleaseV2LedgerItemSchema = z.strictObject({
+  catalogueItemId: canonicalReleaseItemIdSchema,
+  sourceItemId: wikidataQidSchema,
+  normalizedItemSha256: sha256Schema,
+})
+
+// M45-08 will explicitly extend these fail-closed schemas with the complete
+// publication, discovery, and diff semantics. M45-02 keeps only the bounded
+// headers and identity joins required for independently selectable artifacts.
+const animeReleaseV2ReviewLedgerSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-release-review'),
+  version: z.literal(animeReleaseV2Descriptor.version),
+  release: z.literal(animeReleaseV2Descriptor.version),
+  items: z.array(animeReleaseV2LedgerItemSchema),
+})
+
+const animeReleaseV2DiscoveryLedgerSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-release-discovery'),
+  version: z.literal(animeReleaseV2Descriptor.version),
+  release: z.literal(animeReleaseV2Descriptor.version),
+  items: z.array(animeReleaseV2LedgerItemSchema),
+})
+
+const animeReleaseV2SemanticDiffSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-release-diff'),
+  version: z.literal(animeReleaseV2Descriptor.version),
+  release: z.literal(animeReleaseV2Descriptor.version),
+})
+
+const animeReleaseV2IndexSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-release-index'),
+  version: z.literal(animeReleaseV2Descriptor.version),
+  release: z.literal(animeReleaseV2Descriptor.version),
+  corpusSha256: sha256Schema,
+  predecessorCorpusSha256: sha256Schema,
+  predecessorReviewLedgerSha256: sha256Schema,
+  predecessorIndexSha256: sha256Schema,
+  manifests: z.array(
+    z.strictObject({
+      path: z
+        .string()
+        .regex(/^data\/imports\/releases\/anime-v2\/batch-[0-9]{3}\.json$/),
+      sha256: sha256Schema,
+    }),
+  ),
+  reviewLedgerSha256: sha256Schema,
+  discoveryLedgerSha256: sha256Schema,
+  semanticDiffSha256: sha256Schema,
+})
+
+export type AnimeReleaseV2Bundle = Readonly<{
+  corpus: z.infer<typeof animeReleaseV2CorpusSchema>
+  manifests: readonly z.infer<typeof animeReleaseV2ManifestSchema>[]
+  reviewLedger: z.infer<typeof animeReleaseV2ReviewLedgerSchema>
+  discoveryLedger: z.infer<typeof animeReleaseV2DiscoveryLedgerSchema>
+  semanticDiff: z.infer<typeof animeReleaseV2SemanticDiffSchema>
+  index: z.infer<typeof animeReleaseV2IndexSchema>
+}>
+
+export type SupportedAnimeReleaseBundle =
+  AnimeReleaseBundle | AnimeReleaseV2Bundle
+
+export type AnimeReleaseBundlePaths = Readonly<{
+  corpus: string
+  manifests: readonly string[]
+  reviewLedger: string
+  index: string
+  discoveryLedger?: string
+  semanticDiff?: string
 }>
 
 function emptyCounts<const Key extends string>(
@@ -1131,13 +1338,172 @@ export function validateAnimeReleaseBundle(
   return { corpus, manifests, reviewLedger, index }
 }
 
+export function validateAnimeReleaseV2Bundle(
+  bundle: AnimeReleaseV2Bundle,
+): AnimeReleaseV2Bundle {
+  const corpus = animeReleaseV2CorpusSchema.parse(bundle.corpus)
+  const manifests = bundle.manifests.map((manifest) =>
+    animeReleaseV2ManifestSchema.parse(manifest),
+  )
+  const reviewLedger = animeReleaseV2ReviewLedgerSchema.parse(
+    bundle.reviewLedger,
+  )
+  const discoveryLedger = animeReleaseV2DiscoveryLedgerSchema.parse(
+    bundle.discoveryLedger,
+  )
+  const semanticDiff = animeReleaseV2SemanticDiffSchema.parse(
+    bundle.semanticDiff,
+  )
+  const index = animeReleaseV2IndexSchema.parse(bundle.index)
+  const descriptor = animeReleaseV2Descriptor
+
+  if (
+    corpus.items.filter(({ catalogueState }) => catalogueState === 'published')
+      .length !== descriptor.expected.exactPublishedCount
+  )
+    throw new Error(
+      'Release v2 requires exactly 5,000 published catalogue records',
+    )
+  if (manifests.length === 0)
+    throw new Error('Release v2 requires at least one manifest batch')
+  const expectedBatches = Array.from(
+    { length: manifests.length },
+    (_, index) => index + 1,
+  )
+  if (
+    canonicalJson(manifests.map(({ batch }) => batch)) !==
+    canonicalJson(expectedBatches)
+  )
+    throw new Error(
+      'Release v2 manifest order must match contiguous batch positions',
+    )
+  if (
+    manifests
+      .slice(0, -1)
+      .some(
+        ({ candidates }) =>
+          candidates.length !== descriptor.expected.manifest.batchSize,
+      ) ||
+    (!descriptor.expected.manifest.finalBatchMayBeShort &&
+      manifests.at(-1)?.candidates.length !==
+        descriptor.expected.manifest.batchSize)
+  )
+    throw new Error(
+      'Release v2 permits a short manifest only in the final batch',
+    )
+
+  const itemById = new Map(corpus.items.map((item) => [item.id, item]))
+  const itemQids = corpus.items.map((item) => item.sources[0]!.sourceItemId)
+  if (
+    itemById.size !== corpus.items.length ||
+    new Set(itemQids).size !== itemQids.length
+  )
+    throw new Error(
+      'Release v2 catalogue UUIDs and Wikidata QIDs must be unique',
+    )
+  const candidates = manifests.flatMap(({ candidates }) => candidates)
+  const candidateIds = candidates.map(({ catalogueItemId }) => catalogueItemId)
+  const candidateQids = candidates.map(({ sourceItemId }) => sourceItemId)
+  if (
+    candidateIds.length !== corpus.items.length ||
+    new Set(candidateIds).size !== candidateIds.length ||
+    new Set(candidateQids).size !== candidateQids.length ||
+    canonicalJson(candidateIds) !==
+      canonicalJson(corpus.items.map(({ id }) => id))
+  )
+    throw new Error(
+      'Release v2 corpus order must match unique ordered manifest contributions',
+    )
+  for (const candidate of candidates) {
+    const item = itemById.get(candidate.catalogueItemId)
+    if (
+      item?.sources[0]?.sourceItemId !== candidate.sourceItemId ||
+      item.catalogueState !== candidate.catalogueState
+    )
+      throw new Error(
+        `Release v2 manifest does not match catalogue item ${candidate.catalogueItemId}`,
+      )
+  }
+  const assertLedgerMatchesCorpus = (
+    ledger: Readonly<{
+      items: readonly z.infer<typeof animeReleaseV2LedgerItemSchema>[]
+    }>,
+    label: 'review' | 'discovery',
+  ) => {
+    if (
+      canonicalJson(
+        ledger.items.map(({ catalogueItemId }) => catalogueItemId),
+      ) !== canonicalJson(corpus.items.map(({ id }) => id))
+    )
+      throw new Error(`Release v2 ${label} ledger order must match the corpus`)
+    for (const [position, item] of corpus.items.entries()) {
+      const ledgerItem = ledger.items[position]
+      if (
+        ledgerItem?.sourceItemId !== item.sources[0]?.sourceItemId ||
+        ledgerItem.normalizedItemSha256 !==
+          normalizedAnimeReleaseItemSha256(item)
+      )
+        throw new Error(
+          `Release v2 ${label} ledger does not match catalogue item ${item.id}`,
+        )
+    }
+  }
+  assertLedgerMatchesCorpus(reviewLedger, 'review')
+  assertLedgerMatchesCorpus(discoveryLedger, 'discovery')
+
+  if (index.corpusSha256 !== sha256Canonical(corpus))
+    throw new Error('Release v2 index corpus hash does not match corpus')
+  if (index.reviewLedgerSha256 !== sha256Canonical(reviewLedger))
+    throw new Error('Release v2 index review ledger hash does not match ledger')
+  if (index.discoveryLedgerSha256 !== sha256Canonical(discoveryLedger))
+    throw new Error(
+      'Release v2 index discovery ledger hash does not match ledger',
+    )
+  if (index.semanticDiffSha256 !== sha256Canonical(semanticDiff))
+    throw new Error('Release v2 index semantic diff hash does not match diff')
+  const expectedPaths = manifests.map(
+    ({ batch }) =>
+      `${descriptor.files.manifestDirectory}/${descriptor.files.manifestFilePrefix}${String(batch).padStart(descriptor.files.manifestFileDigits, '0')}.json`,
+  )
+  if (
+    canonicalJson(index.manifests.map(({ path }) => path)) !==
+    canonicalJson(expectedPaths)
+  )
+    throw new Error('Release v2 index manifest paths are not canonical')
+  for (const [position, manifest] of manifests.entries()) {
+    if (index.manifests[position]?.sha256 !== sha256Canonical(manifest))
+      throw new Error(
+        `Release v2 index manifest hash does not match batch ${manifest.batch}`,
+      )
+  }
+  return {
+    corpus,
+    manifests,
+    reviewLedger,
+    discoveryLedger,
+    semanticDiff,
+    index,
+  }
+}
+
+export function validateAnimeReleaseBundleForDescriptor(
+  descriptor: AnimeReleaseDescriptor,
+  bundle: SupportedAnimeReleaseBundle,
+): SupportedAnimeReleaseBundle {
+  if (
+    bundle.corpus.version !== descriptor.version ||
+    bundle.corpus.release !== descriptor.version
+  )
+    throw new Error(
+      'Release bundle version does not match the selected descriptor',
+    )
+  return descriptor.version === 1
+    ? validateAnimeReleaseBundle(bundle as AnimeReleaseBundle)
+    : validateAnimeReleaseV2Bundle(bundle as AnimeReleaseV2Bundle)
+}
+
 export async function loadAnimeReleaseBundle(
-  paths: Readonly<{
-    corpus: string
-    manifests: readonly string[]
-    reviewLedger: string
-    index: string
-  }>,
+  paths: AnimeReleaseBundlePaths,
 ): Promise<AnimeReleaseBundle> {
   const [corpusContents, manifestContents, reviewContents, indexContents] =
     await Promise.all([
@@ -1154,4 +1520,41 @@ export async function loadAnimeReleaseBundle(
     reviewLedger: parseJson(reviewContents, 'Release review ledger'),
     index: parseJson(indexContents, 'Release index'),
   } as AnimeReleaseBundle)
+}
+
+export async function loadAnimeReleaseBundleForDescriptor(
+  descriptor: AnimeReleaseDescriptor,
+  paths: AnimeReleaseBundlePaths,
+): Promise<SupportedAnimeReleaseBundle> {
+  if (descriptor.version === 1) return loadAnimeReleaseBundle(paths)
+  if (paths.discoveryLedger === undefined || paths.semanticDiff === undefined)
+    throw new Error('Release v2 artifact paths are incomplete')
+  const [
+    corpusContents,
+    manifestContents,
+    reviewContents,
+    discoveryContents,
+    diffContents,
+    indexContents,
+  ] = await Promise.all([
+    readFile(paths.corpus, 'utf8'),
+    Promise.all(paths.manifests.map((path) => readFile(path, 'utf8'))),
+    readFile(paths.reviewLedger, 'utf8'),
+    readFile(paths.discoveryLedger, 'utf8'),
+    readFile(paths.semanticDiff, 'utf8'),
+    readFile(paths.index, 'utf8'),
+  ])
+  return validateAnimeReleaseBundleForDescriptor(descriptor, {
+    corpus: parseJson(corpusContents, 'Release v2 corpus'),
+    manifests: manifestContents.map((contents, index) =>
+      parseJson(contents, `Release v2 manifest ${index + 1}`),
+    ),
+    reviewLedger: parseJson(reviewContents, 'Release v2 review ledger'),
+    discoveryLedger: parseJson(
+      discoveryContents,
+      'Release v2 discovery ledger',
+    ),
+    semanticDiff: parseJson(diffContents, 'Release v2 semantic diff'),
+    index: parseJson(indexContents, 'Release v2 index'),
+  } as AnimeReleaseV2Bundle)
 }

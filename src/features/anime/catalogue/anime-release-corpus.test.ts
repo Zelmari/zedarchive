@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  animeReleaseDescriptors,
   canonicalJsonBytes,
   animeReleaseMaturityEvidenceSchema,
+  animeReleaseV2Descriptor,
   createAnimeReleaseCoverage,
   normalizedAnimeReleaseItemSha256,
   sha256Canonical,
   validateAnimeReleaseBundle,
+  validateAnimeReleaseBundleForDescriptor,
+  validateAnimeReleaseV2Bundle,
   type AnimeReleaseBundle,
   type AnimeReleaseItem,
+  type AnimeReleaseV2Bundle,
 } from '@/features/anime/catalogue/anime-release-corpus'
 
 type ReleaseFixtureOptions = {
@@ -228,6 +233,84 @@ function releaseBundle(
   }
 }
 
+function releaseV2Bundle(): AnimeReleaseV2Bundle {
+  const items = Array.from({ length: 5001 }, (_, index) => ({
+    ...releaseItem(index),
+    catalogueState:
+      index === 5000 ? ('draft' as const) : ('published' as const),
+  }))
+  const manifests = Array.from(
+    { length: Math.ceil(items.length / 50) },
+    (_, batchIndex) => ({
+      version: 2 as const,
+      sourceKey: 'wikidata' as const,
+      release: 'anime-v2' as const,
+      batch: batchIndex + 1,
+      candidates: items
+        .slice(batchIndex * 50, batchIndex * 50 + 50)
+        .map((item) => ({
+          catalogueItemId: item.id,
+          sourceItemId: item.sources[0]!.sourceItemId,
+          expectedEnglishLabel: item.titles.english ?? `Label ${item.id}`,
+          intent: 'create' as const,
+          catalogueState: item.catalogueState,
+          overrides: {},
+        })),
+    }),
+  )
+  const corpus = {
+    schema: 'zedarchive.anime-release-corpus' as const,
+    version: 2 as const,
+    release: 2 as const,
+    items,
+  }
+  const ledgerItems = items.map((item) => ({
+    catalogueItemId: item.id,
+    sourceItemId: item.sources[0]!.sourceItemId,
+    normalizedItemSha256: normalizedAnimeReleaseItemSha256(item),
+  }))
+  const reviewLedger = {
+    schema: 'zedarchive.anime-release-review' as const,
+    version: 2 as const,
+    release: 2 as const,
+    items: ledgerItems,
+  }
+  const discoveryLedger = {
+    schema: 'zedarchive.anime-release-discovery' as const,
+    version: 2 as const,
+    release: 2 as const,
+    items: ledgerItems,
+  }
+  const semanticDiff = {
+    schema: 'zedarchive.anime-release-diff' as const,
+    version: 2 as const,
+    release: 2 as const,
+  }
+  return {
+    corpus,
+    manifests,
+    reviewLedger,
+    discoveryLedger,
+    semanticDiff,
+    index: {
+      schema: 'zedarchive.anime-release-index' as const,
+      version: 2 as const,
+      release: 2 as const,
+      corpusSha256: sha256Canonical(corpus),
+      predecessorCorpusSha256: 'a'.repeat(64),
+      predecessorReviewLedgerSha256: 'b'.repeat(64),
+      predecessorIndexSha256: 'c'.repeat(64),
+      manifests: manifests.map((manifest) => ({
+        path: `data/imports/releases/anime-v2/batch-${String(manifest.batch).padStart(3, '0')}.json`,
+        sha256: sha256Canonical(manifest),
+      })),
+      reviewLedgerSha256: sha256Canonical(reviewLedger),
+      discoveryLedgerSha256: sha256Canonical(discoveryLedger),
+      semanticDiffSha256: sha256Canonical(semanticDiff),
+    },
+  }
+}
+
 function setReleaseStatus(
   bundle: AnimeReleaseBundle,
   index: number,
@@ -276,6 +359,116 @@ function setReleaseStatus(
 }
 
 describe('anime release corpus contract', () => {
+  it('makes every supported release explicit while retaining v1 historical limits', () => {
+    expect(animeReleaseDescriptors).toEqual([
+      expect.objectContaining({
+        name: 'anime-v1',
+        version: 1,
+        expected: expect.objectContaining({
+          exactItemCount: 500,
+          predecessor: null,
+          manifest: {
+            exactCount: 20,
+            batchSize: 25,
+            finalBatchMayBeShort: false,
+          },
+        }),
+      }),
+      expect.objectContaining({
+        name: 'anime-v2',
+        version: 2,
+        supportedModes: ['check'],
+        expected: expect.objectContaining({
+          exactPublishedCount: 5000,
+          predecessor: 'anime-v1',
+          manifest: expect.objectContaining({
+            batchSize: 50,
+            finalBatchMayBeShort: true,
+          }),
+        }),
+      }),
+    ])
+  })
+
+  it('accepts a v2 variable-total bundle with exactly 5,000 published records and a final short manifest', () => {
+    const bundle = releaseV2Bundle()
+
+    expect(validateAnimeReleaseV2Bundle(bundle)).toEqual(bundle)
+    expect(
+      validateAnimeReleaseBundleForDescriptor(animeReleaseV2Descriptor, bundle),
+    ).toEqual(bundle)
+    expect(bundle.manifests).toHaveLength(101)
+    expect(bundle.manifests.at(-1)?.candidates).toHaveLength(1)
+  })
+
+  it('rejects v2 non-final short manifests and descriptor/version mismatches', () => {
+    const shortMiddleManifest = releaseV2Bundle()
+    shortMiddleManifest.manifests[0]!.candidates.pop()
+
+    expect(() => validateAnimeReleaseV2Bundle(shortMiddleManifest)).toThrow(
+      'short manifest only in the final batch',
+    )
+    expect(() =>
+      validateAnimeReleaseBundleForDescriptor(
+        animeReleaseV2Descriptor,
+        releaseBundle() as never,
+      ),
+    ).toThrow('version does not match')
+  })
+
+  it('rejects v2 wrong publication count, predecessor binding, and manifest path', () => {
+    const wrongPublishedCount = releaseV2Bundle()
+    wrongPublishedCount.corpus.items[5000]!.catalogueState = 'published'
+    expect(() => validateAnimeReleaseV2Bundle(wrongPublishedCount)).toThrow(
+      'exactly 5,000 published',
+    )
+
+    const missingPredecessor = releaseV2Bundle()
+    missingPredecessor.index.predecessorCorpusSha256 = null as never
+    expect(() => validateAnimeReleaseV2Bundle(missingPredecessor)).toThrow()
+
+    const wrongManifestPath = releaseV2Bundle()
+    wrongManifestPath.index.manifests[0]!.path =
+      'data/imports/releases/anime-v2/batch-01.json'
+    expect(() => validateAnimeReleaseV2Bundle(wrongManifestPath)).toThrow()
+  })
+
+  it('rejects unknown or raw fields at every v2 artifact boundary', () => {
+    const unknownCorpusField = releaseV2Bundle()
+    ;(unknownCorpusField.corpus as Record<string, unknown>).rawPayload = {}
+    expect(() => validateAnimeReleaseV2Bundle(unknownCorpusField)).toThrow()
+
+    const unknownManifestField = releaseV2Bundle()
+    ;(
+      unknownManifestField.manifests[0]!.candidates[0] as Record<
+        string,
+        unknown
+      >
+    ).rawPayload = {}
+    expect(() => validateAnimeReleaseV2Bundle(unknownManifestField)).toThrow()
+
+    const unknownReviewField = releaseV2Bundle()
+    ;(unknownReviewField.reviewLedger.items[0] as Record<string, unknown>).raw =
+      'provider payload'
+    expect(() => validateAnimeReleaseV2Bundle(unknownReviewField)).toThrow()
+
+    const unknownDiscoveryField = releaseV2Bundle()
+    ;(unknownDiscoveryField.discoveryLedger as Record<string, unknown>).notes =
+      'reviewer prose'
+    expect(() => validateAnimeReleaseV2Bundle(unknownDiscoveryField)).toThrow()
+
+    const unknownDiffField = releaseV2Bundle()
+    ;(unknownDiffField.semanticDiff as Record<string, unknown>).details =
+      'unbounded change history'
+    expect(() => validateAnimeReleaseV2Bundle(unknownDiffField)).toThrow()
+
+    const unknownIndexField = releaseV2Bundle()
+    ;(unknownIndexField.index as Record<string, unknown>).rawResponse = {
+      claims: [],
+    }
+    expect(() => validateAnimeReleaseV2Bundle(unknownIndexField)).toThrow()
+  })
+
   it('validates the exact quota package and deterministic canonical hashes', () => {
     const bundle = releaseBundle()
     expect(validateAnimeReleaseBundle(bundle)).toEqual(bundle)
