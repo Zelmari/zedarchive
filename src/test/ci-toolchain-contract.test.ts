@@ -6,6 +6,9 @@ const workflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/ci.yml'),
   'utf8',
 )
+const packageJson = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+) as { scripts: Record<string, string> }
 
 function occurrences(pattern: RegExp): number {
   return workflow.match(pattern)?.length ?? 0
@@ -43,6 +46,32 @@ describe('CI toolchain contract', () => {
     expect(formatting).toBeGreaterThan(releaseCheck)
     expect(workflow).not.toMatch(
       /catalogue:release:check\s+--release\s+anime-v[0-9]+/gu,
+    )
+  })
+
+  it('checks predecessor review inputs without granting CI live acquisition authority', () => {
+    const releaseCheck = workflow.indexOf(
+      'run: corepack npm run catalogue:release:check',
+    )
+    const predecessorCheck = workflow.indexOf(
+      'run: corepack npm run catalogue:review:predecessors:check',
+    )
+    const formatting = workflow.indexOf('run: corepack npm run format:check')
+
+    expect(
+      occurrences(
+        /run: corepack npm run catalogue:review:predecessors:check$/gmu,
+      ),
+    ).toBe(1)
+    expect(predecessorCheck).toBeGreaterThan(releaseCheck)
+    expect(formatting).toBeGreaterThan(predecessorCheck)
+    expect(workflow).not.toContain('catalogue:review:predecessors prepare')
+    expect(workflow).not.toContain('--confirm-wikimedia-live')
+    expect(packageJson.scripts['catalogue:review:predecessors']).toBe(
+      'tsx scripts/review-anime-v2-predecessors.ts',
+    )
+    expect(packageJson.scripts['catalogue:review:predecessors:check']).toBe(
+      'tsx scripts/review-anime-v2-predecessors.ts check',
     )
   })
 })

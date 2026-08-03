@@ -73,6 +73,9 @@ jobs:
       - name: Validate every materialized catalogue release
         run: corepack npm run catalogue:release:check
 
+      - name: Validate anime-v2 predecessor review inputs
+        run: corepack npm run catalogue:review:predecessors:check
+
       - name: Check formatting
         run: corepack npm run format:check
 
