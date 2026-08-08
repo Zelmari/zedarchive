@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   createIndependentReviewPopulationAuthority,
@@ -17,6 +19,7 @@ import {
   type IndependentReviewPopulationRecord,
   type IndependentReviewRiskTriggers,
 } from '@/features/anime/catalogue/anime-release-v2-independent-review'
+import { prepareIndependentReviewSamplingCore } from '@/features/anime/catalogue/anime-release-v2-independent-review-sampling-core'
 import { discoverySha256 } from '@/features/anime/catalogue/wikidata-anime-discovery'
 
 const digest = (value: string) => discoverySha256({ value })
@@ -856,6 +859,23 @@ describe('Decision 097 reduced-claim and bounded-array matrix', () => {
 })
 
 describe('Decision 097 deterministic sampling', () => {
+  it('keeps the strict initial wrapper byte-equivalent to the shared internal core', () => {
+    const fixture = population()
+    const wrapped = prepareIndependentReviewSample({
+      population: fixture.population,
+      proposal: fixture.proposal,
+      seedAuthority: fixture.seedAuthority,
+      round: 'initial',
+    })
+    const core = prepareIndependentReviewSamplingCore({
+      candidates: wrapped.lowRiskPopulation,
+      roundSeed: wrapped.roundSeed,
+    })
+    expect(core.sampleSize).toBe(wrapped.sampleSize)
+    expect(core.allocations).toEqual(wrapped.allocations)
+    expect(core.sampled).toEqual(wrapped.sampled)
+  })
+
   it('retains exact sample boundaries, self-hashed membership, and no later-round API', () => {
     expect(
       [0, 399, 400, 401, 4_000, 4_001].map(independentReviewSampleSize),
@@ -920,6 +940,49 @@ describe('Decision 097 deterministic sampling', () => {
       { key: 'tv:2020-2026', allocation: 250 },
     ])
     expect(sample.sampled).toHaveLength(500)
+  })
+})
+
+describe('Decision 098 internal sampling import boundary', () => {
+  it('allows production imports only from foundation and the exact future successor authority', () => {
+    const importToken = 'anime-release-v2-independent-review-sampling-core'
+    const productionExtension = /\.(?:[cm]?[jt]s|tsx)$/
+    const testOrSpec = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:[cm]?[jt]s|tsx)$/
+    const importers = ['src', 'scripts']
+      .flatMap((root) => {
+        const absoluteRoot = join(process.cwd(), root)
+        return readdirSync(absoluteRoot, {
+          encoding: 'utf8',
+          recursive: true,
+        })
+          .filter(
+            (path) =>
+              productionExtension.test(path) &&
+              !testOrSpec.test(path) &&
+              `${root}/${path}` !==
+                'src/features/anime/catalogue/anime-release-v2-independent-review-sampling-core.ts',
+          )
+          .filter((path) =>
+            readFileSync(join(absoluteRoot, path), 'utf8').includes(
+              importToken,
+            ),
+          )
+          .map((path) => `${root}/${path}`)
+      })
+      .sort()
+    expect(importers).toContain(
+      'src/features/anime/catalogue/anime-release-v2-independent-review.ts',
+    )
+    const allowedFutureImporter =
+      'src/features/anime/catalogue/anime-release-v2-independent-review-successor-authority.ts'
+    expect(
+      importers.every(
+        (path) =>
+          path ===
+            'src/features/anime/catalogue/anime-release-v2-independent-review.ts' ||
+          path === allowedFutureImporter,
+      ),
+    ).toBe(true)
   })
 })
 

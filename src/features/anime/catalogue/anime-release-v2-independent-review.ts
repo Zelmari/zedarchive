@@ -1,10 +1,13 @@
-import { createHash } from 'node:crypto'
 import { animeCatalogueStateSchema } from '@/features/anime/catalogue/anime-catalogue-state'
 import {
   adultPublicationSignalTokens,
   titleSourceTokens,
 } from '@/features/anime/catalogue/anime-successor-predecessor-review'
 import { deriveIndependentSampleSeed } from '@/features/anime/catalogue/anime-release-v2-lineage'
+import {
+  independentReviewSamplingCoreSize,
+  prepareIndependentReviewSamplingCore,
+} from '@/features/anime/catalogue/anime-release-v2-independent-review-sampling-core'
 import {
   successorDiscoveryReasonOrder,
   type SelectionEra,
@@ -1450,25 +1453,7 @@ export function parseIndependentReviewPopulationAuthority(
 }
 
 export function independentReviewSampleSize(lowRiskPopulation: number): number {
-  if (!Number.isSafeInteger(lowRiskPopulation) || lowRiskPopulation < 0)
-    throw new Error('Low-risk population must be a non-negative safe integer.')
-  return Math.min(
-    lowRiskPopulation,
-    Math.max(400, Math.ceil(lowRiskPopulation * 0.1)),
-  )
-}
-
-function stratumKey(candidate: IndependentReviewPopulationRecord): string {
-  return `${candidate.selectionCohort.format}:${candidate.selectionCohort.eraBucket}`
-}
-
-function rank(
-  seed: string,
-  candidate: IndependentReviewPopulationRecord,
-): string {
-  return createHash('sha256')
-    .update(`${seed}:${candidate.canonicalUuid}`)
-    .digest('hex')
+  return independentReviewSamplingCoreSize(lowRiskPopulation)
 }
 
 /** Pure sampler: it only accepts self-hashed authority objects, never a raw seed or UUID exclusion list. */
@@ -1500,85 +1485,11 @@ export function prepareIndependentReviewSample(
       candidate.projection.machineReviewComplete &&
       candidate.mandatoryRiskReasons.length === 0,
   )
-  const sampleSize = independentReviewSampleSize(lowRiskPopulation.length)
-  const groups = new Map<string, IndependentReviewPopulationRecord[]>()
-  lowRiskPopulation.forEach((candidate) =>
-    groups.set(stratumKey(candidate), [
-      ...(groups.get(stratumKey(candidate)) ?? []),
-      candidate,
-    ]),
-  )
-  const minimums = [...groups.entries()]
-    .sort(([left], [right]) => compareAscii(left, right))
-    .map(([key, members]) => ({
-      key,
-      members,
-      minimum: Math.min(10, members.length),
-    }))
-  const allocatedMinimum = minimums.reduce(
-    (sum, group) => sum + group.minimum,
-    0,
-  )
-  if (allocatedMinimum > sampleSize)
-    throw new Error(
-      'Independent-review minimum stratum allocations exceed sample size.',
-    )
-  const remainingSlots = sampleSize - allocatedMinimum
-  const remainingPopulation = minimums.reduce(
-    (sum, group) => sum + group.members.length - group.minimum,
-    0,
-  )
-  if (remainingSlots > remainingPopulation)
-    throw new Error('Independent-review strata cannot satisfy sample size.')
-  const preliminary = minimums.map((group) => {
-    const capacity = group.members.length - group.minimum
-    const numerator = remainingSlots * capacity
-    return {
-      ...group,
-      capacity,
-      hamilton:
-        remainingPopulation === 0
-          ? 0
-          : Math.floor(numerator / remainingPopulation),
-      remainder:
-        remainingPopulation === 0 ? 0 : numerator % remainingPopulation,
-    }
-  })
-  let unallocated =
-    remainingSlots - preliminary.reduce((sum, group) => sum + group.hamilton, 0)
-  for (const group of [...preliminary].sort(
-    (left, right) =>
-      right.remainder - left.remainder || compareAscii(left.key, right.key),
-  )) {
-    if (unallocated === 0) break
-    if (group.hamilton < group.capacity) {
-      group.hamilton += 1
-      unallocated -= 1
-    }
-  }
-  if (unallocated !== 0)
-    throw new Error(
-      'Independent-review Hamilton allocation cannot satisfy capacity.',
-    )
-  const allocations = preliminary.map((group) => ({
-    key: group.key,
-    population: group.members.length,
-    minimumAllocation: group.minimum,
-    hamiltonAllocation: group.hamilton,
-    allocation: group.minimum + group.hamilton,
-  }))
-  const sampled = preliminary.flatMap((group) =>
-    group.members
-      .slice()
-      .sort(
-        (left, right) =>
-          compareAscii(rank(roundSeed, left), rank(roundSeed, right)) ||
-          compareAscii(left.canonicalUuid, right.canonicalUuid),
-      )
-      .slice(0, group.minimum + group.hamilton),
-  )
-  if (sampled.length !== sampleSize)
-    throw new Error('Independent-review sample has the wrong size.')
+  const { sampleSize, allocations, sampled } =
+    prepareIndependentReviewSamplingCore({
+      candidates: lowRiskPopulation,
+      roundSeed,
+    })
   const sampledCanonicalUuids = sampled.map(
     ({ canonicalUuid }) => canonicalUuid,
   )
