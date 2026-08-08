@@ -3975,6 +3975,7 @@ async function finalizeCandidateReviewInternal(
       { flag: 'wx' },
     )
     await rename(staging, destination)
+    return safe
   } catch (error) {
     if (created) await rm(staging, { recursive: true, force: true })
     throw error
@@ -4306,11 +4307,35 @@ export async function runCandidateReviewCommandForFixture(
       dependencies.receipt ?? (await readReceipt()),
       dependencies.predecessorReviewResult ?? { fixture: true },
     )
-  return finalizeCandidateReviewForFixture(
-    directory,
-    dependencies.receipt ?? (await readReceipt()),
-    dependencies.predecessorReviewResult ?? { fixture: true },
+  let safe: Awaited<ReturnType<typeof finalizeCandidateReviewForFixture>>
+  try {
+    safe = await finalizeCandidateReviewForFixture(
+      directory,
+      dependencies.receipt ?? (await readReceipt()),
+      dependencies.predecessorReviewResult ?? { fixture: true },
+    )
+  } catch (error) {
+    dependencies.terminalDiagnosticSink?.(
+      createCandidateTerminalDiagnostic({
+        stage: 'finalize',
+        outcome: 'stopped',
+      }),
+    )
+    throw error
+  }
+  dependencies.terminalDiagnosticSink?.(
+    createCandidateTerminalDiagnostic({
+      stage: 'finalize',
+      outcome: 'completed',
+      candidates: safe.records,
+      manifests: safe.manifests,
+      locks: safe.manifests,
+      sourceReceiptSha256: safe.sourceReceiptSha256,
+      acquisitionSha256: safe.acquisitionSha256,
+      authoritySha256: safe.authoritySha256,
+    }),
   )
+  return safe
 }
 
 export async function runCandidateReviewCommand(args: readonly string[]) {
@@ -4404,7 +4429,17 @@ export async function runCandidateReviewCommand(args: readonly string[]) {
     })
     return
   }
-  throw safeError('finalize', 'not-authorized')
+  const safe = await finalizeCandidateReview()
+  writeCandidateTerminalDiagnostic({
+    stage: 'finalize',
+    outcome: 'completed',
+    candidates: safe.records,
+    manifests: safe.manifests,
+    locks: safe.manifests,
+    sourceReceiptSha256: safe.sourceReceiptSha256,
+    acquisitionSha256: safe.acquisitionSha256,
+    authoritySha256: safe.authoritySha256,
+  })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)

@@ -1315,6 +1315,106 @@ describe('candidate acquisition runner', () => {
     }
   })
 
+  it('finalizes once with a privacy-safe diagnostic and never overwrites the bundle', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'm45-candidate-finalize-'))
+    try {
+      const input = receipt(1)
+      const entities = { Q1: entity('Q1') }
+      await runCandidateReviewCommandForFixture(
+        ['prepare', '--confirm-wikimedia-live'],
+        { directory, receipt: input, entities },
+      )
+      await writeLegacyManifestArtifacts(directory, input, entities, 3)
+      await recoverCandidateReviewRoundTwoForFixture(directory, input, {
+        fixture: true,
+      })
+      await auditActiveCandidateReviewForFixture(directory, input, {
+        fixture: true,
+      })
+
+      const diagnostics: unknown[] = []
+      const safe = (await runCandidateReviewCommandForFixture(['finalize'], {
+        directory,
+        receipt: input,
+        predecessorReviewResult: { fixture: true },
+        terminalDiagnosticSink: (diagnostic) => diagnostics.push(diagnostic),
+      })) as Awaited<ReturnType<typeof finalizeCandidateReviewForFixture>>
+      expect(safe).toMatchObject({
+        schema: 'zedarchive.anime-v2-candidate-review-final-safe-aggregate',
+        version: 1,
+        manifests: 160,
+        records: 1,
+      })
+      expect(Object.keys(safe).sort()).toEqual([
+        'acquisitionSha256',
+        'approved',
+        'authoritySha256',
+        'candidateReceiptSha256',
+        'manifests',
+        'primaryAggregateSha256',
+        'records',
+        'schema',
+        'sourceReceiptSha256',
+        'version',
+      ])
+      expect(diagnostics).toHaveLength(1)
+      const successfulDiagnostic = diagnostics[0] as Record<string, unknown>
+      expect(Object.keys(successfulDiagnostic).sort()).toEqual([
+        'acquisitionSha256',
+        'authoritySha256',
+        'candidates',
+        'locks',
+        'manifests',
+        'outcome',
+        'schema',
+        'sourceReceiptSha256',
+        'stage',
+        'version',
+      ])
+      expect(successfulDiagnostic).toMatchObject({
+        schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+        version: 2,
+        stage: 'finalize',
+        outcome: 'completed',
+        candidates: 1,
+        manifests: 160,
+        locks: 160,
+      })
+      expect(JSON.stringify({ safe, diagnostics })).not.toMatch(
+        /Q[1-9]|Title|https?:|exception|stack|path|error|env|email|contact/i,
+      )
+      expect(await readdir(join(directory, 'finalized'))).toEqual([
+        'authority.json',
+        'primary-candidate-review.json',
+        'safe-aggregate.json',
+      ])
+      const beforeRepeat = await candidateReviewDirectoryEntries(directory)
+      const repeatDiagnostics: unknown[] = []
+      await expect(
+        runCandidateReviewCommandForFixture(['finalize'], {
+          directory,
+          receipt: input,
+          predecessorReviewResult: { fixture: true },
+          terminalDiagnosticSink: (diagnostic) =>
+            repeatDiagnostics.push(diagnostic),
+        }),
+      ).rejects.toThrow('finalization already exists; no overwrite')
+      expect(repeatDiagnostics).toEqual([
+        {
+          schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+          version: 2,
+          stage: 'finalize',
+          outcome: 'stopped',
+        },
+      ])
+      expect(await candidateReviewDirectoryEntries(directory)).toEqual(
+        beforeRepeat,
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('rejects a prior non-target completed-but-unlocked fresh tuple', async () => {
     const directory = await mkdtemp(
       join(tmpdir(), 'm45-candidate-round-state-'),
