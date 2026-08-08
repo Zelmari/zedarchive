@@ -179,7 +179,7 @@ async function submitForgotPassword(
   await fixture.recordRateLimitRequest('request-password-reset')
   expect(status).toBe(200)
   await expect(
-    page.getByRole('heading', { name: 'Check your email', exact: true }),
+    page.getByRole('heading', { name: 'Check your email.', exact: true }),
   ).toBeVisible()
   await expect(
     page.getByText(
@@ -507,7 +507,7 @@ test('account recovery and deletion lifecycle', async ({ browser, page }) => {
       .getByRole('link', { name: 'Reset password', exact: true })
       .click()
     await expect(
-      page.getByRole('heading', { name: 'Reset password', exact: true }),
+      page.getByRole('heading', { name: 'Choose a new key.', exact: true }),
     ).toBeVisible()
     expect((await fixture.lifecycleCounts('a')).sessions).toBe(0)
     await page

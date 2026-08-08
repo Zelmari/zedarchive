@@ -113,7 +113,9 @@ export function AnimeTitleLanguageForm({
         className="space-y-2"
         disabled={isPending}
       >
-        <legend className="font-semibold">Anime title language</legend>
+        <legend className="za-field-label font-semibold">
+          Anime title language
+        </legend>
         <p className="text-sm text-ink-muted">
           Choose which primary title zedarchive shows first. If it is
           unavailable, another primary title will be used.

@@ -27,6 +27,13 @@ describe('HomePage catalogue rendering', () => {
     expect(markup).toContain('data-catalogue-results="browse"')
     expect(markup).toContain('Complete catalogue results')
     expect(markup).not.toContain('Loading anime catalogue')
+    expect(markup).toContain('Anime catalogue')
+    expect(markup).toContain('Every anime you’ve ever loved, filed in ink.')
+    expect(markup).toContain(
+      'Thousands of series and films, catalogued with care. Search the shelves, keep track of what you’re watching, and stamp your own archive.',
+    )
+    expect(markup).toContain('za-page-masthead')
+    expect(markup).toContain('za-catalogue-search')
   })
 
   it('associates invalid search feedback with the search input and skips results', async () => {

@@ -61,7 +61,10 @@ test('account and add core', async ({ page }) => {
       status: 200,
     })
     await expect(
-      page.getByRole('heading', { name: 'Register', exact: true }),
+      page.getByRole('heading', {
+        name: 'Make the shelves yours.',
+        exact: true,
+      }),
     ).toBeVisible()
     await page
       .getByRole('textbox', { name: 'Username', exact: true })
@@ -89,7 +92,7 @@ test('account and add core', async ({ page }) => {
       status: 200,
     })
     await expect(
-      page.getByRole('heading', { name: 'Check your email', exact: true }),
+      page.getByRole('heading', { name: 'Check your email.', exact: true }),
     ).toBeVisible()
     await fixture.collectors.waitForVerificationMessage()
     const collectorEvidence = fixture.collectors.evidence()

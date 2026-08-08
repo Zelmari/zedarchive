@@ -190,7 +190,10 @@ export function AnimeEntryRatingForm({
           }
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={inputId}>
+          <label
+            className="za-field-label text-sm font-medium"
+            htmlFor={inputId}
+          >
             Rating
           </label>
           <input

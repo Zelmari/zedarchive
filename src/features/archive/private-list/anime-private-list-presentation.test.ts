@@ -78,11 +78,12 @@ describe('AnimePrivateListResults', () => {
       createElement(AnimePrivateListMasthead, { totalItems: 49 }),
     )
 
+    expect(markup).toContain('za-page-masthead')
+    expect(markup).toContain('Personal archive')
+    expect(markup).toContain('Your anime archive.')
     expect(markup).toContain(
-      '<header class="za-card za-card--raised space-y-2">',
+      '49 entries on the shelf. Rate them, nudge your progress, and mark the ones you’ll defend at parties.',
     )
-    expect(markup).toContain('<h1 class="text-2xl font-semibold">')
-    expect(markup).toContain('49 anime in your archive')
   })
 
   it('keys each server-described sort-control view distinctly', () => {
@@ -200,12 +201,18 @@ describe('AnimePrivateListResults', () => {
     )
 
     expect(markup).toContain('CB')
-    expect(markup).toContain('class="za-archive-card za-card za-card--raised"')
+    expect(markup).toContain(
+      'class="za-archive-card za-card za-card--raised za-press-card"',
+    )
     expect(markup).toContain('class="za-archive-card__summary"')
-    expect(markup).toContain('class="za-archive-card__tile za-title-tile"')
+    expect(markup).toContain(
+      'class="za-archive-card__tile za-title-tile za-title-tile--halftone"',
+    )
     expect(markup).toContain('class="za-archive-card__details"')
     expect(markup).toContain('class="za-archive-card__tracking"')
-    expect(markup).toContain('class="za-card za-card--restricted"')
+    expect(markup).toContain(
+      'class="za-card za-card--restricted za-press-card"',
+    )
     expect(markup).toContain('Cowboy Bebop')
     expect(markup).toContain('1998')
     expect(markup).toContain('26 episodes')
@@ -224,7 +231,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain(
       '<noscript><p class="za-notice za-notice--information">Archive editing requires JavaScript. Sorting works without it, but your sort preference cannot be saved on this device.</p></noscript>',
     )
-    expect(markup).not.toContain('49 anime in your archive')
+    expect(markup).not.toContain('49 entries on the shelf')
     expect(markup).toContain('Sort by')
     expect(markup).toContain('Apply sort')
     expect(markup).toContain(
@@ -241,7 +248,7 @@ describe('AnimePrivateListResults', () => {
     expect(markup).toContain('value="highest-rated"')
     expect(markup).toContain('Anime archive pagination')
     expect(markup).toContain(
-      'class="za-card za-card--raised flex flex-wrap items-center gap-4 text-sm"',
+      'class="za-card za-card--raised za-pagination flex flex-wrap items-center gap-4 text-sm"',
     )
     expect(markup).toContain('href="/archive/anime?sort=alphabetical"')
     expect(markup).toContain(
@@ -302,7 +309,12 @@ describe('AnimePrivateListResults', () => {
     )
 
     expect(emptyMarkup).toContain('Your anime archive is empty')
-    expect(emptyMarkup).toContain('class="za-card za-card--raised space-y-2"')
+    expect(emptyMarkup).toContain(
+      'class="za-card za-card--raised za-empty-state space-y-2"',
+    )
+    expect(emptyMarkup).toContain(
+      'Your shelf is waiting. Add anime from the catalogue to begin.',
+    )
     expect(emptyMarkup).toContain('Browse anime catalogue')
     expect(beyondFinalMarkup).not.toContain('Your anime archive is empty')
     expect(beyondFinalMarkup).toContain('There are no anime on this page')

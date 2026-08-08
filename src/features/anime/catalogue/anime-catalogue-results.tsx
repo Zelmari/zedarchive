@@ -57,7 +57,7 @@ export async function AnimeCatalogueResults({
 
   return (
     <>
-      <p className="text-sm text-ink-muted">
+      <p className="za-results-summary text-sm text-ink-muted">
         {pageQuery.kind === 'browse'
           ? formatBrowseSummary(cataloguePage.pagination.totalItems)
           : formatSearchSummary(
@@ -80,7 +80,7 @@ export async function AnimeCatalogueResults({
       ) : null}
 
       {emptyState === null ? (
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="za-card-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {cataloguePage.items.map((item) => (
             <li className="flex" key={item.id}>
               <AnimeCatalogueCard

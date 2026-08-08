@@ -361,6 +361,13 @@ async function expectSpecimenRecipeContract(page: Page) {
   expect(
     await computedValue(page, '#foundation-raised-card', 'box-shadow'),
   ).toBe(raisedShadow)
+  expect(raisedShadow).toMatch(/3px 3px 0px/u)
+  expect(
+    await computedValue(page, '#foundation-raised-card', 'transform'),
+  ).toBe('none')
+  expect(
+    await computedValue(page, '#visual-foundation-specimen', 'transform'),
+  ).toBe('none')
   expect(
     await computedValue(page, '#foundation-search', 'border-top-width'),
   ).toBe('1px')
@@ -627,6 +634,20 @@ test('renders the compiled visual foundation specimen without changing the appli
       'animation-iteration-count',
     ),
   ).toBe('1')
+  expect(await computedValue(page, '#foundation-primary', 'transform')).toBe(
+    'none',
+  )
+  expect(
+    await computedValue(page, 'a[href="#foundation-actions"]', 'transform'),
+  ).toBe('none')
+  await page.locator('#foundation-primary').hover()
+  expect(await computedValue(page, '#foundation-primary', 'transform')).toBe(
+    'none',
+  )
+  await page.getByRole('link', { name: 'Explore actions' }).hover()
+  expect(
+    await computedValue(page, 'a[href="#foundation-actions"]', 'transform'),
+  ).toBe('none')
 
   await page.emulateMedia({ forcedColors: 'active' })
   await page.locator('#foundation-primary').focus()
@@ -696,7 +717,10 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
     const browseResponse = await page.goto('/')
     expect(browseResponse?.status()).toBe(200)
     await expect(
-      page.getByRole('heading', { name: 'Anime catalogue' }),
+      page.getByRole('heading', {
+        name: 'Every anime you’ve ever loved, filed in ink.',
+        exact: true,
+      }),
     ).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
@@ -711,7 +735,9 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
 
     const signInResponse = await page.goto('/sign-in')
     expect(signInResponse?.status()).toBe(200)
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Welcome back.', exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Sign in', exact: true }),
@@ -739,6 +765,84 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
     .locator('meta[name="description"]')
     .getAttribute('content')
   expect(rootDescription).toBe('Track the things you watch and read.')
+
+  const footer = page.getByRole('contentinfo')
+  await expect(footer).toBeVisible()
+  await expect(
+    footer.getByText('zedarchive — a quiet archive of everything you watch', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(footer.getByText('Est. 2026', { exact: true })).toBeVisible()
+  await expect(footer.getByRole('link')).toHaveCount(0)
+
+  const homeLink = page.getByRole('banner').getByRole('link', {
+    name: 'zedarchive',
+    exact: true,
+  })
+  await expect(homeLink).toHaveAttribute('href', '/')
+  await expect(homeLink.locator('.za-wordmark__monogram')).toHaveCount(1)
+  await expect(homeLink.locator('.za-wordmark__monogram')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  )
+  await expect(page.getByRole('banner').locator('a[href="/"]')).toHaveCount(1)
+
+  await page.evaluate(() => document.fonts.ready)
+  const fontResourceOrigins = await page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+      .filter((resource) => /\.woff2(?:\?|$)/u.test(resource))
+      .map((resource) => new URL(resource).origin),
+  )
+  expect(fontResourceOrigins.length).toBeGreaterThan(0)
+  expect(
+    fontResourceOrigins.every((origin) => origin === applicationOrigin),
+  ).toBe(true)
+  await expect
+    .poll(() =>
+      page
+        .getByRole('heading', {
+          name: 'Every anime you’ve ever loved, filed in ink.',
+          exact: true,
+        })
+        .evaluate((element) => getComputedStyle(element).fontFamily),
+    )
+    .toContain('instrumentSerif')
+  await expect
+    .poll(() =>
+      page
+        .getByText('Anime catalogue', { exact: true })
+        .evaluate((element) => getComputedStyle(element).fontFamily),
+    )
+    .toContain('ibmPlexMono')
+
+  // Chromium reports the expected 404 document request as a console error.
+  // Close the clean-route monitor before that bounded not-found navigation,
+  // then start a fresh monitor for the remaining successful routes.
+  assertBoundedBrowserEvidence()
+  const notFoundResponse = await page.goto('/misfiled-page-sentinel')
+  expect(notFoundResponse?.status()).toBe(404)
+  await expect(page.getByText('Misfiled page', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', {
+      name: 'This page isn’t on the shelf.',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('The address may be wrong, or the page may have moved.', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('link', {
+      name: 'Return to the anime catalogue',
+      exact: true,
+    }),
+  ).toHaveAttribute('href', '/')
+  const assertPostNotFoundBrowserEvidence = monitorBoundedBrowserEvidence(page)
 
   const icons = await page
     .locator('link[rel~="icon"]')
@@ -780,7 +884,7 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
   await expectHorizontallyReachable(page, 'form[role="search"] button')
   await expectNoHorizontalOverflow(page)
 
-  assertBoundedBrowserEvidence()
+  assertPostNotFoundBrowserEvidence()
 })
 
 test('exposes exact current-page semantics before and after hydration', async ({

@@ -313,7 +313,10 @@ test('renders the guarded public catalogue matrix from production CSS', async ({
     expect(response?.status()).toBe(200)
     await waitForProductionCss(page)
     await expect(
-      page.getByRole('heading', { name: 'Anime catalogue' }),
+      page.getByRole('heading', {
+        name: 'Every anime you’ve ever loved, filed in ink.',
+        exact: true,
+      }),
     ).toBeVisible()
     await expect(
       page.getByRole('searchbox', { name: 'Search anime' }),
@@ -469,7 +472,10 @@ test('keeps public catalogue content reachable at 200% root text size', async ({
   await applyWcagTextSpacing(page)
   await expectTextSpacingLayout(page, {
     content: [
-      page.getByRole('heading', { name: 'Anime catalogue', exact: true }),
+      page.getByRole('heading', {
+        name: 'Every anime you’ve ever loved, filed in ink.',
+        exact: true,
+      }),
       page.locator('article').first().getByRole('heading'),
     ],
     controls: [

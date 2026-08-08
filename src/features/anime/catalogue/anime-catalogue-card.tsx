@@ -23,25 +23,25 @@ export function AnimeCatalogueCard({
   const episodeTotal = formatAnimeEpisodeTotal(item.episodeCount)
 
   return (
-    <article className="za-card za-card--raised za-catalogue-card">
+    <article className="za-card za-card--raised za-press-card za-catalogue-card">
       <div className="za-catalogue-card__summary">
         <div
           aria-hidden="true"
-          className="za-title-tile za-catalogue-card__tile"
+          className="za-title-tile za-title-tile--halftone za-catalogue-card__tile"
         >
           {titleInitials}
         </div>
         <div className="za-catalogue-card__details">
-          <h2 className="text-[length:var(--za-text-heading-md)] leading-[var(--za-leading-compact)] font-semibold">
-            {title}
-          </h2>
-          <div className="space-y-1 text-sm text-ink-muted">
+          <h2 className="za-card-title">{title}</h2>
+          <div className="za-card-metadata space-y-1 text-sm text-ink-muted">
             <p>{formatAnimeReleaseYear(item.releaseYear)}</p>
             {episodeTotal !== null ? <p>{episodeTotal}</p> : null}
             <p>{formatAnimeReleaseStatus(item.releaseStatus)}</p>
           </div>
           {item.maturity === 'adult' ? (
-            <p className="text-sm font-medium text-ink-muted">Adult content</p>
+            <p className="za-card-metadata text-sm font-medium text-ink-muted">
+              Adult content
+            </p>
           ) : null}
         </div>
       </div>

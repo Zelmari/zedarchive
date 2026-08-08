@@ -32,7 +32,10 @@ export async function SiteHeader() {
           className="za-wordmark za-link za-site-header__brand"
           href="/"
         >
-          {productName}
+          <span aria-hidden="true" className="za-wordmark__monogram">
+            z
+          </span>
+          <span>{productName}</span>
         </CurrentPageLink>
         {signedInUsername ? (
           <nav aria-label="Primary" className="za-site-header__nav">

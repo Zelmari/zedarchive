@@ -191,9 +191,9 @@ describe('account deletion recovery presentation', () => {
     )
 
     expect(markup).toContain(
-      '<h1 class="text-2xl font-semibold">Recovery period ended</h1>',
+      '<h2 class="text-xl font-semibold">Recovery period ended</h2>',
     )
-    expect(markup.match(/<h1\b/gu)).toHaveLength(1)
+    expect(markup).not.toContain('<h1')
     expect(markup).toContain('role="alert"')
     expect(markup).toContain('za-notice--error')
     expect(markup).toContain('awaiting permanent deletion')
@@ -242,8 +242,8 @@ describe('account deletion recovery presentation', () => {
   it('renders due state without a cancellation control or purge promise', () => {
     const markup = renderToStaticMarkup(createElement(DueAccountDeletion))
 
-    expect(markup).toContain('>Recovery period ended</h1>')
-    expect(markup.match(/<h1\b/gu)).toHaveLength(1)
+    expect(markup).toContain('>Recovery period ended</h2>')
+    expect(markup).not.toContain('<h1')
     expect(markup).toContain('awaiting permanent deletion')
     expect(markup).not.toContain('Cancel account deletion')
     expect(markup).not.toMatch(/\b(?:today|hour|minute)\b/iu)

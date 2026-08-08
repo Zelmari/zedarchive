@@ -17,6 +17,7 @@ describe('CatalogueError', () => {
     expect(markup).toContain('id="main-content"')
     expect(markup).toContain('za-container--wide')
     expect(markup).toContain('za-notice--error')
+    expect(markup).toContain('Archive notice')
     expect(markup).toContain('The anime catalogue is temporarily unavailable')
     expect(markup).toContain('Try again in a moment.')
     expect(markup).toContain('za-button za-button--primary')

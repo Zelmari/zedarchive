@@ -33,11 +33,13 @@ export function AnimePrivateListMasthead({
   totalItems: number | null
 }) {
   return (
-    <header className="za-card za-card--raised space-y-2">
-      <h1 className="text-2xl font-semibold">Your anime archive</h1>
+    <header className="za-page-masthead za-card za-card--raised space-y-2">
+      <p className="za-eyebrow">Personal archive</p>
+      <h1 className="za-display-heading">Your anime archive.</h1>
       {totalItems !== null && totalItems > 0 ? (
-        <p className="text-sm text-ink-muted">
-          {formatAnimePrivateListSummary(totalItems)}
+        <p className="za-masthead__copy">
+          {totalItems} entries on the shelf. Rate them, nudge your progress, and
+          mark the ones you’ll defend at parties.
         </p>
       ) : null}
     </header>
@@ -68,9 +70,9 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
 
   if (entry.kind === 'restricted') {
     return (
-      <article className="za-card za-card--restricted">
+      <article className="za-card za-card--restricted za-press-card">
         <div className="space-y-2">
-          <h2 className="text-lg font-medium">Restricted anime</h2>
+          <h2 className="za-card-title">Restricted anime</h2>
           <p>{archiveStatus}</p>
           <p>Tracking controls aren’t available for restricted anime yet.</p>
         </div>
@@ -81,14 +83,17 @@ function AnimePrivateListCard({ entry }: { entry: AnimePrivateListEntry }) {
   const titleInitials = getAnimeCatalogueTitleInitials(entry.title)
   const episodeTotal = formatAnimeEpisodeTotal(entry.episodeCount)
   return (
-    <article className="za-archive-card za-card za-card--raised">
+    <article className="za-archive-card za-card za-card--raised za-press-card">
       <div className="za-archive-card__summary">
-        <div aria-hidden="true" className="za-archive-card__tile za-title-tile">
+        <div
+          aria-hidden="true"
+          className="za-archive-card__tile za-title-tile za-title-tile--halftone"
+        >
           {titleInitials}
         </div>
         <div className="za-archive-card__details">
-          <h2 className="text-lg font-medium">{entry.title}</h2>
-          <div className="space-y-1 text-sm text-ink-muted">
+          <h2 className="za-card-title">{entry.title}</h2>
+          <div className="za-card-metadata space-y-1 text-sm text-ink-muted">
             {entry.isAdult ? <p>Adult content</p> : null}
             <p>{formatAnimeReleaseYear(entry.releaseYear)}</p>
             {episodeTotal === null ? null : <p>{episodeTotal}</p>}
@@ -129,7 +134,7 @@ function AnimePrivateListPagination({
   return (
     <nav
       aria-label="Anime archive pagination"
-      className="za-card za-card--raised flex flex-wrap items-center gap-4 text-sm"
+      className="za-card za-card--raised za-pagination flex flex-wrap items-center gap-4 text-sm"
     >
       {page.hasPreviousPage ? (
         <Link
@@ -223,9 +228,9 @@ function AnimePrivateListResultsContent({
 
   if (pagination.totalItems === 0) {
     return (
-      <section className="za-card za-card--raised space-y-2">
-        <h2 className="text-xl font-semibold">Your anime archive is empty</h2>
-        <p>Save anime from the catalogue to see it here.</p>
+      <section className="za-card za-card--raised za-empty-state space-y-2">
+        <h2 className="za-card-title">Your anime archive is empty</h2>
+        <p>Your shelf is waiting. Add anime from the catalogue to begin.</p>
         <Link className={linkClassName} href="/">
           Browse anime catalogue
         </Link>
@@ -235,10 +240,8 @@ function AnimePrivateListResultsContent({
 
   if (entries.length === 0) {
     return (
-      <section className="za-card za-card--raised space-y-4">
-        <h2 className="text-xl font-semibold">
-          There are no anime on this page
-        </h2>
+      <section className="za-card za-card--raised za-empty-state space-y-4">
+        <h2 className="za-card-title">There are no anime on this page</h2>
         <p>Your archive has saved anime on another page.</p>
         <AnimePrivateListSortControl
           isEmbedded
@@ -280,7 +283,7 @@ function AnimePrivateListResultsContent({
           your sort preference cannot be saved on this device.
         </p>
       </noscript>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="za-card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry, index) => (
           <li key={getAnimePrivateListEntryKey(entry, index)}>
             <AnimePrivateListCard entry={entry} />

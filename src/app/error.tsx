@@ -15,7 +15,8 @@ export default function CatalogueError({
       className="za-container za-container--wide space-y-6 py-6 sm:py-8"
     >
       <section className="za-notice za-notice--error space-y-4">
-        <h1 className="text-[length:var(--za-text-heading-xl)] leading-[var(--za-leading-compact)] font-semibold">
+        <p className="za-page-eyebrow">Archive notice</p>
+        <h1 className="za-page-heading">
           The anime catalogue is temporarily unavailable
         </h1>
         <p>Try again in a moment.</p>

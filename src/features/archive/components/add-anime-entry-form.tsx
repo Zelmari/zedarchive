@@ -162,7 +162,10 @@ export function AddAnimeEntryForm({
         >
           <input name="catalogueItemId" type="hidden" value={catalogueItemId} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium" htmlFor={statusId}>
+            <label
+              className="za-field-label text-sm font-medium"
+              htmlFor={statusId}
+            >
               Status
             </label>
             <select

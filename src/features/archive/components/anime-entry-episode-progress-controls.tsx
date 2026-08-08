@@ -489,7 +489,7 @@ export function AnimeEntryEpisodeProgressControls({
         }}
       >
         <label>
-          Personal episode total
+          <span className="za-field-label">Personal episode total</span>
           <input
             aria-describedby={fieldError ? feedbackId : undefined}
             aria-invalid={fieldError ? true : undefined}
@@ -583,7 +583,7 @@ export function AnimeEntryEpisodeProgressControls({
         }}
       >
         <label>
-          Episodes watched
+          <span className="za-field-label">Episodes watched</span>
           <input
             aria-describedby={fieldError ? feedbackId : undefined}
             aria-invalid={fieldError ? true : undefined}

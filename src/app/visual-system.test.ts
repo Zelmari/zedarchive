@@ -1,9 +1,28 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const globalsPath = fileURLToPath(new URL('./globals.css', import.meta.url))
 const iconPath = fileURLToPath(new URL('./icon.svg', import.meta.url))
+const layoutPath = fileURLToPath(new URL('./layout.tsx', import.meta.url))
+const fontsReadmePath = fileURLToPath(
+  new URL('./fonts/README.md', import.meta.url),
+)
+const fontAssets = [
+  {
+    filename: 'instrument-serif-regular.woff2',
+    sha256: 'ca21b99b0d6b88a0dc34cebfe48104611e5c7f8f92746bed26c37aa470174322',
+  },
+  {
+    filename: 'ibm-plex-mono-regular-latin1.woff2',
+    sha256: 'e8993d946649b9d01abb1ed06d574b19d8ea3e66b5c3948602db335c44c18e56',
+  },
+  {
+    filename: 'ibm-plex-mono-medium-latin1.woff2',
+    sha256: '41201b658a328b9d00368215c2f1102770f80b15952ab82631e4006255e6365d',
+  },
+] as const
 
 const requiredColors = {
   canvas: '#f7f5f0',
@@ -247,15 +266,13 @@ describe('visual system contract', () => {
     expect(css).not.toMatch(/--color-(?:gray|red|green|amber)-/)
   })
 
-  it('keeps modal and raised-paper elevation as distinct static recipes', async () => {
+  it('uses static three-pixel press shadows for paper and modal surfaces', async () => {
     const css = await readFile(globalsPath, 'utf8')
 
     expect(css).toContain(
-      '--za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);',
+      '--za-shadow-layered: 3px 3px 0 var(--za-color-text);',
     )
-    expect(css).toMatch(
-      /--za-shadow-raised:\s*0 1px 2px rgb\(36 35 33 \/ 8%\),\s*0 6px 16px rgb\(36 35 33 \/ 6%\);/,
-    )
+    expect(css).toContain('--za-shadow-raised: 3px 3px 0 var(--za-color-text);')
     expect(css).toMatch(
       /\.za-card--raised\s*\{\s*box-shadow: var\(--za-shadow-raised\);\s*\}/,
     )
@@ -315,13 +332,23 @@ describe('visual system contract', () => {
     )
   })
 
-  it('sets the one-light-theme, typography, rhythm, focus, and motion foundation', async () => {
+  it('sets the one-light-theme, local editorial typography, rhythm, focus, and motion foundation', async () => {
     const css = await readFile(globalsPath, 'utf8')
+    const layout = await readFile(layoutPath, 'utf8')
 
     expect(css).toContain('color-scheme: light;')
     expect(css).not.toContain('color-scheme: dark')
     expect(css).toMatch(/--za-font-sans:\s*ui-sans-serif, system-ui/)
+    expect(css).toContain(
+      '--za-font-display: var(--font-instrument-serif), Georgia, serif;',
+    )
+    expect(css).toContain('--za-font-mono:')
     expect(css).not.toMatch(/@font-face|https?:\/\/|@import\s+url/i)
+    expect(layout).not.toMatch(/https?:\/\/|@import\s+url/i)
+    expect(layout).toContain("from 'next/font/local'")
+    expect(layout).toContain('./fonts/instrument-serif-regular.woff2')
+    expect(layout).toContain('./fonts/ibm-plex-mono-regular-latin1.woff2')
+    expect(layout).toContain('./fonts/ibm-plex-mono-medium-latin1.woff2')
     expect(css).toContain('--za-space-unit: 0.25rem;')
     expect(css).toContain('--za-space-2: 0.5rem;')
     expect(css).toContain('--za-space-4: 1rem;')
@@ -343,7 +370,89 @@ describe('visual system contract', () => {
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?transition-duration: var\(--za-motion-reduced\);[\s\S]*?animation-duration: var\(--za-motion-reduced\);/,
     )
     expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.za-link:hover,[\s\S]*?transform: none;/,
+    )
+    expect(css).toMatch(
       /\.za-site-header\s*\{[\s\S]*?background: var\(--za-color-surface\);/,
+    )
+  })
+
+  it('keeps audited local font assets, licences, and immutable upstream provenance', async () => {
+    const provenance = await readFile(fontsReadmePath, 'utf8')
+
+    for (const { filename, sha256 } of fontAssets) {
+      const bytes = await readFile(
+        fileURLToPath(new URL(`./fonts/${filename}`, import.meta.url)),
+      )
+
+      expect(bytes.byteLength).toBeGreaterThan(0)
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha256)
+      expect(provenance).toContain(filename)
+      expect(provenance).toContain(sha256)
+    }
+
+    for (const notice of [
+      './fonts/licenses/instrument-serif-OFL.txt',
+      './fonts/licenses/ibm-plex-OFL.txt',
+    ]) {
+      expect(
+        (
+          await readFile(
+            fileURLToPath(new URL(notice, import.meta.url)),
+            'utf8',
+          )
+        ).trim(),
+      ).not.toHaveLength(0)
+    }
+
+    expect(provenance).toContain(
+      'https://github.com/Instrument/instrument-serif',
+    )
+    expect(provenance).toContain('65c0ef225f386a3c7e87570a4aa9cc0262c2fd81')
+    expect(provenance).toContain('https://github.com/IBM/plex')
+    expect(provenance).toContain('bf260093582f04622aacc1e9f9ca604d7ccd0c42')
+    expect(provenance).toContain('SIL Open Font License 1.1')
+  })
+
+  it('provides the shared editorial recipes without turning cards into controls', async () => {
+    const css = await readFile(globalsPath, 'utf8')
+
+    for (const recipe of [
+      '.za-page-masthead',
+      '.za-eyebrow',
+      '.za-display-heading',
+      '.za-masthead__copy',
+      '.za-catalogue-search',
+      '.za-results-summary',
+      '.za-card-grid',
+      '.za-card-title',
+      '.za-card-metadata',
+      '.za-pagination',
+      '.za-auth-sheet',
+      '.za-page-eyebrow',
+      '.za-page-heading',
+      '.za-page-lede',
+      '.za-settings-section',
+      '.za-press-card',
+      '.za-empty-state',
+      '.za-page-rhythm',
+      '.za-page-header',
+      '.za-title-tile--halftone',
+    ]) {
+      expect(css).toContain(recipe)
+    }
+
+    expect(css).toMatch(
+      /\.za-button:hover\s*\{[\s\S]*?transform: translate\(-1px, -1px\);/,
+    )
+    expect(css).not.toMatch(
+      /\.za-card[^}]*:(?:hover|active)[^{]*\{[\s\S]*?transform:/,
+    )
+    expect(css).toMatch(
+      /\.za-button:disabled,[\s\S]*?box-shadow: none;[\s\S]*?transform: none;/,
+    )
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.za-link:hover,[\s\S]*?transform: none;[\s\S]*?\.za-button:not\(:disabled\):hover,[\s\S]*?box-shadow: 3px 3px 0 var\(--za-color-text\);/,
     )
   })
 

@@ -12,10 +12,11 @@ export default function AnimeArchiveError({
     <main
       id="main-content"
       tabIndex={-1}
-      className="za-container za-container--wide py-6 sm:py-8"
+      className="za-container za-container--wide za-page-rhythm py-6 sm:py-8"
     >
-      <section className="za-notice za-notice--error space-y-4">
-        <h1 className="text-2xl font-semibold">
+      <section className="za-notice za-notice--error za-archive-notice space-y-4">
+        <p className="za-eyebrow">Archive notice</p>
+        <h1 className="za-display-heading">
           Your anime archive is temporarily unavailable
         </h1>
         <p>Try again in a moment.</p>

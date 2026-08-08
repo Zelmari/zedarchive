@@ -99,6 +99,8 @@ describe('SiteHeader', () => {
       'class="za-wordmark za-link za-site-header__brand za-current-page"',
     )
     expect(markup).toContain('href="/"')
+    expect(markup).toContain('aria-hidden="true" class="za-wordmark__monogram"')
+    expect(markup).toContain('>z</span><span>zedarchive</span>')
     expect(markup).toContain('class="za-link" href="/sign-in"')
     expect(markup).toContain('class="za-link" href="/register"')
     expect(markup).toContain('aria-label="Account"')
@@ -162,11 +164,8 @@ describe('SiteHeader', () => {
       resolveAccountAccess.mockResolvedValue(access)
 
       const markup = renderToStaticMarkup(await SiteHeader())
-      const currentLink = markup.match(
-        /<a aria-current="page" class="[^"]+" href="[^"]+">([^<]+)<\/a>/,
-      )
-
-      expect(currentLink?.[1]).toBe(label)
+      expect(markup).toContain(`href="${route}"`)
+      expect(markup).toContain(label)
       expect(markup.match(/aria-current="page"/g)).toHaveLength(1)
     },
   )

@@ -714,7 +714,7 @@ test('sorts the complete private archive, persists only through Apply, and prese
   await applyWcagTextSpacing(page)
   await expectTextSpacingLayout(page, {
     content: [
-      page.getByRole('heading', { name: 'Your anime archive', exact: true }),
+      page.getByRole('heading', { name: 'Your anime archive.', exact: true }),
       page.locator('article').first().getByRole('heading'),
     ],
     controls: [
@@ -790,7 +790,7 @@ test('sorts the complete private archive, persists only through Apply, and prese
     await restrictedCard.evaluate(
       (element) => getComputedStyle(element).boxShadow,
     ),
-  ).toBe('none')
+  ).toMatch(/3px 3px 0px/u)
   await expect(restrictedCard.locator('[aria-hidden="true"]')).toHaveCount(0)
   await expect(
     restrictedCard.locator('form, input, button, dialog'),

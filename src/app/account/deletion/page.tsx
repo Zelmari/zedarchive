@@ -28,10 +28,11 @@ export default async function AccountDeletionPage() {
       tabIndex={-1}
       className="za-container za-container--medium py-6 sm:py-8"
     >
-      <section className="za-card za-card--raised space-y-6">
-        {access.status === 'signed_out' || access.status === 'unavailable' ? (
-          <h1 className="text-2xl font-semibold">Account deletion</h1>
-        ) : null}
+      <section className="za-card za-card--raised za-settings-section space-y-6">
+        <header className="za-page-header space-y-2">
+          <p className="za-page-eyebrow">Account record</p>
+          <h1 className="za-page-heading">Account deletion.</h1>
+        </header>
         {access.status === 'signed_out' ? (
           <div className="space-y-4">
             <p>Sign in to view or cancel an account deletion request.</p>

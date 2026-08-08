@@ -82,9 +82,14 @@ describe('SettingsPage', () => {
     expect(markup).toContain('href="/api/account/archive-backup"')
     expect(markup).toContain('Download archive backup (JSON)')
     expect(markup).toContain('za-container za-container--medium')
-    expect(markup).toContain('za-card za-card--raised space-y-6')
+    expect(markup).toContain('za-page-eyebrow">Archive desk</p>')
+    expect(markup).toContain('za-page-heading">Settings.</h1>')
+    expect(markup).toContain('Tune how your catalogue and account work.')
     expect(markup).toContain(
-      'za-card za-card--raised space-y-4 border-destructive',
+      'za-card za-card--raised za-settings-section space-y-6',
+    )
+    expect(markup).toContain(
+      'za-card za-card--raised za-settings-section space-y-4 border-destructive',
     )
     expect(markup).toContain('za-button za-button--secondary')
   })

@@ -49,7 +49,9 @@ test('renders the public sign-in page from the production server', async ({
 
   await page.goto('/sign-in')
 
-  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Welcome back.', exact: true }),
+  ).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
   await expect(
     page.getByRole('button', { name: 'Sign in', exact: true }),
@@ -80,7 +82,9 @@ for (const viewport of [
     await page.setViewportSize(viewport)
     await page.goto('/sign-in')
 
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Welcome back.', exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Sign in', exact: true }),
@@ -92,13 +96,13 @@ for (const viewport of [
 }
 
 for (const route of [
-  { path: '/sign-in', heading: 'Sign in' },
-  { path: '/register', heading: 'Register' },
-  { path: '/register/check-email', heading: 'Check your email' },
-  { path: '/verify-email', heading: 'Verify email' },
-  { path: '/forgot-password', heading: 'Forgot password' },
-  { path: '/forgot-password/sent', heading: 'Check your email' },
-  { path: '/reset-password', heading: 'Reset password' },
+  { path: '/sign-in', heading: 'Welcome back.' },
+  { path: '/register', heading: 'Make the shelves yours.' },
+  { path: '/register/check-email', heading: 'Check your email.' },
+  { path: '/verify-email', heading: 'Verify your email.' },
+  { path: '/forgot-password', heading: 'Find your way back.' },
+  { path: '/forgot-password/sent', heading: 'Check your email.' },
+  { path: '/reset-password', heading: 'Choose a new key.' },
 ]) {
   test(`renders ${route.path} as a narrow raised authentication sheet`, async ({
     page,
@@ -157,7 +161,9 @@ test('keeps public authentication usable with enlarged text and WCAG text spacin
 
   await applyWcagTextSpacing(page)
   await expectTextSpacingLayout(page, {
-    content: [page.getByRole('heading', { name: 'Sign in' })],
+    content: [
+      page.getByRole('heading', { name: 'Welcome back.', exact: true }),
+    ],
     controls: [
       page.getByRole('textbox', { name: 'Email' }),
       page.getByRole('button', { name: 'Sign in', exact: true }),

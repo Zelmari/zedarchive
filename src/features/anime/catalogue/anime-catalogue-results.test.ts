@@ -144,10 +144,12 @@ describe('AnimeCatalogueResults presentation', () => {
     )
 
     expect(markup).toContain('>1 anime</p>')
+    expect(markup).toContain('za-results-summary')
     expect(markup).toContain('za-notice za-notice--information')
     expect(markup).toContain('href="/sign-in"')
     expect(markup).toContain('Sign in</a> to add anime to your archive.')
     expect(markup).toContain('grid-cols-1')
+    expect(markup).toContain('za-card-grid')
     expect(markup).toContain('sm:grid-cols-2')
     expect(markup).toContain('lg:grid-cols-3')
     expect(markup).toContain('gap-6')

@@ -175,7 +175,10 @@ export function AnimeEntryDateRangeForm({
           value={state.authoritativeFinishDate ?? entryDateNoneSentinel}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={startDateId}>
+          <label
+            className="za-field-label text-sm font-medium"
+            htmlFor={startDateId}
+          >
             Start date
           </label>
           <input
@@ -200,7 +203,10 @@ export function AnimeEntryDateRangeForm({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={finishDateId}>
+          <label
+            className="za-field-label text-sm font-medium"
+            htmlFor={finishDateId}
+          >
             Finish date
           </label>
           <input

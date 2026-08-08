@@ -110,6 +110,8 @@ describe('AnimeCatalogueEmptyStateView', () => {
         /class="[^"]*\bza-card\b[^"]*\bza-card--raised\b[^"]*"/,
       )
       expect(markup).toContain(`<h2`)
+      expect(markup).toContain('za-empty-state')
+      expect(markup).toContain('za-card-title')
       expect(markup).toContain(`>${heading}</h2>`)
       expect(markup).toContain(copy)
     },

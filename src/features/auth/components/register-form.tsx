@@ -375,7 +375,10 @@ export function RegisterForm() {
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor={usernameId}>
+        <label
+          className="za-field-label text-sm font-medium"
+          htmlFor={usernameId}
+        >
           Username
         </label>
         <input
@@ -440,7 +443,7 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor={emailId}>
+        <label className="za-field-label text-sm font-medium" htmlFor={emailId}>
           Email
         </label>
         <input

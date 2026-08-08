@@ -12,8 +12,9 @@ export default function SettingsError({ unstable_retry }: SettingsErrorProps) {
       tabIndex={-1}
       className="za-container za-container--medium py-6 sm:py-8"
     >
-      <section className="za-card za-card--raised space-y-4">
-        <h1 className="text-2xl font-semibold">
+      <section className="za-card za-card--raised za-settings-section space-y-4">
+        <p className="za-page-eyebrow">Archive notice</p>
+        <h1 className="za-page-heading">
           Settings are temporarily unavailable
         </h1>
         <p>Try again in a moment.</p>

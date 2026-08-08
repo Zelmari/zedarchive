@@ -160,7 +160,10 @@ function StartUsernameChangeForm({
         days.
       </p>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor={usernameId}>
+        <label
+          className="za-field-label text-sm font-medium"
+          htmlFor={usernameId}
+        >
           New username
         </label>
         <input
@@ -183,7 +186,10 @@ function StartUsernameChangeForm({
         </p>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor={passwordId}>
+        <label
+          className="za-field-label text-sm font-medium"
+          htmlFor={passwordId}
+        >
           Current password
         </label>
         <input
@@ -291,7 +297,10 @@ function CompletionUsernameChangeForm({
         }}
       >
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={codeId}>
+          <label
+            className="za-field-label text-sm font-medium"
+            htmlFor={codeId}
+          >
             Verification code
           </label>
           <input

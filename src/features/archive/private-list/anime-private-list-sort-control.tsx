@@ -202,7 +202,10 @@ export function AnimePrivateListSortControl({
       onSubmit={handleSubmit}
     >
       <div className="flex min-w-0 basis-48 flex-1 flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor={selectId}>
+        <label
+          className="za-field-label text-sm font-medium"
+          htmlFor={selectId}
+        >
           Sort by
         </label>
         <select

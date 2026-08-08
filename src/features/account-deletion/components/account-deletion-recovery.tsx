@@ -82,7 +82,7 @@ export function RecoverableAccountDeletion({
   if (state.kind === 'deletion_cancelled') {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Account deletion requested</h1>
+        <h2 className="text-xl font-semibold">Account deletion requested</h2>
         <p
           className="za-notice za-notice--success"
           ref={feedbackRef}
@@ -102,7 +102,7 @@ export function RecoverableAccountDeletion({
   if (state.kind === 'deletion_due') {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Recovery period ended</h1>
+        <h2 className="text-xl font-semibold">Recovery period ended</h2>
         <p
           className="za-notice za-notice--error text-sm"
           ref={feedbackRef}
@@ -122,7 +122,7 @@ export function RecoverableAccountDeletion({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Account deletion requested</h1>
+      <h2 className="text-xl font-semibold">Account deletion requested</h2>
       <p className="za-notice za-notice--warning">
         Your account is restricted. Normal account features are unavailable.
       </p>
@@ -167,9 +167,9 @@ export function RecoverableAccountDeletion({
 export function DueAccountDeletion() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-destructive">
+      <h2 className="text-xl font-semibold text-destructive">
         Recovery period ended
-      </h1>
+      </h2>
       <p className="za-notice za-notice--error" role="alert">
         The recovery period for this account has ended. Account recovery and
         cancellation are no longer available.

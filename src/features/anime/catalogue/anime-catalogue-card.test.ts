@@ -93,7 +93,10 @@ describe('AnimeCatalogueCard archive state', () => {
     expect(markup).toContain(`add:${item.id}:Furi Kuri`)
     expect(markup).toContain('aria-hidden="true"')
     expect(markup).toContain('za-title-tile')
+    expect(markup).toContain('za-title-tile--halftone')
     expect(markup).toContain('za-catalogue-card__tile')
+    expect(markup).toContain('za-card-title')
+    expect(markup).toContain('za-card-metadata')
     expect(markup).not.toContain('<a ')
   })
 

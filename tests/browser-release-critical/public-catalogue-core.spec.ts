@@ -69,7 +69,10 @@ test('public catalogue core', async ({ page }) => {
     )
     await assertImageOptimizerIsUnreachable(page)
     await expect(
-      page.getByRole('heading', { name: 'Anime catalogue', exact: true }),
+      page.getByRole('heading', {
+        name: 'Every anime you’ve ever loved, filed in ink.',
+        exact: true,
+      }),
     ).toBeVisible()
     await expect(page.getByText(/^\d+ anime$/u)).toBeVisible()
     await expect(cardForTitle(page, fixture.catalogueTitle)).toBeVisible()

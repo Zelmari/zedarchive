@@ -62,7 +62,13 @@ export default async function SettingsPage() {
       tabIndex={-1}
       className="za-container za-container--medium space-y-8 py-6 sm:py-8"
     >
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <header className="za-page-header space-y-2">
+        <p className="za-page-eyebrow">Archive desk</p>
+        <h1 className="za-page-heading">Settings.</h1>
+        <p className="za-page-lede">
+          Tune how your catalogue and account work.
+        </p>
+      </header>
       {model.kind === 'signed_out' ? (
         <p className="za-card za-card--raised">
           <a className="za-link" href="/sign-in">
@@ -81,7 +87,7 @@ export default async function SettingsPage() {
         <>
           <section
             aria-labelledby="catalogue-preferences-heading"
-            className="za-card za-card--raised space-y-6"
+            className="za-card za-card--raised za-settings-section space-y-6"
           >
             <h2
               className="text-xl font-semibold"
@@ -97,7 +103,7 @@ export default async function SettingsPage() {
             </h2>
             <section
               aria-labelledby="username-heading"
-              className="za-card za-card--raised space-y-4"
+              className="za-card za-card--raised za-settings-section space-y-4"
             >
               <h3 className="font-semibold" id="username-heading">
                 Username
@@ -106,7 +112,7 @@ export default async function SettingsPage() {
             </section>
             <section
               aria-labelledby="archive-data-heading"
-              className="za-card za-card--raised space-y-4"
+              className="za-card za-card--raised za-settings-section space-y-4"
             >
               <h3 className="font-semibold" id="archive-data-heading">
                 Archive data
@@ -130,7 +136,7 @@ export default async function SettingsPage() {
             </section>
             <section
               aria-labelledby="delete-account-heading"
-              className="za-card za-card--raised space-y-4 border-destructive"
+              className="za-card za-card--raised za-settings-section space-y-4 border-destructive"
             >
               <h3
                 className="font-semibold text-destructive"

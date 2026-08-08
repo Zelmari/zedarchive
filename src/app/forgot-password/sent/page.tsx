@@ -14,9 +14,10 @@ export default function ForgotPasswordSentPage() {
       tabIndex={-1}
       className="za-container za-container--narrow py-6 sm:py-8"
     >
-      <section className="za-card za-card--raised space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-semibold">Check your email</h1>
+      <section className="za-card za-card--raised za-auth-sheet space-y-6">
+        <header className="za-page-header space-y-2">
+          <p className="za-page-eyebrow">Archive post</p>
+          <h1 className="za-page-heading">Check your email.</h1>
           <p>
             If this address can be used, we will send a password reset link.
           </p>
