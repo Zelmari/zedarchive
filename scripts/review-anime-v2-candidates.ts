@@ -19,6 +19,8 @@ import {
   candidateAcquisitionSpecification,
   candidateAcquisitionOutcomeSchema,
   candidateAcquisitionSourceReceiptSchema,
+  candidateActiveCollisionAuditSchema,
+  candidatePrimaryAggregatePhaseSchema,
   candidateRecoveryCollisionAuditSchema,
   createCandidateActiveCollisionAudit,
   createCandidateRecoveryCollisionGeometry,
@@ -36,6 +38,7 @@ import {
   reduceCandidateEntitySafely,
   validateCandidateRecoveryCollisionAudit,
   type CandidateActiveCollisionAudit,
+  type CandidatePrimaryAggregatePhase,
   type CandidateRecoveryCollisionAudit,
   type CandidateAcquisitionOutcome,
   type CandidateManifest,
@@ -78,6 +81,14 @@ const expectedPredecessorReviewResultSha256 =
   '2e46cd45c652e8303fa63f756d2d9efbcb63c6bcd20fcd564ee43fa2d7fe267c' as const
 const expectedRetainedPredecessorIdentitySetSha256 =
   'b95511db075d5ff764beb4d273f9b1fad2ef2c418e70b9e624a8c775e71fa645' as const
+const expectedCorrectedActiveAuditSha256 =
+  'daceaeb3608f5d85f710f55f48a61d6a688631c316f3ef98a9a7b9c189fc0b5f' as const
+const expectedCorrectedActiveAuditFileSha256 =
+  'a29bb9bdabc6fafa775a006d6ced6e0c51235958d1585c7dce94fbb73f70bd26' as const
+const expectedCorrectedClosureSha256 =
+  '4f01cc7911ae9cbbebd626a3ee135d18b628bd7674049a9aa8af7482b676f824' as const
+const expectedCorrectedClosureFileSha256 =
+  '7b6042c1ba40148ee2fc8abd967b954fd2798d1af371f231b410c72a85737bde' as const
 
 export class CandidateReviewCommandError extends Error {
   constructor(message: string) {
@@ -139,6 +150,46 @@ function setCandidateReviewLockTerminalPhase(
   observer?: (phase: CandidateReviewLockTerminalPhase) => void,
 ): void {
   terminalLockPhase = phase
+  observer?.(phase)
+}
+
+export const candidateReviewFinalizeTerminalPhaseSchema = z.enum([
+  'recovery-clean',
+  'prepared-authority',
+  'predecessor-authority',
+  'canonical-locks',
+  'active-collision-audit',
+  'recovery-audit',
+  'round-scaffold',
+  'recovery-acceptance',
+  'authority-construction',
+  'aggregate-derivation',
+  'destination-vacancy',
+  'staging-create',
+  'authority-write',
+  'aggregate-write',
+  'safe-aggregate-write',
+  'atomic-publication',
+])
+type CandidateReviewFinalizeTerminalPhase = z.infer<
+  typeof candidateReviewFinalizeTerminalPhaseSchema
+>
+let terminalFinalizePhase: CandidateReviewFinalizeTerminalPhase | undefined
+let terminalAggregatePhase: CandidatePrimaryAggregatePhase | undefined
+
+function setCandidateReviewFinalizeTerminalPhase(
+  phase: CandidateReviewFinalizeTerminalPhase,
+  observer?: (phase: CandidateReviewFinalizeTerminalPhase) => void,
+): void {
+  terminalFinalizePhase = phase
+  observer?.(phase)
+}
+
+function setCandidatePrimaryAggregatePhase(
+  phase: CandidatePrimaryAggregatePhase,
+  observer?: (phase: CandidatePrimaryAggregatePhase) => void,
+): void {
+  terminalAggregatePhase = phase
   observer?.(phase)
 }
 
@@ -267,6 +318,36 @@ const roundVerdictSchema = verdictSchema.extend({
   candidateReviewRoundSha256: shaSchema,
 })
 
+export const correctedCandidateClosureSchema = z.strictObject({
+  schema: z.literal('zedarchive.anime-v2-frozen-format-year-closure-audit.v1'),
+  version: z.literal(1),
+  candidateReceiptSha256: shaSchema,
+  receiptFileSha256: shaSchema,
+  acquisitionSha256: shaSchema,
+  acquisitionFileSha256: shaSchema,
+  predecessorReviewResultSha256: shaSchema,
+  recoveryAuditSha256: shaSchema,
+  activeAuditSha256: shaSchema,
+  activeAuditFileSha256: shaSchema,
+  records: z.number().int().nonnegative(),
+  manifests: z.number().int().nonnegative(),
+  locks: z.number().int().nonnegative(),
+  approved: z.number().int().nonnegative(),
+  rejected: z.number().int().nonnegative(),
+  mismatches: z.number().int().nonnegative(),
+  formatMismatches: z.number().int().nonnegative(),
+  yearMismatches: z.number().int().nonnegative(),
+  combinedMismatches: z.number().int().nonnegative(),
+  closureSha256: shaSchema,
+})
+type CorrectedCandidateClosure = z.infer<typeof correctedCandidateClosureSchema>
+
+function correctedCandidateClosureCore(closure: CorrectedCandidateClosure) {
+  const { closureSha256: _closureSha256, ...core } = closure
+  void _closureSha256
+  return core
+}
+
 function canonicalHash(value: unknown): string {
   return discoverySha256(value)
 }
@@ -345,6 +426,12 @@ function activeAuditStagingPath(directory = outputDirectory) {
     '.active-collision-audit.v1.staging.json',
   )
 }
+function correctedClosurePath(directory = outputDirectory) {
+  return join(directory, 'frozen-format-year-closure-audit.v1.json')
+}
+function correctedClosureStagingPath(directory = outputDirectory) {
+  return join(directory, '.frozen-format-year-closure-audit.v1.staging.json')
+}
 function recoveryJournalPath(directory = outputDirectory) {
   return join(directory, '.decision-068-recovery-journal.json')
 }
@@ -401,7 +488,9 @@ export function createCandidateTerminalDiagnostic(
     authoritySha256?: string
     recoveryAuditSha256?: string
     promotionPlanSha256?: string
-    phase?: CandidateReviewLockTerminalPhase
+    phase?:
+      CandidateReviewLockTerminalPhase | CandidateReviewFinalizeTerminalPhase
+    aggregatePhase?: CandidatePrimaryAggregatePhase
     requestEvidence?: ReturnType<
       SequentialCandidateRequester['sourceEvidence']
     >['requestEvidence']
@@ -411,13 +500,61 @@ export function createCandidateTerminalDiagnostic(
   const phase =
     input.phase === undefined
       ? {}
-      : { phase: candidateReviewLockTerminalPhaseSchema.parse(input.phase) }
+      : parseCandidateReviewTerminalPhase(input.stage, input.phase)
+  const aggregatePhase =
+    input.aggregatePhase === undefined
+      ? {}
+      : parseCandidateReviewTerminalAggregatePhase(
+          input.stage,
+          input.phase,
+          input.aggregatePhase,
+        )
   return {
     schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
     version: 2,
     ...input,
     ...phase,
+    ...aggregatePhase,
   }
+}
+
+function parseCandidateReviewTerminalAggregatePhase(
+  stage: Parameters<typeof createCandidateTerminalDiagnostic>[0]['stage'],
+  phase:
+    | CandidateReviewLockTerminalPhase
+    | CandidateReviewFinalizeTerminalPhase
+    | undefined,
+  aggregatePhase: CandidatePrimaryAggregatePhase,
+) {
+  if (stage !== 'finalize' || phase !== 'aggregate-derivation')
+    throw new CandidateReviewCommandError(
+      'Aggregate phase is accepted only for finalize aggregate derivation.',
+    )
+  return {
+    aggregatePhase: candidatePrimaryAggregatePhaseSchema.parse(aggregatePhase),
+  }
+}
+
+function parseCandidateReviewTerminalPhase(
+  stage:
+    | 'check'
+    | 'acquisition'
+    | 'atomic-publication'
+    | 'complete'
+    | 'lock'
+    | 'audit'
+    | 'recovery'
+    | 'finalize',
+  phase:
+    CandidateReviewLockTerminalPhase | CandidateReviewFinalizeTerminalPhase,
+) {
+  if (stage === 'lock')
+    return { phase: candidateReviewLockTerminalPhaseSchema.parse(phase) }
+  if (stage === 'finalize')
+    return { phase: candidateReviewFinalizeTerminalPhaseSchema.parse(phase) }
+  throw new CandidateReviewCommandError(
+    'Terminal phase is only accepted for lock and finalize stages.',
+  )
 }
 
 function writeCandidateTerminalDiagnostic(
@@ -2426,6 +2563,117 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+type CorrectedFinalizationExpectation = Readonly<{
+  activeAuditSha256: string
+  activeAuditFileSha256: string
+  closureSha256: string
+  closureFileSha256: string
+  candidateReceiptSha256: string
+  predecessorReviewResultSha256: string
+  records: number
+  manifests: number
+  locks: number
+  approved: number
+  rejected: number
+  collisions: number
+  revalidated: number
+  fresh: number
+}>
+
+const liveCorrectedFinalizationExpectation: CorrectedFinalizationExpectation = {
+  activeAuditSha256: expectedCorrectedActiveAuditSha256,
+  activeAuditFileSha256: expectedCorrectedActiveAuditFileSha256,
+  closureSha256: expectedCorrectedClosureSha256,
+  closureFileSha256: expectedCorrectedClosureFileSha256,
+  candidateReceiptSha256: expectedReceiptSha256,
+  predecessorReviewResultSha256: expectedPredecessorReviewResultSha256,
+  records: 7_958,
+  manifests: 160,
+  locks: 160,
+  approved: 6_444,
+  rejected: 1_514,
+  collisions: 499,
+  revalidated: 41,
+  fresh: 119,
+}
+
+async function assertCorrectedCandidateFinalizationPreflightInternal(
+  directory: string,
+  expected: CorrectedFinalizationExpectation,
+): Promise<void> {
+  const [closureText, activeAuditText] = await Promise.all([
+    optionalText(correctedClosurePath(directory)),
+    optionalText(activeAuditPath(directory)),
+  ])
+  if (closureText === undefined || activeAuditText === undefined)
+    throw safeError('finalize', 'corrected-authority')
+  let closure: CorrectedCandidateClosure
+  let activeAudit: CandidateActiveCollisionAudit
+  try {
+    closure = correctedCandidateClosureSchema.parse(JSON.parse(closureText))
+    activeAudit = candidateActiveCollisionAuditSchema.parse(
+      JSON.parse(activeAuditText),
+    )
+  } catch {
+    throw safeError('finalize', 'corrected-authority')
+  }
+  if (
+    byteSha256(closureText) !== expected.closureFileSha256 ||
+    closure.closureSha256 !== expected.closureSha256 ||
+    byteSha256(JSON.stringify(correctedCandidateClosureCore(closure))) !==
+      expected.closureSha256 ||
+    closure.candidateReceiptSha256 !== expected.candidateReceiptSha256 ||
+    closure.predecessorReviewResultSha256 !==
+      expected.predecessorReviewResultSha256 ||
+    closure.activeAuditSha256 !== expected.activeAuditSha256 ||
+    closure.activeAuditFileSha256 !== expected.activeAuditFileSha256 ||
+    closure.records !== expected.records ||
+    closure.manifests !== expected.manifests ||
+    closure.locks !== expected.locks ||
+    closure.approved !== expected.approved ||
+    closure.rejected !== expected.rejected ||
+    closure.mismatches !== 0 ||
+    closure.formatMismatches !== 0 ||
+    closure.yearMismatches !== 0 ||
+    closure.combinedMismatches !== 0 ||
+    byteSha256(activeAuditText) !== expected.activeAuditFileSha256 ||
+    activeAudit.auditSha256 !== expected.activeAuditSha256 ||
+    activeAudit.candidateReceiptSha256 !== expected.candidateReceiptSha256 ||
+    activeAudit.predecessorReviewResultSha256 !==
+      expected.predecessorReviewResultSha256 ||
+    activeAudit.records !== expected.records ||
+    activeAudit.manifests.length !== expected.manifests ||
+    activeAudit.collisionCount !== expected.collisions ||
+    activeAudit.correctlyRejectedCollisionCount !== expected.collisions ||
+    activeAudit.violationCount !== 0 ||
+    activeAudit.revalidatedLockCount !== expected.revalidated ||
+    activeAudit.freshLockCount !== expected.fresh
+  )
+    throw safeError('finalize', 'corrected-authority')
+  if (
+    (await optionalText(activeAuditStagingPath(directory))) !== undefined ||
+    (await optionalText(correctedClosureStagingPath(directory))) !==
+      undefined ||
+    (await pathExists(join(directory, '.finalize-staging'))) ||
+    (await pathExists(finalizedDirectory(directory)))
+  )
+    throw safeError('finalize', 'corrected-custody')
+}
+
+export async function assertCorrectedCandidateFinalizationPreflightForFixture(
+  directory: string,
+  expected: CorrectedFinalizationExpectation,
+): Promise<void> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new CandidateReviewCommandError(
+      'Fixture corrected finalization preflight is unavailable to live tooling.',
+    )
+  return assertCorrectedCandidateFinalizationPreflightInternal(
+    directory,
+    expected,
+  )
+}
+
 async function assertRecoveryClean(
   directory: string,
   stage: string,
@@ -3856,12 +4104,21 @@ async function finalizeCandidateReviewInternal(
   directory = outputDirectory,
   fixtureReceipt?: Receipt,
   fixturePredecessorResult?: unknown,
+  phaseObserver?: (phase: CandidateReviewFinalizeTerminalPhase) => void,
+  aggregatePhaseObserver?: (phase: CandidatePrimaryAggregatePhase) => void,
 ) {
+  setCandidateReviewFinalizeTerminalPhase('recovery-clean', phaseObserver)
   await assertRecoveryClean(directory, 'finalize')
+  setCandidateReviewFinalizeTerminalPhase('prepared-authority', phaseObserver)
   const prepared = await loadPrepared(directory, fixtureReceipt)
+  setCandidateReviewFinalizeTerminalPhase(
+    'predecessor-authority',
+    phaseObserver,
+  )
   const predecessor = await loadAcceptedPredecessorAuthority(
     fixturePredecessorResult,
   )
+  setCandidateReviewFinalizeTerminalPhase('canonical-locks', phaseObserver)
   const locks = []
   for (const manifest of prepared.manifests) {
     const path = join(
@@ -3879,6 +4136,10 @@ async function finalizeCandidateReviewInternal(
     }
   }
   let activeCollisionAudit: CandidateActiveCollisionAudit
+  setCandidateReviewFinalizeTerminalPhase(
+    'active-collision-audit',
+    phaseObserver,
+  )
   try {
     activeCollisionAudit = await auditActiveCandidateReviewInternal(
       directory,
@@ -3889,21 +4150,28 @@ async function finalizeCandidateReviewInternal(
   } catch {
     throw safeError('finalize', 'active-collision-audit')
   }
+  setCandidateReviewFinalizeTerminalPhase('recovery-audit', phaseObserver)
   const { audit: recoveryAudit } = await loadImmutableRecoveryAudit(
     directory,
     prepared,
     predecessor,
     'finalize',
   )
+  setCandidateReviewFinalizeTerminalPhase('round-scaffold', phaseObserver)
   const promotionPlan = await validateRoundTwoScaffold(
     directory,
     recoveryAudit,
     'finalize',
   )
+  setCandidateReviewFinalizeTerminalPhase('recovery-acceptance', phaseObserver)
   const acceptedRound = assertAcceptedRecoveryRound(
     recoveryAudit,
     promotionPlan,
     'finalize',
+  )
+  setCandidateReviewFinalizeTerminalPhase(
+    'authority-construction',
+    phaseObserver,
   )
   const authority = createCandidateAcquisitionReviewAuthority({
     schema: 'zedarchive.anime-v2-candidate-acquisition-review-authority',
@@ -3922,12 +4190,15 @@ async function finalizeCandidateReviewInternal(
     outcomes: prepared.acquisition.outcomes,
     lockedReviews: locks,
   })
+  setCandidateReviewFinalizeTerminalPhase('aggregate-derivation', phaseObserver)
   const aggregate = derivePrimaryCandidateReviewFromAuthority(
     prepared.receipt,
     expectedReceiptSha256,
     authority,
     predecessor.predecessorReviewResult,
+    (phase) => setCandidatePrimaryAggregatePhase(phase, aggregatePhaseObserver),
   )
+  setCandidateReviewFinalizeTerminalPhase('destination-vacancy', phaseObserver)
   const destination = finalizedDirectory(directory)
   try {
     await readdir(destination)
@@ -3944,6 +4215,7 @@ async function finalizeCandidateReviewInternal(
   const staging = join(directory, '.finalize-staging')
   let created = false
   try {
+    setCandidateReviewFinalizeTerminalPhase('staging-create', phaseObserver)
     await mkdir(staging)
     created = true
     const safe = {
@@ -3959,21 +4231,28 @@ async function finalizeCandidateReviewInternal(
       authoritySha256: authority.authoritySha256,
       primaryAggregateSha256: canonicalHash(aggregate),
     }
+    setCandidateReviewFinalizeTerminalPhase('authority-write', phaseObserver)
     await writeFile(
       join(staging, 'authority.json'),
       `${JSON.stringify(authority, null, 2)}\n`,
       { flag: 'wx' },
     )
+    setCandidateReviewFinalizeTerminalPhase('aggregate-write', phaseObserver)
     await writeFile(
       join(staging, 'primary-candidate-review.json'),
       `${JSON.stringify(aggregate, null, 2)}\n`,
       { flag: 'wx' },
+    )
+    setCandidateReviewFinalizeTerminalPhase(
+      'safe-aggregate-write',
+      phaseObserver,
     )
     await writeFile(
       join(staging, 'safe-aggregate.json'),
       `${JSON.stringify(safe, null, 2)}\n`,
       { flag: 'wx' },
     )
+    setCandidateReviewFinalizeTerminalPhase('atomic-publication', phaseObserver)
     await rename(staging, destination)
     return safe
   } catch (error) {
@@ -3988,6 +4267,8 @@ export async function finalizeCandidateReviewForFixture(
   directory: string,
   receipt: Receipt,
   predecessorReviewResult: unknown = { fixture: true },
+  phaseObserver?: (phase: CandidateReviewFinalizeTerminalPhase) => void,
+  aggregatePhaseObserver?: (phase: CandidatePrimaryAggregatePhase) => void,
 ) {
   if (process.env.NODE_ENV !== 'test')
     throw new CandidateReviewCommandError(
@@ -3997,6 +4278,8 @@ export async function finalizeCandidateReviewForFixture(
     directory,
     receipt,
     predecessorReviewResult,
+    phaseObserver,
+    aggregatePhaseObserver,
   )
 }
 
@@ -4167,6 +4450,8 @@ type FixtureDependencies = Readonly<{
   requester?: SequentialCandidateRequester
   predecessorReviewResult?: unknown
   lockPhaseObserver?: (phase: CandidateReviewLockTerminalPhase) => void
+  finalizePhaseObserver?: (phase: CandidateReviewFinalizeTerminalPhase) => void
+  aggregatePhaseObserver?: (phase: CandidatePrimaryAggregatePhase) => void
   canonicalSubphaseObserver?: (
     subphase: CandidateReviewCanonicalSubphase,
   ) => void
@@ -4308,17 +4593,26 @@ export async function runCandidateReviewCommandForFixture(
       dependencies.predecessorReviewResult ?? { fixture: true },
     )
   let safe: Awaited<ReturnType<typeof finalizeCandidateReviewForFixture>>
+  terminalFinalizePhase = undefined
+  terminalAggregatePhase = undefined
   try {
     safe = await finalizeCandidateReviewForFixture(
       directory,
       dependencies.receipt ?? (await readReceipt()),
       dependencies.predecessorReviewResult ?? { fixture: true },
+      dependencies.finalizePhaseObserver,
+      dependencies.aggregatePhaseObserver,
     )
   } catch (error) {
     dependencies.terminalDiagnosticSink?.(
       createCandidateTerminalDiagnostic({
         stage: 'finalize',
         outcome: 'stopped',
+        phase: terminalFinalizePhase,
+        ...(terminalFinalizePhase === 'aggregate-derivation' &&
+        terminalAggregatePhase
+          ? { aggregatePhase: terminalAggregatePhase }
+          : {}),
       }),
     )
     throw error
@@ -4327,6 +4621,7 @@ export async function runCandidateReviewCommandForFixture(
     createCandidateTerminalDiagnostic({
       stage: 'finalize',
       outcome: 'completed',
+      phase: terminalFinalizePhase,
       candidates: safe.records,
       manifests: safe.manifests,
       locks: safe.manifests,
@@ -4347,6 +4642,8 @@ export async function runCandidateReviewCommand(args: readonly string[]) {
     return
   }
   terminalLockPhase = undefined
+  terminalFinalizePhase = undefined
+  terminalAggregatePhase = undefined
   terminalCommandStage =
     command.mode === 'prepare'
       ? 'acquisition'
@@ -4429,10 +4726,15 @@ export async function runCandidateReviewCommand(args: readonly string[]) {
     })
     return
   }
+  await assertCorrectedCandidateFinalizationPreflightInternal(
+    outputDirectory,
+    liveCorrectedFinalizationExpectation,
+  )
   const safe = await finalizeCandidateReview()
   writeCandidateTerminalDiagnostic({
     stage: 'finalize',
     outcome: 'completed',
+    phase: terminalFinalizePhase,
     candidates: safe.records,
     manifests: safe.manifests,
     locks: safe.manifests,
@@ -4452,6 +4754,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
             outcome: 'stopped',
             ...(terminalCommandStage === 'lock' && terminalLockPhase
               ? { phase: terminalLockPhase }
+              : {}),
+            ...(terminalCommandStage === 'finalize' && terminalFinalizePhase
+              ? { phase: terminalFinalizePhase }
+              : {}),
+            ...(terminalCommandStage === 'finalize' &&
+            terminalFinalizePhase === 'aggregate-derivation' &&
+            terminalAggregatePhase
+              ? { aggregatePhase: terminalAggregatePhase }
               : {}),
           }),
         ),

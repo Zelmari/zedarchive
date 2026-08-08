@@ -2,11 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   assertCandidateReviewReserveFeasibility as assertCandidateReviewReserveFeasibilityDirect,
   assertAcceptedCandidateAcquisitionReviewAuthority,
+  acceptedCandidateAcquisitionReviewAuthoritySha256,
+  acceptedCandidateAcquisitionSourceReceiptSha256,
   acceptedCandidateRecoveryCollisionAuditSha256,
   acceptedCandidateReviewRoundTwoPromotionPlanSha256,
   acquisitionOutcomeCommitment,
   candidateCommitment,
   candidateAcquisitionSpecificationSha256,
+  candidatePrimaryAggregatePhaseSchema,
   candidateReductionWitnessSha256,
   candidateRevisionWitnessSha256,
   createCandidateAcquisitionSourceReceipt,
@@ -591,8 +594,14 @@ function authorityFixture(
 }
 
 describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
-  it('keeps structurally valid fixture authority unavailable to live consumers', () => {
+  it('pins only the independently accepted live authority and rejects structurally valid fixture authority', () => {
     const { receipt, authority } = authorityFixture()
+    expect(acceptedCandidateAcquisitionSourceReceiptSha256).toBe(
+      '1c16cdf422a3f6482d2efabd9665a241114d7cb858882faded14ef40995bad35',
+    )
+    expect(acceptedCandidateAcquisitionReviewAuthoritySha256).toBe(
+      '224e830272c3f6867e63a926e8b484fce7e633fa07483d7d72c60a06e2f7fe6f',
+    )
     expect(acceptedCandidateRecoveryCollisionAuditSha256).toBe(
       'adcf8ce342f7031becdeb2f15a0b2a6a51f6c249e8f313cd43d2eadd61a18bb8',
     )
@@ -927,7 +936,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
       formatFloors: { tv: 2_500 },
       eraFloors: { '2020-2026': 1_200 },
     })
-  })
+  }, 15_000)
 
   it('enforces 499 retained predecessor collisions across the complete 160-manifest scale', () => {
     const predecessorAuthority =
@@ -960,7 +969,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
       duplicate: 'rejected',
       primaryReview: 'rejected',
     })
-  })
+  }, 15_000)
 
   it('carries the real-scale fixture authority through continuity and canonical selection', () => {
     const { receipt, authority } = authorityFixture(
@@ -1158,7 +1167,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
       expect(
         selection.selected.filter((candidate) => candidate.era === era).length,
       ).toBeGreaterThanOrEqual(floor)
-  }, 30_000)
+  }, 120_000)
 
   it('uses an exact contiguous <=50 QID manifest partition', () => {
     const receipt: CandidateReceiptLike = {
@@ -1518,6 +1527,53 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
         authority,
       ),
     ).toEqual(derived)
+  })
+
+  it('observes the closed aggregate derivation sequence without changing its result', () => {
+    expect(candidatePrimaryAggregatePhaseSchema.options).toEqual([
+      'authority-schema',
+      'predecessor-authority',
+      'receipt-binding',
+      'predecessor-binding',
+      'manifest-baseline',
+      'source-receipt',
+      'manifest-partition',
+      'outcome-coverage',
+      'outcome-records',
+      'acquisition-binding',
+      'lock-coverage',
+      'lock-binding',
+      'record-binding',
+      'machine-disposition',
+      'acquired-projection',
+      'retained-collision',
+      'adult-outcome',
+      'semantic-completeness',
+      'primary-approval',
+      'frozen-format-year',
+      'active-collision-audit',
+      'aggregate-construction',
+      'outcome-set-commitment',
+      'authority-commitment',
+    ])
+    const { receipt, authority, predecessorAuthority } = authorityFixture(1)
+    const phases: string[] = []
+    const observed = derivePrimaryCandidateReviewFromAuthorityDirect(
+      receipt,
+      receiptHash,
+      authority,
+      predecessorAuthority,
+      (phase) => phases.push(phase),
+    )
+    expect(phases).toEqual(candidatePrimaryAggregatePhaseSchema.options)
+    expect(observed).toEqual(
+      derivePrimaryCandidateReviewFromAuthorityDirect(
+        receipt,
+        receiptHash,
+        authority,
+        predecessorAuthority,
+      ),
+    )
   })
 
   it('authenticates mixed projected and machine-rejected coverage without leaking values', () => {

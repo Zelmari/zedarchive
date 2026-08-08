@@ -39,20 +39,46 @@ const reducedProperties = [
 ] as const
 type ReducedProperty = (typeof reducedProperties)[number]
 
-/**
- * Decision 065 deliberately keeps these unset until a completed bounded run
- * has been independently recomputed and accepted.  A structurally valid
- * authority is therefore not live selection authority by itself.
- */
+/** Decision 094 pins the independently recomputed candidate authority. */
 export const acceptedCandidateAcquisitionSourceReceiptSha256: string | null =
-  null
+  '1c16cdf422a3f6482d2efabd9665a241114d7cb858882faded14ef40995bad35'
 export const acceptedCandidateAcquisitionReviewAuthoritySha256: string | null =
-  null
+  '224e830272c3f6867e63a926e8b484fce7e633fa07483d7d72c60a06e2f7fe6f'
 /** Decision 071 pins the independently reviewed post-recovery evidence. */
 export const acceptedCandidateRecoveryCollisionAuditSha256: string | null =
   'adcf8ce342f7031becdeb2f15a0b2a6a51f6c249e8f313cd43d2eadd61a18bb8'
 export const acceptedCandidateReviewRoundTwoPromotionPlanSha256: string | null =
   '32bdb25c30ed48109d997e010318e91daab1a0c4e9b35d72fbfeb6a69c775eb9'
+
+export const candidatePrimaryAggregatePhaseSchema = z.enum([
+  'authority-schema',
+  'predecessor-authority',
+  'receipt-binding',
+  'predecessor-binding',
+  'manifest-baseline',
+  'source-receipt',
+  'manifest-partition',
+  'outcome-coverage',
+  'outcome-records',
+  'acquisition-binding',
+  'lock-coverage',
+  'lock-binding',
+  'record-binding',
+  'machine-disposition',
+  'acquired-projection',
+  'retained-collision',
+  'adult-outcome',
+  'semantic-completeness',
+  'primary-approval',
+  'frozen-format-year',
+  'active-collision-audit',
+  'aggregate-construction',
+  'outcome-set-commitment',
+  'authority-commitment',
+])
+export type CandidatePrimaryAggregatePhase = z.infer<
+  typeof candidatePrimaryAggregatePhaseSchema
+>
 
 export const candidateAcquisitionSpecification = {
   version: 'candidate-acquisition-specification.v2',
@@ -1566,7 +1592,9 @@ function validateRecord(
   manifest: CandidateManifest,
   candidate: CandidateReceiptLike['candidates'][number],
   retainedPredecessorQids: ReadonlySet<string>,
+  phaseObserver?: (phase: CandidatePrimaryAggregatePhase) => void,
 ) {
+  phaseObserver?.('record-binding')
   if (
     record.candidateSha256 !== candidateCommitment(candidate) ||
     record.manifestSha256 !== manifest.manifestSha256 ||
@@ -1576,6 +1604,7 @@ function validateRecord(
     throw new Error(
       'Primary review record lost its acquired authority binding.',
     )
+  phaseObserver?.('machine-disposition')
   if (outcome.disposition === 'machine-rejected') {
     if (
       record.projectionSha256 !== null ||
@@ -1603,11 +1632,13 @@ function validateRecord(
     return
   }
   const projection = outcome.projection
+  phaseObserver?.('acquired-projection')
   if (record.projectionSha256 !== projection.projectionSha256) {
     throw new Error(
       'Primary review record changed acquired projection authority.',
     )
   }
+  phaseObserver?.('retained-collision')
   if (
     retainedPredecessorQids.has(record.qid) &&
     (record.duplicate !== 'rejected' || record.primaryReview !== 'rejected')
@@ -1645,6 +1676,7 @@ function validateRecord(
     record.duplicate,
     record.relationship,
   ]
+  phaseObserver?.('adult-outcome')
   if (record.machineValidation === 'rejected')
     throw new Error('Projected candidate cannot use a machine-rejected review.')
   if (
@@ -1664,15 +1696,18 @@ function validateRecord(
       'Signalled candidate cannot clear adult publication without issuer maturity evidence.',
     )
   }
+  phaseObserver?.('semantic-completeness')
   if (semantic.some((outcome) => outcome === 'not-reviewed'))
     throw new Error('Machine-approved record has incomplete semantic review.')
   const fullyApproved =
     semantic.every((outcome) => outcome === 'approved') &&
     record.adultPublicationOutcome === 'cleared'
+  phaseObserver?.('primary-approval')
   if ((record.primaryReview === 'approved') !== fullyApproved)
     throw new Error(
       'Primary approval does not match complete acquired review outcomes.',
     )
+  phaseObserver?.('frozen-format-year')
   if (record.primaryReview === 'approved') {
     if (
       reducedProjectionFormat(projection) !== candidate.format ||
@@ -1691,14 +1726,19 @@ export function derivePrimaryCandidateReviewFromAuthority(
   candidateReceiptSha256: string,
   input: unknown,
   predecessorReviewResult: unknown,
+  phaseObserver?: (phase: CandidatePrimaryAggregatePhase) => void,
 ) {
+  phaseObserver?.('authority-schema')
   const authority = candidateAcquisitionReviewAuthoritySchema.parse(input)
+  phaseObserver?.('predecessor-authority')
   const predecessorAuthority = resolvePredecessorExclusionAuthority(
     predecessorReviewResult,
   )
   const retainedPredecessorQids = new Set(predecessorAuthority.qids)
+  phaseObserver?.('receipt-binding')
   if (authority.candidateReceiptSha256 !== candidateReceiptSha256)
     throw new Error('Candidate review authority changed the frozen receipt.')
+  phaseObserver?.('predecessor-binding')
   if (
     authority.predecessorReviewResultSha256 !==
       predecessorAuthority.predecessorReviewResultSha256 ||
@@ -1720,6 +1760,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     throw new Error(
       'Candidate review authority is not bound to the re-derived predecessor exclusion authority.',
     )
+  phaseObserver?.('manifest-baseline')
   const manifests = deriveCandidateManifests(receipt)
   assertLiteralCandidatePredecessorCollisionBaseline(
     receipt,
@@ -1727,15 +1768,18 @@ export function derivePrimaryCandidateReviewFromAuthority(
     manifests,
     retainedPredecessorQids,
   )
+  phaseObserver?.('source-receipt')
   const sourceReceipt = parseCandidateAcquisitionSourceReceiptForFixture(
     authority.sourceReceipt,
     receipt,
     candidateReceiptSha256,
   )
+  phaseObserver?.('manifest-partition')
   if (JSON.stringify(authority.manifests) !== JSON.stringify(manifests))
     throw new Error(
       'Candidate manifests are not the exact frozen contiguous partition.',
     )
+  phaseObserver?.('outcome-coverage')
   const outcomeByQid = new Map(
     authority.outcomes.map((outcome) => [outcome.qid, outcome]),
   )
@@ -1747,6 +1791,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     receipt.candidates.some(({ qid }) => !outcomeByQid.has(qid))
   )
     throw new Error('Candidate acquisition is incomplete.')
+  phaseObserver?.('outcome-records')
   for (const [index, candidate] of receipt.candidates.entries()) {
     const manifest = manifests[Math.floor(index / 50)]!
     const outcome = outcomeByQid.get(candidate.qid)!
@@ -1801,6 +1846,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     )
       throw new Error('Machine rejection reduction witness does not match.')
   }
+  phaseObserver?.('acquisition-binding')
   const acquisitionSha256 = discoverySha256({
     schema: 'zedarchive.anime-v2-candidate-acquisition',
     version: 2,
@@ -1816,6 +1862,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     throw new Error(
       'Recovery collision audit is not bound to the exact candidate acquisition authority.',
     )
+  phaseObserver?.('lock-coverage')
   const lockByOrdinal = new Map(
     authority.lockedReviews.map((lock) => [lock.manifest.ordinal, lock]),
   )
@@ -1828,6 +1875,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
   )
     throw new Error('Candidate primary review locks are incomplete.')
   const records: z.infer<typeof reviewRecordSchema>[] = []
+  phaseObserver?.('lock-binding')
   for (const manifest of manifests) {
     const lock = lockByOrdinal.get(manifest.ordinal)
     if (
@@ -1883,10 +1931,12 @@ export function derivePrimaryCandidateReviewFromAuthority(
         manifest,
         receipt.candidates.find(({ qid }) => qid === manifest.qids[index])!,
         retainedPredecessorQids,
+        phaseObserver,
       )
       records.push(record)
     })
   }
+  phaseObserver?.('active-collision-audit')
   validateCandidateActiveCollisionAudit(
     authority.activeCollisionAudit,
     receipt,
@@ -1895,6 +1945,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     authority.activeCollisionAudit.recoveryAudit,
     authority.lockedReviews,
   )
+  phaseObserver?.('aggregate-construction')
   const aggregate = primaryAggregate(records, retainedPredecessorQids)
   const orderedPrimaryApprovedQids = receipt.candidates
     .filter(({ qid }) => aggregate.orderedPrimaryApprovedQids.includes(qid))
@@ -1931,6 +1982,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     lockedReviews: authority.lockedReviews,
     outcomeSetCommitmentSha256: authority.outcomeSetCommitmentSha256,
   }
+  phaseObserver?.('outcome-set-commitment')
   const outcomeSetCommitmentSha256 = discoverySha256({
     version: 'candidate-acquisition-outcome-set.v1',
     outcomes: authority.outcomes.map(acquisitionOutcomeCommitment),
@@ -1939,6 +1991,7 @@ export function derivePrimaryCandidateReviewFromAuthority(
     throw new Error(
       'Candidate acquisition outcome-set commitment does not match.',
     )
+  phaseObserver?.('authority-commitment')
   if (authority.authoritySha256 !== discoverySha256(core))
     throw new Error(
       'Candidate acquisition/review authority hash does not match.',

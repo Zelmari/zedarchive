@@ -15,10 +15,13 @@ import { describe, expect, it } from 'vitest'
 import {
   CandidateReviewCommandError,
   SequentialCandidateRequester,
+  assertCorrectedCandidateFinalizationPreflightForFixture,
   buildCandidatePreparationArtifacts,
   candidateReviewCanonicalSubphaseResultSchema,
   candidateReviewCanonicalSubphaseSchema,
+  candidateReviewFinalizeTerminalPhaseSchema,
   candidateReviewLockTerminalPhaseSchema,
+  correctedCandidateClosureSchema,
   completeCandidateReviewManifestForFixture,
   checkCandidateReviewContract,
   createCandidateTerminalDiagnostic,
@@ -37,6 +40,7 @@ import {
   verifyCandidateRecoveryForFixture,
 } from '@/../scripts/review-anime-v2-candidates'
 import {
+  candidatePrimaryAggregatePhaseSchema,
   createLockedCandidateReviewManifest,
   deriveCandidateReviewRoundSha256,
   parseCandidateAcquisitionSourceReceiptForFixture,
@@ -359,6 +363,97 @@ async function writeLegacyManifestArtifacts(
   }
   await rm(temporaryVerdict)
   await rm(temporaryCompleted)
+}
+
+async function prepareFinalizableFixture(directory: string) {
+  const input = receipt(1)
+  const entities = { Q1: entity('Q1') }
+  await runCandidateReviewCommandForFixture(
+    ['prepare', '--confirm-wikimedia-live'],
+    { directory, receipt: input, entities },
+  )
+  await writeLegacyManifestArtifacts(directory, input, entities, 3)
+  await recoverCandidateReviewRoundTwoForFixture(directory, input, {
+    fixture: true,
+  })
+  await auditActiveCandidateReviewForFixture(directory, input, {
+    fixture: true,
+  })
+  return { input, entities }
+}
+
+async function writeCorrectedClosureFixture(
+  directory: string,
+  mismatchCount = 0,
+) {
+  const activeAuditText = await readFile(
+    join(directory, 'review-round-2', 'active-collision-audit.v1.json'),
+    'utf8',
+  )
+  const activeAudit = JSON.parse(activeAuditText) as {
+    candidateReceiptSha256: string
+    predecessorReviewResultSha256: string
+    records: number
+    manifests: unknown[]
+    collisionCount: number
+    correctlyRejectedCollisionCount: number
+    violationCount: number
+    revalidatedLockCount: number
+    freshLockCount: number
+    auditSha256: string
+    recoveryAudit: { auditSha256: string }
+  }
+  const activeAuditFileSha256 = byteSha256(activeAuditText)
+  const core = {
+    schema: 'zedarchive.anime-v2-frozen-format-year-closure-audit.v1' as const,
+    version: 1 as const,
+    candidateReceiptSha256: activeAudit.candidateReceiptSha256,
+    receiptFileSha256: '1'.repeat(64),
+    acquisitionSha256: '2'.repeat(64),
+    acquisitionFileSha256: '3'.repeat(64),
+    predecessorReviewResultSha256: activeAudit.predecessorReviewResultSha256,
+    recoveryAuditSha256: activeAudit.recoveryAudit.auditSha256,
+    activeAuditSha256: activeAudit.auditSha256,
+    activeAuditFileSha256,
+    records: activeAudit.records,
+    manifests: activeAudit.manifests.length,
+    locks: activeAudit.manifests.length,
+    approved: activeAudit.records,
+    rejected: 0,
+    mismatches: mismatchCount,
+    formatMismatches: 0,
+    yearMismatches: mismatchCount,
+    combinedMismatches: 0,
+  }
+  const closure = {
+    ...core,
+    closureSha256: byteSha256(JSON.stringify(core)),
+  }
+  const closureText = `${JSON.stringify(closure, null, 2)}\n`
+  await writeFile(
+    join(directory, 'frozen-format-year-closure-audit.v1.json'),
+    closureText,
+    { flag: 'wx' },
+  )
+  return {
+    expected: {
+      activeAuditSha256: activeAudit.auditSha256,
+      activeAuditFileSha256,
+      closureSha256: closure.closureSha256,
+      closureFileSha256: byteSha256(closureText),
+      candidateReceiptSha256: activeAudit.candidateReceiptSha256,
+      predecessorReviewResultSha256: activeAudit.predecessorReviewResultSha256,
+      records: activeAudit.records,
+      manifests: activeAudit.manifests.length,
+      locks: activeAudit.manifests.length,
+      approved: activeAudit.records,
+      rejected: 0,
+      collisions: activeAudit.collisionCount,
+      revalidated: activeAudit.revalidatedLockCount,
+      fresh: activeAudit.freshLockCount,
+    },
+    closure,
+  }
 }
 
 describe('candidate acquisition runner', () => {
@@ -926,6 +1021,118 @@ describe('candidate acquisition runner', () => {
     ).toThrow()
   })
 
+  it('keeps finalize terminal phases closed, ordered, and stage-bound', () => {
+    expect(candidateReviewFinalizeTerminalPhaseSchema.options).toEqual([
+      'recovery-clean',
+      'prepared-authority',
+      'predecessor-authority',
+      'canonical-locks',
+      'active-collision-audit',
+      'recovery-audit',
+      'round-scaffold',
+      'recovery-acceptance',
+      'authority-construction',
+      'aggregate-derivation',
+      'destination-vacancy',
+      'staging-create',
+      'authority-write',
+      'aggregate-write',
+      'safe-aggregate-write',
+      'atomic-publication',
+    ])
+    const completed = createCandidateTerminalDiagnostic({
+      stage: 'finalize',
+      outcome: 'completed',
+      phase: 'atomic-publication',
+    })
+    const stopped = createCandidateTerminalDiagnostic({
+      stage: 'finalize',
+      outcome: 'stopped',
+      phase: 'destination-vacancy',
+    })
+    expect(completed).toEqual({
+      schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+      version: 2,
+      stage: 'finalize',
+      outcome: 'completed',
+      phase: 'atomic-publication',
+    })
+    expect(stopped).toEqual({
+      schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+      version: 2,
+      stage: 'finalize',
+      outcome: 'stopped',
+      phase: 'destination-vacancy',
+    })
+    expect(JSON.stringify({ completed, stopped })).not.toMatch(
+      /Q[1-9]|https?:|exception|stack|path|title|error|env|email|contact/i,
+    )
+    expect(() =>
+      createCandidateTerminalDiagnostic({
+        stage: 'finalize',
+        outcome: 'completed',
+        phase: 'atomic-lock-write' as never,
+      }),
+    ).toThrow()
+    expect(() =>
+      createCandidateTerminalDiagnostic({
+        stage: 'lock',
+        outcome: 'completed',
+        phase: 'atomic-publication' as never,
+      }),
+    ).toThrow()
+    expect(() =>
+      createCandidateTerminalDiagnostic({
+        stage: 'finalize',
+        outcome: 'stopped',
+        phase: 'unbounded-finalize-detail' as never,
+      }),
+    ).toThrow()
+    expect(() =>
+      createCandidateTerminalDiagnostic({
+        stage: 'audit',
+        outcome: 'stopped',
+        phase: 'destination-vacancy' as never,
+      }),
+    ).toThrow()
+    expect(
+      createCandidateTerminalDiagnostic({
+        stage: 'finalize',
+        outcome: 'stopped',
+        phase: 'aggregate-derivation',
+        aggregatePhase: 'adult-outcome',
+      }),
+    ).toEqual({
+      schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+      version: 2,
+      stage: 'finalize',
+      outcome: 'stopped',
+      phase: 'aggregate-derivation',
+      aggregatePhase: 'adult-outcome',
+    })
+    for (const input of [
+      {
+        stage: 'finalize',
+        outcome: 'stopped',
+        aggregatePhase: 'adult-outcome',
+      },
+      {
+        stage: 'finalize',
+        outcome: 'stopped',
+        phase: 'destination-vacancy',
+        aggregatePhase: 'adult-outcome',
+      },
+      {
+        stage: 'audit',
+        outcome: 'stopped',
+        phase: 'aggregate-derivation',
+        aggregatePhase: 'adult-outcome',
+      },
+    ] as const) {
+      expect(() => createCandidateTerminalDiagnostic(input as never)).toThrow()
+    }
+  })
+
   it('emits the exact closed phase for a stopped fixture lock without changing lock state', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-candidate-lock-phase-'))
     try {
@@ -1112,7 +1319,7 @@ describe('candidate acquisition runner', () => {
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
-  })
+  }, 15_000)
 
   it('revalidates a clean legacy tuple into the isolated round-two root', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-candidate-recover-'))
@@ -1315,30 +1522,133 @@ describe('candidate acquisition runner', () => {
     }
   })
 
+  it('requires the exact zero-only corrected closure and vacant custody before live finalization', async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), 'm45-candidate-corrected-finalize-'),
+    )
+    try {
+      await prepareFinalizableFixture(directory)
+      const { expected, closure } =
+        await writeCorrectedClosureFixture(directory)
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(
+          directory,
+          expected,
+        ),
+      ).resolves.toBeUndefined()
+
+      const auditStaging = join(
+        directory,
+        'review-round-2',
+        '.active-collision-audit.v1.staging.json',
+      )
+      await writeFile(auditStaging, '{}\n', { flag: 'wx' })
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(
+          directory,
+          expected,
+        ),
+      ).rejects.toThrow('finalize:corrected-custody')
+      await rm(auditStaging)
+
+      const closureStaging = join(
+        directory,
+        '.frozen-format-year-closure-audit.v1.staging.json',
+      )
+      await writeFile(closureStaging, '{}\n', { flag: 'wx' })
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(
+          directory,
+          expected,
+        ),
+      ).rejects.toThrow('finalize:corrected-custody')
+      await rm(closureStaging)
+
+      await mkdir(join(directory, '.finalize-staging'))
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(
+          directory,
+          expected,
+        ),
+      ).rejects.toThrow('finalize:corrected-custody')
+      await rm(join(directory, '.finalize-staging'), {
+        recursive: true,
+        force: true,
+      })
+
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(directory, {
+          ...expected,
+          activeAuditSha256: 'f'.repeat(64),
+        }),
+      ).rejects.toThrow('finalize:corrected-authority')
+
+      const mismatchedCore = {
+        ...closure,
+        mismatches: 1,
+        yearMismatches: 1,
+      }
+      const { closureSha256: _oldHash, ...core } = mismatchedCore
+      void _oldHash
+      const mismatched = {
+        ...core,
+        closureSha256: byteSha256(JSON.stringify(core)),
+      }
+      const mismatchedText = `${JSON.stringify(mismatched, null, 2)}\n`
+      await writeFile(
+        join(directory, 'frozen-format-year-closure-audit.v1.json'),
+        mismatchedText,
+      )
+      await expect(
+        assertCorrectedCandidateFinalizationPreflightForFixture(directory, {
+          ...expected,
+          closureSha256: mismatched.closureSha256,
+          closureFileSha256: byteSha256(mismatchedText),
+        }),
+      ).rejects.toThrow('finalize:corrected-authority')
+      expect(() =>
+        correctedCandidateClosureSchema.parse({
+          ...mismatched,
+          unexpected: true,
+        }),
+      ).toThrow()
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('finalizes once with a privacy-safe diagnostic and never overwrites the bundle', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-candidate-finalize-'))
     try {
-      const input = receipt(1)
-      const entities = { Q1: entity('Q1') }
-      await runCandidateReviewCommandForFixture(
-        ['prepare', '--confirm-wikimedia-live'],
-        { directory, receipt: input, entities },
-      )
-      await writeLegacyManifestArtifacts(directory, input, entities, 3)
-      await recoverCandidateReviewRoundTwoForFixture(directory, input, {
-        fixture: true,
-      })
-      await auditActiveCandidateReviewForFixture(directory, input, {
-        fixture: true,
-      })
+      const { input } = await prepareFinalizableFixture(directory)
 
       const diagnostics: unknown[] = []
+      const finalizePhases: string[] = []
       const safe = (await runCandidateReviewCommandForFixture(['finalize'], {
         directory,
         receipt: input,
         predecessorReviewResult: { fixture: true },
+        finalizePhaseObserver: (phase) => finalizePhases.push(phase),
         terminalDiagnosticSink: (diagnostic) => diagnostics.push(diagnostic),
       })) as Awaited<ReturnType<typeof finalizeCandidateReviewForFixture>>
+      expect(finalizePhases).toEqual([
+        'recovery-clean',
+        'prepared-authority',
+        'predecessor-authority',
+        'canonical-locks',
+        'active-collision-audit',
+        'recovery-audit',
+        'round-scaffold',
+        'recovery-acceptance',
+        'authority-construction',
+        'aggregate-derivation',
+        'destination-vacancy',
+        'staging-create',
+        'authority-write',
+        'aggregate-write',
+        'safe-aggregate-write',
+        'atomic-publication',
+      ])
       expect(safe).toMatchObject({
         schema: 'zedarchive.anime-v2-candidate-review-final-safe-aggregate',
         version: 1,
@@ -1366,6 +1676,7 @@ describe('candidate acquisition runner', () => {
         'locks',
         'manifests',
         'outcome',
+        'phase',
         'schema',
         'sourceReceiptSha256',
         'stage',
@@ -1376,6 +1687,7 @@ describe('candidate acquisition runner', () => {
         version: 2,
         stage: 'finalize',
         outcome: 'completed',
+        phase: 'atomic-publication',
         candidates: 1,
         manifests: 160,
         locks: 160,
@@ -1405,13 +1717,118 @@ describe('candidate acquisition runner', () => {
           version: 2,
           stage: 'finalize',
           outcome: 'stopped',
+          phase: 'destination-vacancy',
         },
       ])
+      expect(
+        Object.keys(repeatDiagnostics[0] as Record<string, unknown>).sort(),
+      ).toEqual(['outcome', 'phase', 'schema', 'stage', 'version'])
       expect(await candidateReviewDirectoryEntries(directory)).toEqual(
         beforeRepeat,
       )
     } finally {
       await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('emits only the closed aggregate checkpoint when aggregate derivation stops', async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), 'm45-candidate-aggregate-phase-'),
+    )
+    try {
+      const { input } = await prepareFinalizableFixture(directory)
+      const diagnostics: unknown[] = []
+      await expect(
+        runCandidateReviewCommandForFixture(['finalize'], {
+          directory,
+          receipt: input,
+          predecessorReviewResult: { fixture: true },
+          aggregatePhaseObserver: (phase) => {
+            if (phase === 'adult-outcome')
+              throw new Error('fixture aggregate interruption')
+          },
+          terminalDiagnosticSink: (diagnostic) => diagnostics.push(diagnostic),
+        }),
+      ).rejects.toThrow('fixture aggregate interruption')
+      expect(diagnostics).toEqual([
+        {
+          schema: 'zedarchive.anime-v2-candidate-review-terminal-diagnostic',
+          version: 2,
+          stage: 'finalize',
+          outcome: 'stopped',
+          phase: 'aggregate-derivation',
+          aggregatePhase: 'adult-outcome',
+        },
+      ])
+      expect(JSON.stringify(diagnostics)).not.toMatch(
+        /Q[1-9]|https?:|exception|stack|path|title|error|env|email|contact/i,
+      )
+      await expect(readdir(join(directory, 'finalized'))).rejects.toMatchObject(
+        {
+          code: 'ENOENT',
+        },
+      )
+      await expect(
+        readdir(join(directory, '.finalize-staging')),
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('finalizes a byte-identical bundle with and without phase observation', async () => {
+    const observedDirectory = await mkdtemp(
+      join(tmpdir(), 'm45-candidate-finalize-observed-'),
+    )
+    const unobservedDirectory = await mkdtemp(
+      join(tmpdir(), 'm45-candidate-finalize-unobserved-'),
+    )
+    try {
+      await prepareFinalizableFixture(observedDirectory)
+      const phases: string[] = []
+      const aggregatePhases: string[] = []
+      await runCandidateReviewCommandForFixture(['finalize'], {
+        directory: observedDirectory,
+        receipt: receipt(1),
+        predecessorReviewResult: { fixture: true },
+        finalizePhaseObserver: (phase) => phases.push(phase),
+        aggregatePhaseObserver: (phase) => aggregatePhases.push(phase),
+      })
+      expect(phases).toEqual([
+        'recovery-clean',
+        'prepared-authority',
+        'predecessor-authority',
+        'canonical-locks',
+        'active-collision-audit',
+        'recovery-audit',
+        'round-scaffold',
+        'recovery-acceptance',
+        'authority-construction',
+        'aggregate-derivation',
+        'destination-vacancy',
+        'staging-create',
+        'authority-write',
+        'aggregate-write',
+        'safe-aggregate-write',
+        'atomic-publication',
+      ])
+      expect(aggregatePhases).toEqual(
+        candidatePrimaryAggregatePhaseSchema.options,
+      )
+
+      await prepareFinalizableFixture(unobservedDirectory)
+      await runCandidateReviewCommandForFixture(['finalize'], {
+        directory: unobservedDirectory,
+        receipt: receipt(1),
+        predecessorReviewResult: { fixture: true },
+      })
+
+      expect(await candidateReviewDirectoryEntries(observedDirectory)).toEqual(
+        await candidateReviewDirectoryEntries(unobservedDirectory),
+      )
+    } finally {
+      await rm(observedDirectory, { recursive: true, force: true })
+      await rm(unobservedDirectory, { recursive: true, force: true })
     }
   })
 
