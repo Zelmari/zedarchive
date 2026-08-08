@@ -1,0 +1,10 @@
+(version 1)
+(deny default)
+; The launcher substitutes only the preassigned result path after validating it.
+; A live invocation additionally requires an independently verified host-auth
+; transport allowlist; without it the wrapper stops before process launch.
+(allow file-read* (literal "__OUTPUT_SCHEMA_PATH__"))
+(allow file-write* (literal "__RESULT_PATH__"))
+(allow process*)
+(deny process-exec)
+(deny network*)

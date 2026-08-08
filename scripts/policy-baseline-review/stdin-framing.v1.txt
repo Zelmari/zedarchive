@@ -1,0 +1,9 @@
+policy-review-stdin.v1
+prompt:utf8
+capture-sha256:<64-lowercase-hex>
+semantic-review-retrieval-sha256:<64-lowercase-hex>
+reviewer-contract-sha256:<64-lowercase-hex>
+body-count:5
+body-header:index=<1..5>;bytes=<decimal>;sha256=<hex>
+body:exact-decoded-bytes
+end:policy-review-stdin.v1

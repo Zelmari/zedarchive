@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "captureSha256": { "pattern": "^[a-f0-9]{64}$", "type": "string" },
+    "outcome": {
+      "enum": [
+        "access-or-auth-material-change",
+        "endpoint-or-retirement-material-change",
+        "identification-material-change",
+        "licensing-material-change",
+        "no-material-change",
+        "rate-or-concurrency-material-change",
+        "republishing-material-change",
+        "unexpected-policy-change"
+      ],
+      "type": "string"
+    },
+    "reviewerContractSha256": { "pattern": "^[a-f0-9]{64}$", "type": "string" },
+    "schema": { "const": "wikimedia-policy-semantic-review-role-output.v1" },
+    "semanticReviewRetrievalSha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "version": { "const": 1 }
+  },
+  "required": [
+    "captureSha256",
+    "outcome",
+    "reviewerContractSha256",
+    "schema",
+    "semanticReviewRetrievalSha256",
+    "version"
+  ],
+  "type": "object"
+}
