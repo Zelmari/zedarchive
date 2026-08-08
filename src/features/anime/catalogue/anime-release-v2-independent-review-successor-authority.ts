@@ -49,6 +49,26 @@ export const independentReviewSuccessorPopulationAuthoritySchema =
 export const independentReviewReplacementProofSchema =
   'zedarchive.anime-v2-independent-review-replacement-proof' as const
 
+/**
+ * The finite defect vocabulary belongs to the successor-proof protocol. The
+ * result/history authority imports this definition so a proof cannot be
+ * structurally valid under one vocabulary and semantically resolved under
+ * another.
+ */
+export const independentReviewDefectCategories = [
+  'work-identity',
+  'duplicate',
+  'unusable-public-title',
+  'unsupported-factual-value',
+  'incorrect-publication-state',
+  'missed-adult-safety-signal',
+  'invalid-provenance',
+  'missing-required-review',
+  'predecessor-integrity',
+] as const
+export type IndependentReviewDefectCategory =
+  (typeof independentReviewDefectCategories)[number]
+
 export function independentReviewWorkingAllocationHistorySha256(
   history: readonly IdentityAllocationHistoryEvent[],
 ): string {
@@ -105,6 +125,15 @@ export type IndependentReviewReplacementRemoval = Readonly<{
   retirement: unknown
 }>
 
+export type IndependentReviewTriggeringDefect = Readonly<{
+  planSha256: string
+  inputSha256: string
+  resultSha256: string
+  recordCommitment: string
+  qid: string
+  category: IndependentReviewDefectCategory
+}>
+
 export type IndependentReviewReplacementProof = Readonly<{
   schema: typeof independentReviewReplacementProofSchema
   version: 1
@@ -124,9 +153,7 @@ export type IndependentReviewReplacementProof = Readonly<{
   allocationHistorySha256: string
   additions: readonly IndependentReviewReplacementAddition[]
   removals: readonly IndependentReviewReplacementRemoval[]
-  triggeringPlanSha256: string
-  triggeringInputSha256: string
-  triggeringResultSha256: string
+  triggeringDefects: readonly IndependentReviewTriggeringDefect[]
   replacementProofSha256: string
 }>
 
@@ -623,8 +650,9 @@ function parseReplacementAdditions(
   ) => ParsedReplacementIdentityProposal,
   proof: Readonly<{
     expectedQids: readonly string[]
-    ledger: readonly IdentityAllocationLedgerEntry[]
     population: IndependentReviewSuccessorPopulationAuthority
+    ledgerByQid: ReadonlyMap<string, IdentityAllocationLedgerEntry>
+    populationByQid: ReadonlyMap<string, IndependentReviewPopulationRecord>
   }>,
 ): readonly IndependentReviewReplacementAddition[] {
   if (!Array.isArray(input))
@@ -675,9 +703,7 @@ function parseReplacementAdditions(
       throw new Error(
         'Independent-review replacement addition identity evidence is not bound.',
       )
-    const populationRecord = proof.population.records.find(
-      (record) => record.qid === value.qid,
-    )
+    const populationRecord = proof.populationByQid.get(value.qid as string)
     if (
       !populationRecord ||
       populationRecord.canonicalUuid !== allocation.catalogueItemId ||
@@ -688,9 +714,8 @@ function parseReplacementAdditions(
         'Independent-review replacement addition does not match the successor population.',
       )
     if (
-      !proof.ledger.some(
-        (entry) => canonicalJson(entry) === canonicalJson(allocation),
-      )
+      canonicalJson(proof.ledgerByQid.get(value.qid as string)) !==
+      canonicalJson(allocation)
     )
       throw new Error(
         'Independent-review replacement addition is absent from the full ledger.',
@@ -718,12 +743,10 @@ function parseReplacementAdditions(
 function parseReplacementRemovals(
   input: unknown,
   expectedQids: readonly string[],
-  expectedOutcomes: readonly Readonly<{ qid: string; outcome: string }>[],
   finalSelectionSha256: string,
-  history: readonly IdentityAllocationHistoryEvent[],
-  priorPopulation: Readonly<{
-    records: readonly IndependentReviewPopulationRecord[]
-  }>,
+  priorPopulationByQid: ReadonlyMap<string, IndependentReviewPopulationRecord>,
+  expectedOutcomeByQid: ReadonlyMap<string, string>,
+  retiredHistoryByQid: ReadonlyMap<string, IdentityAllocationHistoryEvent>,
 ): readonly IndependentReviewReplacementRemoval[] {
   if (!Array.isArray(input))
     throw new Error('Independent-review replacement removals must be an array.')
@@ -739,25 +762,21 @@ function parseReplacementRemovals(
       throw new Error(
         'Independent-review replacement removal requires a retirement event.',
       )
-    const prior = priorPopulation.records.find(
-      (record) => record.qid === value.qid,
-    )
+    const prior = priorPopulationByQid.get(value.qid as string)
     if (
       !prior ||
       retirement.qid !== value.qid ||
       retirement.catalogueItemId !== prior.canonicalUuid ||
       prior.projection.kind !== 'new-candidate' ||
       retirement.finalSelectionSha256 !== finalSelectionSha256 ||
-      retirement.reason !==
-        expectedOutcomes.find(({ qid }) => qid === value.qid)?.outcome
+      retirement.reason !== expectedOutcomeByQid.get(value.qid as string)
     )
       throw new Error(
         'Independent-review replacement retirement does not match prior ownership.',
       )
     if (
-      !history.some(
-        (event) => canonicalJson(event) === canonicalJson(retirement),
-      )
+      canonicalJson(retiredHistoryByQid.get(value.qid as string)) !==
+      canonicalJson(retirement)
     )
       throw new Error(
         'Independent-review replacement retirement is absent from full history.',
@@ -987,6 +1006,73 @@ function validateOwnershipAndDeltas(
     )
 }
 
+function parseTriggeringDefects(
+  input: unknown,
+): readonly IndependentReviewTriggeringDefect[] {
+  if (!Array.isArray(input) || input.length === 0)
+    throw new Error(
+      'Independent-review replacement triggering defects must be a non-empty array.',
+    )
+  const defects = input.map((entry) => {
+    const value = strictObject(
+      entry,
+      [
+        'planSha256',
+        'inputSha256',
+        'resultSha256',
+        'recordCommitment',
+        'qid',
+        'category',
+      ],
+      'Independent-review replacement triggering defect',
+    )
+    for (const key of [
+      'planSha256',
+      'inputSha256',
+      'resultSha256',
+      'recordCommitment',
+    ] as const)
+      assertSha256(value[key], `Independent-review triggering defect ${key}`)
+    assertQid(value.qid, 'Independent-review triggering defect QID')
+    if (
+      typeof value.category !== 'string' ||
+      !independentReviewDefectCategories.includes(
+        value.category as IndependentReviewDefectCategory,
+      )
+    )
+      throw new Error(
+        'Independent-review triggering defect category is unsupported.',
+      )
+    return {
+      planSha256: value.planSha256 as string,
+      inputSha256: value.inputSha256 as string,
+      resultSha256: value.resultSha256 as string,
+      recordCommitment: value.recordCommitment as string,
+      qid: value.qid as string,
+      category: value.category as IndependentReviewDefectCategory,
+    }
+  })
+  const recordCommitments = defects.map(
+    ({ recordCommitment }) => recordCommitment,
+  )
+  const qids = defects.map(({ qid }) => qid)
+  if (
+    new Set(recordCommitments).size !== recordCommitments.length ||
+    new Set(qids).size !== qids.length
+  )
+    throw new Error(
+      'Independent-review triggering defects must have unique record commitments and QIDs.',
+    )
+  if (
+    canonicalJson([...recordCommitments].sort(compareAscii)) !==
+    canonicalJson(recordCommitments)
+  )
+    throw new Error(
+      'Independent-review triggering defects must be ASCII record-commitment ordered.',
+    )
+  return defects
+}
+
 function proofCore(
   input: Omit<IndependentReviewReplacementProof, 'replacementProofSha256'>,
 ) {
@@ -1027,9 +1113,7 @@ function parseReplacementProof(
       'allocationHistorySha256',
       'additions',
       'removals',
-      'triggeringPlanSha256',
-      'triggeringInputSha256',
-      'triggeringResultSha256',
+      'triggeringDefects',
       'replacementProofSha256',
     ],
     'Independent-review replacement proof',
@@ -1064,9 +1148,6 @@ function parseReplacementProof(
     'replacementLineageSha256',
     'allocationLedgerSha256',
     'allocationHistorySha256',
-    'triggeringPlanSha256',
-    'triggeringInputSha256',
-    'triggeringResultSha256',
     'replacementProofSha256',
   ] as const)
     assertSha256(value[key], `Independent-review replacement ${key}`)
@@ -1141,19 +1222,36 @@ function parseReplacementProof(
     throw new Error(
       'Independent-review replacement ledger/history hash does not match.',
     )
+  const populationByQid = new Map(
+    population.records.map((record) => [record.qid, record]),
+  )
+  const priorPopulationByQid = new Map(
+    prior.population.records.map((record) => [record.qid, record]),
+  )
+  const ledgerByQid = new Map(ledger.map((entry) => [entry.qid, entry]))
+  const expectedOutcomeByQid = new Map(
+    identityReview.removals.map(({ qid, outcome }) => [qid, outcome]),
+  )
+  const retiredHistoryByQid = new Map(
+    history
+      .filter((event) => event.event === 'retired')
+      .map((event) => [event.qid, event]),
+  )
   const additions = parseReplacementAdditions(value.additions, parseProposal, {
     expectedQids: edge.addedQids,
-    ledger,
     population,
+    ledgerByQid,
+    populationByQid,
   })
   const removals = parseReplacementRemovals(
     value.removals,
     edge.removedQids,
-    identityReview.removals,
     proposal.orderedProposedPublishedQidSequenceSha256,
-    history,
-    prior.population,
+    priorPopulationByQid,
+    expectedOutcomeByQid,
+    retiredHistoryByQid,
   )
+  const triggeringDefects = parseTriggeringDefects(value.triggeringDefects)
   validateOwnershipAndDeltas(
     root,
     previousSnapshots,
@@ -1183,9 +1281,7 @@ function parseReplacementProof(
     allocationHistorySha256: value.allocationHistorySha256 as string,
     additions,
     removals,
-    triggeringPlanSha256: value.triggeringPlanSha256 as string,
-    triggeringInputSha256: value.triggeringInputSha256 as string,
-    triggeringResultSha256: value.triggeringResultSha256 as string,
+    triggeringDefects,
   }
   if (value.replacementProofSha256 !== discoverySha256(proofCore(core)))
     throw new Error('Independent-review replacement proof hash does not match.')

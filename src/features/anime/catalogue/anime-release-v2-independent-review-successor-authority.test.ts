@@ -1,997 +1,165 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  createIndependentReviewPopulationAuthority,
-  createIndependentReviewProposal,
-  createIndependentReviewSeedAuthority,
   deriveIndependentReviewRiskReasons,
-  independentReviewProposalRecordSha256,
-  independentReviewRecordCommitment,
   parseIndependentReviewPopulationAuthority,
+  prepareIndependentReviewSample,
   type IndependentReviewPopulationRecord,
-  type IndependentReviewRiskTriggers,
 } from '@/features/anime/catalogue/anime-release-v2-independent-review'
 import {
-  createIndependentReviewInitialAuthoritySnapshot,
   deriveIndependentReviewSeriesSha256,
   independentReviewWorkingAllocationHistorySha256,
   parseIndependentReviewInitialAuthoritySnapshot,
   parseIndependentReviewSuccessorAuthoritySnapshotForFixture,
 } from '@/features/anime/catalogue/anime-release-v2-independent-review-successor-authority'
 import {
-  acceptedCandidateReceiptSha256,
-  identityAllocationLedgerSha256,
-  identityAllocationVersion,
-  acceptedSelectionRubricSha256,
   identityAllocationHistoryVersion,
-  type IdentityAllocationHistoryEvent,
+  identityAllocationLedgerSha256,
 } from '@/features/anime/catalogue/anime-release-v2-identity-allocation'
 import {
-  deriveIndependentSampleSeed,
-  deriveIndependentSampleRoundSeed,
-  replacementLineageSha256,
-} from '@/features/anime/catalogue/anime-release-v2-lineage'
-import { discoverySha256 } from '@/features/anime/catalogue/wikidata-anime-discovery'
-
-const digest = (value: string) => discoverySha256({ value })
-const qid = (index: number) => `Q${index}`
-const uuid = (index: number) =>
-  `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
-
-const triggers = (): IndependentReviewRiskTriggers => ({
-  predecessorChanged: false,
-  overrideApplied: false,
-  publicationState: 'published',
-  maturity: 'unknown',
-  adultSafetySignal: false,
-  englishTitlePresent: true,
-  titleProjection: 'english',
-  format: 'tv',
-  upcoming: false,
-  sourceFlag: false,
-  identityFlag: false,
-  editionFlag: false,
-  seasonFlag: false,
-  relationshipFlag: false,
-  fuzzyDuplicateFlag: false,
-  franchiseContinuityAddition: false,
-  coverageFloorSelection: false,
-})
-
-function createRootTuple() {
-  const proposal = createIndependentReviewProposal({
-    candidateAuthoritySha256: digest('candidate-authority'),
-    candidateReceiptSha256: digest('candidate-receipt'),
-    predecessorResultSha256: digest('predecessor-result'),
-    predecessorCorpusSha256: digest('predecessor-corpus'),
-    canonicalSelectionEvidenceSha256: digest('selection-evidence'),
-    orderedProposedPublishedQids: Array.from({ length: 5_000 }, (_, index) =>
-      qid(index + 1),
-    ),
-  })
-  const seedAuthority = createIndependentReviewSeedAuthority({
-    candidateReceiptSha256: proposal.candidateReceiptSha256,
-    predecessorCorpusSha256: proposal.predecessorCorpusSha256,
-    orderedProposedPublishedQidSequenceSha256:
-      proposal.orderedProposedPublishedQidSequenceSha256,
-  })
-  const allocationLedger = Array.from({ length: 4_999 }, (_, index) => {
-    const number = index + 1
-    return {
-      version: identityAllocationVersion,
-      qid: qid(number),
-      catalogueItemId: uuid(number),
-      canonicalCandidateReceiptSha256: acceptedCandidateReceiptSha256,
-      reducedProjectionSha256: digest(`root-reduced-projection-${number}`),
-      identityOutcome: 'approved-exact-work' as const,
-      proposedSelectionSha256: digest(`root-identity-proposal-${number}`),
-      allocationRound: 1,
-    }
-  })
-  const records = Array.from({ length: 5_000 }, (_, index) => {
-    const number = index + 1
-    const canonicalUuid = uuid(number)
-    const itemQid = qid(number)
-    const riskTriggers = triggers()
-    const proposalRecordSha256 = independentReviewProposalRecordSha256({
-      proposalSha256: proposal.proposalSha256,
-      canonicalUuid,
-      qid: itemQid,
-    })
-    const projectionCore = {
-      canonicalUuid,
-      qid: itemQid,
-      proposedItem: {
-        catalogueState: 'published' as const,
-        titles: {
-          english: `Title ${number}`,
-          romaji: null,
-          original: null,
-          alternatives: [],
-        },
-        format: 'tv' as const,
-        releaseYear: 2020,
-        episodeCount: 12,
-        releaseStatus: 'finished' as const,
-        maturity: 'unknown' as const,
-        adultPublicationOutcome: 'cleared' as const,
-      },
-      sourceProjection: {
-        revision: 1,
-        titleCandidates: [],
-        releaseYear: 2020,
-        releaseYearSource: 'P577' as const,
-        episodeCount: 12,
-        episodeCountEvidence: 'single-valid' as const,
-        claims: {
-          P31: [],
-          P136: [],
-          P1476: [],
-          P577: [],
-          P580: [],
-          P582: [],
-          P1113: [],
-          P155: [],
-          P156: [],
-        },
-      },
-      adultSignals: [],
-      directContinuityQids: [],
-      machineReviewRequired: true,
-      machineReviewComplete: true,
-      primaryReviewRequired: true,
-      primaryReviewComplete: true,
-      proposalRecordSha256,
-      identityReviewSha256: digest(`review-${number}`),
-      identityAllocationSha256:
-        number === 5_000
-          ? digest('predecessor-allocation-5000')
-          : discoverySha256(allocationLedger[index]),
-    }
-    const candidateProjection = {
-      kind: 'new-candidate' as const,
-      ...projectionCore,
-      candidateSha256: digest(`candidate-${number}`),
-      manifestSha256: digest(`manifest-${number}`),
-      acquisitionOutcomeSha256: digest(`outcome-${number}`),
-      candidateProjectionSha256: digest(`projection-${number}`),
-      candidateReviewAuthoritySha256: digest(`review-authority-${number}`),
-    }
-    const projection = (() => {
-      if (number !== 5_000) return candidateProjection
-      const {
-        candidateSha256,
-        manifestSha256,
-        acquisitionOutcomeSha256,
-        candidateProjectionSha256,
-        candidateReviewAuthoritySha256,
-        ...predecessorCore
-      } = candidateProjection
-      void candidateSha256
-      void manifestSha256
-      void acquisitionOutcomeSha256
-      void candidateProjectionSha256
-      void candidateReviewAuthoritySha256
-      return {
-        ...predecessorCore,
-        kind: 'predecessor' as const,
-        predecessorNormalizedItemSha256: digest('predecessor-normalized-5000'),
-        proposedNormalizedItemSha256: digest('proposed-normalized-5000'),
-        predecessorProjectionSha256: digest('predecessor-projection-5000'),
-        predecessorReviewResultSha256: digest('predecessor-review-5000'),
-        correctionDisposition: 'unchanged-non-published' as const,
-        correctionCommitments: [],
-      }
-    })()
-    const record: Omit<IndependentReviewPopulationRecord, 'recordCommitment'> =
-      {
-        canonicalUuid,
-        qid: itemQid,
-        proposalRecordSha256,
-        identityReviewSha256: projectionCore.identityReviewSha256,
-        identityAllocationSha256: projectionCore.identityAllocationSha256,
-        primaryReviewEvidenceSha256: digest(`primary-${number}`),
-        primaryReviewRequired: true,
-        primaryReviewComplete: true,
-        acquisitionCohort: number === 5_000 ? 'predecessor-v1' : '001',
-        selectionCohort: {
-          discoveryReasons: ['audience-en'],
-          format: 'tv',
-          eraBucket: '2020-2026',
-        },
-        riskTriggers,
-        mandatoryRiskReasons: deriveIndependentReviewRiskReasons(riskTriggers),
-        projection: {
-          ...projection,
-          projectionSha256: discoverySha256(projection),
-        },
-      }
-    return {
-      ...record,
-      recordCommitment: independentReviewRecordCommitment(record),
-    }
-  })
-  const population = createIndependentReviewPopulationAuthority(
-    {
-      candidateAuthoritySha256: proposal.candidateAuthoritySha256,
-      candidateReceiptSha256: proposal.candidateReceiptSha256,
-      predecessorCorpusSha256: proposal.predecessorCorpusSha256,
-      proposalSha256: proposal.proposalSha256,
-      orderedProposedPublishedQidSequenceSha256:
-        proposal.orderedProposedPublishedQidSequenceSha256,
-      seedAuthoritySha256: seedAuthority.seedAuthoritySha256,
-      records,
-    },
-    proposal,
-    seedAuthority,
-  )
-  const allocationHistory = allocationLedger.map((allocation) => ({
-    version: identityAllocationHistoryVersion,
-    event: 'allocated' as const,
-    qid: allocation.qid,
-    catalogueItemId: allocation.catalogueItemId,
-    proposalSha256: allocation.proposedSelectionSha256,
-    reviewRound: allocation.allocationRound,
-    reducedProjectionSha256: allocation.reducedProjectionSha256,
-  }))
-  return {
-    seedAuthority,
-    proposal,
-    population,
-    allocationLedger,
-    allocationHistory,
-  }
-}
-
-const root = createRootTuple()
-const initialRootSnapshot =
-  createIndependentReviewInitialAuthoritySnapshot(root)
-
-function identityFixture(
-  qidValue: string,
-  projectionSha256: string,
-  replacementRound = 1,
-) {
-  const originalQids = root.proposal.orderedProposedPublishedQids
-  const predecessorCorpusSha256 = digest('identity-fixture-predecessor-corpus')
-  const selectionCore = {
-    schema: 'zedarchive.anime-v2-canonical-selection-evidence' as const,
-    version: 1 as const,
-    candidateReceiptSha256: acceptedCandidateReceiptSha256,
-    selectionRubricSha256: acceptedSelectionRubricSha256,
-    finalizedContinuitySha256: digest(`continuity-${qidValue}`),
-    orderedSelectedQids: originalQids,
-    orderedSelectedQidsSha256: discoverySha256(originalQids),
-    audienceAnchorQids: ['Q1'],
-    coverageWitnessQids: ['Q1'],
-    reasonCodes: originalQids.map((qid) => ({
-      qid,
-      reasons: ['audience-en'] as const,
-    })),
-    primaryCost: '0',
-    tierWeight: '1',
-    witnessPartitionsSolved: 1,
-  }
-  const canonicalSelectionEvidence = {
-    ...selectionCore,
-    evidenceSha256: discoverySha256(selectionCore),
-  }
-  const identityOriginalSeed = deriveIndependentSampleSeed({
-    canonicalCandidateReceiptSha256: acceptedCandidateReceiptSha256,
-    predecessorCorpusSha256,
-    orderedProposedPublishedQidSequenceSha256: discoverySha256(originalQids),
-  })
-  const identityLineage = Array.from(
-    { length: replacementRound },
-    (_, index) => {
-      const round = index + 1
-      const priorQids =
-        index === 0
-          ? originalQids
-          : Array.from({ length: 5_000 }, (_, qidIndex) => qid(qidIndex + 1))
-              .filter((value) => Number(value.slice(1)) > index)
-              .concat(
-                Array.from({ length: index }, (_, addedIndex) =>
-                  qid(5_001 + addedIndex),
-                ),
-              )
-              .sort(
-                (left, right) => Number(left.slice(1)) - Number(right.slice(1)),
-              )
-      const currentOrderedQids = [...priorQids]
-        .filter((value) => value !== qid(round))
-        .concat(qid(5_000 + round))
-        .sort((left, right) => Number(left.slice(1)) - Number(right.slice(1)))
-      return {
-        version: 'replacement-lineage.v1' as const,
-        round,
-        removedQids: [qid(round)],
-        addedQids: [qid(5_000 + round)],
-        previousOrderedQidSequenceSha256: discoverySha256(priorQids),
-        currentOrderedQids,
-        currentOrderedQidSequenceSha256: discoverySha256(currentOrderedQids),
-        roundSeed: deriveIndependentSampleRoundSeed(
-          identityOriginalSeed,
-          round,
-        ),
-      }
-    },
-  )
-  const identityReviewResults = identityLineage.map((lineage) => {
-    const reviewInput = {
-      version: 'identity-replacement-review-input.v1',
-      candidateReceiptSha256: acceptedCandidateReceiptSha256,
-      canonicalSelectionEvidenceSha256:
-        canonicalSelectionEvidence.evidenceSha256,
-      round: lineage.round,
-      previousSelectedQidsSha256: lineage.previousOrderedQidSequenceSha256,
-      roundSeed: lineage.roundSeed,
-      reviewedQids: lineage.removedQids,
-    }
-    const core = {
-      ...reviewInput,
-      schema: 'zedarchive.anime-v2-identity-replacement-review-result' as const,
-      version: 1 as const,
-      removals: lineage.removedQids.map((qid) => ({
-        qid,
-        outcome: 'independent-review-rejected' as const,
-      })),
-    }
-    return {
-      schema: core.schema,
-      version: core.version,
-      candidateReceiptSha256: core.candidateReceiptSha256,
-      canonicalSelectionEvidenceSha256: core.canonicalSelectionEvidenceSha256,
-      round: core.round,
-      previousSelectedQidsSha256: core.previousSelectedQidsSha256,
-      roundSeed: core.roundSeed,
-      removals: core.removals,
-      reviewInputSha256: discoverySha256(reviewInput),
-      resultSha256: discoverySha256(core),
-    }
-  })
-  const proposalCore = {
-    allocationRound: replacementRound + 1,
-    candidateReceiptSha256: acceptedCandidateReceiptSha256,
-    selectionRubricSha256: acceptedSelectionRubricSha256,
-    canonicalSelectionEvidenceSha256: canonicalSelectionEvidence.evidenceSha256,
-    finalizedContinuitySha256:
-      canonicalSelectionEvidence.finalizedContinuitySha256,
-    selectionAuthority: {
-      kind: 'replacement-lineage' as const,
-      commitmentSha256: replacementLineageSha256(identityLineage, {
-        originalSeed: identityOriginalSeed,
-        initialOrderedQids: originalQids,
-      }),
-    },
-    orderedQids: [qidValue],
-    orderedQidSequenceSha256: discoverySha256([qidValue]),
-  }
-  const proposal = {
-    version: 'identity-proposal.v1' as const,
-    ...proposalCore,
-    proposalSha256: discoverySha256({
-      version: 'identity-proposal.v1',
-      ...proposalCore,
-    }),
-  }
-  const reviewCore = {
-    version: 'identity-review-input.v1',
-    qid: qidValue,
-    proposalSha256: proposal.proposalSha256,
-    allocationRound: replacementRound + 1,
-    candidateReceiptSha256: acceptedCandidateReceiptSha256,
-    reducedProjectionSha256: projectionSha256,
-  }
-  return {
-    proposal,
-    authority: {
-      canonicalSelectionEvidence,
-      retainedPredecessorQids: ['Q5000'],
-      predecessorCorpusSha256,
-      identityReplacementLineage: identityLineage,
-      identityReplacementReviewResults: identityReviewResults,
-    },
-    approval: {
-      version: 'primary-identity-review-result.v1' as const,
-      qid: qidValue,
-      allocationRound: replacementRound + 1,
-      candidateReceiptSha256: acceptedCandidateReceiptSha256,
-      reducedProjectionSha256: projectionSha256,
-      proposalSha256: proposal.proposalSha256,
-      reviewInputSha256: discoverySha256(reviewCore),
-      exactWorkIdentity: 'approved' as const,
-      mediaScope: 'approved' as const,
-      outcome: 'approved-exact-work' as const,
-    },
-  }
-}
-
-function rebindRecord(
-  record: IndependentReviewPopulationRecord,
-  proposal: ReturnType<typeof createIndependentReviewProposal>,
-): IndependentReviewPopulationRecord {
-  const proposalRecordSha256 = independentReviewProposalRecordSha256({
-    proposalSha256: proposal.proposalSha256,
-    canonicalUuid: record.canonicalUuid,
-    qid: record.qid,
-  })
-  const { projectionSha256: priorProjectionSha256, ...priorProjection } =
-    record.projection
-  void priorProjectionSha256
-  const projectionCore = {
-    ...priorProjection,
-    proposalRecordSha256,
-  }
-  const projection = {
-    ...projectionCore,
-    projectionSha256: discoverySha256(projectionCore),
-  }
-  const { recordCommitment: priorRecordCommitment, ...priorRecord } = record
-  void priorRecordCommitment
-  const recordCore = {
-    ...priorRecord,
-    proposalRecordSha256,
-    projection,
-  }
-  return {
-    ...recordCore,
-    recordCommitment: independentReviewRecordCommitment(recordCore),
-  }
-}
-
-function replacementLineageEntry(
-  round: number,
-  priorQids: readonly string[],
-  removedQid: string,
-  addedQid: string,
-) {
-  const currentOrderedQids = [...priorQids]
-    .filter((value) => value !== removedQid)
-    .concat(addedQid)
-    .sort((left, right) => Number(left.slice(1)) - Number(right.slice(1)))
-  return {
-    version: 'replacement-lineage.v1' as const,
-    round,
-    removedQids: [removedQid],
-    addedQids: [addedQid],
-    previousOrderedQidSequenceSha256: discoverySha256(priorQids),
-    currentOrderedQids,
-    currentOrderedQidSequenceSha256: discoverySha256(currentOrderedQids),
-    roundSeed: deriveIndependentSampleRoundSeed(
-      root.seedAuthority.originalSeed,
-      round,
-    ),
-  }
-}
-
-function identityReplacementResult(
-  round: number,
-  lineage: ReturnType<typeof replacementLineageEntry>,
-) {
-  const reviewInput = {
-    version: 'identity-replacement-review-input.v1',
-    candidateReceiptSha256: root.proposal.candidateReceiptSha256,
-    canonicalSelectionEvidenceSha256:
-      root.proposal.canonicalSelectionEvidenceSha256,
-    round,
-    previousSelectedQidsSha256: lineage.previousOrderedQidSequenceSha256,
-    roundSeed: lineage.roundSeed,
-    reviewedQids: lineage.removedQids,
-  }
-  const core = {
-    schema: 'zedarchive.anime-v2-identity-replacement-review-result' as const,
-    version: 1 as const,
-    candidateReceiptSha256: reviewInput.candidateReceiptSha256,
-    canonicalSelectionEvidenceSha256:
-      reviewInput.canonicalSelectionEvidenceSha256,
-    round: reviewInput.round,
-    previousSelectedQidsSha256: reviewInput.previousSelectedQidsSha256,
-    roundSeed: reviewInput.roundSeed,
-    removals: lineage.removedQids.map((qid) => ({
-      qid,
-      outcome: 'independent-review-rejected' as const,
-    })),
-  }
-  const resultCore = { ...reviewInput, ...core }
-  return {
-    ...core,
-    reviewInputSha256: discoverySha256(reviewInput),
-    resultSha256: discoverySha256(resultCore),
-  }
-}
-
-function successorProposal(qids: readonly string[]) {
-  return createIndependentReviewProposal({
-    candidateAuthoritySha256: root.proposal.candidateAuthoritySha256,
-    candidateReceiptSha256: root.proposal.candidateReceiptSha256,
-    predecessorResultSha256: root.proposal.predecessorResultSha256,
-    predecessorCorpusSha256: root.proposal.predecessorCorpusSha256,
-    canonicalSelectionEvidenceSha256:
-      root.proposal.canonicalSelectionEvidenceSha256,
-    orderedProposedPublishedQids: qids,
-  })
-}
-
-function addedRecord(
-  qidValue: string,
-  canonicalUuid: string,
-  proposal: ReturnType<typeof createIndependentReviewProposal>,
-  approval: ReturnType<typeof identityFixture>['approval'],
-  allocation: (typeof root.allocationLedger)[number],
-): IndependentReviewPopulationRecord {
-  const template = root.population.records[0]!
-  const proposalRecordSha256 = independentReviewProposalRecordSha256({
-    proposalSha256: proposal.proposalSha256,
-    canonicalUuid,
-    qid: qidValue,
-  })
-  const { projectionSha256: templateProjectionSha256, ...templateProjection } =
-    template.projection
-  void templateProjectionSha256
-  const projectionCore = {
-    ...templateProjection,
-    canonicalUuid,
-    qid: qidValue,
-    proposalRecordSha256,
-    identityReviewSha256: discoverySha256(approval),
-    identityAllocationSha256: discoverySha256(allocation),
-  }
-  const projection = {
-    ...projectionCore,
-    projectionSha256: discoverySha256(projectionCore),
-  }
-  const { recordCommitment: templateRecordCommitment, ...templateRecord } =
-    template
-  void templateRecordCommitment
-  const recordCore = {
-    ...templateRecord,
-    canonicalUuid,
-    qid: qidValue,
-    proposalRecordSha256,
-    identityReviewSha256: discoverySha256(approval),
-    identityAllocationSha256: discoverySha256(allocation),
-    projection,
-  }
-  return {
-    ...recordCore,
-    recordCommitment: independentReviewRecordCommitment(recordCore),
-  }
-}
-
-function successorPopulation(
-  round: number,
-  priorSnapshotSha256: string,
-  proposal: ReturnType<typeof createIndependentReviewProposal>,
-  records: readonly IndependentReviewPopulationRecord[],
-) {
-  const core = {
-    schema:
-      'zedarchive.anime-v2-independent-review-successor-population-authority' as const,
-    version: 1 as const,
-    rootSeedAuthoritySha256: root.seedAuthority.seedAuthoritySha256,
-    reviewSeriesSha256: initialRootSnapshot.reviewSeriesSha256,
-    round,
-    proposalSha256: proposal.proposalSha256,
-    orderedProposedPublishedQidSequenceSha256:
-      proposal.orderedProposedPublishedQidSequenceSha256,
-    priorAuthoritySnapshotSha256: priorSnapshotSha256,
-    records: [...records].sort((left, right) =>
-      left.canonicalUuid.localeCompare(right.canonicalUuid, 'en'),
-    ),
-  }
-  return { ...core, populationSha256: discoverySha256(core) }
-}
-
-function successorProof(
-  input: Readonly<{
-    round: number
-    priorSnapshot:
-      | ReturnType<typeof createIndependentReviewInitialAuthoritySnapshot>
-      | Record<string, unknown>
-    priorProposal: ReturnType<typeof createIndependentReviewProposal>
-    priorPopulation: { populationSha256: string }
-    proposal: ReturnType<typeof createIndependentReviewProposal>
-    population: ReturnType<typeof successorPopulation>
-    lineage: readonly ReturnType<typeof replacementLineageEntry>[]
-    ledger: readonly (typeof root.allocationLedger)[number][]
-    history: readonly IdentityAllocationHistoryEvent[]
-    addition: ReturnType<typeof identityFixture>
-    allocation: (typeof root.allocationLedger)[number]
-    removedQid: string
-  }>,
-) {
-  const identityResult = identityReplacementResult(
-    input.round,
-    input.lineage.at(-1)!,
-  )
-  const finalSelectionSha256 =
-    input.proposal.orderedProposedPublishedQidSequenceSha256
-  const priorRecord =
-    input.round === 1
-      ? root.population.records.find(
-          (record) => record.qid === input.removedQid,
-        )!
-      : (
-          input.priorSnapshot as {
-            population: { records: IndependentReviewPopulationRecord[] }
-          }
-        ).population.records.find((record) => record.qid === input.removedQid)!
-  const previousAllocation = input.ledger.find(
-    (entry) => entry.qid === input.removedQid,
-  )!
-  const retirement = {
-    version: identityAllocationHistoryVersion,
-    event: 'retired' as const,
-    qid: input.removedQid,
-    catalogueItemId: priorRecord.canonicalUuid,
-    proposalSha256: previousAllocation.proposedSelectionSha256,
-    reviewRound: previousAllocation.allocationRound,
-    reducedProjectionSha256: previousAllocation.reducedProjectionSha256,
-    finalSelectionSha256,
-    reason: 'independent-review-rejected' as const,
-  }
-  const additions = [
-    {
-      qid: input.allocation.qid,
-      identityProposal: input.addition.proposal,
-      identityProposalAuthority: input.addition.authority,
-      primaryIdentityReviewResult: input.addition.approval,
-      allocation: input.allocation,
-    },
-  ]
-  const lineageAuthority = {
-    originalSeed: root.seedAuthority.originalSeed,
-    initialOrderedQids: root.proposal.orderedProposedPublishedQids,
-  }
-  const core = {
-    schema: 'zedarchive.anime-v2-independent-review-replacement-proof' as const,
-    version: 1 as const,
-    reviewSeriesSha256: initialRootSnapshot.reviewSeriesSha256,
-    round: input.round,
-    priorAuthoritySnapshotSha256: (
-      input.priorSnapshot as { authoritySnapshotSha256: string }
-    ).authoritySnapshotSha256,
-    priorProposalSha256: input.priorProposal.proposalSha256,
-    priorPopulationSha256: input.priorPopulation.populationSha256,
-    nextProposalSha256: input.proposal.proposalSha256,
-    nextPopulationSha256: input.population.populationSha256,
-    replacementLineage: input.lineage,
-    replacementLineageSha256: replacementLineageSha256(
-      input.lineage,
-      lineageAuthority,
-    ),
-    identityReplacementReviewResult: identityResult,
-    allocationLedger: input.ledger,
-    allocationLedgerSha256: identityAllocationLedgerSha256(input.ledger),
-    allocationHistory: input.history,
-    allocationHistorySha256: independentReviewWorkingAllocationHistorySha256(
-      input.history,
-    ),
-    additions,
-    removals: [{ qid: input.removedQid, retirement }],
-    triggeringPlanSha256: digest(`trigger-plan-${input.round}`),
-    triggeringInputSha256: digest(`trigger-input-${input.round}`),
-    triggeringResultSha256: digest(`trigger-result-${input.round}`),
-  }
-  return { ...core, replacementProofSha256: discoverySha256(core) }
-}
-
-function successorSnapshot(
-  input: Readonly<{
-    round: number
-    priorSnapshot: { authoritySnapshotSha256: string }
-    proposal: ReturnType<typeof createIndependentReviewProposal>
-    population: ReturnType<typeof successorPopulation>
-    replacementProof: ReturnType<typeof successorProof>
-  }>,
-) {
-  const core = {
-    schema:
-      'zedarchive.anime-v2-independent-review-authority-snapshot' as const,
-    version: 1 as const,
-    kind: 'successor' as const,
-    round: input.round,
-    rootSeedAuthoritySha256: root.seedAuthority.seedAuthoritySha256,
-    reviewSeriesSha256: initialRootSnapshot.reviewSeriesSha256,
-    priorAuthoritySnapshotSha256: input.priorSnapshot.authoritySnapshotSha256,
-    proposal: input.proposal,
-    population: input.population,
-    replacementProof: input.replacementProof,
-  }
-  return { ...core, authoritySnapshotSha256: discoverySha256(core) }
-}
-
-function rehashSnapshotProof(
-  snapshot: ReturnType<typeof successorSnapshot>,
-  replacementProof: ReturnType<typeof successorProof>,
-) {
-  const { replacementProofSha256, ...proofCore } = replacementProof
-  void replacementProofSha256
-  const proof = {
-    ...proofCore,
-    replacementProofSha256: discoverySha256(proofCore),
-  }
-  const { authoritySnapshotSha256, ...snapshotCore } = snapshot
-  void authoritySnapshotSha256
-  const nextCore = { ...snapshotCore, replacementProof: proof }
-  return {
-    ...nextCore,
-    authoritySnapshotSha256: discoverySha256(nextCore),
-  }
-}
-
-function rehashRetainedRecordMutation(
-  snapshot: ReturnType<typeof successorSnapshot>,
-  qidValue: string,
-  mutate: (
-    record: IndependentReviewPopulationRecord,
-  ) => IndependentReviewPopulationRecord,
-) {
-  const records = snapshot.population.records.map((record) => {
-    if (record.qid !== qidValue) return record
-    const mutated = mutate(record)
-    const proposalRecordSha256 = independentReviewProposalRecordSha256({
-      proposalSha256: snapshot.proposal.proposalSha256,
-      canonicalUuid: mutated.canonicalUuid,
-      qid: mutated.qid,
-    })
-    const { projectionSha256, ...projectionWithoutHash } = mutated.projection
-    void projectionSha256
-    const projectionCore = {
-      ...projectionWithoutHash,
-      proposalRecordSha256,
-    }
-    const projection = {
-      ...projectionCore,
-      projectionSha256: discoverySha256(projectionCore),
-    }
-    const { recordCommitment, ...recordWithoutCommitment } = mutated
-    void recordCommitment
-    const recordCore = {
-      ...recordWithoutCommitment,
-      proposalRecordSha256,
-      projection,
-    }
-    return {
-      ...recordCore,
-      recordCommitment: independentReviewRecordCommitment(recordCore),
-    }
-  })
-  const { populationSha256, ...populationWithoutHash } = snapshot.population
-  void populationSha256
-  const populationCore = { ...populationWithoutHash, records }
-  const population = {
-    ...populationCore,
-    populationSha256: discoverySha256(populationCore),
-  }
-  const proofInput = {
-    ...snapshot.replacementProof,
-    nextPopulationSha256: population.populationSha256,
-  }
-  const { replacementProofSha256, ...proofCore } = proofInput
-  void replacementProofSha256
-  const replacementProof = {
-    ...proofCore,
-    replacementProofSha256: discoverySha256(proofCore),
-  }
-  const { authoritySnapshotSha256, ...snapshotWithoutHash } = snapshot
-  void authoritySnapshotSha256
-  const snapshotCore = {
-    ...snapshotWithoutHash,
-    population,
-    replacementProof,
-  }
-  return {
-    ...snapshotCore,
-    authoritySnapshotSha256: discoverySha256(snapshotCore),
-  }
-}
-
-type PredecessorProjection = Extract<
-  IndependentReviewPopulationRecord['projection'],
-  Readonly<{ kind: 'predecessor' }>
->
-
-function mutatePredecessorProjection(
-  record: IndependentReviewPopulationRecord,
-  mutate: (projection: PredecessorProjection) => PredecessorProjection,
-): IndependentReviewPopulationRecord {
-  if (record.projection.kind !== 'predecessor')
-    throw new Error('Predecessor mutation fixture requires a predecessor row.')
-  return { ...record, projection: mutate(record.projection) }
-}
-
-function allocationHistory(
-  allocation: (typeof root.allocationLedger)[number],
-): IdentityAllocationHistoryEvent {
-  return {
-    version: identityAllocationHistoryVersion,
-    event: 'allocated',
-    qid: allocation.qid,
-    catalogueItemId: allocation.catalogueItemId,
-    proposalSha256: allocation.proposedSelectionSha256,
-    reviewRound: allocation.allocationRound,
-    reducedProjectionSha256: allocation.reducedProjectionSha256,
-  }
-}
-
-function retirementHistory(
-  qidValue: string,
-  priorRecords: readonly IndependentReviewPopulationRecord[],
-  ledger: readonly (typeof root.allocationLedger)[number][],
-  nextProposal: ReturnType<typeof createIndependentReviewProposal>,
-): IdentityAllocationHistoryEvent {
-  const record = priorRecords.find((value) => value.qid === qidValue)!
-  const allocation = ledger.find((value) => value.qid === qidValue)!
-  return {
-    version: identityAllocationHistoryVersion,
-    event: 'retired',
-    qid: qidValue,
-    catalogueItemId: record.canonicalUuid,
-    proposalSha256: allocation.proposedSelectionSha256,
-    reviewRound: allocation.allocationRound,
-    reducedProjectionSha256: allocation.reducedProjectionSha256,
-    finalSelectionSha256:
-      nextProposal.orderedProposedPublishedQidSequenceSha256,
-    reason: 'independent-review-rejected',
-  }
-}
-
-function addedAllocation(
-  qidValue: string,
-  canonicalUuid: string,
-  fixture: ReturnType<typeof identityFixture>,
-) {
-  return {
-    version: identityAllocationVersion,
-    qid: qidValue,
-    catalogueItemId: canonicalUuid,
-    canonicalCandidateReceiptSha256: acceptedCandidateReceiptSha256,
-    reducedProjectionSha256: fixture.approval.reducedProjectionSha256,
-    identityOutcome: 'approved-exact-work' as const,
-    proposedSelectionSha256: fixture.proposal.proposalSha256,
-    allocationRound: fixture.approval.allocationRound,
-  }
-}
-
-type ParsedSuccessorRounds = Readonly<{
-  rootSnapshot: ReturnType<
-    typeof createIndependentReviewInitialAuthoritySnapshot
-  >
-  firstSnapshot: ReturnType<typeof successorSnapshot>
-  secondSnapshot: ReturnType<typeof successorSnapshot>
-}>
-
-let parsedSuccessorRounds: ParsedSuccessorRounds | undefined
-
-function createParsedSuccessorRounds(): ParsedSuccessorRounds {
-  if (parsedSuccessorRounds !== undefined) return parsedSuccessorRounds
-  const rootSnapshot = initialRootSnapshot
-  const firstLineage = replacementLineageEntry(
-    1,
-    root.proposal.orderedProposedPublishedQids,
-    'Q1',
-    'Q5001',
-  )
-  const firstProposal = successorProposal(firstLineage.currentOrderedQids)
-  const firstIdentity = identityFixture('Q5001', digest('Q5001-projection'))
-  const firstAllocation = addedAllocation('Q5001', uuid(5001), firstIdentity)
-  const firstRecords = [
-    ...root.population.records
-      .filter((record) => record.qid !== 'Q1')
-      .map((record) => rebindRecord(record, firstProposal)),
-    addedRecord(
-      'Q5001',
-      uuid(5001),
-      firstProposal,
-      firstIdentity.approval,
-      firstAllocation,
-    ),
-  ]
-  const firstPopulation = successorPopulation(
-    1,
-    rootSnapshot.authoritySnapshotSha256,
-    firstProposal,
-    firstRecords,
-  )
-  const firstLedger = [...root.allocationLedger, firstAllocation]
-  const firstHistory = [
-    ...root.allocationHistory,
-    retirementHistory(
-      'Q1',
-      root.population.records,
-      firstLedger,
-      firstProposal,
-    ),
-    allocationHistory(firstAllocation),
-  ]
-  const firstProof = successorProof({
-    round: 1,
-    priorSnapshot: rootSnapshot,
-    priorProposal: root.proposal,
-    priorPopulation: root.population,
-    proposal: firstProposal,
-    population: firstPopulation,
-    lineage: [firstLineage],
-    ledger: firstLedger,
-    history: firstHistory,
-    addition: firstIdentity,
-    allocation: firstAllocation,
-    removedQid: 'Q1',
-  })
-  const firstSnapshot = successorSnapshot({
-    round: 1,
-    priorSnapshot: rootSnapshot,
-    proposal: firstProposal,
-    population: firstPopulation,
-    replacementProof: firstProof,
-  })
-
-  const secondLineage = replacementLineageEntry(
-    2,
-    firstProposal.orderedProposedPublishedQids,
-    'Q2',
-    'Q5002',
-  )
-  const secondProposal = successorProposal(secondLineage.currentOrderedQids)
-  const secondIdentity = identityFixture('Q5002', digest('Q5002-projection'), 2)
-  const secondAllocation = addedAllocation('Q5002', uuid(5002), secondIdentity)
-  const secondRecords = [
-    ...firstPopulation.records
-      .filter((record) => record.qid !== 'Q2')
-      .map((record) => rebindRecord(record, secondProposal)),
-    addedRecord(
-      'Q5002',
-      uuid(5002),
-      secondProposal,
-      secondIdentity.approval,
-      secondAllocation,
-    ),
-  ]
-  const secondPopulation = successorPopulation(
-    2,
-    firstSnapshot.authoritySnapshotSha256,
-    secondProposal,
-    secondRecords,
-  )
-  const secondLedger = [...firstLedger, secondAllocation]
-  const secondHistory = [
-    ...firstHistory,
-    retirementHistory(
-      'Q2',
-      firstPopulation.records,
-      secondLedger,
-      secondProposal,
-    ),
-    allocationHistory(secondAllocation),
-  ]
-  const secondProof = successorProof({
-    round: 2,
-    priorSnapshot: firstSnapshot,
-    priorProposal: firstProposal,
-    priorPopulation: firstPopulation,
-    proposal: secondProposal,
-    population: secondPopulation,
-    lineage: [firstLineage, secondLineage],
-    ledger: secondLedger,
-    history: secondHistory,
-    addition: secondIdentity,
-    allocation: secondAllocation,
-    removedQid: 'Q2',
-  })
-  const secondSnapshot = successorSnapshot({
-    round: 2,
-    priorSnapshot: firstSnapshot,
-    proposal: secondProposal,
-    population: secondPopulation,
-    replacementProof: secondProof,
-  })
-  parsedSuccessorRounds = { rootSnapshot, firstSnapshot, secondSnapshot }
-  return parsedSuccessorRounds
-}
+  createIndependentReviewExactEmptyRootFixture,
+  createIndependentReviewExactEmptySuccessorFixture,
+  createIndependentReviewRootFixtureVariant,
+  createParsedSuccessorRounds,
+  createParsedSuccessorRoundsForRemovals,
+  createParsedSuccessorRoundsVariant,
+  digest,
+  identityFixture,
+  initialRootSnapshot,
+  mutatePredecessorProjection,
+  rebindRecord,
+  rehashRetainedRecordMutation,
+  rehashSnapshotProof,
+  root,
+  uuid,
+} from '@/features/anime/catalogue/test-support/anime-release-v2-independent-review-fixture'
 
 describe('Decision 098 initial authority snapshot', () => {
+  it('builds strict memoized 100/99 isolated threshold authorities', () => {
+    const input = {
+      mandatoryRiskQids: ['Q200'],
+      isolatedCohorts: [
+        {
+          qids: Array.from({ length: 100 }, (_, index) => `Q${index + 1}`),
+          acquisitionCohort: '159',
+          selectionCohort: {
+            discoveryReasons: ['audience-en', 'audience-ja'],
+            format: 'tv',
+            eraBucket: '2020-2026',
+          },
+        },
+        {
+          qids: Array.from({ length: 99 }, (_, index) => `Q${index + 101}`),
+          acquisitionCohort: '160',
+          selectionCohort: {
+            discoveryReasons: ['multilingual-coverage', 'franchise-continuity'],
+            format: 'tv',
+            eraBucket: '2020-2026',
+          },
+        },
+      ],
+    } as const
+    const variant = createIndependentReviewRootFixtureVariant(input)
+    expect(createIndependentReviewRootFixtureVariant(input)).toBe(variant)
+    expect(
+      parseIndependentReviewInitialAuthoritySnapshot(variant.initialSnapshot),
+    ).toEqual(variant.initialSnapshot)
+    expect(variant.root.allocationLedger).toEqual(root.allocationLedger)
+    expect(variant.root.allocationHistory).toEqual(root.allocationHistory)
+
+    for (const [index, isolated] of input.isolatedCohorts.entries()) {
+      const exactExpansionQids = variant.root.population.records
+        .filter(
+          (record) =>
+            record.acquisitionCohort === isolated.acquisitionCohort ||
+            JSON.stringify(record.selectionCohort) ===
+              JSON.stringify(isolated.selectionCohort),
+        )
+        .map(({ qid }) => qid)
+        .sort((left, right) => Number(left.slice(1)) - Number(right.slice(1)))
+      expect(exactExpansionQids).toEqual(isolated.qids)
+      expect(exactExpansionQids).toHaveLength(index === 0 ? 100 : 99)
+    }
+    const mandatory = variant.root.population.records.find(
+      (record) => record.qid === 'Q200',
+    )!
+    expect(mandatory.riskTriggers.sourceFlag).toBe(true)
+    expect(mandatory.mandatoryRiskReasons).toEqual(['source-flag'])
+
+    expect(() =>
+      createIndependentReviewRootFixtureVariant({
+        ...input,
+        mandatoryRiskQids: ['Q200', 'Q200'],
+      }),
+    ).toThrow(/unique/)
+    expect(() =>
+      createIndependentReviewRootFixtureVariant({
+        ...input,
+        mandatoryRiskQids: ['Q5000'],
+      }),
+    ).toThrow(/candidate/)
+    expect(() =>
+      createIndependentReviewRootFixtureVariant({ ...input, extra: true }),
+    ).toThrow(/unknown fields/)
+    expect(() =>
+      createIndependentReviewRootFixtureVariant({
+        ...input,
+        isolatedCohorts: [
+          input.isolatedCohorts[0],
+          {
+            ...input.isolatedCohorts[1],
+            qids: ['Q100'],
+          },
+        ],
+      }),
+    ).toThrow(/disjoint/)
+  }, 30_000)
+
+  it('distributes synthetic candidates across bounded acquisition and selection cohorts', () => {
+    const candidates = root.population.records.filter(
+      (record) => record.projection.kind === 'new-candidate',
+    )
+    const predecessor = root.population.records.find(
+      (record) => record.projection.kind === 'predecessor',
+    )!
+    const acquisitionSizes = new Map<string, number>()
+    const selectionSizes = new Map<string, number>()
+    for (const record of candidates) {
+      acquisitionSizes.set(
+        record.acquisitionCohort,
+        (acquisitionSizes.get(record.acquisitionCohort) ?? 0) + 1,
+      )
+      const selectionKey = JSON.stringify(
+        record.selectionCohort.discoveryReasons,
+      )
+      selectionSizes.set(
+        selectionKey,
+        (selectionSizes.get(selectionKey) ?? 0) + 1,
+      )
+    }
+
+    expect([...acquisitionSizes.keys()].sort()).toEqual(
+      Array.from({ length: 160 }, (_, index) =>
+        String(index + 1).padStart(3, '0'),
+      ),
+    )
+    expect([...acquisitionSizes.values()].sort((a, b) => a - b)).toEqual([
+      ...Array.from({ length: 121 }, () => 31),
+      ...Array.from({ length: 39 }, () => 32),
+    ])
+    expect([...selectionSizes.values()].sort((a, b) => a - b)).toEqual([
+      833, 833, 833, 833, 833, 834,
+    ])
+    expect(
+      Math.max(...acquisitionSizes.values()) +
+        Math.max(...selectionSizes.values()),
+    ).toBeLessThan(root.population.records.length)
+    expect(predecessor.acquisitionCohort).toBe('predecessor-v1')
+    expect(predecessor.selectionCohort.discoveryReasons).toEqual([
+      'predecessor',
+    ])
+  })
+
   it('derives one root-series commitment from the complete parsed tuple', () => {
     const snapshot = initialRootSnapshot
     expect(snapshot.reviewSeriesSha256).toBe(
@@ -1075,13 +243,55 @@ describe('Decision 098 initial authority snapshot', () => {
     )
   })
 
-  it('permits the fixture parser to be imported only by test files', () => {
+  it('preindexes replacement-edge QID evidence instead of rescanning populations per delta', () => {
+    const source = readFileSync(
+      new URL(
+        './anime-release-v2-independent-review-successor-authority.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    )
+    expect(source).not.toMatch(/population\.records\.find\s*\(/)
+    expect(source).not.toMatch(/priorPopulation\.records\.find\s*\(/)
+    expect(source).not.toMatch(/expectedOutcomes\.find\s*\(/)
+    expect(source).toContain('const populationByQid = new Map(')
+    expect(source).toContain('const priorPopulationByQid = new Map(')
+    expect(source).toContain('const expectedOutcomeByQid = new Map(')
+    expect(source).toContain('const retiredHistoryByQid = new Map(')
+  })
+
+  it('keeps catalogue test-support unreachable from production source and scripts', () => {
+    const repositoryRoot = new URL('../../../../', import.meta.url)
+    const productionExtension = /\.(?:[cm]?[jt]s|tsx)$/
+    const testOrSpec = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:[cm]?[jt]s|tsx)$/
+    const files = (directory: URL): string[] =>
+      readdirSync(directory).flatMap((entry) => {
+        const target = new URL(entry, directory)
+        return statSync(target).isDirectory()
+          ? files(new URL(`${entry}/`, directory))
+          : productionExtension.test(target.pathname)
+            ? [target.pathname]
+            : []
+      })
+    const productionImports = ['src/', 'scripts/']
+      .flatMap((root) => files(new URL(root, repositoryRoot)))
+      .filter(
+        (file) =>
+          !testOrSpec.test(file) && !file.includes('/catalogue/test-support/'),
+      )
+      .filter((file) => readFileSync(file, 'utf8').includes('/test-support/'))
+      .sort()
+
+    expect(productionImports).toEqual([])
+  })
+
+  it('permits the fixture parser only through the runtime-gated result fixture boundary', () => {
     const catalogueDirectory = new URL('./', import.meta.url)
     const files = (directory: URL): string[] =>
       readdirSync(directory).flatMap((entry) => {
         const target = new URL(entry, directory)
         return statSync(target).isDirectory()
-          ? files(target)
+          ? files(new URL(`${entry}/`, directory))
           : target.pathname.endsWith('.ts')
             ? [target.pathname]
             : []
@@ -1100,7 +310,19 @@ describe('Decision 098 initial authority snapshot', () => {
         )
       )
     })
-    expect(productionImports).toEqual([])
+    expect(productionImports).toEqual([
+      new URL(
+        './anime-release-v2-independent-review-result.ts',
+        import.meta.url,
+      ).pathname,
+    ])
+    const resultSource = readFileSync(productionImports[0]!, 'utf8')
+    expect(resultSource).toMatch(
+      /export function parseIndependentReviewSeriesForFixture[\s\S]*?process\.env\.NODE_ENV !== 'test'[\s\S]*?parseIndependentReviewSuccessorAuthoritySnapshotForFixture/,
+    )
+    expect(resultSource).toMatch(
+      /export function prepareIndependentReviewFreshSampleForFixture[\s\S]*?process\.env\.NODE_ENV !== 'test'[\s\S]*?parseIndependentReviewSuccessorAuthoritySnapshotForFixture/,
+    )
   })
 
   it('uses an append-only M45-07 working history and rejects premature active finalization', () => {
@@ -1220,6 +442,163 @@ describe('Decision 098 initial authority snapshot', () => {
 })
 
 describe('Decisions 098–100 successor authority', () => {
+  it('builds the dedicated single-bridge exact-empty successor authority', () => {
+    const exactRoot = createIndependentReviewExactEmptyRootFixture()
+    const exactSample = prepareIndependentReviewSample({
+      population: exactRoot.root.population,
+      proposal: exactRoot.root.proposal,
+      seedAuthority: exactRoot.root.seedAuthority,
+      round: 'initial',
+    })
+    expect(exactSample.sampledCanonicalUuids).toContain(uuid(2016))
+    const bridge = exactRoot.root.population.records.find(
+      (record) => record.qid === 'Q2016',
+    )!
+    const bridgeExpansionQids = exactRoot.root.population.records
+      .filter(
+        (record) =>
+          record.acquisitionCohort === bridge.acquisitionCohort ||
+          JSON.stringify(record.selectionCohort) ===
+            JSON.stringify(bridge.selectionCohort),
+      )
+      .map(({ qid }) => qid)
+    expect(bridgeExpansionQids).toHaveLength(4_999)
+    const predecessor = exactRoot.root.population.records.find(
+      (record) => record.qid === 'Q5000',
+    )!
+    expect(predecessor.mandatoryRiskReasons).toEqual(['source-flag'])
+    const cohortSizes = new Map<string, number>()
+    for (const record of exactRoot.root.population.records.filter(
+      (candidate) => candidate.projection.kind === 'new-candidate',
+    ))
+      cohortSizes.set(
+        record.acquisitionCohort,
+        (cohortSizes.get(record.acquisitionCohort) ?? 0) + 1,
+      )
+    expect(cohortSizes).toEqual(
+      new Map([
+        ['159', 2_500],
+        ['160', 2_499],
+      ]),
+    )
+
+    const input = { firstRemovedQid: 'Q2016', secondRemovedQid: 'Q2501' }
+    const rounds = createIndependentReviewExactEmptySuccessorFixture(input)
+    expect(createIndependentReviewExactEmptySuccessorFixture(input)).toBe(
+      rounds,
+    )
+    expect(rounds.rootSnapshot).toEqual(exactRoot.initialSnapshot)
+    const addition = rounds.firstSnapshot.population.records.find(
+      (record) => record.qid === 'Q5001',
+    )!
+    expect(addition.mandatoryRiskReasons).toEqual(['source-flag'])
+    expect(
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rounds.firstSnapshot,
+        { rootSnapshot: rounds.rootSnapshot, priorSuccessorSnapshots: [] },
+      ),
+    ).toEqual(rounds.firstSnapshot)
+    expect(() =>
+      createIndependentReviewExactEmptySuccessorFixture({
+        ...input,
+        unexpected: true,
+      }),
+    ).toThrow(/unknown fields/)
+  }, 30_000)
+
+  it('rebuilds a strict successor chain with a mandatory added record', () => {
+    const input = {
+      firstRemovedQid: 'Q3',
+      secondRemovedQid: 'Q4',
+      mandatoryAddedRounds: [1],
+    }
+    const rounds = createParsedSuccessorRoundsVariant(input)
+    expect(createParsedSuccessorRoundsVariant(input)).toBe(rounds)
+    const firstAdded = rounds.firstSnapshot.population.records.find(
+      (record) => record.qid === 'Q5001',
+    )!
+    const secondAdded = rounds.secondSnapshot.population.records.find(
+      (record) => record.qid === 'Q5002',
+    )!
+    expect(firstAdded.riskTriggers.sourceFlag).toBe(true)
+    expect(firstAdded.mandatoryRiskReasons).toEqual(['source-flag'])
+    expect(secondAdded.mandatoryRiskReasons).toEqual([])
+    expect(
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rounds.firstSnapshot,
+        { rootSnapshot: rounds.rootSnapshot, priorSuccessorSnapshots: [] },
+      ),
+    ).toEqual(rounds.firstSnapshot)
+    expect(
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rounds.secondSnapshot,
+        {
+          rootSnapshot: rounds.rootSnapshot,
+          priorSuccessorSnapshots: [rounds.firstSnapshot],
+        },
+      ),
+    ).toEqual(rounds.secondSnapshot)
+    expect(() =>
+      createParsedSuccessorRoundsVariant({
+        ...input,
+        mandatoryAddedRounds: [1, 1],
+      }),
+    ).toThrow(/unique ascending/)
+    expect(() =>
+      createParsedSuccessorRoundsVariant({ ...input, unexpected: true }),
+    ).toThrow(/unknown fields/)
+  }, 30_000)
+
+  it('constructs and memoizes a strictly selected two-round removal chain', () => {
+    const input = {
+      firstRemovedQid: 'Q3',
+      secondRemovedQid: 'Q5001',
+    }
+    const rounds = createParsedSuccessorRoundsForRemovals(input)
+    expect(createParsedSuccessorRoundsForRemovals(input)).toBe(rounds)
+    expect(rounds.firstSnapshot.replacementProof.removals).toHaveLength(1)
+    expect(rounds.firstSnapshot.replacementProof.removals[0]!.qid).toBe('Q3')
+    expect(rounds.secondSnapshot.replacementProof.removals).toHaveLength(1)
+    expect(rounds.secondSnapshot.replacementProof.removals[0]!.qid).toBe(
+      'Q5001',
+    )
+    expect(
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rounds.firstSnapshot,
+        { rootSnapshot: rounds.rootSnapshot, priorSuccessorSnapshots: [] },
+      ),
+    ).toEqual(rounds.firstSnapshot)
+    expect(
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rounds.secondSnapshot,
+        {
+          rootSnapshot: rounds.rootSnapshot,
+          priorSuccessorSnapshots: [rounds.firstSnapshot],
+        },
+      ),
+    ).toEqual(rounds.secondSnapshot)
+
+    expect(() =>
+      createParsedSuccessorRoundsForRemovals({
+        firstRemovedQid: 'Q5000',
+        secondRemovedQid: 'Q2',
+      }),
+    ).toThrow(/new-candidate/)
+    expect(() =>
+      createParsedSuccessorRoundsForRemovals({
+        firstRemovedQid: 'Q3',
+        secondRemovedQid: 'Q3',
+      }),
+    ).toThrow(/distinct/)
+    expect(() =>
+      createParsedSuccessorRoundsForRemovals({
+        firstRemovedQid: 'Q3',
+        secondRemovedQid: 'Q4',
+        unexpected: true,
+      } as never),
+    ).toThrow(/not exact/)
+  }, 60_000)
+
   it('parses genuine 5,000-record round-one and contiguous round-two successor snapshots', () => {
     const { rootSnapshot, firstSnapshot, secondSnapshot } =
       createParsedSuccessorRounds()
@@ -1316,9 +695,6 @@ describe('Decisions 098–100 successor authority', () => {
     'replacementLineageSha256',
     'allocationLedgerSha256',
     'allocationHistorySha256',
-    'triggeringPlanSha256',
-    'triggeringInputSha256',
-    'triggeringResultSha256',
     'replacementProofSha256',
   ])('rejects a replacement proof commitment mutation: %s', (field) => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
@@ -1335,6 +711,92 @@ describe('Decisions 098–100 successor authority', () => {
       ),
     ).toThrow()
   })
+
+  it('requires a strict, non-empty, ordered triggering-defect table', () => {
+    const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
+    const parse = (replacementProof: unknown) =>
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        rehashSnapshotProof(firstSnapshot, replacementProof as never),
+        { rootSnapshot, priorSuccessorSnapshots: [] },
+      )
+    const defect = firstSnapshot.replacementProof.triggeringDefects[0]!
+    expect(() =>
+      parse({ ...firstSnapshot.replacementProof, triggeringDefects: [] }),
+    ).toThrow(/non-empty/)
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [{ ...defect, unexpected: true }],
+      }),
+    ).toThrow(/unknown fields/)
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [{ ...defect, category: 'unknown-category' }],
+      }),
+    ).toThrow(/category/)
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [defect, defect],
+      }),
+    ).toThrow(/unique/)
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [{ ...defect, qid: 'Q2' }, defect],
+      }),
+    ).toThrow(/unique/)
+
+    const secondDefect = {
+      ...defect,
+      planSha256: digest('second-trigger-plan'),
+      inputSha256: digest('second-trigger-input'),
+      resultSha256: digest('second-trigger-result'),
+      recordCommitment: rootSnapshot.population.records[1]!.recordCommitment,
+      qid: 'Q2',
+      category: 'duplicate' as const,
+    }
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [{ ...secondDefect, qid: defect.qid }, defect],
+      }),
+    ).toThrow(/unique/)
+    const ordered = [defect, secondDefect].sort((left, right) =>
+      left.recordCommitment.localeCompare(right.recordCommitment, 'en'),
+    )
+    expect(
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: ordered,
+      }),
+    ).toMatchObject({
+      replacementProof: { triggeringDefects: ordered },
+    })
+    expect(() =>
+      parse({
+        ...firstSnapshot.replacementProof,
+        triggeringDefects: [...ordered].reverse(),
+      }),
+    ).toThrow(/ASCII/)
+  }, 30_000)
+
+  it('rejects superseded singular triggering hashes', () => {
+    const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
+    expect(() =>
+      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+        {
+          ...firstSnapshot,
+          replacementProof: {
+            ...firstSnapshot.replacementProof,
+            triggeringPlanSha256: digest('obsolete-trigger-plan'),
+          },
+        },
+        { rootSnapshot, priorSuccessorSnapshots: [] },
+      ),
+    ).toThrow(/unknown fields/)
+  }, 30_000)
 
   it('proves the exact four-member retained-record proposal rebind and rejects substantive drift', () => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
@@ -1710,7 +1172,7 @@ describe('Decisions 098–100 successor authority', () => {
           { rootSnapshot, priorSuccessorSnapshots: [] },
         ),
       ).toThrow()
-  })
+  }, 30_000)
 
   it('does not permit added or removed rows to use retained-record rebinding', () => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
@@ -1819,7 +1281,7 @@ describe('Decisions 098–100 successor authority', () => {
         },
       }),
     ).toThrow()
-  }, 15_000)
+  }, 30_000)
 
   it('rejects predecessor removals and allocations, retired UUID reappearance, and swapped identity evidence', () => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()

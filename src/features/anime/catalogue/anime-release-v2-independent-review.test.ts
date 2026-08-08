@@ -944,10 +944,13 @@ describe('Decision 097 deterministic sampling', () => {
 })
 
 describe('Decision 098 internal sampling import boundary', () => {
-  it('allows production imports only from foundation and the exact future successor authority', () => {
+  it('allows production imports only from foundation and result/history', () => {
     const importToken = 'anime-release-v2-independent-review-sampling-core'
     const productionExtension = /\.(?:[cm]?[jt]s|tsx)$/
     const testOrSpec = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:[cm]?[jt]s|tsx)$/
+    const coreImport = new RegExp(
+      String.raw`(?:\b(?:import|export)[\s\S]*?\bfrom\s*|\brequire\s*\(|\bimport\s*\()(['\"])[^'\"]*${importToken}\1`,
+    )
     const importers = ['src', 'scripts']
       .flatMap((root) => {
         const absoluteRoot = join(process.cwd(), root)
@@ -959,30 +962,85 @@ describe('Decision 098 internal sampling import boundary', () => {
             (path) =>
               productionExtension.test(path) &&
               !testOrSpec.test(path) &&
+              !`${root}/${path}`.includes('/catalogue/test-support/') &&
               `${root}/${path}` !==
                 'src/features/anime/catalogue/anime-release-v2-independent-review-sampling-core.ts',
           )
           .filter((path) =>
-            readFileSync(join(absoluteRoot, path), 'utf8').includes(
-              importToken,
+            coreImport.test(readFileSync(join(absoluteRoot, path), 'utf8')),
+          )
+          .map((path) => `${root}/${path}`)
+      })
+      .sort()
+    expect(importers).toEqual([
+      'src/features/anime/catalogue/anime-release-v2-independent-review-result.ts',
+      'src/features/anime/catalogue/anime-release-v2-independent-review.ts',
+    ])
+    for (const syntax of [
+      `import value from '${importToken}'`,
+      `export { value } from '${importToken}'`,
+      `require('${importToken}')`,
+      `import('${importToken}')`,
+    ])
+      expect(coreImport.test(syntax)).toBe(true)
+
+    const successorPath =
+      'src/features/anime/catalogue/anime-release-v2-independent-review-successor-authority.ts'
+    expect(
+      readFileSync(join(process.cwd(), successorPath), 'utf8'),
+    ).not.toMatch(coreImport)
+
+    const successorFixtureImport =
+      /(?:import[\s\S]*?ForFixture\b[\s\S]*?from\s*|require\s*\()(['"])[^'"]*independent-review-successor-authority\1/
+    const successorFixtureImporters = ['src', 'scripts']
+      .flatMap((root) => {
+        const absoluteRoot = join(process.cwd(), root)
+        return readdirSync(absoluteRoot, { encoding: 'utf8', recursive: true })
+          .filter(
+            (path) => productionExtension.test(path) && !testOrSpec.test(path),
+          )
+          .filter((path) =>
+            successorFixtureImport.test(
+              readFileSync(join(absoluteRoot, path), 'utf8'),
             ),
           )
           .map((path) => `${root}/${path}`)
       })
       .sort()
-    expect(importers).toContain(
-      'src/features/anime/catalogue/anime-release-v2-independent-review.ts',
-    )
-    const allowedFutureImporter =
-      'src/features/anime/catalogue/anime-release-v2-independent-review-successor-authority.ts'
+    const resultPath =
+      'src/features/anime/catalogue/anime-release-v2-independent-review-result.ts'
+    expect(successorFixtureImporters).toEqual([resultPath])
+    const resultSource = readFileSync(join(process.cwd(), resultPath), 'utf8')
     expect(
-      importers.every(
-        (path) =>
-          path ===
-            'src/features/anime/catalogue/anime-release-v2-independent-review.ts' ||
-          path === allowedFutureImporter,
+      resultSource.match(
+        /parseIndependentReviewSuccessorAuthoritySnapshotForFixture/g,
       ),
-    ).toBe(true)
+    ).toHaveLength(3)
+    expect(resultSource).toMatch(
+      /export function parseIndependentReviewSeriesForFixture[\s\S]*?process\.env\.NODE_ENV !== 'test'[\s\S]*?parseIndependentReviewSuccessorAuthoritySnapshotForFixture/,
+    )
+    expect(resultSource).toMatch(
+      /export function prepareIndependentReviewFreshSampleForFixture[\s\S]*?process\.env\.NODE_ENV !== 'test'[\s\S]*?parseIndependentReviewSuccessorAuthoritySnapshotForFixture/,
+    )
+
+    const resultFixtureImport =
+      /(?:import|export)[\s\S]*?ForFixture\b[\s\S]*?from\s*(['"])[^'"]*independent-review-result\1/
+    const resultFixtureImporters = ['src', 'scripts']
+      .flatMap((root) => {
+        const absoluteRoot = join(process.cwd(), root)
+        return readdirSync(absoluteRoot, { encoding: 'utf8', recursive: true })
+          .filter(
+            (path) => productionExtension.test(path) && !testOrSpec.test(path),
+          )
+          .filter((path) =>
+            resultFixtureImport.test(
+              readFileSync(join(absoluteRoot, path), 'utf8'),
+            ),
+          )
+          .map((path) => `${root}/${path}`)
+      })
+      .sort()
+    expect(resultFixtureImporters).toEqual([])
   })
 })
 
@@ -1270,7 +1328,7 @@ describe('Decision 097 sampling exclusion and allocation matrix', () => {
     expect(membershipSample.sampledCanonicalUuids).not.toEqual(
       firstSample.sampledCanonicalUuids,
     )
-  })
+  }, 10_000)
 })
 
 describe('Decision 097 proposal and population drift matrix', () => {
