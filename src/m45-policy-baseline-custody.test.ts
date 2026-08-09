@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { EventEmitter } from 'node:events'
 import {
   chmod,
   link,
@@ -8,35 +9,231 @@ import {
   readFile,
   readdir,
   rename,
+  rmdir,
   rm,
   symlink,
+  unlink,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { dirname, join, resolve } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
 import {
   PolicyBaselineError,
   type PolicyFilesystem,
+  assertPolicyExclusivePromotionBuildInventory,
+  assertPolicyExclusivePromotionParentEvidence,
+  assertPolicyExclusivePromotionPreflight,
+  assertPolicyExclusivePromotionProvenanceAccepted,
   assertPolicyCustodyForFixture,
+  assertPolicyDeleteEntryTransitionForFixture,
+  assertPolicyPromotionAcceptanceBuild,
+  assertPolicyPromotionBootstrapBoundary,
+  cleanupPolicyExclusivePromotionBuildForFixture,
+  classifyPolicyTerminalBuildStateForFixture,
+  createAcceptedPolicyPromotionLiterals,
   createPolicyBaselineCapture,
+  createPolicyExclusivePromotionInvocationForFixture,
+  createPolicyExclusivePromotionPreflightAuthorityForFixture,
+  createPolicyExclusivePromotionToolchainPlanForFixture,
+  createPolicyDeleteEntryInvocationForFixture,
+  createPolicyLockPreflightLaunchForFixture,
+  createPolicyMetadataInvocationForFixture,
+  createPolicyNativeFdMapForFixture,
+  createPolicyPromotionProvenanceCandidate,
+  createPolicyPromotionPackage,
+  createPolicyToolchainAuthorityForFixture,
+  deletePolicyHeldFileForFixture,
   createPolicyReviewerLaunch,
   createPolicySemanticReviewRoleResult,
   createPolicySemanticReviewRetrieval,
+  inspectPolicyExclusivePromotionSource,
+  inspectPolicyLockPreflightWorker,
+  inspectPolicyNativeLaunchSources,
+  mapPolicyExclusivePromotionHelperResult,
   orderedPolicyUrlSequenceSha256,
+  openPolicyNativeFillersForFixture,
   parsePolicyBaselineArguments,
+  policyExclusivePromotionBuildContract,
+  policyExclusivePromotionLaunchContract,
+  policyExclusivePromotionPendingProvenance,
+  policyExclusivePromotionRoots,
+  policyLockPreflightWorkerPath,
+  policyNativeLaunchContractPath,
+  policyNativeAuthorityPath,
+  policyNativeLauncherPath,
+  policyCommandLockOpenContract,
+  policyDarwinFileFlags,
+  policyDeleteEntryRoles,
+  policyDeleteEntryTransitions,
+  policyMetadataRoles,
+  policyPreflightFixtureTable,
+  policyProductionBuildCleanupSequence,
+  readPolicyHeldFileForFixture,
+  runPolicyNativeProcessForFixture,
   runPolicyReviewerForFixture,
+  snapshotPolicyExclusivePromotionSourceForFixture,
   writePolicyCaptureForFixture,
   writePolicyRoleInputForFixture,
 } from '@/../scripts/m45-policy-baseline'
+import {
+  createPolicyCompilerCapability,
+  createPolicyCompilerPlan,
+  createPolicyHelperCapability,
+  createPolicyLockPreflightPlan,
+  createPolicyNativeHelperPlan,
+  createPolicyXcrunPlan,
+} from '@/../scripts/m45-policy-baseline-native-launch-contract'
+import {
+  policyBCleanupCheckpointIds,
+  runPolicyCAcceptedFailureLifecycleForFixture,
+  runPolicyBCandidateLifecycleForFixture,
+  reopenPolicyBCandidateCheckpointForFixture,
+  runPolicyBCandidateFailureLifecycleForFixture,
+  runPolicyNativeChildFdLifecycleForFixture,
+  runPolicyNativePositioningForFixture,
+} from '@/../scripts/m45-policy-baseline-native-authority'
 import { canonicalJson } from '@/features/anime/catalogue/wikidata-anime-discovery'
 
 const timestamp = '2026-08-08T11:00:00.000Z'
+const syntheticPreflightAuthority = async (device = '7') => {
+  const worker = await inspectPolicyLockPreflightWorker()
+  return createPolicyExclusivePromotionPreflightAuthorityForFixture({
+    schema: 'policy-exclusive-promotion-preflight.v1',
+    version: 1,
+    platform: 'darwin',
+    device,
+    volumeCapability: {
+      validRenameExclusive: 1,
+      supportedRenameExclusive: 1,
+    },
+    metadataRoleResults: Object.keys(policyMetadataRoles)
+      .filter((role) => role !== 'custody-file')
+      .map((role) => ({
+        role,
+        exitCode: 0 as const,
+      })) as never,
+    fdPreflight: {
+      singleAuthorityTargets: [3],
+      doubleAuthorityTargets: [3, 4],
+      tripleAuthorityTargets: [3, 4, 5],
+      quadAuthorityTargets: [3, 4, 5, 6],
+      unexpectedDescriptorCount: 0,
+    },
+    aclFixture: {
+      installExitCode: 0,
+      metadataRejectExitCode: 15,
+      removeExitCode: 0,
+    },
+    promotion: {
+      successExitCode: 0,
+      collisionExitCode: 10,
+      collisionSourceBeforeSha256: 'b'.repeat(64),
+      collisionSourceAfterSha256: 'b'.repeat(64),
+      collisionDestinationBeforeSha256: 'c'.repeat(64),
+      collisionDestinationAfterSha256: 'c'.repeat(64),
+    },
+    apfsRegularFileDelete: {
+      beforeEntryCount: 1,
+      beforeLinks: 3,
+      afterEntryCount: 0,
+      afterLinks: 2,
+    },
+    apfsDirectoryDelete: {
+      beforeEntryCount: 1,
+      beforeLinks: 3,
+      afterEntryCount: 0,
+      afterLinks: 2,
+    },
+    commandLock: {
+      workerSha256: worker.sha256,
+      before: { device, inode: '503', mode: 0o600, links: 1, bytes: 0 },
+      heldContender: {
+        exitCode: 20,
+        stdoutBytes: 0,
+        stderrBytes: 0,
+        processGroupAbsent: true,
+        streamsClosed: true,
+      },
+      releasedContender: {
+        exitCode: 0,
+        stdoutBytes: 0,
+        stderrBytes: 0,
+        processGroupAbsent: true,
+        streamsClosed: true,
+      },
+      after: { device, inode: '503', mode: 0o600, links: 1, bytes: 0 },
+      retentionIntervals: [
+        'held-through-contender-close',
+        'held-through-terminal-custody-decision',
+      ],
+    },
+    cleanup: { remainingEntryCount: 0, rootAbsent: true },
+  })
+}
+const syntheticToolchainAuthority = async () => {
+  const [source, launch, worker] = await Promise.all([
+    inspectPolicyExclusivePromotionSource(),
+    inspectPolicyNativeLaunchSources(),
+    inspectPolicyLockPreflightWorker(),
+  ])
+  return createPolicyToolchainAuthorityForFixture({
+    schema: 'policy-toolchain-authority.v1',
+    version: 1,
+    compilerPath: '/Applications/Xcode.app/Contents/Developer/usr/bin/clang',
+    sdkRoot:
+      '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk',
+    xcrunSha256: '1'.repeat(64),
+    xcrunDevice: '7',
+    xcrunInode: '100',
+    sourceSha256: source.sha256,
+    compilerSha256: '2'.repeat(64),
+    compilerDevice: '7',
+    compilerInode: '101',
+    sdkIdentitySha256: '3'.repeat(64),
+    sdkDevice: '7',
+    sdkInode: '102',
+    headerSetSha256: '4'.repeat(64),
+    diagnosticSha256: '5'.repeat(64),
+    compileContractSha256: '6'.repeat(64),
+    launchContractSha256: launch.launchContractSha256,
+    launcherSha256: launch.launcherSha256,
+    nativeAuthoritySha256: launch.nativeAuthoritySha256,
+    lockPreflightWorkerSha256: worker.sha256,
+  })
+}
+const syntheticHelperCapability = async (
+  repositoryRoot: string,
+  bytes: Buffer,
+  provenancePackage: unknown,
+) => {
+  const helperPath = `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper`
+  const helperSha256 = createHash('sha256').update(bytes).digest('hex')
+  return createPolicyHelperCapability({
+    repositoryRoot,
+    helperPath,
+    device: '7',
+    inode: '8',
+    byteCount: bytes.byteLength,
+    provenancePackage,
+    heldEvidenceSha256: createHash('sha256')
+      .update(
+        canonicalJson({
+          helperPath,
+          helperSha256,
+          device: '7',
+          inode: '8',
+          byteCount: bytes.byteLength,
+        }),
+      )
+      .digest('hex'),
+  })
+}
 function syntheticFilesystem(
-  promoteExclusive: PolicyFilesystem['promoteExclusive'] = async (
-    source,
-    destination,
-  ) => {
+  root: string,
+  promoteExclusive: PolicyFilesystem['promoteExclusive'] = async (request) => {
+    const source = join(root, '..', '.policy-baseline-review.staging')
+    const destination = join(root, request.phase)
     try {
       await lstat(destination)
       throw new Error('destination already exists')
@@ -56,7 +253,6 @@ function syntheticFilesystem(
     readFile,
     writeFile,
     promoteExclusive,
-    rm,
   }
 }
 function sha256(value: Uint8Array): string {
@@ -92,7 +288,7 @@ describe('M45 policy baseline filesystem custody', () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-custody-'))
     const root = join(directory, 'policy-baseline-review')
     const values = fixture()
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(root)
     try {
       await writePolicyCaptureForFixture(root, values.capture, filesystem)
       await assertPolicyCustodyForFixture(root, 'capture', filesystem)
@@ -107,7 +303,7 @@ describe('M45 policy baseline filesystem custody', () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-residue-'))
     const root = join(directory, 'policy-baseline-review')
     const values = fixture()
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(root)
     try {
       await writePolicyCaptureForFixture(root, values.capture, filesystem)
       await writeFile(join(root, 'unexpected.json'), '{}', { flag: 'wx' })
@@ -130,7 +326,7 @@ describe('M45 policy baseline filesystem custody', () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-adversarial-'))
     const root = join(directory, 'policy-baseline-review')
     const values = fixture()
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(root)
     try {
       await mkdir(root, { mode: 0o700 })
       await chmod(root, 0o700)
@@ -162,7 +358,7 @@ describe('M45 policy baseline filesystem custody', () => {
     const root = join(directory, 'policy-baseline-review')
     const blocked = join(directory, 'continuity-review')
     const values = fixture()
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(root)
     try {
       await mkdir(blocked, { mode: 0o700 })
       await expect(
@@ -196,7 +392,8 @@ describe('M45 policy baseline filesystem custody', () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-race-'))
     const root = join(directory, 'policy-baseline-review')
     const values = fixture()
-    const filesystem = syntheticFilesystem(async (_source, destination) => {
+    const filesystem = syntheticFilesystem(root, async (request) => {
+      const destination = join(root, request.phase)
       await mkdir(destination, { mode: 0o700 })
       throw new Error('synthetic destination race')
     })
@@ -206,6 +403,62 @@ describe('M45 policy baseline filesystem custody', () => {
       ).rejects.toThrow('synthetic destination race')
       await expect(
         assertPolicyCustodyForFixture(root, 'absent', filesystem),
+      ).rejects.toThrow('policy-custody')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('rehashes promoted bytes and rejects post-promotion substitution', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'm45-policy-substitute-'))
+    const root = join(directory, 'policy-baseline-review')
+    const values = fixture()
+    const filesystem = syntheticFilesystem(root, async (request) => {
+      expect(Object.keys(request).sort()).toEqual(['files', 'phase'])
+      expect(request).toMatchObject({
+        phase: 'capture',
+        files: [{ name: 'capture.json' }],
+      })
+      const source = join(directory, '.policy-baseline-review.staging')
+      const destination = join(root, request.phase)
+      await rename(source, destination)
+      await writeFile(join(destination, 'capture.json'), 'substituted')
+    })
+    try {
+      await expect(
+        writePolicyCaptureForFixture(root, values.capture, filesystem),
+      ).rejects.toThrow('policy-byte-drift')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a non-regular file shape before reading custody bytes', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'm45-policy-stat-race-'))
+    const root = join(directory, 'policy-baseline-review')
+    const values = fixture()
+    const base = syntheticFilesystem(root)
+    const filesystem: PolicyFilesystem = {
+      ...base,
+      lstat: async (path) => {
+        const stat = await lstat(path)
+        if (!path.endsWith('capture.json')) return stat
+        return {
+          isDirectory: () => false,
+          isFile: () => false,
+          isSymbolicLink: () => false,
+          uid: stat.uid,
+          ino: stat.ino,
+          nlink: stat.nlink,
+          dev: stat.dev,
+          mode: stat.mode,
+          size: stat.size,
+        }
+      },
+    }
+    try {
+      await expect(
+        writePolicyCaptureForFixture(root, values.capture, filesystem),
       ).rejects.toThrow('policy-custody')
     } finally {
       await rm(directory, { recursive: true, force: true })
@@ -232,10 +485,3025 @@ describe('M45 policy baseline filesystem custody', () => {
       )
   })
 
+  it('pins the reviewed Darwin source, build, launch, preflight, and fail-closed provenance contracts', async () => {
+    const source = await inspectPolicyExclusivePromotionSource()
+    const text = source.bytes.toString('utf8')
+    expect(text.startsWith('#define _DARWIN_C_SOURCE 1\n')).toBe(true)
+    for (const required of [
+      'RENAME_EXCL == 0x00000004',
+      'RENAME_NOFOLLOW_ANY == 0x00000010',
+      'RENAME_RESOLVE_BENEATH == 0x00000020',
+      'fgetattrlist(',
+      'ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES',
+      'acl_get_fd_np(',
+      'acl_get_entry(',
+      'entry_status == -1 && entry_errno == EINVAL',
+      'acl_free(',
+      'metadata-check',
+      'acl-fixture',
+      'acl_set_fd_np(',
+      '0x7a, 0x65, 0x64, 0x61',
+      'argc != 12',
+      'argc != 9',
+      'argc != 6',
+      'argc != 15',
+      'argc != 18',
+      'argc != 20',
+      'AT_SYMLINK_NOFOLLOW',
+      'O_NOFOLLOW == 0x00000100',
+      'O_CLOEXEC == 0x01000000',
+      'O_EXLOCK == 0x00000020',
+      'exact_child_fd_map',
+      'delete-entry',
+      'delete-build-terminal',
+      'preflight-promotion',
+      'preflight-success-destination-promotion',
+      'preflight-success-source-promotion',
+      'preflight-collision-source-promotion',
+      'preflight-collision-destination-promotion',
+      'exact_child_fd_map(6)',
+      'flock(source_parent_fd, LOCK_EX | LOCK_NB)',
+      'unlinkat(',
+      'exact_directory_inventory',
+      '2 + deletion_inventory(role, false).count',
+      'parent_after.st_nlink + 1 != parent_before.st_nlink',
+      'HELPER_TERMINAL_UNCLASSIFIABLE',
+      '!exact_lock(3, parent_expected.device)',
+      '!exact_lock(source_parent_fd, parent_before.st_dev)',
+    ])
+      expect(text).toContain(required)
+    expect(
+      text.indexOf('unlinkat(5, "exclusive-promotion-helper", 0)'),
+    ).toBeLessThan(
+      text.indexOf(
+        'unlinkat(4, ".policy-exclusive-promotion-build", AT_REMOVEDIR)',
+      ),
+    )
+    for (const forbidden of [
+      'printf(',
+      'fprintf(',
+      'system(',
+      'exec',
+      'unlink(',
+      'remove(',
+      'rename(',
+    ])
+      expect(text).not.toContain(forbidden)
+    expect(text).not.toContain('acl_is_trivial_np')
+    expect(text).not.toContain('acl_get_fd(')
+    expect(source.sha256).toMatch(/^[a-f0-9]{64}$/u)
+    const worker = await inspectPolicyLockPreflightWorker()
+    expect(worker.sha256).toMatch(/^[a-f0-9]{64}$/u)
+    expect(worker.byteCount).toBeGreaterThan(500)
+    const launcherCommitment = await inspectPolicyNativeLaunchSources()
+    expect(launcherCommitment.launchContractSha256).toMatch(/^[a-f0-9]{64}$/u)
+    expect(launcherCommitment.launcherSha256).toMatch(/^[a-f0-9]{64}$/u)
+    expect(launcherCommitment.launchContractSha256).not.toBe(
+      launcherCommitment.launcherSha256,
+    )
+    const launcherSource = await readFile(policyNativeLauncherPath, 'utf8')
+    const launchContractSource = await readFile(
+      policyNativeLaunchContractPath,
+      'utf8',
+    )
+    expect(launcherSource).toContain("from 'node:child_process'")
+    expect(launcherSource).not.toContain("from './m45-policy-baseline'")
+    expect(launchContractSource).not.toContain('node:child_process')
+    const lockLaunch = await createPolicyLockPreflightLaunchForFixture(
+      '/Users/fixture/zedarchive',
+    )
+    expect(lockLaunch).toMatchObject({
+      command: [
+        process.execPath,
+        expect.stringContaining('lock-preflight-worker.mjs'),
+        'lock-preflight',
+        '/Users/fixture/zedarchive',
+      ],
+      environment: {},
+      stdoutByteLimit: 0,
+      stderrByteLimit: 0,
+    })
+    const repositoryRoot = '/Users/fixture/zedarchive'
+    const lockPlan = createPolicyLockPreflightPlan(
+      { repositoryRoot, workerSha256: worker.sha256 },
+      {
+        executable: process.execPath,
+        workerPath: policyLockPreflightWorkerPath,
+        acceptedWorkerSha256: worker.sha256,
+      },
+    )
+    expect(lockPlan).toMatchObject({
+      executable: process.execPath,
+      arguments: [
+        policyLockPreflightWorkerPath,
+        'lock-preflight',
+        repositoryRoot,
+      ],
+      cwd: repositoryRoot,
+      environment: {},
+      stdio: ['ignore', 'pipe', 'pipe'],
+      acceptedExitCodes: [0, 20],
+    })
+    expect(createPolicyXcrunPlan('sdk-path', { repositoryRoot })).toMatchObject(
+      {
+        executable: '/usr/bin/xcrun',
+        arguments: ['--sdk', 'macosx', '--show-sdk-path'],
+        cwd: repositoryRoot,
+        environment: {},
+      },
+    )
+    const toolchainAuthority = await syntheticToolchainAuthority()
+    const { compilerPath } = toolchainAuthority
+    const compilerCapability = createPolicyCompilerCapability({
+      repositoryRoot,
+      compilerPath: toolchainAuthority.compilerPath,
+      sdkRoot: toolchainAuthority.sdkRoot,
+      authorityPackage: toolchainAuthority,
+    })
+    const compilerPlan = createPolicyCompilerPlan(
+      'diagnostic',
+      compilerCapability,
+    )
+    expect(compilerPlan).toMatchObject({
+      executable: compilerPath,
+      cwd: repositoryRoot,
+      environment: {
+        TMPDIR: `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/tmp`,
+      },
+      acceptedExitCodes: [0],
+    })
+    expect(compilerPlan.arguments).toContain('-###')
+    expect(() =>
+      createPolicyCompilerPlan('build', {
+        ...compilerCapability,
+        inheritedEnvironment: true,
+      }),
+    ).toThrow('policy-native-launch-contract')
+    const helperBytes = Buffer.from('synthetic accepted helper')
+    const helperPackage = await createPolicyPromotionPackage({
+      stage: 'B',
+      rootIdentitySha256: 'b'.repeat(64),
+      toolchainAuthority,
+      helperBytes,
+      preflightAuthority: await syntheticPreflightAuthority(),
+      reviewAuthoritySha256: null,
+    })
+    const helperCapability = await syntheticHelperCapability(
+      repositoryRoot,
+      helperBytes,
+      helperPackage,
+    )
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, {
+        kind: 'metadata-check',
+        role: 'command-lock',
+        evidence: {
+          uid: '501',
+          device: '7',
+          inode: '9',
+          links: '1',
+          mode: String(0o600),
+          size: '0',
+        },
+        authorityFd: 9,
+      }),
+    ).toMatchObject({
+      executable: helperCapability.helperPath,
+      cwd: repositoryRoot,
+      environment: {},
+      stdio: ['ignore', 'pipe', 'pipe', 9],
+      acceptedExitCodes: [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    })
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, {
+        kind: 'acl-fixture',
+        action: 'install',
+        uid: '501',
+        device: '7',
+        inode: '9',
+        authorityFd: 9,
+      }),
+    ).toMatchObject({
+      arguments: ['acl-fixture', 'install', '501', '7', '9'],
+      stdio: ['ignore', 'pipe', 'pipe', 9],
+    })
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, {
+        kind: 'promotion',
+        phase: 'capture',
+        sourceParent: { device: '7', inode: '10', links: '8' },
+        destinationParent: { device: '7', inode: '11', links: '2' },
+        staging: { device: '7', inode: '12' },
+        sourceParentFd: 9,
+        destinationParentFd: 10,
+      }),
+    ).toMatchObject({
+      arguments: [
+        'capture',
+        '.policy-baseline-review.staging',
+        'capture',
+        '7',
+        '10',
+        '8',
+        '7',
+        '11',
+        '2',
+        '7',
+        '12',
+      ],
+      stdio: ['ignore', 'pipe', 'pipe', 9, 10],
+    })
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, {
+        kind: 'preflight-promotion',
+        outcome: 'success',
+        sourceParent: {
+          device: '7',
+          inode: '30',
+          beforeLinks: '4',
+          afterLinks: '3',
+        },
+        destinationParent: {
+          device: '7',
+          inode: '31',
+          beforeLinks: '3',
+          afterLinks: '4',
+        },
+        sourcePromotion: { device: '7', inode: '32', links: '2' },
+        collisionDestination: { device: '0', inode: '0', links: '0' },
+        commonDevice: '7',
+        commandLockFd: 9,
+        sourceParentFd: 10,
+        destinationParentFd: 11,
+        sourcePromotionFd: 12,
+      }),
+    ).toMatchObject({
+      arguments: [
+        'preflight-promotion',
+        'success',
+        '7',
+        '30',
+        '4',
+        '3',
+        '7',
+        '31',
+        '3',
+        '4',
+        '7',
+        '32',
+        '2',
+        '0',
+        '0',
+        '0',
+        '7',
+      ],
+      stdio: ['ignore', 'pipe', 'pipe', 9, 10, 11, 12],
+    })
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, {
+        kind: 'delete-entry',
+        role: 'preflight-success-source-file',
+        parent: {
+          uid: '501',
+          device: '7',
+          inode: '20',
+          links: '3',
+          mode: String(0o700),
+          size: 'na',
+        },
+        child: {
+          uid: '501',
+          device: '7',
+          inode: '21',
+          links: '1',
+          mode: String(0o600),
+          size: '43',
+        },
+        commandLockFd: 9,
+        parentFd: 10,
+        childFd: 11,
+      }),
+    ).toMatchObject({
+      arguments: [
+        'delete-entry',
+        'preflight-success-source-file',
+        '501',
+        '7',
+        '20',
+        '3',
+        String(0o700),
+        'na',
+        '501',
+        '7',
+        '21',
+        '1',
+        String(0o600),
+        '43',
+      ],
+      stdio: ['ignore', 'pipe', 'pipe', 9, 10, 11],
+    })
+    const terminalOperation = {
+      kind: 'delete-build-terminal' as const,
+      parent: {
+        uid: '501',
+        device: '7',
+        inode: '30',
+        links: '4',
+        mode: String(0o700),
+        size: 'na',
+      },
+      buildRoot: {
+        uid: '501',
+        device: '7',
+        inode: '31',
+        links: '3',
+        mode: String(0o700),
+        size: 'na',
+      },
+      helper: {
+        uid: '501',
+        device: '7',
+        inode: '32',
+        links: '1',
+        mode: String(0o500),
+        size: String(helperBytes.byteLength),
+      },
+      commandLockFd: 9,
+      parentFd: 10,
+      buildRootFd: 11,
+      helperFd: 12,
+    }
+    expect(
+      createPolicyNativeHelperPlan(helperCapability, terminalOperation),
+    ).toMatchObject({
+      arguments: [
+        'delete-build-terminal',
+        '501',
+        '7',
+        '30',
+        '4',
+        String(0o700),
+        'na',
+        '501',
+        '7',
+        '31',
+        '3',
+        String(0o700),
+        'na',
+        '501',
+        '7',
+        '32',
+        '1',
+        String(0o500),
+        String(helperBytes.byteLength),
+      ],
+      stdio: ['ignore', 'pipe', 'pipe', 9, 10, 11, 12],
+    })
+    expect(() =>
+      createPolicyNativeHelperPlan(helperCapability, {
+        ...terminalOperation,
+        helperFd: 6,
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyNativeHelperPlan(
+        { ...helperCapability, helperPath: '/tmp/arbitrary-helper' },
+        {
+          kind: 'metadata-check',
+          role: 'command-lock',
+          evidence: {
+            uid: '501',
+            device: '7',
+            inode: '9',
+            links: '1',
+            mode: String(0o600),
+            size: '0',
+          },
+          authorityFd: 9,
+        },
+      ),
+    ).toThrow('policy-native-launch-contract')
+    expect(policyDarwinFileFlags).toEqual({
+      noFollow: 0x00000100,
+      closeOnExec: 0x01000000,
+      exclusiveLock: 0x00000020,
+      nonblocking: 0x00000004,
+    })
+    expect(policyCommandLockOpenContract).toMatchObject({
+      mode: 0o600,
+      writesPermitted: false,
+      persistent: true,
+    })
+    expect(policyExclusivePromotionRoots).toEqual([
+      '.local/m45/.policy-exclusive-promotion-build',
+      '.local/m45/.policy-exclusive-promotion-preflight',
+    ])
+    expect(policyExclusivePromotionBuildContract).toMatchObject({
+      resolver: '/usr/bin/xcrun',
+      compilerResolverCommand: ['/usr/bin/xcrun', '--find', 'clang'],
+      sdkResolverCommand: [
+        '/usr/bin/xcrun',
+        '--sdk',
+        'macosx',
+        '--show-sdk-path',
+      ],
+    })
+    expect(
+      policyExclusivePromotionBuildContract.fixedCompilerArguments,
+    ).toEqual(['-std=c17', '-Wall', '-Wextra', '-Werror', '-Wpedantic', '-O2'])
+    expect(policyExclusivePromotionBuildContract).toMatchObject({
+      timeoutMilliseconds: 30_000,
+      stdoutByteLimit: 65_536,
+      stderrByteLimit: 65_536,
+      combinedOutputByteLimit: 98_304,
+      shell: false,
+    })
+    const toolchain = createPolicyExclusivePromotionToolchainPlanForFixture({
+      compiler: '/Applications/Xcode.app/Contents/Developer/usr/bin/clang',
+      sdkRoot:
+        '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk',
+    })
+    expect(toolchain.compile).toEqual(
+      expect.arrayContaining([
+        '-isysroot',
+        '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk',
+        '-o',
+      ]),
+    )
+    expect(toolchain.diagnostic).toContain('-###')
+    expect(policyExclusivePromotionLaunchContract).toMatchObject({
+      sourceParentFd: 3,
+      destinationParentFd: 4,
+      timeoutMilliseconds: 5_000,
+      stdoutByteLimit: 0,
+      stderrByteLimit: 0,
+    })
+    expect(
+      createPolicyMetadataInvocationForFixture('command-lock', {
+        uid: '501',
+        device: '7',
+        inode: '9',
+        links: '1',
+        mode: String(0o600),
+        size: '0',
+      }),
+    ).toEqual({
+      arguments: [
+        'metadata-check',
+        'command-lock',
+        '501',
+        '7',
+        '9',
+        '1',
+        String(0o600),
+        '0',
+      ],
+      highestChildFd: 3,
+    })
+    expect(() =>
+      createPolicyMetadataInvocationForFixture('command-lock', {
+        uid: '501',
+        device: '7',
+        inode: '9',
+        links: '1',
+        mode: String(0o600),
+        size: '1',
+      }),
+    ).toThrow('policy-custody')
+    for (const [role, contract] of Object.entries(policyMetadataRoles)) {
+      const links = typeof contract.links === 'number' ? contract.links : 2
+      const size =
+        contract.size === 'na' ? 'na' : contract.size === 'zero' ? '0' : '1'
+      expect(
+        createPolicyMetadataInvocationForFixture(role as never, {
+          uid: '501',
+          device: '7',
+          inode: '9',
+          links: String(links),
+          mode: String(contract.mode),
+          size,
+        }).arguments[1],
+      ).toBe(role)
+    }
+    const fillers = [10, 11, 12].map((fd) => ({
+      fd,
+      kind: 'character-device' as const,
+      distinctIdentity: 'fixed-dev-null',
+    }))
+    expect(
+      createPolicyNativeFdMapForFixture('delete-entry', fillers, [
+        { fd: 13, kind: 'file', distinctIdentity: 'lock' },
+        { fd: 14, kind: 'directory', distinctIdentity: 'parent' },
+        { fd: 15, kind: 'file', distinctIdentity: 'child' },
+      ]),
+    ).toEqual(['ignore', 'pipe', 'pipe', 13, 14, 15])
+    expect(() =>
+      createPolicyNativeFdMapForFixture('promotion', fillers, [
+        { fd: 4, kind: 'directory', distinctIdentity: 'source' },
+        { fd: 14, kind: 'directory', distinctIdentity: 'destination' },
+      ]),
+    ).toThrow('policy-custody')
+    expect(() =>
+      createPolicyNativeFdMapForFixture('delete-entry', fillers, [
+        { fd: 13, kind: 'directory', distinctIdentity: 'not-lock' },
+        { fd: 14, kind: 'directory', distinctIdentity: 'parent' },
+        { fd: 15, kind: 'file', distinctIdentity: 'child' },
+      ]),
+    ).toThrow('policy-custody')
+    expect(() =>
+      createPolicyNativeFdMapForFixture('acl-fixture', fillers, [
+        { fd: 10, kind: 'directory', distinctIdentity: 'acl-fixture' },
+      ]),
+    ).toThrow('policy-custody')
+    expect(policyDeleteEntryRoles).toEqual([
+      'build-source',
+      'build-helper',
+      'build-tmp',
+      'build-root',
+      'preflight-success-source-file',
+      'preflight-success-destination-file',
+      'preflight-collision-source-file',
+      'preflight-collision-destination-file',
+      'preflight-success-destination-promotion',
+      'preflight-success-source-promotion',
+      'preflight-collision-source-promotion',
+      'preflight-collision-destination-promotion',
+      'preflight-success-source-directory',
+      'preflight-success-destination-directory',
+      'preflight-collision-source-directory',
+      'preflight-collision-destination-directory',
+      'preflight-acl-fixture-directory',
+      'preflight-root',
+    ])
+    const preflightAuthority = await syntheticPreflightAuthority()
+    expect(preflightAuthority.commandLock).toMatchObject({
+      workerSha256: (await inspectPolicyLockPreflightWorker()).sha256,
+      heldContender: { exitCode: 20, processGroupAbsent: true },
+      releasedContender: { exitCode: 0, processGroupAbsent: true },
+      retentionIntervals: [
+        'held-through-contender-close',
+        'held-through-terminal-custody-decision',
+      ],
+    })
+    expect(() =>
+      assertPolicyExclusivePromotionPreflight({
+        ...preflightAuthority,
+        commandLock: {
+          ...preflightAuthority.commandLock,
+          releasedContender: {
+            ...preflightAuthority.commandLock.releasedContender,
+            exitCode: 20,
+          },
+        },
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+    for (const role of policyDeleteEntryRoles) {
+      const transition = policyDeleteEntryTransitions[role]
+      expect(() =>
+        assertPolicyDeleteEntryTransitionForFixture({
+          role,
+          beforeEntries: transition.before,
+          afterEntries: transition.after,
+          beforeLinks: 2 + transition.before.length,
+          afterLinks: 2 + transition.after.length,
+          preflightAuthority,
+        }),
+      ).not.toThrow()
+    }
+    for (const fault of [
+      { beforeLinks: 5, afterLinks: 5 },
+      { beforeLinks: 5, afterLinks: 3 },
+      { beforeLinks: 0, afterLinks: -1 },
+    ])
+      expect(() =>
+        assertPolicyDeleteEntryTransitionForFixture({
+          role: 'build-source',
+          beforeEntries: policyDeleteEntryTransitions['build-source'].before,
+          afterEntries: policyDeleteEntryTransitions['build-source'].after,
+          preflightAuthority,
+          ...fault,
+        }),
+      ).toThrow('policy-exclusive-promotion-unavailable')
+    expect(() =>
+      assertPolicyDeleteEntryTransitionForFixture({
+        role: 'preflight-success-source-directory',
+        beforeEntries:
+          policyDeleteEntryTransitions['preflight-success-source-directory']
+            .before,
+        afterEntries: ['unrelated-entry'],
+        beforeLinks: 7,
+        afterLinks: 6,
+        preflightAuthority,
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+    expect(() =>
+      assertPolicyDeleteEntryTransitionForFixture({
+        role: 'build-source',
+        beforeEntries: policyDeleteEntryTransitions['build-source'].before,
+        afterEntries: policyDeleteEntryTransitions['build-source'].after,
+        beforeLinks: 5,
+        afterLinks: 4,
+        preflightAuthority: {
+          ...preflightAuthority,
+          preflightAuthoritySha256: 'f'.repeat(64),
+        },
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+    expect(
+      policyPreflightFixtureTable()['preflight-success-source-file'],
+    ).toMatchObject({ byteCount: 43 })
+    const fixtureBytes =
+      policyPreflightFixtureTable()['preflight-success-source-file']!
+    expect(
+      createPolicyDeleteEntryInvocationForFixture(
+        'preflight-success-source-file',
+        {
+          uid: '501',
+          device: '7',
+          inode: '20',
+          links: '3',
+          mode: String(0o700),
+          size: 'na',
+        },
+        {
+          uid: '501',
+          device: '7',
+          inode: '21',
+          links: '1',
+          mode: String(0o600),
+          size: String(fixtureBytes.byteCount),
+        },
+      ),
+    ).toMatchObject({
+      arguments: [
+        'delete-entry',
+        'preflight-success-source-file',
+        '501',
+        '7',
+        '20',
+        '3',
+        String(0o700),
+        'na',
+        '501',
+        '7',
+        '21',
+        '1',
+        String(0o600),
+        String(fixtureBytes.byteCount),
+      ],
+      highestChildFd: 5,
+    })
+    expect(() =>
+      createPolicyDeleteEntryInvocationForFixture(
+        'preflight-success-source-file',
+        {
+          uid: '501',
+          device: '7',
+          inode: '20',
+          links: '3',
+          mode: String(0o700),
+          size: 'na',
+        },
+        {
+          uid: '501',
+          device: '8',
+          inode: '21',
+          links: '1',
+          mode: String(0o600),
+          size: String(fixtureBytes.byteCount),
+        },
+      ),
+    ).toThrow('policy-custody')
+    expect(
+      createPolicyExclusivePromotionInvocationForFixture(
+        {
+          phase: 'capture',
+          files: [
+            {
+              name: 'capture.json',
+              byteCount: 1,
+              sha256: 'a'.repeat(64),
+            },
+          ],
+        },
+        {
+          sourceParent: { device: '7', inode: '11', links: '8' },
+          destinationParent: { device: '7', inode: '12', links: '2' },
+          staging: { device: '7', inode: '13' },
+        },
+      ),
+    ).toMatchObject({
+      arguments: [
+        'capture',
+        '.policy-baseline-review.staging',
+        'capture',
+        '7',
+        '11',
+        '8',
+        '7',
+        '12',
+        '2',
+        '7',
+        '13',
+      ],
+      sourceParentFd: 3,
+      destinationParentFd: 4,
+    })
+    expect(() =>
+      createPolicyExclusivePromotionInvocationForFixture(
+        {
+          phase: 'capture',
+          files: [
+            {
+              name: 'wrong.json',
+              byteCount: 1,
+              sha256: 'a'.repeat(64),
+            },
+          ],
+        } as never,
+        {
+          sourceParent: { device: '7', inode: '11', links: '8' },
+          destinationParent: { device: '7', inode: '12', links: '2' },
+          staging: { device: '7', inode: '13' },
+        },
+      ),
+    ).toThrow('policy-custody')
+    expect(policyExclusivePromotionPendingProvenance.status).toBe(
+      'pending-provisional-builds-a-b-and-acceptance-c',
+    )
+    expect(() => assertPolicyExclusivePromotionProvenanceAccepted()).toThrow(
+      'policy-exclusive-promotion-unavailable',
+    )
+    expect(
+      mapPolicyExclusivePromotionHelperResult({
+        code: 0,
+        signal: null,
+        stdoutBytes: 0,
+        stderrBytes: 0,
+        timedOut: false,
+      }),
+    ).toBe('success')
+    expect(() =>
+      mapPolicyExclusivePromotionHelperResult({
+        code: 11,
+        signal: null,
+        stdoutBytes: 0,
+        stderrBytes: 0,
+        timedOut: false,
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+
+    const provenanceToolchain = await syntheticToolchainAuthority()
+    const fixturePreflight = await syntheticPreflightAuthority()
+    const {
+      preflightAuthoritySha256: _fixturePreflightSha256,
+      ...fixturePreflightCore
+    } = fixturePreflight
+    void _fixturePreflightSha256
+    const originalNodeEnvironment = process.env.NODE_ENV
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(() =>
+      createPolicyToolchainAuthorityForFixture({
+        ...provenanceToolchain,
+        authorityPackageSha256: undefined,
+      } as never),
+    ).toThrow('policy-wrapper-isolation')
+    expect(() =>
+      createPolicyExclusivePromotionPreflightAuthorityForFixture(
+        fixturePreflightCore,
+      ),
+    ).toThrow('policy-wrapper-isolation')
+    await expect(
+      createPolicyPromotionPackage({
+        stage: 'A',
+        rootIdentitySha256: 'a'.repeat(64),
+        toolchainAuthority: provenanceToolchain,
+        helperBytes: Buffer.from('untrusted helper'),
+        preflightAuthority: null,
+        reviewAuthoritySha256: null,
+      }),
+    ).rejects.toThrow('policy-wrapper-isolation')
+    vi.stubEnv('NODE_ENV', originalNodeEnvironment ?? 'test')
+    const provenanceHelperBytes = Buffer.from('reproducible helper bytes')
+    await expect(
+      createPolicyPromotionPackage({
+        stage: 'A',
+        rootIdentitySha256: 'a'.repeat(64),
+        toolchainAuthority: {
+          ...provenanceToolchain,
+          launcherSha256: 'f'.repeat(64),
+        },
+        helperBytes: provenanceHelperBytes,
+        preflightAuthority: null,
+        reviewAuthoritySha256: null,
+      }),
+    ).rejects.toThrow('policy-exclusive-promotion-unavailable')
+    const provisionalA = await createPolicyPromotionPackage({
+      stage: 'A',
+      rootIdentitySha256: 'a'.repeat(64),
+      toolchainAuthority: provenanceToolchain,
+      helperBytes: provenanceHelperBytes,
+      preflightAuthority: null,
+      reviewAuthoritySha256: null,
+    })
+    const provisionalB = await createPolicyPromotionPackage({
+      stage: 'B',
+      rootIdentitySha256: 'b'.repeat(64),
+      toolchainAuthority: provenanceToolchain,
+      helperBytes: provenanceHelperBytes,
+      preflightAuthority: await syntheticPreflightAuthority(),
+      reviewAuthoritySha256: null,
+    })
+    await expect(
+      createPolicyPromotionPackage({
+        stage: 'B',
+        rootIdentitySha256: 'b'.repeat(64),
+        toolchainAuthority: provenanceToolchain,
+        helperBytes: provenanceHelperBytes,
+        preflightAuthority: null,
+        reviewAuthoritySha256: null,
+      }),
+    ).rejects.toThrow('policy-exclusive-promotion-unavailable')
+    const candidate = await createPolicyPromotionProvenanceCandidate(
+      provisionalA,
+      provisionalB,
+    )
+    expect(candidate.material.helperSha256).toBe(
+      createHash('sha256').update(provenanceHelperBytes).digest('hex'),
+    )
+    expect(candidate.preflightAuthoritySha256).toBe(
+      provisionalB.preflightAuthoritySha256,
+    )
+    const mismatchedB = await createPolicyPromotionPackage({
+      stage: 'B',
+      rootIdentitySha256: 'b'.repeat(64),
+      toolchainAuthority: provenanceToolchain,
+      helperBytes: Buffer.from('different helper bytes'),
+      preflightAuthority: await syntheticPreflightAuthority(),
+      reviewAuthoritySha256: null,
+    })
+    await expect(
+      createPolicyPromotionProvenanceCandidate(provisionalA, mismatchedB),
+    ).rejects.toThrow('policy-exclusive-promotion-unavailable')
+    const accepted = await createAcceptedPolicyPromotionLiterals(
+      candidate,
+      'c'.repeat(64),
+    )
+    expect(accepted.preflightAuthoritySha256).toBe(
+      provisionalB.preflightAuthoritySha256,
+    )
+    const acceptancePreflight = await syntheticPreflightAuthority('8')
+    const acceptanceC = await createPolicyPromotionPackage({
+      stage: 'C',
+      rootIdentitySha256: 'd'.repeat(64),
+      toolchainAuthority: provenanceToolchain,
+      helperBytes: provenanceHelperBytes,
+      preflightAuthority: acceptancePreflight,
+      reviewAuthoritySha256: accepted.reviewAuthoritySha256,
+    })
+    await expect(
+      syntheticHelperCapability(
+        process.cwd(),
+        provenanceHelperBytes,
+        acceptanceC,
+      ),
+    ).resolves.toMatchObject({
+      provenancePackageSha256: acceptanceC.packageSha256,
+    })
+    await expect(
+      assertPolicyPromotionAcceptanceBuild({
+        acceptanceBuild: acceptanceC,
+        acceptedLiterals: accepted,
+        provisionalRootIdentitySha256: [
+          provisionalA.rootIdentitySha256!,
+          provisionalB.rootIdentitySha256!,
+        ],
+        preflightAuthority: acceptancePreflight,
+      }),
+    ).resolves.toBeUndefined()
+    await expect(
+      assertPolicyPromotionAcceptanceBuild({
+        acceptanceBuild: {
+          ...acceptanceC,
+          packageSha256: 'f'.repeat(64),
+        },
+        acceptedLiterals: accepted,
+        provisionalRootIdentitySha256: [
+          provisionalA.rootIdentitySha256!,
+          provisionalB.rootIdentitySha256!,
+        ],
+        preflightAuthority: acceptancePreflight,
+      }),
+    ).rejects.toThrow('policy-exclusive-promotion-unavailable')
+    expect(() =>
+      assertPolicyPromotionBootstrapBoundary({
+        stage: 'A',
+        nodeLockPreflight: true,
+        helperMetadataPreflight: false,
+        helperFdPreflight: false,
+        acceptedLiteralsPresent: false,
+        policyCapability: false,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      assertPolicyPromotionBootstrapBoundary({
+        stage: 'A',
+        nodeLockPreflight: true,
+        helperMetadataPreflight: true,
+        helperFdPreflight: false,
+        acceptedLiteralsPresent: false,
+        policyCapability: false,
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+    expect(() =>
+      mapPolicyExclusivePromotionHelperResult({
+        code: 0,
+        signal: null,
+        stdoutBytes: 1,
+        stderrBytes: 0,
+        timedOut: false,
+      }),
+    ).toThrow('policy-custody')
+    const tamperedPreflight = {
+      ...(await syntheticPreflightAuthority()),
+      destinationUnchangedAfterCollision: false,
+    }
+    expect(() =>
+      assertPolicyExclusivePromotionPreflight({
+        ...tamperedPreflight,
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
+  })
+
+  it('keeps child-process authority isolated to the exact native launcher dependency boundary', async () => {
+    const repositoryRoot = process.cwd()
+    const authorityPath = join(repositoryRoot, 'scripts/m45-policy-baseline.ts')
+    const roots = [
+      authorityPath,
+      policyNativeLaunchContractPath,
+      policyNativeLauncherPath,
+      policyNativeAuthorityPath,
+      policyLockPreflightWorkerPath,
+    ]
+    const importPattern =
+      /(?:import\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?|export\s+[^'";]*?\s+from\s+|import\s*\(|require\s*\()\s*['"]([^'"]+)['"]/gu
+    const sources = new Map<string, string>()
+    const edges = new Map<string, string[]>()
+    const resolveTrackedImport = async (from: string, specifier: string) => {
+      if (!specifier.startsWith('.') && !specifier.startsWith('@/')) return null
+      const base = specifier.startsWith('@/')
+        ? resolve(repositoryRoot, 'src', specifier.slice(2))
+        : resolve(dirname(from), specifier)
+      for (const candidate of [
+        base,
+        `${base}.ts`,
+        `${base}.mjs`,
+        join(base, 'index.ts'),
+      ]) {
+        try {
+          await readFile(candidate)
+          return candidate
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+      }
+      throw new Error('unresolved tracked import')
+    }
+    const load = async (path: string): Promise<void> => {
+      if (sources.has(path)) return
+      const source = await readFile(path, 'utf8')
+      sources.set(path, source)
+      const dependencies: string[] = []
+      for (const match of source.matchAll(importPattern)) {
+        const dependency = await resolveTrackedImport(path, match[1]!)
+        if (dependency !== null) dependencies.push(dependency)
+      }
+      edges.set(path, dependencies)
+      for (const dependency of dependencies) await load(dependency)
+    }
+    for (const root of roots) await load(root)
+    const visiting = new Set<string>()
+    const visited = new Set<string>()
+    const assertAcyclic = (path: string) => {
+      if (visiting.has(path)) throw new Error('policy dependency cycle')
+      if (visited.has(path)) return
+      visiting.add(path)
+      for (const dependency of edges.get(path) ?? []) assertAcyclic(dependency)
+      visiting.delete(path)
+      visited.add(path)
+    }
+    for (const root of roots) assertAcyclic(root)
+    const processImport =
+      /(?:from\s+|import\s*\(|require\s*\()\s*['"](?:node:)?child_process['"]/u
+    for (const [path, source] of sources) {
+      if (path === policyNativeLauncherPath)
+        expect(source).toMatch(processImport)
+      else expect(source).not.toMatch(processImport)
+    }
+    const launcher = await readFile(policyNativeLauncherPath, 'utf8')
+    const contract = await readFile(policyNativeLaunchContractPath, 'utf8')
+    const authority = await readFile(authorityPath, 'utf8')
+    expect(launcher).not.toContain("from './m45-policy-baseline'")
+    expect(contract).not.toContain('m45-policy-baseline-native-launcher')
+    expect(contract).not.toContain("from './m45-policy-baseline'")
+    expect(authority).not.toMatch(
+      /export\s+(?:\*|\{[^}]*\})\s+from\s+['"][^'"]*native-launcher/u,
+    )
+    expect(launcher).not.toMatch(/export\s+(?:async\s+)?function\s+spawn/u)
+    expect(launcher).not.toMatch(/export\s+\{[^}]*runClosedPlan/u)
+    const nativeAuthority = await readFile(policyNativeAuthorityPath, 'utf8')
+    expect(authority).toContain('runPolicyNativeToolchainDerivation')
+    expect(authority).not.toContain('initializePolicyNativeOperationBroker')
+    expect(nativeAuthority).toContain('initializePolicyNativeOperationBroker')
+    const authorityExports = [
+      ...nativeAuthority.matchAll(/export async function (\w+)/gu),
+    ].map((match) => match[1])
+    expect(authorityExports).toEqual([
+      'runPolicyNativeToolchainDerivation',
+      'runPolicyNativeChildFdLifecycleForFixture',
+      'runPolicyNativePositioningForFixture',
+      'runPolicyBCandidateLifecycleForFixture',
+      'runPolicyCAcceptedLifecycleForFixture',
+      'reopenPolicyBCandidateCheckpointForFixture',
+      'runPolicyProvisionalBuildA',
+      'runPolicyProvisionalBuildB',
+      'runPolicyProvisionalBuildC',
+    ])
+    expect(nativeAuthority).not.toMatch(
+      /export async function .*?(?:Compiler|Helper|Contender|Cleanup)/u,
+    )
+    // Decision 112 has two non-overlapping filler lifetimes: four initial
+    // positioners establish a lock above FD 6, while every helper child gets a
+    // fresh three- or four-filler set and closes it before the next child.
+    expect(nativeAuthority).toContain('positioningFillers')
+    expect(nativeAuthority).toContain('withChildFillers')
+    expect(nativeAuthority).toContain('highestChildAuthorityTarget === 6')
+    expect(nativeAuthority).toContain('canonical([3, 4, 5, 6])')
+    expect(nativeAuthority).toContain('right.fd - left.fd')
+    expect(nativeAuthority).toContain('broker.abortBCandidateSession')
+    expect(nativeAuthority).toContain('broker.beginBCandidateCleanup')
+    expect(nativeAuthority).toContain('broker.runBCandidateCleanup')
+    expect(nativeAuthority).toContain('broker.runCAcceptedCleanupInspection')
+    expect(nativeAuthority).toContain('broker.rebaseCAcceptedCleanup')
+    expect(nativeAuthority).toContain('runBrandedInspection')
+    const cWorkflowSource = nativeAuthority.slice(
+      nativeAuthority.indexOf("workflow === 'C-accepted'"),
+    )
+    expect(cWorkflowSource).not.toContain('runAcceptedHelper(')
+    for (const source of [contract, launcher, nativeAuthority, authority]) {
+      expect(source).not.toContain('registerBridgeProductionPreflight')
+      expect(source).not.toContain('hasBridgeProductionPreflight')
+      expect(source).not.toContain('productionPreflightHashes')
+      expect(source).not.toContain('registerBCandidatePreflight')
+    }
+    expect(authority).toContain(
+      'export async function createPolicyPromotionPackage',
+    )
+    expect(authority).toContain(
+      "if (process.env.NODE_ENV !== 'test')\n    throw new PolicyBaselineError('policy-wrapper-isolation')",
+    )
+    expect(nativeAuthority).toContain('reopenBCandidateCheckpoint')
+    expect(nativeAuthority).toContain('policy-b-candidate-checkpoint.v1')
+    expect(nativeAuthority).toContain('recoveryCheckpointSha256')
+    expect(nativeAuthority).toContain('canonicalMetadata')
+    expect(nativeAuthority).toContain('specialMode')
+    expect(nativeAuthority).toContain('expectedDirectoryLinks')
+    expect(nativeAuthority).toContain('zeroAcl')
+    expect(nativeAuthority).toContain(
+      'cleanup-close-ambiguous-process-termination-required',
+    )
+    expect(nativeAuthority).toContain("action: 'inspect-empty'")
+    expect(nativeAuthority).toContain("'inspect-fixture'")
+    expect(launcher).toContain('expectedBCandidateOperations')
+    expect(launcher).toContain('abortBCandidateSession')
+    expect(launcher).toContain('cleanupOperationCursor')
+    expect(launcher).toContain('failedCandidateSessions')
+    expect(launcher).toContain('failedCleanupSessions')
+    expect(launcher).toContain('createPolicyBCandidateCleanupCapability')
+    expect(launcher).toContain('createPolicyBCandidateCleanupPlan')
+    expect(launcher).toContain('createPolicyCAcceptedCleanupPlan')
+    expect(launcher).toContain("schema: 'policy-c-accepted-cleanup.v1'")
+    for (const field of [
+      'cAcceptedHelperLaunchSha256',
+      'acceptedHelperSha256',
+      'observedHelperSha256',
+      'checkpointSha256',
+      'failedOperationFamily',
+      'failedOperationIndex',
+      'childLaunched',
+      'lifecycleClosed',
+      'commandLockEvidenceSha256',
+      'permittedSuffix',
+      'cAcceptedCleanupSessionSha256',
+    ])
+      expect(launcher).toContain(field)
+    expect(nativeAuthority).toContain('policy-c-accepted-checkpoint.v1')
+    expect(contract).toContain('bCandidateCleanupCapabilities')
+    expect(contract).toContain('preflight-success-source-promotion')
+    const activeDeleteRoles = contract.slice(
+      contract.indexOf('const bCandidateDeleteRoles'),
+      contract.indexOf('const bCandidateCleanupDeleteRoles'),
+    )
+    const cleanupDeleteRoles = contract.slice(
+      contract.indexOf('const bCandidateCleanupDeleteRoles'),
+      contract.indexOf('export function createPolicyBCandidateHelperPlan'),
+    )
+    expect(activeDeleteRoles).not.toContain(
+      'preflight-success-source-promotion',
+    )
+    expect(cleanupDeleteRoles).toContain('preflight-success-source-promotion')
+    expect(launcher).toMatch(
+      /export function initializePolicyNativeOperationBroker/u,
+    )
+    expect(launcher).not.toMatch(/export async function runPolicy/u)
+    const initializerConsumers = [...sources]
+      .filter(
+        ([path, source]) =>
+          path !== policyNativeLauncherPath &&
+          source.includes('initializePolicyNativeOperationBroker'),
+      )
+      .map(([path]) => path)
+    expect(initializerConsumers).toEqual([policyNativeAuthorityPath])
+    for (const [path, source] of sources) {
+      if (
+        path !== policyNativeLauncherPath &&
+        path !== policyNativeAuthorityPath &&
+        path !== authorityPath
+      )
+        continue
+      expect(source).not.toMatch(/\b(?:eval|Function|createRequire)\s*\(/u)
+      expect(source).not.toMatch(/from\s+['"]node:module['"]/u)
+      expect(source).not.toMatch(/import\s*\(\s*[^'"\s]/u)
+    }
+    expect(authority).toContain(
+      "if (process.env.NODE_ENV !== 'test')\n    throw new PolicyBaselineError('policy-wrapper-isolation')",
+    )
+    expect(authority).toContain('productionPolicyToolchainAuthorityHashes')
+    for (const constructorName of [
+      'createPolicyCompilerCapability',
+      'createPolicyHelperCapability',
+      'createPolicyBCandidateCleanupCapability',
+      'createPolicyBCandidateCleanupPlan',
+      'createPolicyCAcceptedCapability',
+      'createPolicyCAcceptedCleanupPlan',
+    ]) {
+      const consumers = [...sources]
+        .filter(
+          ([path, source]) =>
+            path !== policyNativeLaunchContractPath &&
+            source.includes(constructorName),
+        )
+        .map(([path]) => path)
+      expect(consumers).toEqual([policyNativeLauncherPath])
+    }
+    const productionSources = (
+      await Promise.all(
+        ['scripts', 'src'].map(async (root) => {
+          const rootPath = join(repositoryRoot, root)
+          const entries = await readdir(rootPath, { recursive: true })
+          return entries
+            .filter(
+              (entry) =>
+                typeof entry === 'string' &&
+                (entry.endsWith('.ts') || entry.endsWith('.mjs')) &&
+                !entry.endsWith('.test.ts'),
+            )
+            .map((entry) => join(rootPath, entry as string))
+        }),
+      )
+    ).flat()
+    for (const constructorName of [
+      'createPolicyCompilerCapability',
+      'createPolicyHelperCapability',
+      'createPolicyBCandidateCleanupCapability',
+      'createPolicyBCandidateCleanupPlan',
+    ]) {
+      const consumers: string[] = []
+      for (const path of productionSources) {
+        if (path === policyNativeLaunchContractPath) continue
+        if ((await readFile(path, 'utf8')).includes(constructorName))
+          consumers.push(path)
+      }
+      expect(consumers).toEqual([policyNativeLauncherPath])
+    }
+    const testFixtureConsumers: string[] = []
+    for (const path of productionSources) {
+      if (path === policyNativeAuthorityPath) continue
+      if (
+        (await readFile(path, 'utf8')).match(
+          /(?:runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
+        )
+      )
+        testFixtureConsumers.push(path)
+    }
+    expect(testFixtureConsumers).toEqual([])
+    expect(nativeAuthority).toContain(
+      "if (process.env.NODE_ENV !== 'test')\n    throw new Error('policy-wrapper-isolation')",
+    )
+  })
+
+  it('exhausts the Decision-113 B cleanup checkpoint and launched-state matrix', () => {
+    expect(policyBCleanupCheckpointIds).toEqual(
+      expect.arrayContaining([
+        'B0',
+        'B4',
+        'P1',
+        'P13',
+        'O1',
+        'O2',
+        'O3',
+        'R01i',
+        'R01s',
+        'R16',
+        'T0',
+        'T1',
+        'T2',
+        'TX',
+      ]),
+    )
+    for (const checkpoint of policyBCleanupCheckpointIds) {
+      for (const observedState of [
+        'prestate',
+        'poststate',
+        'ambiguous',
+      ] as const) {
+        for (const childLaunched of [false, true]) {
+          const result = runPolicyBCandidateFailureLifecycleForFixture({
+            checkpoint,
+            observedState,
+            childLaunched,
+          })
+          expect(result.registrationPermitted).toBe(false)
+          if (observedState === 'ambiguous' || checkpoint === 'TX') {
+            expect(result.transition).toBe('active-to-closed')
+            expect(result.category).toBe('ambiguous-residue-preserved')
+          }
+        }
+      }
+    }
+    for (const checkpoint of ['B0', 'B1', 'B2', 'B3', 'B4'])
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: false,
+        }),
+      ).toMatchObject({
+        transition: 'active-to-closed',
+        category: 'b-build-prefix',
+        permittedSuffix: [],
+      })
+    for (let index = 1; index <= 12; index += 1)
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint: `P${index}`,
+          observedState: 'prestate',
+          childLaunched: false,
+        }),
+      ).toMatchObject({
+        transition: 'active-to-closed',
+        category: 'b-preflight-setup-prefix',
+        permittedSuffix: [],
+      })
+    expect(
+      runPolicyBCandidateFailureLifecycleForFixture({
+        checkpoint: 'P13',
+        observedState: 'prestate',
+        childLaunched: true,
+      }).permittedSuffix[0],
+    ).toBe('R01i')
+    expect(
+      runPolicyBCandidateFailureLifecycleForFixture({
+        checkpoint: 'O1',
+        observedState: 'prestate',
+        childLaunched: true,
+      }).permittedSuffix.slice(0, 2),
+    ).toEqual(['ACL-remove', 'R01i'])
+    for (const checkpoint of ['O2', 'O3'])
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: true,
+        }).permittedSuffix[0],
+      ).toBe('R01s')
+    for (const checkpoint of [
+      'R01i',
+      'R01s',
+      'R02',
+      'R03',
+      'R04',
+      'R05',
+      'R06',
+      'R07',
+      'R08',
+      'R09',
+      'R10',
+      'R11',
+      'R12',
+      'R13',
+      'R14',
+      'R15',
+      'R16',
+    ]) {
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: true,
+        }).category,
+      ).toBe('b-cleanup-row-retained')
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: false,
+        }).permittedSuffix[0],
+      ).toBe(checkpoint)
+    }
+    expect(
+      runPolicyBCandidateFailureLifecycleForFixture({
+        checkpoint: 'T0',
+        observedState: 'prestate',
+        childLaunched: false,
+      }).permittedSuffix,
+    ).toEqual(['R16'])
+    expect(
+      runPolicyBCandidateFailureLifecycleForFixture({
+        checkpoint: 'T0',
+        observedState: 'prestate',
+        childLaunched: true,
+      }).permittedSuffix,
+    ).toEqual([])
+    for (const [checkpoint, category] of [
+      ['T1', 'b-terminal-helper-unlinked'],
+      ['T2', 'b-terminal-root-removed-unproved'],
+      ['TX', 'ambiguous-residue-preserved'],
+    ] as const)
+      expect(
+        runPolicyBCandidateFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: true,
+        }),
+      ).toMatchObject({
+        transition: 'active-to-closed',
+        category,
+        permittedSuffix: [],
+        registrationPermitted: false,
+      })
+  })
+
+  it('maps the shared physical failure table to C-only residue categories', () => {
+    for (const [checkpoint, category] of [
+      ['B0', 'c-build-prefix'],
+      ['P1', 'c-preflight-setup-prefix'],
+      ['T1', 'c-terminal-helper-unlinked'],
+      ['T2', 'c-terminal-root-removed-unproved'],
+    ] as const)
+      expect(
+        runPolicyCAcceptedFailureLifecycleForFixture({
+          checkpoint,
+          observedState: 'prestate',
+          childLaunched: false,
+        }).category,
+      ).toBe(category)
+    expect(
+      runPolicyCAcceptedFailureLifecycleForFixture({
+        checkpoint: 'P13',
+        observedState: 'prestate',
+        childLaunched: false,
+      }).permittedSuffix,
+    ).toContain('R01i')
+    expect(
+      runPolicyCAcceptedFailureLifecycleForFixture({
+        checkpoint: 'R01i',
+        observedState: 'prestate',
+        childLaunched: false,
+      }).permittedSuffix,
+    ).toContain('R01i')
+    expect(
+      runPolicyCAcceptedFailureLifecycleForFixture({
+        checkpoint: 'R01i',
+        observedState: 'prestate',
+        childLaunched: true,
+      }).category,
+    ).toBe('c-cleanup-row-retained')
+  })
+
+  it('drives every B operation through the shared candidate runner into one-way cleanup custody', async () => {
+    const candidateNames = [
+      'metadata-check:command-lock',
+      'metadata-check:build-root',
+      'metadata-check:build-tmp',
+      'metadata-check:build-source',
+      'metadata-check:build-helper',
+      'metadata-check:preflight-root',
+      'metadata-check:preflight-directory',
+      'metadata-check:preflight-file',
+      'acl-fixture:install',
+      'metadata-check:preflight-directory',
+      'acl-fixture:remove',
+      'preflight-promotion:success',
+      'preflight-promotion:collision',
+      'delete-entry:preflight-success-destination-promotion',
+      'delete-entry:preflight-collision-source-promotion',
+      'delete-entry:preflight-collision-destination-promotion',
+      'delete-entry:preflight-success-source-file',
+      'delete-entry:preflight-success-destination-file',
+      'delete-entry:preflight-collision-source-file',
+      'delete-entry:preflight-collision-destination-file',
+      'delete-entry:preflight-success-source-directory',
+      'delete-entry:preflight-success-destination-directory',
+      'delete-entry:preflight-collision-source-directory',
+      'delete-entry:preflight-collision-destination-directory',
+      'delete-entry:preflight-acl-fixture-directory',
+      'delete-entry:preflight-root',
+      'delete-entry:build-source',
+      'delete-entry:build-tmp',
+      'delete-build-terminal',
+    ] as const
+    const cleanupNames = [
+      'delete-entry:preflight-success-destination-promotion',
+      'delete-entry:preflight-collision-source-promotion',
+      'delete-entry:preflight-collision-destination-promotion',
+      'delete-entry:preflight-success-source-file',
+      'delete-entry:preflight-success-destination-file',
+      'delete-entry:preflight-collision-source-file',
+      'delete-entry:preflight-collision-destination-file',
+      'delete-entry:preflight-success-source-directory',
+      'delete-entry:preflight-success-destination-directory',
+      'delete-entry:preflight-collision-source-directory',
+      'delete-entry:preflight-collision-destination-directory',
+      'delete-entry:preflight-acl-fixture-directory',
+      'delete-entry:preflight-root',
+      'delete-entry:build-source',
+      'delete-entry:build-tmp',
+      'delete-build-terminal',
+    ] as const
+    const entry = (name: string, index: number) => ({
+      name,
+      highest: name.startsWith('preflight-promotion')
+        ? (6 as const)
+        : (3 as const),
+      operation: Object.freeze({ name, index }),
+    })
+    const exact = () => ({
+      code: 0,
+      stdoutBytes: 0,
+      stderrBytes: 0,
+      processGroupAbsent: true,
+      streamsClosed: true,
+    })
+    const failureResult = (
+      dimension: NonNullable<
+        Parameters<
+          typeof runPolicyBCandidateLifecycleForFixture
+        >[0]['lifecycleFailure']
+      >,
+    ) => {
+      if (dimension === 'exit') return { ...exact(), code: 1 }
+      if (dimension === 'stdout') return { ...exact(), stdoutBytes: 1 }
+      if (dimension === 'stderr') return { ...exact(), stderrBytes: 1 }
+      if (dimension === 'stream') return { ...exact(), streamsClosed: false }
+      if (dimension === 'group')
+        return { ...exact(), processGroupAbsent: false }
+      return exact()
+    }
+    const attempt = async (input: {
+      operationIndex: number
+      phase: 'before' | 'after'
+      lifecycleFailure?: NonNullable<
+        Parameters<
+          typeof runPolicyBCandidateLifecycleForFixture
+        >[0]['lifecycleFailure']
+      >
+      failCleanupAt?: number
+    }) => {
+      const events: string[] = []
+      const active = new WeakSet<object>()
+      const cleanup = new WeakSet<object>()
+      let cleanupUsed = false
+      let cleanupOperation = 0
+      let lockClosed = false
+      const result = await runPolicyBCandidateLifecycleForFixture({
+        operations: candidateNames.map(entry),
+        cleanupSuffix: cleanupNames.map(entry),
+        failAt: { operationIndex: input.operationIndex, phase: input.phase },
+        lifecycleFailure: input.lifecycleFailure,
+        dependencies: {
+          withChild: async (_highest, run) =>
+            run(async () => ({ fd: 99 }) as never),
+          runOperation: async (phase, session, operation, dimension) => {
+            events.push(
+              `${phase}:run:${(operation as { index: number }).index}`,
+            )
+            if (phase === 'active') {
+              expect(active.has(session)).toBe(true)
+              if (
+                dimension === 'spawn' ||
+                dimension === 'timeout' ||
+                dimension === 'signal'
+              )
+                throw new Error(`fixture-${dimension}`)
+              return dimension === undefined
+                ? exact()
+                : failureResult(dimension)
+            }
+            expect(cleanup.has(session)).toBe(true)
+            if (cleanupOperation++ === input.failCleanupAt)
+              throw new Error('fixture-cleanup-failure')
+            return exact()
+          },
+          beginActive: (session) => {
+            active.add(session)
+            events.push('broker:active-token')
+          },
+          beginCleanup: (session, admission) => {
+            expect(active.has(session)).toBe(true)
+            expect(cleanupUsed).toBe(false)
+            expect(admission).toMatchObject({
+              checkpoint: 'O2',
+              lifecycleClosed: true,
+              failedOperationIndex: input.operationIndex,
+            })
+            active.delete(session)
+            cleanupUsed = true
+            const token = Object.freeze({})
+            cleanup.add(token)
+            events.push('broker:cleanup-token')
+            return token
+          },
+          closeCleanup: (session) => {
+            expect(cleanup.has(session)).toBe(true)
+            cleanup.delete(session)
+            events.push('broker:cleanup-closed')
+          },
+          validateLock: async () => {
+            expect(lockClosed).toBe(false)
+            events.push('lock:validated')
+          },
+          closeLock: async () => {
+            expect(lockClosed).toBe(false)
+            lockClosed = true
+            events.push('lock:closed')
+          },
+        },
+      })
+      return { result, events, lockClosed, cleanupUsed }
+    }
+
+    // A fresh active token is minted only inside each inert attempt. Its
+    // membership is established by the fixture broker before the first child.
+    // This setup models the production bridge's opaque ordinary token.
+    for (const operationIndex of candidateNames.keys()) {
+      for (const phase of ['before', 'after'] as const) {
+        const dimensions =
+          phase === 'before'
+            ? ([undefined] as const)
+            : ([
+                'spawn',
+                'exit',
+                'stdout',
+                'stderr',
+                'timeout',
+                'signal',
+                'stream',
+                'group',
+                'postcheck',
+              ] as const)
+        for (const lifecycleFailure of dimensions) {
+          const current = await attempt({
+            operationIndex,
+            phase,
+            lifecycleFailure,
+          })
+          expect(current.result).toMatchObject({
+            outcome: 'cleaned-no-authority',
+            registrationPermitted: false,
+          })
+          expect(current.cleanupUsed).toBe(true)
+          expect(current.lockClosed).toBe(true)
+          expect(current.result.events.at(-1)).toBe('lock:closed-last')
+          expect(current.events.at(-1)).toBe('lock:closed')
+          const activeRuns = current.events.filter((event) =>
+            event.startsWith('active:run:'),
+          )
+          expect(activeRuns).toHaveLength(
+            phase === 'before' ? operationIndex : operationIndex + 1,
+          )
+          expect(new Set(activeRuns).size).toBe(activeRuns.length)
+          expect(activeRuns).not.toContain(`active:run:${operationIndex + 1}`)
+          expect(
+            current.result.events.filter(
+              (event) => event === 'broker:registration',
+            ),
+          ).toEqual([])
+        }
+      }
+    }
+
+    const retained = await attempt({
+      operationIndex: 13,
+      phase: 'after',
+      lifecycleFailure: 'exit',
+      failCleanupAt: 0,
+    })
+    expect(retained.result).toMatchObject({
+      outcome: 'retained-no-authority',
+      registrationPermitted: false,
+    })
+    expect(
+      retained.events.filter((event) => event.startsWith('cleanup:run:')),
+    ).toHaveLength(1)
+    expect(retained.result.events).toContain('cleanup:retained')
+    expect(retained.result.events.at(-1)).toBe('lock:closed-last')
+  })
+
+  it('reopens every Decision-113 residue row through the production classifier', async () => {
+    const source = Buffer.from('fixture-source\n')
+    const helper = Buffer.from('fixture-helper\n')
+    const sourceSha256 = sha256(source)
+    const helperSha256 = sha256(helper)
+    const fixtureBytes = {
+      'success-source': 'zedarchive-m45-exclusive-success-source-v1\n',
+      'success-destination':
+        'zedarchive-m45-exclusive-success-destination-v1\n',
+      'collision-source': 'zedarchive-m45-exclusive-collision-source-v1\n',
+      'collision-destination':
+        'zedarchive-m45-exclusive-collision-destination-v1\n',
+    } as const
+    const checkpoints = policyBCleanupCheckpointIds.filter(
+      (checkpoint) => checkpoint !== 'TX',
+    )
+    const makeDirectory = async (path: string) => {
+      await mkdir(path, { recursive: true, mode: 0o700 })
+      await chmod(path, 0o700)
+    }
+    const writeExact = async (
+      path: string,
+      bytes: Uint8Array,
+      mode: number,
+    ) => {
+      await writeFile(path, bytes, { flag: 'wx', mode })
+      await chmod(path, mode)
+    }
+    const remove = async (path: string) => {
+      await rm(path, { recursive: true, force: true })
+    }
+    const assemble = async (repositoryRoot: string, checkpoint: string) => {
+      const m45 = join(repositoryRoot, '.local/m45')
+      const build = join(m45, '.policy-exclusive-promotion-build')
+      const preflight = join(m45, '.policy-exclusive-promotion-preflight')
+      await makeDirectory(m45)
+      await writeExact(
+        join(m45, '.policy-exclusive-promotion.lock'),
+        Buffer.alloc(0),
+        0o600,
+      )
+      const needsBuild = checkpoint !== 'B0' && checkpoint !== 'T2'
+      if (needsBuild) await makeDirectory(build)
+      if (!['B0', 'B1', 'R16', 'T0', 'T1', 'T2'].includes(checkpoint)) {
+        await makeDirectory(join(build, 'tmp'))
+      }
+      if (
+        !['B0', 'B1', 'B2', 'R15', 'R16', 'T0', 'T1', 'T2'].includes(checkpoint)
+      )
+        await writeExact(
+          join(build, 'exclusive-promotion-helper.c'),
+          source,
+          0o400,
+        )
+      if (!['B0', 'B1', 'B2', 'B3', 'T1', 'T2'].includes(checkpoint))
+        await writeExact(
+          join(build, 'exclusive-promotion-helper'),
+          helper,
+          0o500,
+        )
+
+      const needsPreflight = /^(?:P|O|R(?:01|0[2-9]|1[0-3]))/u.test(checkpoint)
+      if (!needsPreflight) return { m45, build, preflight }
+      await makeDirectory(preflight)
+      const addDirectory = async (name: keyof typeof fixtureBytes) => {
+        const directory = join(preflight, name)
+        await makeDirectory(directory)
+        await writeExact(
+          join(directory, 'fixture.bin'),
+          Buffer.from(fixtureBytes[name]),
+          0o600,
+        )
+      }
+      const prefix = [
+        'success-source',
+        'success-destination',
+        'collision-source',
+        'collision-destination',
+      ] as const
+      const prefixIndex = {
+        P1: 0,
+        P2: 1,
+        P3: 1,
+        P4: 1,
+        P5: 2,
+        P6: 2,
+        P7: 3,
+        P8: 3,
+        P9: 3,
+        P10: 4,
+        P11: 4,
+        P12: 4,
+      } as const
+      if (checkpoint in prefixIndex) {
+        const count = prefixIndex[checkpoint as keyof typeof prefixIndex]
+        for (const name of prefix.slice(0, count)) await addDirectory(name)
+        if (checkpoint === 'P2')
+          await remove(join(preflight, 'success-source/fixture.bin'))
+        if (checkpoint === 'P5')
+          await remove(join(preflight, 'success-destination/fixture.bin'))
+        if (!['P1', 'P2', 'P3'].includes(checkpoint))
+          await makeDirectory(join(preflight, 'success-source/promotion'))
+        if (checkpoint === 'P7')
+          await remove(join(preflight, 'collision-source/fixture.bin'))
+        if (['P9', 'P10', 'P11', 'P12'].includes(checkpoint))
+          await makeDirectory(join(preflight, 'collision-source/promotion'))
+        if (checkpoint === 'P10')
+          await remove(join(preflight, 'collision-destination/fixture.bin'))
+        if (checkpoint === 'P12')
+          await makeDirectory(
+            join(preflight, 'collision-destination/promotion'),
+          )
+        return { m45, build, preflight }
+      }
+      for (const name of prefix) await addDirectory(name)
+      for (const name of [
+        'success-source',
+        'collision-source',
+        'collision-destination',
+      ] as const)
+        await makeDirectory(join(preflight, `${name}/promotion`))
+      await makeDirectory(join(preflight, 'acl-fixture'))
+      if (
+        checkpoint === 'R01s' ||
+        /^(?:O[23]|R(?:0[2-9]|1[0-3]))$/u.test(checkpoint)
+      ) {
+        await rename(
+          join(preflight, 'success-source/promotion'),
+          join(preflight, 'success-destination/promotion'),
+        )
+      }
+      if (/^R(?:0[2-9]|1[0-3])$/u.test(checkpoint))
+        await remove(join(preflight, 'success-destination/promotion'))
+      const removeForRow: Record<string, readonly string[]> = {
+        R03: ['collision-source/promotion'],
+        R04: ['collision-source/promotion', 'collision-destination/promotion'],
+        R05: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+        ],
+        R06: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+        ],
+        R07: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+        ],
+        R08: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+        ],
+        R09: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+          'success-source',
+        ],
+        R10: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+          'success-source',
+          'success-destination',
+        ],
+        R11: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+          'success-source',
+          'success-destination',
+          'collision-source',
+        ],
+        R12: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+          'success-source',
+          'success-destination',
+          'collision-source',
+          'collision-destination',
+        ],
+        R13: [
+          'collision-source/promotion',
+          'collision-destination/promotion',
+          'success-source/fixture.bin',
+          'success-destination/fixture.bin',
+          'collision-source/fixture.bin',
+          'collision-destination/fixture.bin',
+          'success-source',
+          'success-destination',
+          'collision-source',
+          'collision-destination',
+          'acl-fixture',
+        ],
+      }
+      for (const path of removeForRow[checkpoint] ?? [])
+        await remove(join(preflight, path))
+      return { m45, build, preflight }
+    }
+
+    for (const checkpoint of checkpoints) {
+      const directory = await mkdtemp(join(tmpdir(), 'm45-d113-reopen-'))
+      try {
+        await assemble(directory, checkpoint)
+        const reopened = await reopenPolicyBCandidateCheckpointForFixture({
+          repositoryRoot: directory,
+          sourceSha256,
+          helperSha256,
+          cleanupPhase: /^(?:R|T)/u.test(checkpoint),
+          terminalLaunched: checkpoint === 'T2',
+          failedOperationFamily:
+            checkpoint === 'T0'
+              ? 'delete-build-terminal'
+              : checkpoint === 'O3'
+                ? 'preflight-promotion'
+                : 'fixture',
+          lastChildExitCode: checkpoint === 'O3' ? 10 : undefined,
+          acl: async () => (checkpoint === 'O1' ? 'fixture' : 'empty'),
+        })
+        expect(reopened?.checkpoint).toBe(checkpoint)
+        expect(reopened?.checkpointSha256).toMatch(/^[a-f0-9]{64}$/u)
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+
+    type ReopenFixtureOptions = Omit<
+      Parameters<typeof reopenPolicyBCandidateCheckpointForFixture>[0],
+      'repositoryRoot' | 'sourceSha256' | 'helperSha256'
+    >
+    const classifyP13 = async (
+      input: ReopenFixtureOptions,
+      mutate?: (paths: Readonly<{ preflight: string }>) => Promise<void>,
+    ) => {
+      const directory = await mkdtemp(join(tmpdir(), 'm45-d113-drift-'))
+      try {
+        const paths = await assemble(directory, 'P13')
+        await mutate?.(paths)
+        return await reopenPolicyBCandidateCheckpointForFixture({
+          repositoryRoot: directory,
+          sourceSha256,
+          helperSha256,
+          ...input,
+        })
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+    for (const [role, field, value] of [
+      ['build', 'kind', 'file'],
+      ['build', 'uid', 'not-the-effective-user'],
+      ['build', 'device', 'other-device'],
+      ['build', 'links', '99'],
+      ['build', 'mode', '0'],
+      ['build', 'specialMode', '2048'],
+      ['helper', 'size', '0'],
+      ['helper', 'sha256', '0'.repeat(64)],
+    ] as const)
+      expect(
+        await classifyP13({
+          amendEvidence: (currentRole, _kind, _entries, evidence) =>
+            currentRole === role ? { ...evidence, [field]: value } : evidence,
+        }),
+      ).toBeNull()
+    expect(
+      await classifyP13({}, async ({ preflight }) =>
+        writeExact(join(preflight, 'unexpected'), Buffer.from('x'), 0o600),
+      ),
+    ).toBeNull()
+    expect(
+      await classifyP13({ zeroAcl: async (role) => role !== 'build' }),
+    ).toBeNull()
+    expect(
+      await classifyP13({ zeroAcl: async (role) => role !== 'command-lock' }),
+    ).toBeNull()
+    expect(
+      await classifyP13({
+        beforeNamed: async (role, path) => {
+          if (role !== 'helper') return
+          await rename(path, `${path}.held`)
+          await writeExact(path, helper, 0o500)
+        },
+      }),
+    ).toBeNull()
+  })
+
+  it('injects every Decision-112 child filler and authority failure without opening a next child', async () => {
+    type FixtureHandle = Readonly<{ fd: number; close: () => Promise<void> }>
+    const run = async (
+      input: Readonly<{
+        highest: 3 | 6
+        failOpenAt?: number
+        failCloseFd?: number
+        authorityFds?: readonly number[]
+        failChild?: boolean
+      }>,
+    ) => {
+      const events: string[] = []
+      let opened = 0
+      let childRuns = 0
+      let registered = false
+      const handle = (fd: number): FixtureHandle => ({
+        fd,
+        close: async () => {
+          events.push(`close:${fd}`)
+          if (fd === input.failCloseFd) throw new Error('injected-close')
+        },
+      })
+      const lock = {
+        ...handle(9),
+        close: async () => {
+          events.push('close:lock')
+        },
+      }
+      const result = (async () => {
+        await runPolicyNativeChildFdLifecycleForFixture({
+          highestChildAuthorityTarget: input.highest,
+          lock,
+          open: async (path) => {
+            opened += 1
+            events.push(`open:${path}:${opened}`)
+            if (opened === input.failOpenAt) throw new Error('injected-open')
+            const fillerCount = input.highest === 6 ? 4 : 3
+            const fd =
+              opened <= fillerCount
+                ? opened + 2
+                : (input.authorityFds?.[opened - fillerCount - 1] ??
+                  10 + opened)
+            return handle(fd)
+          },
+          validate: async () => {
+            events.push('validate:lock')
+          },
+          run: async (openChildAuthority) => {
+            childRuns += 1
+            const fillerCount = input.highest === 6 ? 4 : 3
+            expect(opened).toBe(fillerCount)
+            await openChildAuthority('/authority-one', 0)
+            await openChildAuthority('/authority-two', 0)
+            if (input.failChild) throw new Error('injected-child')
+          },
+        })
+        registered = true
+      })()
+      return {
+        result,
+        events,
+        childRuns: () => childRuns,
+        registered: () => registered,
+        lock,
+      }
+    }
+
+    for (const highest of [3, 6] as const) {
+      const fillerCount = highest === 6 ? 4 : 3
+      for (let failure = 1; failure <= fillerCount; failure += 1) {
+        const attempt = await run({ highest, failOpenAt: failure })
+        await expect(attempt.result).rejects.toThrow('injected-open')
+        expect(attempt.childRuns()).toBe(0)
+        expect(attempt.registered()).toBe(false)
+      }
+      for (let fd = 3; fd <= fillerCount + 2; fd += 1) {
+        const attempt = await run({ highest, failCloseFd: fd })
+        await expect(attempt.result).rejects.toThrow('injected-close')
+        expect(attempt.childRuns()).toBe(1)
+        expect(attempt.registered()).toBe(false)
+        expect(attempt.events).toContain(`close:${fd}`)
+      }
+      for (const authorityFds of [
+        [highest, highest + 8],
+        [highest + 8, highest],
+        [highest + 8, highest + 8],
+      ]) {
+        const attempt = await run({ highest, authorityFds })
+        await expect(attempt.result).rejects.toThrow('policy-native-authority')
+        expect(attempt.childRuns()).toBe(1)
+        expect(attempt.registered()).toBe(false)
+      }
+      for (const failOpenAt of [fillerCount + 1, fillerCount + 2]) {
+        const attempt = await run({ highest, failOpenAt })
+        await expect(attempt.result).rejects.toThrow('injected-open')
+        expect(attempt.childRuns()).toBe(1)
+        expect(attempt.registered()).toBe(false)
+      }
+      for (const authorityFd of [10 + fillerCount + 1, 10 + fillerCount + 2]) {
+        const attempt = await run({ highest, failCloseFd: authorityFd })
+        await expect(attempt.result).rejects.toThrow('injected-close')
+        expect(attempt.childRuns()).toBe(1)
+        expect(attempt.registered()).toBe(false)
+        expect(attempt.events).toContain(`close:${authorityFd}`)
+      }
+    }
+
+    const childFailure = await run({ highest: 6, failChild: true })
+    await expect(childFailure.result).rejects.toThrow('injected-child')
+    expect(childFailure.childRuns()).toBe(1)
+    expect(childFailure.registered()).toBe(false)
+    expect(
+      childFailure.events.filter((event) => event === 'close:lock'),
+    ).toEqual([])
+    await childFailure.lock.close()
+    expect(childFailure.events.at(-1)).toBe('close:lock')
+  })
+
+  it('injects every Decision-112 positioning and lock failure with lock-last teardown', async () => {
+    const attempt = (input: {
+      failFillerOpenAt?: number
+      failFillerCloseFd?: number
+      failLockOpen?: boolean
+      failLockClose?: boolean
+      failValidationAt?: number
+      failFinalValidation?: boolean
+      driftFillerAt?: number
+    }) => {
+      const events: string[] = []
+      let fillerOpen = 0
+      let validation = 0
+      const handle = (fd: number) => ({
+        fd,
+        close: async () => {
+          events.push(`close:${fd}`)
+          if (
+            fd === input.failFillerCloseFd ||
+            (fd === 9 && input.failLockClose)
+          )
+            throw new Error(fd === 9 ? 'close-lock' : 'close-filler')
+        },
+      })
+      return {
+        events,
+        result: runPolicyNativePositioningForFixture({
+          openFiller: async () => {
+            fillerOpen += 1
+            events.push(`open:filler:${fillerOpen}`)
+            if (fillerOpen === input.failFillerOpenAt)
+              throw new Error('open-filler')
+            return handle(fillerOpen + 2)
+          },
+          inspectFiller: async (filler) =>
+            filler.fd === input.driftFillerAt
+              ? { device: 'drift', inode: 'drift' }
+              : { device: 'test-dev-null', inode: 'test-dev-null' },
+          openLock: async () => {
+            events.push('open:lock')
+            if (input.failLockOpen) throw new Error('open-lock')
+            return handle(9)
+          },
+          validateLock: async () => {
+            validation += 1
+            events.push(`validate:${validation}`)
+            if (validation === input.failValidationAt)
+              throw new Error('validate-lock')
+          },
+          validateFinalLock: async () => {
+            events.push('validate:final')
+            if (input.failFinalValidation) throw new Error('validate-final')
+          },
+        }),
+      }
+    }
+    for (let failure = 1; failure <= 4; failure += 1) {
+      const current = attempt({ failFillerOpenAt: failure })
+      await expect(current.result).rejects.toThrow('open-filler')
+      expect(current.events).toEqual([
+        ...Array.from(
+          { length: failure },
+          (_, index) => `open:filler:${index + 1}`,
+        ),
+        ...Array.from(
+          { length: failure - 1 },
+          (_, index) => `close:${failure - index + 1}`,
+        ),
+      ])
+    }
+    const lockOpen = attempt({ failLockOpen: true })
+    await expect(lockOpen.result).rejects.toThrow('open-lock')
+    expect(lockOpen.events).toEqual([
+      'open:filler:1',
+      'open:filler:2',
+      'open:filler:3',
+      'open:filler:4',
+      'open:lock',
+      'close:6',
+      'close:5',
+      'close:4',
+      'close:3',
+    ])
+    for (const fd of [3, 4, 5, 6]) {
+      const closeFailure = attempt({ failFillerCloseFd: fd })
+      await expect(closeFailure.result).rejects.toThrow(
+        'policy-native-positioning-ambiguous',
+      )
+      expect(closeFailure.events).toEqual([
+        'open:filler:1',
+        'open:filler:2',
+        'open:filler:3',
+        'open:filler:4',
+        'open:lock',
+        'validate:1',
+        'close:6',
+        'close:5',
+        'close:4',
+        'close:3',
+        'validate:2',
+        'close:9',
+      ])
+    }
+    const validationFailure = attempt({ failValidationAt: 1 })
+    await expect(validationFailure.result).rejects.toThrow('validate-lock')
+    expect(validationFailure.events.at(-1)).toBe('close:9')
+    const drift = attempt({ driftFillerAt: 4 })
+    await expect(drift.result).rejects.toThrow('policy-native-authority')
+    expect(drift.events).toEqual([
+      'open:filler:1',
+      'open:filler:2',
+      'close:4',
+      'close:3',
+    ])
+    const driftCloseFailure = attempt({
+      driftFillerAt: 4,
+      failFillerCloseFd: 4,
+    })
+    await expect(driftCloseFailure.result).rejects.toThrow(
+      'policy-native-positioning-ambiguous',
+    )
+    expect(driftCloseFailure.events).toEqual([
+      'open:filler:1',
+      'open:filler:2',
+      'close:4',
+      'close:3',
+    ])
+    const finalValidation = attempt({ failFinalValidation: true })
+    await expect(finalValidation.result).rejects.toThrow('validate-final')
+    expect(finalValidation.events.slice(-2)).toEqual([
+      'validate:final',
+      'close:9',
+    ])
+    const finalClose = attempt({ failLockClose: true })
+    await expect(finalClose.result).rejects.toThrow('close-lock')
+    expect(finalClose.events.slice(-2)).toEqual(['validate:final', 'close:9'])
+    const finalAmbiguity = attempt({
+      failFinalValidation: true,
+      failLockClose: true,
+    })
+    await expect(finalAmbiguity.result).rejects.toThrow(
+      'policy-native-lock-finalization-ambiguous',
+    )
+    expect(finalAmbiguity.events.slice(-2)).toEqual([
+      'validate:final',
+      'close:9',
+    ])
+  })
+
+  it('binds parent ownership, modes, devices, ACLs, and phase-specific link counts', () => {
+    const evidence = {
+      phase: 'role-input' as const,
+      effectiveOwner: 501,
+      sourceOwner: 501,
+      destinationOwner: 501,
+      sourceMode: 0o700,
+      destinationMode: 0o700,
+      sourceDevice: 7,
+      destinationDevice: 7,
+      sourceLinks: 5,
+      expectedSourceLinksFromInventory: 5,
+      destinationLinks: 3,
+      sourceAclTrivial: true,
+      destinationAclTrivial: true,
+    }
+    expect(() =>
+      assertPolicyExclusivePromotionParentEvidence(evidence),
+    ).not.toThrow()
+    expect(() =>
+      assertPolicyExclusivePromotionParentEvidence({
+        ...evidence,
+        expectedSourceLinksFromInventory: 4,
+      }),
+    ).toThrow('policy-custody')
+    expect(() =>
+      assertPolicyExclusivePromotionParentEvidence({
+        ...evidence,
+        destinationMode: 0o2700,
+      }),
+    ).toThrow('policy-custody')
+  })
+
+  it('accepts only the exact successful build inventory before cleanup', () => {
+    const file = {
+      owner: 501,
+      links: 1,
+      device: 7,
+      parentDevice: 7,
+      sha256: 'a'.repeat(64),
+      aclTrivial: true,
+    }
+    const inventory = {
+      owner: 501,
+      effectiveOwner: 501,
+      mode: 0o700,
+      links: 5,
+      aclTrivial: true,
+      entries: [
+        'exclusive-promotion-helper.c',
+        'exclusive-promotion-helper',
+        'tmp',
+      ],
+      source: { ...file, mode: 0o400 },
+      helper: { ...file, mode: 0o500 },
+      temporaryDirectory: {
+        owner: 501,
+        mode: 0o700,
+        links: 2,
+        device: 7,
+        parentDevice: 7,
+        aclTrivial: true,
+        entries: [] as readonly string[],
+      },
+    }
+    expect(() =>
+      assertPolicyExclusivePromotionBuildInventory(inventory),
+    ).not.toThrow()
+    expect(() =>
+      assertPolicyExclusivePromotionBuildInventory({
+        ...inventory,
+        entries: [...inventory.entries, 'compiler-residue'],
+      }),
+    ).toThrow('policy-custody')
+  })
+
+  it.runIf(process.platform === 'darwin')(
+    'snapshots source create-new and performs exact child-wise cleanup on Darwin',
+    async () => {
+      const parent = await mkdtemp(join(tmpdir(), 'm45-promotion-build-'))
+      const buildRoot = join(parent, 'build')
+      const filesystem = syntheticFilesystem(buildRoot)
+      try {
+        await mkdir(buildRoot, { mode: 0o700 })
+        await chmod(buildRoot, 0o700)
+        const snapshot = await snapshotPolicyExclusivePromotionSourceForFixture(
+          buildRoot,
+          filesystem,
+        )
+        const helperBytes = Buffer.from('synthetic-reviewed-helper')
+        await writeFile(
+          join(buildRoot, 'exclusive-promotion-helper'),
+          helperBytes,
+          {
+            flag: 'wx',
+            mode: 0o500,
+          },
+        )
+        await mkdir(join(buildRoot, 'tmp'), { mode: 0o700 })
+        expect((await lstat(buildRoot)).nlink).toBe(5)
+        await cleanupPolicyExclusivePromotionBuildForFixture(
+          buildRoot,
+          {
+            sourceSha256: snapshot.sha256,
+            helperSha256: sha256(helperBytes),
+          },
+          async (role) => {
+            if (role === 'build-source')
+              await unlink(join(buildRoot, 'exclusive-promotion-helper.c'))
+            else if (role === 'build-helper')
+              await unlink(join(buildRoot, 'exclusive-promotion-helper'))
+            else if (role === 'build-tmp') await rmdir(join(buildRoot, 'tmp'))
+            else await rmdir(buildRoot)
+          },
+          filesystem,
+        )
+        await expect(lstat(buildRoot)).rejects.toMatchObject({ code: 'ENOENT' })
+      } finally {
+        await rm(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it('binds held-file reads to pre/post identity, ACL, path, bytes, and inode', async () => {
+    const bytes = Buffer.from('held-public-fixture')
+    const effectiveUid = process.geteuid?.()
+    expect(effectiveUid).toBeDefined()
+    const expected = {
+      uid: effectiveUid ?? -1,
+      device: 7,
+      inode: 11,
+      mode: 0o600,
+      size: bytes.byteLength,
+      sha256: sha256(bytes),
+    }
+    let aclChecks = 0
+    let pathChecks = 0
+    const stat = () => ({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+      uid: expected.uid,
+      ino: expected.inode,
+      nlink: 1,
+      dev: expected.device,
+      mode: expected.mode,
+      size: expected.size,
+    })
+    await expect(
+      readPolicyHeldFileForFixture({
+        role: 'custody-file',
+        expected,
+        statHeld: async () => stat(),
+        validateHeldAcl: async () => {
+          aclChecks += 1
+        },
+        readHeld: async () => bytes,
+        validatePathIdentity: async () => {
+          pathChecks += 1
+        },
+      }),
+    ).resolves.toEqual(bytes)
+    expect({ aclChecks, pathChecks }).toEqual({ aclChecks: 2, pathChecks: 2 })
+
+    let statCalls = 0
+    await expect(
+      readPolicyHeldFileForFixture({
+        role: 'custody-file',
+        expected,
+        statHeld: async () => {
+          statCalls += 1
+          return { ...stat(), ino: statCalls === 1 ? expected.inode : 12 }
+        },
+        validateHeldAcl: async () => undefined,
+        readHeld: async () => bytes,
+        validatePathIdentity: async () => undefined,
+      }),
+    ).rejects.toThrow('policy-custody')
+  })
+
+  it('rehashes the same held file before and after native delete authority', async () => {
+    const bytes = Buffer.from('zedarchive-m45-exclusive-success-source-v1\n')
+    const expected = {
+      byteCount: bytes.byteLength,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    }
+    let deleted = false
+    let validations = 0
+    await expect(
+      deletePolicyHeldFileForFixture({
+        role: 'preflight-success-source-file',
+        expected,
+        validateHeld: async () => {
+          validations += 1
+        },
+        validateNameBoundBeforeDelete: async () => {
+          expect(deleted).toBe(false)
+        },
+        readHeld: async () => bytes,
+        invokeNativeDelete: async () => {
+          deleted = true
+        },
+        proveNameAbsent: async () => {
+          expect(deleted).toBe(true)
+        },
+        transition: {
+          beforeEntries:
+            policyDeleteEntryTransitions['preflight-success-source-file']
+              .before,
+          afterEntries:
+            policyDeleteEntryTransitions['preflight-success-source-file'].after,
+          beforeLinks: 3,
+          afterLinks: 2,
+          preflightAuthority: await syntheticPreflightAuthority(),
+        },
+      }),
+    ).resolves.toBeUndefined()
+    expect(validations).toBe(4)
+
+    deleted = false
+    await expect(
+      deletePolicyHeldFileForFixture({
+        role: 'preflight-success-source-file',
+        expected,
+        validateHeld: async () => undefined,
+        validateNameBoundBeforeDelete: async () => undefined,
+        readHeld: async () =>
+          deleted ? Buffer.from('substituted held bytes') : bytes,
+        invokeNativeDelete: async () => {
+          deleted = true
+        },
+        proveNameAbsent: async () => undefined,
+        transition: {
+          beforeEntries:
+            policyDeleteEntryTransitions['preflight-success-source-file']
+              .before,
+          afterEntries:
+            policyDeleteEntryTransitions['preflight-success-source-file'].after,
+          beforeLinks: 3,
+          afterLinks: 2,
+          preflightAuthority: await syntheticPreflightAuthority(),
+        },
+      }),
+    ).rejects.toThrow('policy-byte-drift')
+  })
+
+  it('classifies only the three exact terminal build residue states with matching helper bytes', () => {
+    expect(policyProductionBuildCleanupSequence).toEqual([
+      'build-source',
+      'build-tmp',
+      'delete-build-terminal',
+    ])
+    expect(policyProductionBuildCleanupSequence).not.toContain('build-helper')
+    expect(policyProductionBuildCleanupSequence).not.toContain('build-root')
+    const before = {
+      helperShaMatches: true,
+      parentEntries: [
+        '.policy-exclusive-promotion.lock',
+        '.policy-exclusive-promotion-build',
+      ],
+      parentLinks: 4,
+      buildEntries: ['exclusive-promotion-helper'],
+      buildLinks: 3,
+      helperLinks: 1,
+      helperNamePresent: true,
+      buildNamePresent: true,
+    }
+    expect(classifyPolicyTerminalBuildStateForFixture(before)).toBe(
+      'terminal-prestate',
+    )
+    expect(
+      classifyPolicyTerminalBuildStateForFixture({
+        ...before,
+        buildEntries: [],
+        buildLinks: 2,
+        helperLinks: 0,
+        helperNamePresent: false,
+      }),
+    ).toBe('terminal-helper-unlinked')
+    expect(
+      classifyPolicyTerminalBuildStateForFixture({
+        ...before,
+        parentEntries: ['.policy-exclusive-promotion.lock'],
+        parentLinks: 3,
+        buildEntries: [],
+        buildLinks: 0,
+        helperLinks: 0,
+        helperNamePresent: false,
+        buildNamePresent: false,
+      }),
+    ).toBe('terminal-root-removed-unproved')
+    for (const fault of [
+      { helperShaMatches: false },
+      { buildEntries: ['substituted-helper'] },
+      { parentLinks: 5 },
+      { helperLinks: 0 },
+      { helperNamePresent: false },
+      { buildNamePresent: false },
+    ])
+      expect(
+        classifyPolicyTerminalBuildStateForFixture({ ...before, ...fault }),
+      ).toBe('terminal-unclassifiable')
+  })
+
+  it('kills a native process group on its first forbidden byte and closes non-lock handles in order', async () => {
+    const closed: number[] = []
+    const handle = (
+      fd: number,
+      role: 'filler' | 'authority' | 'command-lock',
+    ) => ({
+      fd,
+      role,
+      close: async () => {
+        closed.push(fd)
+      },
+    })
+    let fillerFd = 5
+    const fillers = await openPolicyNativeFillersForFixture(async () => {
+      fillerFd += 1
+      return {
+        ...handle(fillerFd, 'filler'),
+        kind: 'character-device' as const,
+        distinctIdentity: 'fixed-dev-null',
+      }
+    })
+    const authority = [handle(9, 'authority'), handle(10, 'authority')]
+    const commandLock = handle(11, 'command-lock')
+    let killed = 0
+    let revalidated = 0
+    await expect(
+      runPolicyNativeProcessForFixture({
+        stdoutLimit: 0,
+        stderrLimit: 0,
+        combinedLimit: 0,
+        fillers,
+        authority,
+        commandLock,
+        revalidateCommandLock: async () => {
+          revalidated += 1
+        },
+        spawn: async (onDiagnostic) => ({
+          pid: 42,
+          waitForClose: async () => {
+            onDiagnostic('stdout', Buffer.from('x'))
+            expect(killed).toBe(1)
+            onDiagnostic('stderr', Buffer.from('later'))
+            return {
+              code: null,
+              signal: 'SIGKILL',
+              streamsClosed: true,
+              epipe: false,
+              spawnError: false,
+            }
+          },
+          requestProcessGroupKill: () => {
+            killed += 1
+          },
+          proveProcessGroupAbsent: async () => true,
+          closePipes: async () => undefined,
+        }),
+        armTimeout: () => () => undefined,
+      }),
+    ).rejects.toThrow('policy-custody')
+    expect(killed).toBe(1)
+    expect(revalidated).toBe(4)
+    expect(closed).toEqual([10, 9, 8, 7, 6])
+    expect(closed).not.toContain(commandLock.fd)
+  })
+
+  it('fails closed on missing PID, timeout, spawn error, EPIPE, and lingering group', async () => {
+    const cases = [
+      { name: 'missing-pid', pid: undefined, spawnError: false },
+      { name: 'spawn-error', pid: 42, spawnError: true },
+      { name: 'epipe', pid: 42, epipe: true },
+      { name: 'lingering-group', pid: 42, groupAbsent: false },
+      { name: 'timeout', pid: 42, timeout: true },
+    ] as const
+    for (const fault of cases) {
+      const closed: number[] = []
+      let killed = 0
+      const makeHandle = (
+        fd: number,
+        role: 'filler' | 'authority' | 'command-lock',
+      ) => ({
+        fd,
+        role,
+        close: async () => {
+          closed.push(fd)
+        },
+      })
+      await expect(
+        runPolicyNativeProcessForFixture({
+          stdoutLimit: 64,
+          stderrLimit: 64,
+          combinedLimit: 96,
+          fillers: [
+            makeHandle(6, 'filler'),
+            makeHandle(7, 'filler'),
+            makeHandle(8, 'filler'),
+          ],
+          authority: [makeHandle(9, 'authority')],
+          commandLock: makeHandle(10, 'command-lock'),
+          revalidateCommandLock: async () => undefined,
+          spawn: async () => {
+            if (fault.name === 'spawn-error') throw new Error('synthetic spawn')
+            return {
+              pid: fault.pid,
+              waitForClose: async () => ({
+                code: 0,
+                signal: null,
+                streamsClosed: true,
+                epipe: 'epipe' in fault && fault.epipe,
+                spawnError: false,
+              }),
+              requestProcessGroupKill: () => {
+                killed += 1
+              },
+              proveProcessGroupAbsent: async () =>
+                !('groupAbsent' in fault) || fault.groupAbsent,
+              closePipes: async () => undefined,
+            }
+          },
+          armTimeout: (onTimeout) => {
+            if ('timeout' in fault && fault.timeout) onTimeout()
+            return () => undefined
+          },
+        }),
+      ).rejects.toThrow('policy-custody')
+      if (fault.name === 'missing-pid' || fault.name === 'spawn-error')
+        expect(killed).toBe(0)
+      expect(closed).toEqual([9, 8, 7, 6])
+    }
+  })
+
+  it('reaps after a close-wait fault and attempts every pipe and descriptor close', async () => {
+    const closed: number[] = []
+    let waits = 0
+    let pipesClosed = 0
+    const makeHandle = (
+      fd: number,
+      role: 'filler' | 'authority' | 'command-lock',
+      closeFails = false,
+    ) => ({
+      fd,
+      role,
+      close: async () => {
+        closed.push(fd)
+        if (closeFails) throw new Error('synthetic close failure')
+      },
+    })
+    await expect(
+      runPolicyNativeProcessForFixture({
+        stdoutLimit: 0,
+        stderrLimit: 0,
+        combinedLimit: 0,
+        fillers: [
+          makeHandle(6, 'filler'),
+          makeHandle(7, 'filler'),
+          makeHandle(8, 'filler'),
+        ],
+        authority: [
+          makeHandle(9, 'authority', true),
+          makeHandle(10, 'authority'),
+        ],
+        commandLock: makeHandle(11, 'command-lock'),
+        revalidateCommandLock: async () => undefined,
+        spawn: async () => ({
+          pid: 42,
+          waitForClose: async () => {
+            waits += 1
+            if (waits === 1) throw new Error('synthetic wait failure')
+            return {
+              code: null,
+              signal: 'SIGKILL',
+              streamsClosed: true,
+              epipe: false,
+              spawnError: false,
+            }
+          },
+          requestProcessGroupKill: () => undefined,
+          proveProcessGroupAbsent: async () => true,
+          closePipes: async () => {
+            pipesClosed += 1
+          },
+        }),
+        armTimeout: () => () => undefined,
+      }),
+    ).rejects.toThrow('policy-custody')
+    expect(waits).toBe(2)
+    expect(pipesClosed).toBe(1)
+    expect(closed).toEqual([10, 9, 8, 7, 6])
+  })
+
+  it('uses only named native launcher operations with bounded synthetic process mechanics', async () => {
+    const launches: Array<{
+      executable: string
+      arguments: string[]
+      options: Record<string, unknown>
+    }> = []
+    let launchMode: 'diagnostic-success' | 'forbidden-helper-output' =
+      'diagnostic-success'
+    let liveGroupProbesRemaining = 0
+    const spawnMock = vi.fn(
+      (
+        executable: string,
+        arguments_: string[],
+        options: Record<string, unknown>,
+      ) => {
+        launches.push({ executable, arguments: arguments_, options })
+        const child = new EventEmitter() as EventEmitter & {
+          pid: number
+          stdout: EventEmitter & { destroy: () => void }
+          stderr: EventEmitter & { destroy: () => void }
+        }
+        child.pid = 4242
+        child.stdout = Object.assign(new EventEmitter(), {
+          destroy: () => undefined,
+        })
+        child.stderr = Object.assign(new EventEmitter(), {
+          destroy: () => undefined,
+        })
+        queueMicrotask(() => {
+          if (launchMode === 'diagnostic-success') {
+            child.stdout.emit('data', Buffer.from('/compiler\n'))
+            child.emit('close', 0, null)
+          } else {
+            child.stdout.emit('data', Buffer.from('forbidden'))
+            child.emit('close', null, 'SIGKILL')
+          }
+        })
+        return child
+      },
+    )
+    vi.doMock('node:child_process', () => ({ spawn: spawnMock }))
+    vi.resetModules()
+    const kill = vi.spyOn(process, 'kill').mockImplementation((_, signal) => {
+      if (signal === 0) {
+        if (liveGroupProbesRemaining > 0) {
+          liveGroupProbesRemaining -= 1
+          return true
+        }
+        const error = new Error(
+          'synthetic absent group',
+        ) as NodeJS.ErrnoException
+        error.code = 'ESRCH'
+        throw error
+      }
+      return true
+    })
+    try {
+      const launcher =
+        await import('@/../scripts/m45-policy-baseline-native-launcher')
+      const broker = launcher.initializePolicyNativeOperationBroker()
+      expect(() => launcher.initializePolicyNativeOperationBroker()).toThrow(
+        'policy-native-launch-initialized',
+      )
+      const repositoryRoot = '/Users/fixture/zedarchive'
+      const xcrun = await broker.runXcrunCompilerPath({
+        repositoryRoot,
+      })
+      expect(xcrun).toMatchObject({
+        code: 0,
+        stdoutBytes: 10,
+        stderrBytes: 0,
+        processGroupAbsent: true,
+        streamsClosed: true,
+      })
+      expect(launches[0]).toEqual({
+        executable: '/usr/bin/xcrun',
+        arguments: ['--find', 'clang'],
+        options: {
+          cwd: repositoryRoot,
+          env: {},
+          shell: false,
+          detached: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      })
+
+      launchMode = 'forbidden-helper-output'
+      liveGroupProbesRemaining = 2
+      const helperBytes = Buffer.from('synthetic launcher helper')
+      const helperPackage = await createPolicyPromotionPackage({
+        stage: 'B',
+        rootIdentitySha256: 'b'.repeat(64),
+        toolchainAuthority: await syntheticToolchainAuthority(),
+        helperBytes,
+        preflightAuthority: await syntheticPreflightAuthority(),
+        reviewAuthoritySha256: null,
+      })
+      const helperPath = `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper`
+      const heldCore = {
+        helperPath,
+        helperSha256: helperPackage.material.helperSha256,
+        device: '7',
+        inode: '8',
+        byteCount: helperBytes.byteLength,
+      }
+      await expect(
+        broker.runHelper(
+          {
+            repositoryRoot,
+            helperPath,
+            device: '7',
+            inode: '8',
+            byteCount: helperBytes.byteLength,
+            provenancePackage: helperPackage,
+            heldEvidenceSha256: createHash('sha256')
+              .update(canonicalJson(heldCore))
+              .digest('hex'),
+          },
+          {
+            kind: 'metadata-check',
+            role: 'command-lock',
+            evidence: {
+              uid: '501',
+              device: '7',
+              inode: '9',
+              links: '1',
+              mode: String(0o600),
+              size: '0',
+            },
+            authorityFd: 9,
+          },
+        ),
+      ).rejects.toThrow('policy-native-launch-failed')
+      expect(kill).toHaveBeenCalledWith(-4242, 'SIGKILL')
+      expect(launches[1]?.options).toMatchObject({
+        cwd: repositoryRoot,
+        env: {},
+        shell: false,
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe', 9],
+      })
+
+      // The fixture verifier is deliberately broker-private in production. It
+      // reparses the retained C cleanup core, so every mutation below proves
+      // the real admission/hash boundary rather than a copied test parser.
+      const aPackage = await createPolicyPromotionPackage({
+        stage: 'A',
+        rootIdentitySha256: 'a'.repeat(64),
+        toolchainAuthority: await syntheticToolchainAuthority(),
+        helperBytes,
+        preflightAuthority: null,
+        reviewAuthoritySha256: null,
+      })
+      const bPreflight = await syntheticPreflightAuthority()
+      const bPackage = await createPolicyPromotionPackage({
+        stage: 'B',
+        rootIdentitySha256: 'b'.repeat(64),
+        toolchainAuthority: await syntheticToolchainAuthority(),
+        helperBytes,
+        preflightAuthority: bPreflight,
+        reviewAuthoritySha256: null,
+      })
+      const candidate = await createPolicyPromotionProvenanceCandidate(
+        aPackage,
+        bPackage,
+      )
+      const accepted = await createAcceptedPolicyPromotionLiterals(
+        candidate,
+        'c'.repeat(64),
+      )
+      const buildRoot = `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build`
+      const canonicalSha256 = (value: unknown) =>
+        createHash('sha256').update(canonicalJson(value)).digest('hex')
+      const held = (
+        role: string,
+        path: string,
+        mode: number,
+        links: number,
+        size: string,
+        helperSha256: string | null,
+      ) => {
+        const core = {
+          role,
+          path,
+          uid: '501',
+          device: '7',
+          inode: String(10 + links),
+          mode: String(mode),
+          links: String(links),
+          size,
+          sha256: helperSha256,
+        }
+        return { ...core, evidenceSha256: canonicalSha256(core) }
+      }
+      const heldEvidence = {
+        'command-lock': held(
+          'command-lock',
+          `${repositoryRoot}/.local/m45/.policy-exclusive-promotion.lock`,
+          0o600,
+          1,
+          '0',
+          null,
+        ),
+        'build-root': held('build-root', buildRoot, 0o700, 5, 'na', null),
+        'build-tmp': held(
+          'build-tmp',
+          `${buildRoot}/tmp`,
+          0o700,
+          2,
+          'na',
+          null,
+        ),
+        'build-source': held(
+          'build-source',
+          `${buildRoot}/exclusive-promotion-helper.c`,
+          0o400,
+          1,
+          '12',
+          'd'.repeat(64),
+        ),
+        'build-helper': held(
+          'build-helper',
+          `${buildRoot}/exclusive-promotion-helper`,
+          0o500,
+          1,
+          String(helperBytes.byteLength),
+          accepted.material.helperSha256,
+        ),
+      }
+      const cCore = {
+        schema: 'policy-c-accepted-helper-launch.v1',
+        version: 1,
+        workflow: 'C-accepted',
+        repositoryRoot,
+        acceptedLiterals: accepted,
+        aRootIdentitySha256: aPackage.rootIdentitySha256,
+        bRootIdentitySha256: bPackage.rootIdentitySha256,
+        cRootIdentitySha256: 'e'.repeat(64),
+        heldEvidence,
+        buildInventorySha256: canonicalSha256(
+          canonicalJson([
+            'exclusive-promotion-helper',
+            'exclusive-promotion-helper.c',
+            'tmp',
+          ]),
+        ),
+        trackedCommitments: {
+          sourceSha256: accepted.material.sourceSha256,
+          launchContractSha256: accepted.material.launchContractSha256,
+          launcherSha256: accepted.material.launcherSha256,
+          nativeAuthoritySha256: accepted.material.nativeAuthoritySha256,
+          lockPreflightWorkerSha256:
+            accepted.material.lockPreflightWorkerSha256,
+        },
+      }
+      const cSession = broker.beginCAcceptedSession({
+        ...cCore,
+        cAcceptedHelperLaunchSha256: canonicalSha256(cCore),
+      })
+      const cCleanup = broker.beginCAcceptedCleanup(cSession, {
+        workflow: 'C-accepted',
+        checkpoint: 'P13',
+        checkpointSha256: 'f'.repeat(64),
+        checkpointWorkflow: 'C-accepted',
+        childLaunched: true,
+        failedOperationFamily: 'preflight-promotion',
+        failedOperationIndex: 12,
+        lifecycleClosed: true,
+      })
+      const cSnapshot = broker.snapshotCAcceptedCleanupForFixture(cCleanup)
+      expect(() =>
+        broker.verifyCAcceptedCleanupForFixture(cCleanup, cSnapshot),
+      ).not.toThrow()
+      for (const [field, value] of Object.entries(cSnapshot)) {
+        const drift = {
+          ...cSnapshot,
+          [field]:
+            typeof value === 'boolean'
+              ? !value
+              : typeof value === 'number'
+                ? value + 1
+                : Array.isArray(value)
+                  ? [...value, 'substituted']
+                  : field.includes('Sha256')
+                    ? '0'.repeat(64)
+                    : `${value}-substituted`,
+        }
+        expect(() =>
+          broker.verifyCAcceptedCleanupForFixture(cCleanup, drift),
+        ).toThrow('policy-native-c-accepted-cleanup')
+      }
+      await expect(
+        Promise.resolve().then(() =>
+          broker.beginCAcceptedCleanup(Object.freeze({}), {
+            workflow: 'B-candidate',
+            checkpoint: 'P13',
+            checkpointSha256: 'f'.repeat(64),
+            checkpointWorkflow: 'B-candidate',
+            childLaunched: true,
+            failedOperationFamily: 'preflight-promotion',
+            failedOperationIndex: 12,
+            lifecycleClosed: true,
+          }),
+        ),
+      ).rejects.toThrow('policy-native-c-accepted-cleanup')
+    } finally {
+      kill.mockRestore()
+      vi.doUnmock('node:child_process')
+    }
+  })
+
   it('uses an injected, fixed launch plan and kills a failed process group', async () => {
     const values = fixture()
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-reviewer-'))
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(directory)
     const reviewerContractSha256 =
       'aea8bda83abe762e5f243e5604a900a975118fe8d9a3457f3424d9604a8f7d26'
     const exactOutput = canonicalJson({
@@ -331,7 +3599,7 @@ describe('M45 policy baseline filesystem custody', () => {
   it('kills on stderr, combined diagnostic, result, exit, child, and descriptor failures', async () => {
     const values = fixture()
     const directory = await mkdtemp(join(tmpdir(), 'm45-policy-faults-'))
-    const filesystem = syntheticFilesystem()
+    const filesystem = syntheticFilesystem(directory)
     const launch = {
       renderedSandboxProfilePath: join(directory, 'm45-reviewer.sb'),
       outputSchemaPath: join(directory, 'm45-role-output.schema.json'),
