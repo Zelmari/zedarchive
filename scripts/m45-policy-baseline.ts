@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from '@/config/zod'
 import { policyReviewerLaunchPolicy } from '@/../scripts/m45-policy-baseline-reviewer-launch-policy'
@@ -885,5 +894,418 @@ export function createPolicyReviewerLaunch(
     return createReviewedPolicyReviewerLaunch(input)
   } catch {
     throw new PolicyBaselineError('policy-wrapper-isolation')
+  }
+}
+
+export type PolicyBaselineCommand =
+  | Readonly<{ mode: 'check' }>
+  | Readonly<{ mode: 'capture' }>
+  | Readonly<{ mode: 'prepare-review' }>
+  | Readonly<{ mode: 'submit-review' }>
+  | Readonly<{ mode: 'finalize' }>
+export function parsePolicyBaselineArguments(
+  args: readonly string[],
+): PolicyBaselineCommand {
+  if (args.length === 1 && args[0] === 'check') return { mode: 'check' }
+  if (
+    args.length === 2 &&
+    args[0] === 'capture' &&
+    args[1] === '--confirm-wikimedia-policy-baseline'
+  )
+    return { mode: 'capture' }
+  if (args.length === 1 && args[0] === 'prepare-review')
+    return { mode: 'prepare-review' }
+  if (args.length === 1 && args[0] === 'submit-review')
+    return { mode: 'submit-review' }
+  if (args.length === 1 && args[0] === 'finalize') return { mode: 'finalize' }
+  throw new PolicyBaselineError('policy-arguments')
+}
+
+type PolicyStat = Readonly<{
+  isDirectory: () => boolean
+  isSymbolicLink: () => boolean
+  nlink: number
+  dev: number
+  mode: number
+}>
+export type PolicyFilesystem = Readonly<{
+  lstat: (path: string) => Promise<PolicyStat>
+  readdir: (path: string) => Promise<readonly string[]>
+  mkdir: (path: string, options?: { mode?: number }) => Promise<void>
+  chmod: (path: string, mode: number) => Promise<void>
+  readFile: (path: string) => Promise<Buffer>
+  writeFile: (
+    path: string,
+    value: string | Uint8Array,
+    options: Readonly<{ flag: 'wx'; mode: number }>,
+  ) => Promise<void>
+  /**
+   * Must atomically move a directory only when destination is absent. Node's
+   * ordinary rename is not such a primitive on macOS, so production does not
+   * provide an implementation until host feasibility is independently proven.
+   */
+  promoteExclusive: (source: string, destination: string) => Promise<void>
+  rm: (
+    path: string,
+    options: Readonly<{ recursive: true; force: true }>,
+  ) => Promise<void>
+}>
+const nodePolicyFilesystem: PolicyFilesystem = {
+  lstat,
+  readdir,
+  mkdir: async (path, options) => mkdir(path, options),
+  chmod,
+  readFile,
+  writeFile,
+  promoteExclusive: async () => {
+    throw new PolicyBaselineError('policy-custody')
+  },
+  rm,
+}
+type PolicyCustodyPaths = Readonly<{
+  root: string
+  capture: string
+  roleInput: string
+  roleResult: string
+  staging: string
+}>
+function policyCustodyPaths(root: string): PolicyCustodyPaths {
+  return {
+    root,
+    capture: join(root, 'capture'),
+    roleInput: join(root, 'role-input'),
+    roleResult: join(root, 'role-result'),
+    staging: join(dirname(root), `.${basename(root)}.staging`),
+  }
+}
+function fixedVacanciesForPolicyRoot(root: string): readonly string[] {
+  if (root !== '.local/m45/policy-baseline-review') return []
+  return [
+    ...policyReviewRoots.filter((candidate) => candidate !== root),
+    ...policyReviewStagingSiblings,
+  ]
+}
+async function pathStatOrAbsent(
+  filesystem: PolicyFilesystem,
+  path: string,
+): Promise<PolicyStat | undefined> {
+  try {
+    return await filesystem.lstat(path)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+async function assertAbsent(
+  filesystem: PolicyFilesystem,
+  path: string,
+): Promise<void> {
+  if ((await pathStatOrAbsent(filesystem, path)) !== undefined)
+    throw new PolicyBaselineError('policy-custody')
+}
+async function assertSecureDirectory(
+  filesystem: PolicyFilesystem,
+  path: string,
+  expectedDevice?: number,
+): Promise<PolicyStat> {
+  const stat = await pathStatOrAbsent(filesystem, path)
+  if (
+    stat === undefined ||
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    (stat.mode & 0o7777) !== 0o700 ||
+    (expectedDevice !== undefined && stat.dev !== expectedDevice)
+  )
+    throw new PolicyBaselineError('policy-custody')
+  return stat
+}
+async function assertExactDirectoryInventory(
+  filesystem: PolicyFilesystem,
+  path: string,
+  expected: readonly string[],
+  device: number,
+): Promise<void> {
+  await assertSecureDirectory(filesystem, path, device)
+  const entries = [...(await filesystem.readdir(path))].sort()
+  if (canonicalJson(entries) !== canonicalJson([...expected].sort()))
+    throw new PolicyBaselineError('policy-custody')
+  for (const entry of expected) {
+    await assertSecureFile(filesystem, join(path, entry), device)
+  }
+}
+async function assertSecureFile(
+  filesystem: PolicyFilesystem,
+  path: string,
+  expectedDevice?: number,
+): Promise<PolicyStat> {
+  const stat = await pathStatOrAbsent(filesystem, path)
+  if (
+    stat === undefined ||
+    stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    stat.nlink !== 1 ||
+    (expectedDevice !== undefined && stat.dev !== expectedDevice) ||
+    (stat.mode & 0o7777) !== 0o600
+  )
+    throw new PolicyBaselineError('policy-custody')
+  return stat
+}
+async function writeSecureFile(
+  filesystem: PolicyFilesystem,
+  path: string,
+  value: string | Uint8Array,
+): Promise<void> {
+  await filesystem.writeFile(path, value, { flag: 'wx', mode: 0o600 })
+  const read = await filesystem.readFile(path)
+  const expected = Buffer.from(value)
+  if (!read.equals(expected)) throw new PolicyBaselineError('policy-custody')
+}
+async function promoteBundle(
+  filesystem: PolicyFilesystem,
+  paths: PolicyCustodyPaths,
+  destination: string,
+  files: Readonly<Record<string, string | Uint8Array>>,
+): Promise<void> {
+  await assertAbsent(filesystem, paths.staging)
+  await assertAbsent(filesystem, destination)
+  const rootStat = await assertSecureDirectory(filesystem, paths.root)
+  await filesystem.mkdir(paths.staging, { mode: 0o700 })
+  try {
+    const stagingStat = await assertSecureDirectory(
+      filesystem,
+      paths.staging,
+      rootStat.dev,
+    )
+    if (stagingStat.dev !== rootStat.dev)
+      throw new PolicyBaselineError('policy-custody')
+    for (const [name, value] of Object.entries(files))
+      await writeSecureFile(filesystem, join(paths.staging, name), value)
+    await assertExactDirectoryInventory(
+      filesystem,
+      paths.staging,
+      Object.keys(files),
+      rootStat.dev,
+    )
+    await assertAbsent(filesystem, destination)
+    await filesystem.promoteExclusive(paths.staging, destination)
+    await assertExactDirectoryInventory(
+      filesystem,
+      destination,
+      Object.keys(files),
+      rootStat.dev,
+    )
+  } catch (error) {
+    // A failed promotion deliberately leaves the invocation staging path in
+    // place.  A later invocation treats it as residue rather than deleting a
+    // path it cannot prove still belongs to this invocation after a race.
+    throw error
+  }
+}
+
+async function assertPolicyPhaseAndVacancies(
+  root: string,
+  phase: PolicyCustodyPhase,
+  filesystem: PolicyFilesystem,
+  requiredVacancies: readonly string[],
+): Promise<void> {
+  for (const path of requiredVacancies) await assertAbsent(filesystem, path)
+  const paths = policyCustodyPaths(root)
+  await assertAbsent(filesystem, paths.staging)
+  if (phase === 'absent') {
+    await assertAbsent(filesystem, paths.root)
+    return
+  }
+  const rootStat = await assertSecureDirectory(filesystem, paths.root)
+  const expected = custodyPhaseBundles[phase]
+  const entries = [...(await filesystem.readdir(paths.root))].sort()
+  if (canonicalJson(entries) !== canonicalJson([...expected].sort()))
+    throw new PolicyBaselineError('policy-custody')
+  for (const bundle of expected)
+    await assertExactDirectoryInventory(
+      filesystem,
+      paths[
+        bundle === 'role-input'
+          ? 'roleInput'
+          : bundle === 'role-result'
+            ? 'roleResult'
+            : 'capture'
+      ],
+      inventoryForBundle[bundle],
+      rootStat.dev,
+    )
+}
+
+export async function assertPolicyCustodyVacanciesForFixture(
+  paths: readonly string[],
+  filesystem: PolicyFilesystem = nodePolicyFilesystem,
+): Promise<void> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
+  for (const path of paths) await assertAbsent(filesystem, path)
+}
+
+export async function writePolicyCaptureForFixture(
+  root: string,
+  captureInput: unknown,
+  filesystem: PolicyFilesystem = nodePolicyFilesystem,
+  requiredVacancies = fixedVacanciesForPolicyRoot(root),
+): Promise<void> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
+  const capture = parsePolicyBaselineCapture(captureInput)
+  const paths = policyCustodyPaths(root)
+  await assertPolicyPhaseAndVacancies(
+    root,
+    'absent',
+    filesystem,
+    requiredVacancies,
+  )
+  await filesystem.mkdir(paths.root, { mode: 0o700 })
+  await assertSecureDirectory(filesystem, paths.root)
+  await promoteBundle(filesystem, paths, paths.capture, {
+    'capture.json': `${JSON.stringify(capture)}\n`,
+  })
+}
+export async function writePolicyRoleInputForFixture(
+  root: string,
+  input: Readonly<{
+    capture: unknown
+    retrieval: unknown
+    bodies: readonly PolicyBody[]
+  }>,
+  filesystem: PolicyFilesystem = nodePolicyFilesystem,
+  requiredVacancies = fixedVacanciesForPolicyRoot(root),
+): Promise<PolicyRoleInputManifest> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
+  const capture = parsePolicyBaselineCapture(input.capture)
+  const retrieval = parsePolicySemanticReviewRetrieval(input.retrieval, capture)
+  if (input.bodies.length !== 5) throw new PolicyBaselineError('policy-custody')
+  const bodies = input.bodies.map((body) => {
+    if (
+      body.byteCount !== body.bytes.byteLength ||
+      body.byteCount === 0 ||
+      body.byteCount > policyReviewLimits.maximumBytesPerBody ||
+      body.sha256 !== sha256Bytes(body.bytes)
+    )
+      throw new PolicyBaselineError('policy-byte-drift')
+    assertCanonicalUtf8(body.bytes)
+    return body
+  })
+  const manifest = createPolicyRoleInputManifest({
+    captureSha256: capture.captureSha256,
+    semanticReviewRetrievalSha256: retrieval.semanticReviewRetrievalSha256,
+    bodies: bodies.map((body, index) => ({
+      name: policyReviewInventory.roleInput[
+        index
+      ] as PolicyRoleInputManifest['bodies'][number]['name'],
+      byteCount: body.byteCount,
+      sha256: body.sha256,
+    })),
+  })
+  validatePolicyRoleInputManifestAgainstAuthorities(
+    manifest,
+    capture,
+    retrieval,
+  )
+  const paths = policyCustodyPaths(root)
+  await assertPolicyPhaseAndVacancies(
+    root,
+    'capture',
+    filesystem,
+    requiredVacancies,
+  )
+  await promoteBundle(filesystem, paths, paths.roleInput, {
+    ...Object.fromEntries(
+      bodies.map((body, index) => [
+        policyReviewInventory.roleInput[index]!,
+        body.bytes,
+      ]),
+    ),
+    'manifest.json': `${JSON.stringify(manifest)}\n`,
+    'retrieval.json': `${JSON.stringify(retrieval)}\n`,
+  })
+  return manifest
+}
+export async function assertPolicyCustodyForFixture(
+  root: string,
+  phase: PolicyCustodyPhase,
+  filesystem: PolicyFilesystem = nodePolicyFilesystem,
+): Promise<void> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
+  await assertPolicyPhaseAndVacancies(root, phase, filesystem, [])
+}
+export type PolicyReviewerProcess = Readonly<{
+  writeStdin: (value: Uint8Array) => Promise<void>
+  endStdin: () => Promise<void>
+  wait: (
+    onDiagnostic: (stream: 'stdout' | 'stderr', chunk: Uint8Array) => void,
+  ) => Promise<
+    Readonly<{
+      code: number
+      groupAlive: boolean
+      openDescriptors: number
+    }>
+  >
+  terminateProcessGroup: () => Promise<void>
+}>
+export type PolicyReviewerSpawner = (
+  launch: ReturnType<typeof createPolicyReviewerLaunch>,
+) => Promise<PolicyReviewerProcess>
+/** Test-only lifecycle seam; live launch remains unavailable until host preflight. */
+export async function runPolicyReviewerForFixture(
+  input: Readonly<{
+    launch: Parameters<typeof createPolicyReviewerLaunch>[0]
+    bodies: readonly PolicyBody[]
+    prompt: Uint8Array
+    commitments: Readonly<{
+      captureSha256: string
+      semanticReviewRetrievalSha256: string
+      reviewerContractSha256: string
+    }>
+    spawn: PolicyReviewerSpawner
+    filesystem?: PolicyFilesystem
+  }>,
+): Promise<PolicySemanticReviewRoleResult> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
+  const launch = createPolicyReviewerLaunch(input.launch)
+  const filesystem = input.filesystem ?? nodePolicyFilesystem
+  await assertAbsent(filesystem, input.launch.resultPath)
+  const reviewerProcess = await input.spawn(launch)
+  try {
+    await reviewerProcess.writeStdin(
+      buildPolicyReviewerStdin(input.bodies, input.prompt, input.commitments),
+    )
+    await reviewerProcess.endStdin()
+    let stdoutBytes = 0
+    let stderrBytes = 0
+    const outcome = await reviewerProcess.wait((stream, chunk) => {
+      if (stream === 'stdout') stdoutBytes += chunk.byteLength
+      else stderrBytes += chunk.byteLength
+      if (
+        stdoutBytes > launch.stdoutByteLimit ||
+        stderrBytes > launch.stderrByteLimit ||
+        stdoutBytes + stderrBytes > launch.combinedOutputByteLimit
+      )
+        throw new PolicyBaselineError('policy-wrapper-output')
+    })
+    if (
+      outcome.code !== 0 ||
+      outcome.groupAlive ||
+      outcome.openDescriptors !== 0
+    )
+      throw new PolicyBaselineError('policy-wrapper-output')
+    await assertSecureFile(filesystem, input.launch.resultPath)
+    const result = await filesystem.readFile(input.launch.resultPath)
+    if (result.byteLength === 0 || result.byteLength > launch.resultByteLimit)
+      throw new PolicyBaselineError('policy-wrapper-output')
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(result)
+    return createPolicySemanticReviewRoleResult(text)
+  } catch (error) {
+    await reviewerProcess.terminateProcessGroup()
+    if (error instanceof PolicyBaselineError) throw error
+    throw new PolicyBaselineError('policy-wrapper-output')
   }
 }
