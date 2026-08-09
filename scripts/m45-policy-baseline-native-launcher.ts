@@ -35,6 +35,9 @@ export type PolicyNativeLifecycleResult = Readonly<{
   stderrBytes: number
   processGroupAbsent: true
   streamsClosed: true
+  /** Exact launch-plan observations retained by the bridge, never inferred. */
+  argvCount: number
+  childDescriptorMap: readonly number[]
 }>
 
 function exactKeys(value: unknown, keys: readonly string[]): void {
@@ -165,6 +168,12 @@ async function runClosedPlan(
     stderrBytes,
     processGroupAbsent: true,
     streamsClosed: true,
+    argvCount: plan.arguments.length,
+    childDescriptorMap: plan.stdio.slice(3).map((descriptor) => {
+      if (typeof descriptor !== 'number')
+        throw new Error('policy-native-launch-failed')
+      return descriptor
+    }),
   }
 }
 

@@ -98,6 +98,141 @@ import { canonicalJson } from '@/features/anime/catalogue/wikidata-anime-discove
 const timestamp = '2026-08-08T11:00:00.000Z'
 const syntheticPreflightAuthority = async (device = '7') => {
   const worker = await inspectPolicyLockPreflightWorker()
+  const fixtureMetadata = (inode: string) => ({
+    uid: '501',
+    device,
+    inode,
+    links: '1',
+    mode: '384',
+    size: '1',
+  })
+  const digest = (value: unknown) =>
+    createHash('sha256').update(canonicalJson(value)).digest('hex')
+  const observed = (targets: readonly number[], argvCount = 8) => ({
+    fillerParentFds: targets.length === 4 ? [7, 8, 9, 10] : [4, 5, 6],
+    authorityParentFds: targets.map((_, index) => 11 + index),
+    commandLockParentFd: 20,
+    childTargets: [...targets],
+    argvCount,
+    stdoutBytes: 0 as const,
+    stderrBytes: 0 as const,
+    processGroupAbsent: true as const,
+    streamsClosed: true as const,
+  })
+  const lifecycle = (targets: readonly number[], argvCount = 8) => ({
+    exitCode: 0 as const,
+    ...observed(targets, argvCount),
+  })
+  const deleteRows = [
+    [
+      'preflight-success-destination-promotion',
+      'promotion',
+      ['fixture.bin', 'promotion'],
+      ['fixture.bin'],
+    ],
+    [
+      'preflight-collision-source-promotion',
+      'promotion',
+      ['fixture.bin', 'promotion'],
+      ['fixture.bin'],
+    ],
+    [
+      'preflight-collision-destination-promotion',
+      'promotion',
+      ['fixture.bin', 'promotion'],
+      ['fixture.bin'],
+    ],
+    ['preflight-success-source-file', 'fixture.bin', ['fixture.bin'], []],
+    ['preflight-success-destination-file', 'fixture.bin', ['fixture.bin'], []],
+    ['preflight-collision-source-file', 'fixture.bin', ['fixture.bin'], []],
+    [
+      'preflight-collision-destination-file',
+      'fixture.bin',
+      ['fixture.bin'],
+      [],
+    ],
+    [
+      'preflight-success-source-directory',
+      'success-source',
+      [
+        'acl-fixture',
+        'collision-destination',
+        'collision-source',
+        'success-destination',
+        'success-source',
+      ],
+      [
+        'acl-fixture',
+        'collision-destination',
+        'collision-source',
+        'success-destination',
+      ],
+    ],
+    [
+      'preflight-success-destination-directory',
+      'success-destination',
+      [
+        'acl-fixture',
+        'collision-destination',
+        'collision-source',
+        'success-destination',
+      ],
+      ['acl-fixture', 'collision-destination', 'collision-source'],
+    ],
+    [
+      'preflight-collision-source-directory',
+      'collision-source',
+      ['acl-fixture', 'collision-destination', 'collision-source'],
+      ['acl-fixture', 'collision-destination'],
+    ],
+    [
+      'preflight-collision-destination-directory',
+      'collision-destination',
+      ['acl-fixture', 'collision-destination'],
+      ['acl-fixture'],
+    ],
+    ['preflight-acl-fixture-directory', 'acl-fixture', ['acl-fixture'], []],
+    [
+      'preflight-root',
+      '.policy-exclusive-promotion-preflight',
+      [
+        '.policy-exclusive-promotion-build',
+        '.policy-exclusive-promotion-preflight',
+        '.policy-exclusive-promotion.lock',
+      ],
+      ['.policy-exclusive-promotion-build', '.policy-exclusive-promotion.lock'],
+    ],
+    [
+      'build-source',
+      'exclusive-promotion-helper.c',
+      ['exclusive-promotion-helper', 'exclusive-promotion-helper.c', 'tmp'],
+      ['exclusive-promotion-helper', 'tmp'],
+    ],
+    [
+      'build-tmp',
+      'tmp',
+      ['exclusive-promotion-helper', 'tmp'],
+      ['exclusive-promotion-helper'],
+    ],
+  ] as const
+  const deletionRecords = deleteRows.map(
+    ([role, childName, before, after], index) => {
+      const child = fixtureMetadata(String(700 + index))
+      return {
+        role,
+        childName,
+        parentBeforeInventory: [...before],
+        parentBeforeInventorySha256: digest(before),
+        parentBeforeLinks: 2 + before.length,
+        parentAfterInventory: [...after],
+        parentAfterInventorySha256: digest(after),
+        parentAfterLinks: 2 + after.length,
+        child,
+        childIdentitySha256: digest(child),
+        lifecycle: lifecycle([3, 4, 5]),
+      }
+    },
+  )
   return createPolicyExclusivePromotionPreflightAuthorityForFixture({
     schema: 'policy-exclusive-promotion-preflight.v1',
     version: 1,
@@ -169,6 +304,175 @@ const syntheticPreflightAuthority = async (device = '7') => {
       ],
     },
     cleanup: { remainingEntryCount: 0, rootAbsent: true },
+    capabilityProbe: {
+      derivationHeldContender: {
+        before: { device, inode: '503', mode: 0o600, links: 1, bytes: 0 },
+        heldExitCode: 20,
+        releasedExitCode: 0,
+        after: { device, inode: '503', mode: 0o600, links: 1, bytes: 0 },
+      },
+      metadata: Object.keys(policyMetadataRoles)
+        .filter((role) => role !== 'custody-file')
+        .map((role, index) => ({
+          role,
+          exitCode: 0 as const,
+          evidenceSha256: `${String(index + 1).repeat(64)}`,
+        })) as never,
+      fdMaps: [
+        {
+          mode: 'metadata',
+          fillerTargets: [3, 4, 5],
+          authorityTargets: [3],
+          highestTarget: 3,
+          observed: observed([3]),
+        },
+        {
+          mode: 'acl-fixture',
+          fillerTargets: [3, 4, 5],
+          authorityTargets: [3],
+          highestTarget: 3,
+          observed: observed([3]),
+        },
+        {
+          mode: 'promotion',
+          fillerTargets: [3, 4, 5, 6],
+          authorityTargets: [3, 4, 5, 6],
+          highestTarget: 6,
+          observed: observed([3, 4, 5, 6], 17),
+        },
+        {
+          mode: 'delete-entry',
+          fillerTargets: [3, 4, 5],
+          authorityTargets: [3, 4, 5],
+          highestTarget: 3,
+          observed: observed([3, 4, 5]),
+        },
+        {
+          mode: 'terminal',
+          fillerTargets: [3, 4, 5, 6],
+          authorityTargets: [3, 4, 5, 6],
+          highestTarget: 6,
+          observed: observed([3, 4, 5, 6]),
+        },
+      ],
+      aclFixture: {
+        identitySha256: 'd'.repeat(64),
+        installExitCode: 0,
+        rejectExitCode: 15,
+        removeExitCode: 0,
+        reopenExitCode: 0,
+      },
+      promotion: {
+        success: {
+          exitCode: 0,
+          sourceBeforeSha256: '1'.repeat(64),
+          sourceAfterSha256: '1'.repeat(64),
+          destinationBeforeSha256: '2'.repeat(64),
+          destinationAfterSha256: '2'.repeat(64),
+          sourceBeforeInventory: ['fixture.bin', 'promotion'],
+          sourceAfterInventory: ['fixture.bin'],
+          destinationBeforeInventory: ['fixture.bin'],
+          destinationAfterInventory: ['fixture.bin', 'promotion'],
+          sourceParent: {
+            ...fixtureMetadata('801'),
+            links: '4',
+            mode: '448',
+            size: 'na',
+          },
+          destinationParent: {
+            ...fixtureMetadata('802'),
+            links: '3',
+            mode: '448',
+            size: 'na',
+          },
+          sourcePromotion: {
+            ...fixtureMetadata('803'),
+            links: '2',
+            mode: '448',
+            size: 'na',
+          },
+          collisionDestination: null,
+          lifecycle: lifecycle([3, 4, 5, 6], 17),
+        },
+        collision: {
+          exitCode: 10,
+          sourceBeforeSha256: 'b'.repeat(64),
+          sourceAfterSha256: 'b'.repeat(64),
+          destinationBeforeSha256: 'c'.repeat(64),
+          destinationAfterSha256: 'c'.repeat(64),
+          sourceBeforeInventory: ['fixture.bin', 'promotion'],
+          sourceAfterInventory: ['fixture.bin', 'promotion'],
+          destinationBeforeInventory: ['fixture.bin', 'promotion'],
+          destinationAfterInventory: ['fixture.bin', 'promotion'],
+          sourceParent: {
+            ...fixtureMetadata('811'),
+            links: '4',
+            mode: '448',
+            size: 'na',
+          },
+          destinationParent: {
+            ...fixtureMetadata('812'),
+            links: '4',
+            mode: '448',
+            size: 'na',
+          },
+          sourcePromotion: {
+            ...fixtureMetadata('813'),
+            links: '2',
+            mode: '448',
+            size: 'na',
+          },
+          collisionDestination: {
+            ...fixtureMetadata('814'),
+            links: '2',
+            mode: '448',
+            size: 'na',
+          },
+          lifecycle: lifecycle([3, 4, 5, 6], 17),
+        },
+      },
+      deletionRecords,
+      apfsDeleteRows: [
+        ['R01s', 2, 4, 1, 3],
+        ['R02', 2, 4, 1, 3],
+        ['R03', 2, 4, 1, 3],
+        ['R04', 1, 3, 0, 2],
+        ['R05', 1, 3, 0, 2],
+        ['R06', 1, 3, 0, 2],
+        ['R07', 1, 3, 0, 2],
+        ['R08', 5, 7, 4, 6],
+        ['R09', 4, 6, 3, 5],
+        ['R10', 3, 5, 2, 4],
+        ['R11', 2, 4, 1, 3],
+        ['R12', 1, 3, 0, 2],
+        ['R13', 3, 5, 2, 4],
+        ['R14', 3, 5, 2, 4],
+        ['R15', 2, 4, 1, 3],
+      ].map(
+        ([
+          row,
+          beforeEntryCount,
+          beforeLinks,
+          afterEntryCount,
+          afterLinks,
+        ]) => ({
+          row,
+          beforeEntryCount,
+          beforeLinks,
+          afterEntryCount,
+          afterLinks,
+        }),
+      ) as never,
+      cleanupAbsence: {
+        buildAbsent: true,
+        preflightAbsent: true,
+        trackedSourceSha256: '4'.repeat(64),
+        trackedContractSha256: '5'.repeat(64),
+        trackedLauncherSha256: '6'.repeat(64),
+        trackedAuthoritySha256: '7'.repeat(64),
+        trackedWorkerSha256: worker.sha256,
+      },
+    },
   })
 }
 const syntheticToolchainAuthority = async () => {
@@ -1057,6 +1361,174 @@ describe('M45 policy baseline filesystem custody', () => {
         },
       }),
     ).toThrow('policy-exclusive-promotion-unavailable')
+    // Every retained capability-probe branch is covered by the authority
+    // hash. These are deliberately independent mutations, not a substitute
+    // aggregate digest: a future producer cannot omit one transient probe
+    // fact and still pass the production parser.
+    const probeMutations: readonly ((
+      value: typeof preflightAuthority,
+    ) => unknown)[] = [
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          derivationHeldContender: {
+            ...value.capabilityProbe.derivationHeldContender,
+            releasedExitCode: 20,
+          },
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          metadata: value.capabilityProbe.metadata.map((entry, index) =>
+            index === 0 ? { ...entry, exitCode: 15 } : entry,
+          ),
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          fdMaps: value.capabilityProbe.fdMaps.map((entry, index) =>
+            index === 2 ? { ...entry, authorityTargets: [3, 4, 5] } : entry,
+          ),
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          aclFixture: {
+            ...value.capabilityProbe.aclFixture,
+            reopenExitCode: 15,
+          },
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          promotion: {
+            ...value.capabilityProbe.promotion,
+            collision: {
+              ...value.capabilityProbe.promotion.collision,
+              sourceAfterSha256: 'f'.repeat(64),
+            },
+          },
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          apfsDeleteRows: [
+            ...value.capabilityProbe.apfsDeleteRows.slice(0, 14),
+            { ...value.capabilityProbe.apfsDeleteRows[14], row: 'R16' },
+          ],
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          cleanupAbsence: {
+            ...value.capabilityProbe.cleanupAbsence,
+            trackedWorkerSha256: 'e'.repeat(64),
+          },
+        },
+      }),
+    ]
+    for (const mutate of probeMutations)
+      expect(() =>
+        assertPolicyExclusivePromotionPreflight(mutate(preflightAuthority)),
+      ).toThrow('policy-exclusive-promotion-unavailable')
+    // Reissue through the test-only hasher so these prove semantic rejection,
+    // rather than merely detecting a stale outer hash. Every retained deletion
+    // row and observed launch field is independently closed.
+    const { preflightAuthoritySha256: _preflightHash, ...preflightCore } =
+      preflightAuthority
+    expect(_preflightHash).toMatch(/^[a-f0-9]{64}$/u)
+    const observedMutations: readonly ((
+      value: typeof preflightCore,
+    ) => unknown)[] = [
+      ...preflightCore.capabilityProbe.deletionRecords.flatMap(
+        (_record, index) => [
+          (value: typeof preflightCore) => ({
+            ...value,
+            capabilityProbe: {
+              ...value.capabilityProbe,
+              deletionRecords: value.capabilityProbe.deletionRecords.filter(
+                (_, current) => current !== index,
+              ),
+            },
+          }),
+          (value: typeof preflightCore) => ({
+            ...value,
+            capabilityProbe: {
+              ...value.capabilityProbe,
+              deletionRecords: value.capabilityProbe.deletionRecords.map(
+                (record, current) =>
+                  current === index
+                    ? { ...record, childName: 'substituted' }
+                    : record,
+              ),
+            },
+          }),
+        ],
+      ),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          deletionRecords: [
+            value.capabilityProbe.deletionRecords[1]!,
+            value.capabilityProbe.deletionRecords[0]!,
+            ...value.capabilityProbe.deletionRecords.slice(2),
+          ],
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          fdMaps: value.capabilityProbe.fdMaps.map((entry, index) =>
+            index === 2
+              ? {
+                  ...entry,
+                  observed: {
+                    ...entry.observed,
+                    argvCount: 16,
+                  },
+                }
+              : entry,
+          ),
+        },
+      }),
+      (value) => ({
+        ...value,
+        capabilityProbe: {
+          ...value.capabilityProbe,
+          promotion: {
+            ...value.capabilityProbe.promotion,
+            success: {
+              ...value.capabilityProbe.promotion.success,
+              lifecycle: {
+                ...value.capabilityProbe.promotion.success.lifecycle,
+                childTargets: [3, 4, 5],
+              },
+            },
+          },
+        },
+      }),
+    ]
+    for (const mutate of observedMutations)
+      expect(() =>
+        createPolicyExclusivePromotionPreflightAuthorityForFixture(
+          mutate(preflightCore) as never,
+        ),
+      ).toThrow('policy-exclusive-promotion-unavailable')
     for (const role of policyDeleteEntryRoles) {
       const transition = policyDeleteEntryTransitions[role]
       expect(() =>
@@ -1993,7 +2465,15 @@ describe('M45 policy baseline filesystem custody', () => {
         lifecycleFailure: input.lifecycleFailure,
         dependencies: {
           withChild: async (_highest, run) =>
-            run(async () => ({ fd: 99 }) as never),
+            run(
+              async () => ({ fd: 99 }) as never,
+              () => ({
+                highestTarget: 3,
+                fillerParentFds: [4, 5, 6],
+                authorityParentFds: [99],
+                commandLockParentFd: 98,
+              }),
+            ),
           runOperation: async (phase, session, operation, dimension) => {
             events.push(
               `${phase}:run:${(operation as { index: number }).index}`,

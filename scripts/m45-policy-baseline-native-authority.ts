@@ -626,6 +626,12 @@ type ChildFdCustody<Handle extends ChildFdHandle> = Readonly<{
   lockPath: string
   identity: LockIdentity
 }>
+type ChildFdObservation = Readonly<{
+  highestTarget: 3 | 6
+  fillerParentFds: readonly number[]
+  authorityParentFds: readonly number[]
+  commandLockParentFd: number
+}>
 type ChildFdLifecycleHarness<Handle extends ChildFdHandle> = Readonly<{
   open: (path: string, flags: number) => Promise<Handle>
   validate: (custody: ChildFdCustody<Handle>) => Promise<void>
@@ -638,6 +644,7 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
   highestChildAuthorityTarget: 3 | 6,
   operation: (
     openChildAuthority: (path: string, flags: number) => Promise<Handle>,
+    observation: () => ChildFdObservation,
   ) => Promise<T>,
   harness?: ChildFdLifecycleHarness<Handle>,
 ): Promise<T> {
@@ -716,7 +723,17 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
         throw new Error('policy-native-authority')
       return handle
     }
-    const result = await operation(openChildAuthority)
+    const observation = (): ChildFdObservation => ({
+      highestTarget: highestChildAuthorityTarget,
+      fillerParentFds: fillers
+        .map(({ fd }) => fd)
+        .sort((left, right) => left - right),
+      authorityParentFds: authorities
+        .map(({ fd }) => fd)
+        .sort((left, right) => left - right),
+      commandLockParentFd: custody.lock.fd,
+    })
+    const result = await operation(openChildAuthority, observation)
     await validate()
     return result
   } catch (error) {
@@ -836,6 +853,8 @@ type CandidateLifecycleResult = Readonly<{
   stderrBytes: number
   processGroupAbsent: boolean
   streamsClosed: boolean
+  argvCount?: number
+  childDescriptorMap?: readonly number[]
 }>
 
 /**
@@ -851,6 +870,7 @@ async function runBCandidateOperation(
       highest: 3 | 6,
       run: (
         openChildAuthority: CandidateChildAuthority,
+        observation: () => ChildFdObservation,
       ) => Promise<CandidateLifecycleResult>,
     ) => Promise<CandidateLifecycleResult>
     prepare: (openChildAuthority: CandidateChildAuthority) => Promise<unknown>
@@ -860,7 +880,7 @@ async function runBCandidateOperation(
     ) => Promise<CandidateLifecycleResult>
     validateLock: () => Promise<void>
     onStart: () => void
-    onOperation: (operation: unknown) => void
+    onOperation: (operation: unknown, observation: ChildFdObservation) => void
     onLaunched: () => void
     onClosed: (result: CandidateLifecycleResult) => void
     accepted?: number
@@ -869,7 +889,7 @@ async function runBCandidateOperation(
   input.onStart()
   const result = await input.withChild(
     input.highest,
-    async (openChildAuthority) => {
+    async (openChildAuthority, observation) => {
       const prepared = await input.prepare(openChildAuthority)
       const wrapped =
         prepared !== null &&
@@ -879,7 +899,7 @@ async function runBCandidateOperation(
           ? (prepared as CandidatePreparedOperation)
           : undefined
       const operation = wrapped?.operation ?? prepared
-      input.onOperation(operation)
+      input.onOperation(operation, observation())
       input.onLaunched()
       const current = await input.runOperation(operation, input.cleanupOnly)
       input.onClosed(current)
@@ -960,6 +980,7 @@ export async function runPolicyBCandidateLifecycleForFixture(
         highest: 3 | 6,
         run: (
           openChildAuthority: CandidateChildAuthority,
+          observation: () => ChildFdObservation,
         ) => Promise<CandidateLifecycleResult>,
       ) => Promise<CandidateLifecycleResult>
       runOperation: (
@@ -2732,6 +2753,7 @@ async function runPolicyProvisionalBuildWorkflow(
   let terminalLaunched = false
   let recoveryCheckpointSha256: string | undefined
   let cleanupRowPoststate = false
+  let aclFixtureIdentitySha256: string | undefined
   const safeFailure = (
     status:
       | 'cleaned-no-authority'
@@ -2976,6 +2998,53 @@ async function runPolicyProvisionalBuildWorkflow(
       checkpoint = 'B4'
       await helper.close()
       helper = undefined
+      const capabilityProbeMetadata = new Map<
+        string,
+        Readonly<{ role: string; exitCode: 0; evidenceSha256: string }>
+      >()
+      const promotionProbe = new Map<
+        'success' | 'collision',
+        Readonly<{
+          exitCode: 0 | 10
+          sourceBeforeSha256: string
+          sourceAfterSha256: string
+          destinationBeforeSha256: string
+          destinationAfterSha256: string
+          sourceBeforeInventory: readonly string[]
+          sourceAfterInventory: readonly string[]
+          destinationBeforeInventory: readonly string[]
+          destinationAfterInventory: readonly string[]
+          sourceParent: Readonly<Record<string, unknown>>
+          destinationParent: Readonly<Record<string, unknown>>
+          sourcePromotion: Readonly<Record<string, unknown>>
+          collisionDestination: Readonly<Record<string, unknown>> | null
+          lifecycle: CandidateLifecycleResult
+          fdObservation: ChildFdObservation
+        }>
+      >()
+      const deleteProbeRows: Array<
+        Readonly<{
+          role: string
+          parentBeforeEntries: readonly string[]
+          parentBeforeLinks: number
+          parentAfterEntries: readonly string[]
+          parentAfterLinks: number
+          childName: string
+          child: Readonly<Record<string, unknown>>
+          childIdentitySha256: string
+          lifecycle: CandidateLifecycleResult
+          fdObservation: ChildFdObservation
+        }>
+      > = []
+      let lastChildFdObservation: ChildFdObservation | undefined
+      const fdProbeMap = new Map<
+        'metadata' | 'acl-fixture' | 'promotion' | 'delete-entry' | 'terminal',
+        Readonly<{
+          observation: ChildFdObservation
+          lifecycle: CandidateLifecycleResult
+        }>
+      >()
+      let lastPreparedOperation: unknown
 
       // The candidate can only execute the closed preflight/cleanup matrix.
       const runCandidateWith = async (
@@ -3008,8 +3077,11 @@ async function runPolicyProvisionalBuildWorkflow(
           onStart: () => {
             lastChildExitCode = undefined
             lastChildLaunched = false
+            lastChildFdObservation = undefined
           },
-          onOperation: (operation) => {
+          onOperation: (operation, observation) => {
+            lastChildFdObservation = observation
+            lastPreparedOperation = operation
             lastOperationFamily =
               operation !== null &&
               typeof operation === 'object' &&
@@ -3024,6 +3096,29 @@ async function runPolicyProvisionalBuildWorkflow(
           },
           onClosed: (current) => {
             lastChildExitCode = current.code
+            const kind =
+              lastPreparedOperation !== null &&
+              typeof lastPreparedOperation === 'object' &&
+              'kind' in lastPreparedOperation
+                ? (lastPreparedOperation as { kind?: unknown }).kind
+                : undefined
+            const mode =
+              kind === 'metadata-check'
+                ? 'metadata'
+                : kind === 'acl-fixture'
+                  ? 'acl-fixture'
+                  : kind === 'preflight-promotion'
+                    ? 'promotion'
+                    : kind === 'delete-entry'
+                      ? 'delete-entry'
+                      : kind === 'delete-build-terminal'
+                        ? 'terminal'
+                        : undefined
+            if (mode !== undefined && lastChildFdObservation !== undefined)
+              fdProbeMap.set(mode, {
+                observation: lastChildFdObservation,
+                lifecycle: current,
+              })
           },
           accepted,
         })
@@ -3059,19 +3154,30 @@ async function runPolicyProvisionalBuildWorkflow(
         ['build-tmp', tmpPath, childDirectoryFlags],
         ['build-source', sourcePath, childReadFlags],
         ['build-helper', helperPath, childReadFlags],
-      ] as const)
+      ] as const) {
+        let observedEvidence: Readonly<Record<string, unknown>> | undefined
         await runCandidate(3, async (openChildAuthority) => {
           const handle =
             path === undefined || flags === undefined
               ? custody.lock
               : await openChildAuthority(path, flags)
+          const evidence = metadataEvidence(await handle.stat())
+          observedEvidence = evidence
           return {
             kind: 'metadata-check',
             role,
-            evidence: metadataEvidence(await handle.stat()),
+            evidence,
             authorityFd: handle.fd,
           }
         })
+        if (observedEvidence === undefined)
+          throw new Error('policy-native-authority')
+        capabilityProbeMetadata.set(role, {
+          role,
+          exitCode: 0,
+          evidenceSha256: hashAuthority(observedEvidence),
+        })
+      }
 
       // The following public fixture root is the only B preflight mutation.
       // Its fixed names and bytes are duplicated here (not caller input).
@@ -3134,26 +3240,41 @@ async function runPolicyProvisionalBuildWorkflow(
       const aclPath = join(preflightPath, 'acl-fixture')
       await mkdir(aclPath, { mode: 0o700 })
       await chmod(aclPath, 0o700)
+      aclFixtureIdentitySha256 = hashAuthority(
+        metadataEvidence(await lstat(aclPath)),
+      )
       checkpoint = 'P13'
       const runPreflightMetadata = async (
         role: 'preflight-root' | 'preflight-directory' | 'preflight-file',
         path: string,
         flags: number,
         accepted = 0,
-      ) =>
-        runCandidate(
+      ) => {
+        let observedEvidence: Readonly<Record<string, unknown>> | undefined
+        const lifecycle = await runCandidate(
           3,
           async (openChildAuthority) => {
             const handle = await openChildAuthority(path, flags)
+            const evidence = metadataEvidence(await handle.stat())
+            observedEvidence = evidence
             return {
               kind: 'metadata-check',
               role,
-              evidence: metadataEvidence(await handle.stat()),
+              evidence,
               authorityFd: handle.fd,
             }
           },
           accepted,
         )
+        if (observedEvidence === undefined)
+          throw new Error('policy-native-authority')
+        capabilityProbeMetadata.set(role, {
+          role,
+          exitCode: 0,
+          evidenceSha256: hashAuthority(observedEvidence),
+        })
+        return lifecycle
+      }
       const runAclFixture = async (action: 'install' | 'remove') =>
         runCandidate(3, async (openChildAuthority) => {
           const handle = await openChildAuthority(aclPath, childDirectoryFlags)
@@ -3176,7 +3297,36 @@ async function runPolicyProvisionalBuildWorkflow(
           outcome === 'success'
             ? 'success-destination'
             : 'collision-destination'
-        await runCandidate(
+        const sourceFixturePath = join(
+          preflightPath,
+          `${sourceName}/fixture.bin`,
+        )
+        const destinationFixturePath = join(
+          preflightPath,
+          `${destinationName}/fixture.bin`,
+        )
+        const sourceBeforeSha256 = hash(await readFile(sourceFixturePath))
+        const destinationBeforeSha256 = hash(
+          await readFile(destinationFixturePath),
+        )
+        const [sourceBeforeInventory, destinationBeforeInventory] =
+          await Promise.all([
+            readdir(join(preflightPath, sourceName)).then((entries) =>
+              entries.sort(),
+            ),
+            readdir(join(preflightPath, destinationName)).then((entries) =>
+              entries.sort(),
+            ),
+          ])
+        let observedPromotion:
+          | Readonly<{
+              sourceParent: Readonly<Record<string, unknown>>
+              destinationParent: Readonly<Record<string, unknown>>
+              sourcePromotion: Readonly<Record<string, unknown>>
+              collisionDestination: Readonly<Record<string, unknown>> | null
+            }>
+          | undefined
+        const lifecycle = await runCandidate(
           6,
           async (openChildAuthority) => {
             const sourceParent = await openChildAuthority(
@@ -3225,6 +3375,14 @@ async function runPolicyProvisionalBuildWorkflow(
                     join(preflightPath, `${destinationName}/promotion`),
                   )
                 : undefined
+            observedPromotion = {
+              sourceParent: metadataEvidence(sourceStat),
+              destinationParent: metadataEvidence(destinationStat),
+              sourcePromotion: metadataEvidence(promotionStat),
+              collisionDestination: collision
+                ? metadataEvidence(collision)
+                : null,
+            }
             return {
               operation: {
                 kind: 'preflight-promotion',
@@ -3292,6 +3450,40 @@ async function runPolicyProvisionalBuildWorkflow(
           },
           outcome === 'success' ? 0 : 10,
         )
+        const [
+          sourceAfter,
+          destinationAfter,
+          sourceAfterInventory,
+          destinationAfterInventory,
+        ] = await Promise.all([
+          readFile(sourceFixturePath),
+          readFile(destinationFixturePath),
+          readdir(join(preflightPath, sourceName)).then((entries) =>
+            entries.sort(),
+          ),
+          readdir(join(preflightPath, destinationName)).then((entries) =>
+            entries.sort(),
+          ),
+        ])
+        if (
+          observedPromotion === undefined ||
+          lastChildFdObservation === undefined
+        )
+          throw new Error('policy-native-authority')
+        promotionProbe.set(outcome, {
+          exitCode: lifecycle.code as 0 | 10,
+          sourceBeforeSha256,
+          sourceAfterSha256: hash(sourceAfter),
+          destinationBeforeSha256,
+          destinationAfterSha256: hash(destinationAfter),
+          sourceBeforeInventory,
+          sourceAfterInventory,
+          destinationBeforeInventory,
+          destinationAfterInventory,
+          ...observedPromotion,
+          lifecycle,
+          fdObservation: lastChildFdObservation,
+        })
       }
       // Fail closed: deletion rows are delegated to the helper, so any stale
       // public fixture is a terminal error rather than a JavaScript cleanup.
@@ -3300,8 +3492,11 @@ async function runPolicyProvisionalBuildWorkflow(
         parentPath: string,
         childName: string,
         runner = runCandidate,
-      ) =>
-        runner(3, async (openChildAuthority) => {
+      ) => {
+        const parentBefore = await lstat(parentPath)
+        const childBefore = await lstat(join(parentPath, childName))
+        const parentBeforeEntries = (await readdir(parentPath)).sort()
+        const lifecycle = await runner(3, async (openChildAuthority) => {
           lastCleanupTargetPath = join(parentPath, childName)
           const parent = await openChildAuthority(
             parentPath,
@@ -3322,6 +3517,31 @@ async function runPolicyProvisionalBuildWorkflow(
             childFd: child.fd,
           }
         })
+        const parentAfter = await lstat(parentPath)
+        const parentAfterEntries = (await readdir(parentPath)).sort()
+        try {
+          await lstat(join(parentPath, childName))
+          throw new Error('policy-native-authority')
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+        deleteProbeRows.push({
+          role,
+          childName,
+          parentBeforeEntries,
+          parentBeforeLinks: parentBefore.nlink,
+          parentAfterEntries,
+          parentAfterLinks: parentAfter.nlink,
+          child: metadataEvidence(childBefore),
+          childIdentitySha256: hashAuthority(metadataEvidence(childBefore)),
+          lifecycle,
+          fdObservation:
+            lastChildFdObservation ??
+            (() => {
+              throw new Error('policy-native-authority')
+            })(),
+        })
+      }
       const preflightCleanupRows = [
         [
           'preflight-success-destination-promotion',
@@ -3402,7 +3622,10 @@ async function runPolicyProvisionalBuildWorkflow(
         const name =
           role === 'build-source' ? 'exclusive-promotion-helper.c' : 'tmp'
         lastCleanupTargetPath = join(buildPath, name)
-        await runner(3, async (openChildAuthority) => {
+        const parentBefore = await lstat(buildPath)
+        const childBefore = await lstat(join(buildPath, name))
+        const parentBeforeEntries = (await readdir(buildPath)).sort()
+        const lifecycle = await runner(3, async (openChildAuthority) => {
           const parent = await openChildAuthority(
             buildPath,
             childDirectoryFlags,
@@ -3421,6 +3644,30 @@ async function runPolicyProvisionalBuildWorkflow(
             parentFd: parent.fd,
             childFd: child.fd,
           }
+        })
+        const parentAfter = await lstat(buildPath)
+        const parentAfterEntries = (await readdir(buildPath)).sort()
+        try {
+          await lstat(join(buildPath, name))
+          throw new Error('policy-native-authority')
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+        deleteProbeRows.push({
+          role,
+          childName: name,
+          parentBeforeEntries,
+          parentBeforeLinks: parentBefore.nlink,
+          parentAfterEntries,
+          parentAfterLinks: parentAfter.nlink,
+          child: metadataEvidence(childBefore),
+          childIdentitySha256: hashAuthority(metadataEvidence(childBefore)),
+          lifecycle,
+          fdObservation:
+            lastChildFdObservation ??
+            (() => {
+              throw new Error('policy-native-authority')
+            })(),
         })
       }
       const runTerminalCleanup = async (runner = runCandidate) =>
@@ -3610,19 +3857,31 @@ async function runPolicyProvisionalBuildWorkflow(
         childReadFlags,
       )
       aclMutationInFlight = true
-      await runAclFixture('install')
+      const aclInstall = await runAclFixture('install')
       aclMutationInFlight = false
       checkpoint = 'O1'
-      await runPreflightMetadata(
+      const aclRejected = await runPreflightMetadata(
         'preflight-directory',
         aclPath,
         childDirectoryFlags,
         15,
       )
       aclMutationInFlight = true
-      await runAclFixture('remove')
+      const aclRemove = await runAclFixture('remove')
       aclMutationInFlight = false
       checkpoint = 'P13'
+      const aclReopened = await runPreflightMetadata(
+        'preflight-directory',
+        aclPath,
+        childDirectoryFlags,
+      )
+      const aclProbe = {
+        identitySha256: aclFixtureIdentitySha256,
+        installExitCode: aclInstall.code as 0,
+        rejectExitCode: aclRejected.code as 15,
+        removeExitCode: aclRemove.code as 0,
+        reopenExitCode: aclReopened.code as 0,
+      }
       await promotion('success')
       checkpoint = 'O2'
       await promotion('collision')
@@ -3671,6 +3930,80 @@ async function runPolicyProvisionalBuildWorkflow(
         nativeAuthoritySha256 !== authority.nativeAuthoritySha256
       )
         throw new Error('policy-native-authority')
+      if (aclFixtureIdentitySha256 === undefined || aclProbe === undefined)
+        throw new Error('policy-native-authority')
+      const successPromotion = promotionProbe.get('success')
+      const collisionPromotion = promotionProbe.get('collision')
+      const expectedDeleteRoles = [
+        'preflight-success-destination-promotion',
+        'preflight-collision-source-promotion',
+        'preflight-collision-destination-promotion',
+        'preflight-success-source-file',
+        'preflight-success-destination-file',
+        'preflight-collision-source-file',
+        'preflight-collision-destination-file',
+        'preflight-success-source-directory',
+        'preflight-success-destination-directory',
+        'preflight-collision-source-directory',
+        'preflight-collision-destination-directory',
+        'preflight-acl-fixture-directory',
+        'preflight-root',
+        'build-source',
+        'build-tmp',
+      ] as const
+      if (
+        successPromotion === undefined ||
+        collisionPromotion === undefined ||
+        deleteProbeRows.length !== expectedDeleteRoles.length ||
+        deleteProbeRows.some(
+          (row, index) =>
+            row.role !== expectedDeleteRoles[index] ||
+            row.lifecycle.code !== 0 ||
+            row.parentBeforeLinks !== 2 + row.parentBeforeEntries.length ||
+            row.parentAfterLinks !== 2 + row.parentAfterEntries.length ||
+            row.parentAfterLinks !== row.parentBeforeLinks - 1 ||
+            row.parentAfterEntries.length !==
+              row.parentBeforeEntries.length - 1,
+        )
+      )
+        throw new Error('policy-native-authority')
+      const observedFdMap = (
+        mode:
+          | 'metadata'
+          | 'acl-fixture'
+          | 'promotion'
+          | 'delete-entry'
+          | 'terminal',
+      ) => {
+        const observed = fdProbeMap.get(mode)
+        if (observed === undefined) throw new Error('policy-native-authority')
+        return {
+          fillerParentFds: observed.observation.fillerParentFds,
+          authorityParentFds: observed.observation.authorityParentFds,
+          commandLockParentFd: observed.observation.commandLockParentFd,
+          childTargets: observed.lifecycle.childDescriptorMap,
+          argvCount: observed.lifecycle.argvCount,
+          stdoutBytes: observed.lifecycle.stdoutBytes,
+          stderrBytes: observed.lifecycle.stderrBytes,
+          processGroupAbsent: observed.lifecycle.processGroupAbsent,
+          streamsClosed: observed.lifecycle.streamsClosed,
+        }
+      }
+      const observedLifecycle = (
+        lifecycle: CandidateLifecycleResult,
+        fdObservation: ChildFdObservation,
+      ) => ({
+        exitCode: lifecycle.code as 0,
+        stdoutBytes: lifecycle.stdoutBytes,
+        stderrBytes: lifecycle.stderrBytes,
+        processGroupAbsent: lifecycle.processGroupAbsent,
+        streamsClosed: lifecycle.streamsClosed,
+        argvCount: lifecycle.argvCount,
+        childTargets: lifecycle.childDescriptorMap,
+        fillerParentFds: fdObservation.fillerParentFds,
+        authorityParentFds: fdObservation.authorityParentFds,
+        commandLockParentFd: fdObservation.commandLockParentFd,
+      })
       const preflightCore = {
         schema: 'policy-exclusive-promotion-preflight.v1',
         version: 1,
@@ -3689,7 +4022,11 @@ async function runPolicyProvisionalBuildWorkflow(
           'preflight-directory',
           'preflight-file',
           'command-lock',
-        ].map((role) => ({ role, exitCode: 0 })),
+        ].map((role) => {
+          const result = capabilityProbeMetadata.get(role)
+          if (result === undefined) throw new Error('policy-native-authority')
+          return { role, exitCode: result.exitCode }
+        }),
         fdPreflight: {
           singleAuthorityTargets: [3],
           doubleAuthorityTargets: [3, 4],
@@ -3698,25 +4035,19 @@ async function runPolicyProvisionalBuildWorkflow(
           unexpectedDescriptorCount: 0,
         },
         aclFixture: {
-          installExitCode: 0,
-          metadataRejectExitCode: 15,
-          removeExitCode: 0,
+          installExitCode: aclProbe.installExitCode,
+          metadataRejectExitCode: aclProbe.rejectExitCode,
+          removeExitCode: aclProbe.removeExitCode,
         },
         promotion: {
-          successExitCode: 0,
-          collisionExitCode: 10,
-          collisionSourceBeforeSha256: hash(
-            Buffer.from('zedarchive-m45-exclusive-collision-source-v1\n'),
-          ),
-          collisionSourceAfterSha256: hash(
-            Buffer.from('zedarchive-m45-exclusive-collision-source-v1\n'),
-          ),
-          collisionDestinationBeforeSha256: hash(
-            Buffer.from('zedarchive-m45-exclusive-collision-destination-v1\n'),
-          ),
-          collisionDestinationAfterSha256: hash(
-            Buffer.from('zedarchive-m45-exclusive-collision-destination-v1\n'),
-          ),
+          successExitCode: successPromotion.exitCode,
+          collisionExitCode: collisionPromotion.exitCode,
+          collisionSourceBeforeSha256: collisionPromotion.sourceBeforeSha256,
+          collisionSourceAfterSha256: collisionPromotion.sourceAfterSha256,
+          collisionDestinationBeforeSha256:
+            collisionPromotion.destinationBeforeSha256,
+          collisionDestinationAfterSha256:
+            collisionPromotion.destinationAfterSha256,
         },
         apfsRegularFileDelete: {
           beforeEntryCount: 1,
@@ -3742,6 +4073,136 @@ async function runPolicyProvisionalBuildWorkflow(
           ],
         },
         cleanup: { remainingEntryCount: 0, rootAbsent: true },
+        capabilityProbe: {
+          derivationHeldContender: {
+            before: custody.identity,
+            heldExitCode: 20,
+            releasedExitCode: 0,
+            after: custody.identity,
+          },
+          metadata: [
+            'build-root',
+            'build-tmp',
+            'build-source',
+            'build-helper',
+            'preflight-root',
+            'preflight-directory',
+            'preflight-file',
+            'command-lock',
+          ].map((role) => {
+            const result = capabilityProbeMetadata.get(role)
+            if (result === undefined) throw new Error('policy-native-authority')
+            return result
+          }),
+          fdMaps: [
+            {
+              mode: 'metadata',
+              fillerTargets: [3, 4, 5],
+              authorityTargets: [3],
+              highestTarget: 3,
+              observed: observedFdMap('metadata'),
+            },
+            {
+              mode: 'acl-fixture',
+              fillerTargets: [3, 4, 5],
+              authorityTargets: [3],
+              highestTarget: 3,
+              observed: observedFdMap('acl-fixture'),
+            },
+            {
+              mode: 'promotion',
+              fillerTargets: [3, 4, 5, 6],
+              authorityTargets: [3, 4, 5, 6],
+              highestTarget: 6,
+              observed: observedFdMap('promotion'),
+            },
+            {
+              mode: 'delete-entry',
+              fillerTargets: [3, 4, 5],
+              authorityTargets: [3, 4, 5],
+              highestTarget: 3,
+              observed: observedFdMap('delete-entry'),
+            },
+            {
+              mode: 'terminal',
+              fillerTargets: [3, 4, 5, 6],
+              authorityTargets: [3, 4, 5, 6],
+              highestTarget: 6,
+              observed: observedFdMap('terminal'),
+            },
+          ],
+          aclFixture: {
+            ...aclProbe,
+          },
+          promotion: {
+            success: {
+              ...successPromotion,
+              lifecycle: observedLifecycle(
+                successPromotion.lifecycle,
+                successPromotion.fdObservation,
+              ),
+            },
+            collision: {
+              ...collisionPromotion,
+              lifecycle: observedLifecycle(
+                collisionPromotion.lifecycle,
+                collisionPromotion.fdObservation,
+              ),
+            },
+          },
+          deletionRecords: deleteProbeRows.map((observed) => ({
+            role: observed.role,
+            childName: observed.childName,
+            parentBeforeInventory: observed.parentBeforeEntries,
+            parentBeforeInventorySha256: hashAuthority(
+              observed.parentBeforeEntries,
+            ),
+            parentBeforeLinks: observed.parentBeforeLinks,
+            parentAfterInventory: observed.parentAfterEntries,
+            parentAfterInventorySha256: hashAuthority(
+              observed.parentAfterEntries,
+            ),
+            parentAfterLinks: observed.parentAfterLinks,
+            child: observed.child,
+            childIdentitySha256: observed.childIdentitySha256,
+            lifecycle: observedLifecycle(
+              observed.lifecycle,
+              observed.fdObservation,
+            ),
+          })),
+          apfsDeleteRows: deleteProbeRows.map((observed, index) => ({
+            row: [
+              'R01s',
+              'R02',
+              'R03',
+              'R04',
+              'R05',
+              'R06',
+              'R07',
+              'R08',
+              'R09',
+              'R10',
+              'R11',
+              'R12',
+              'R13',
+              'R14',
+              'R15',
+            ][index],
+            beforeEntryCount: observed.parentBeforeEntries.length,
+            beforeLinks: observed.parentBeforeLinks,
+            afterEntryCount: observed.parentAfterEntries.length,
+            afterLinks: observed.parentAfterLinks,
+          })),
+          cleanupAbsence: {
+            buildAbsent: true,
+            preflightAbsent: true,
+            trackedSourceSha256: authority.sourceSha256,
+            trackedContractSha256: authority.launchContractSha256,
+            trackedLauncherSha256: authority.launcherSha256,
+            trackedAuthoritySha256: authority.nativeAuthoritySha256,
+            trackedWorkerSha256: authority.lockPreflightWorkerSha256,
+          },
+        },
       }
       const preflightAuthoritySha256 = hashAuthority(preflightCore)
       const resultCore = {

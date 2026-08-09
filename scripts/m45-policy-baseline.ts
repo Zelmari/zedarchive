@@ -984,7 +984,19 @@ export async function derivePolicyProvisionalBuildB(
     acceptedPackage.preflightAuthoritySha256 !==
       acceptedPreflight.preflightAuthoritySha256 ||
     acceptedPackage.material.nativeAuthoritySha256 !==
-      launch.nativeAuthoritySha256
+      launch.nativeAuthoritySha256 ||
+    acceptedPreflight.commandLock.workerSha256 !==
+      acceptedPackage.material.lockPreflightWorkerSha256 ||
+    acceptedPreflight.capabilityProbe.cleanupAbsence.trackedSourceSha256 !==
+      acceptedPackage.material.sourceSha256 ||
+    acceptedPreflight.capabilityProbe.cleanupAbsence.trackedContractSha256 !==
+      acceptedPackage.material.launchContractSha256 ||
+    acceptedPreflight.capabilityProbe.cleanupAbsence.trackedLauncherSha256 !==
+      acceptedPackage.material.launcherSha256 ||
+    acceptedPreflight.capabilityProbe.cleanupAbsence.trackedAuthoritySha256 !==
+      acceptedPackage.material.nativeAuthoritySha256 ||
+    acceptedPreflight.capabilityProbe.cleanupAbsence.trackedWorkerSha256 !==
+      acceptedPackage.material.lockPreflightWorkerSha256
   )
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   return Object.freeze({
@@ -1049,7 +1061,21 @@ export async function derivePolicyAcceptanceBuildC(
   } catch {
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   }
-  if (cPackage.material.nativeAuthoritySha256 !== launch.nativeAuthoritySha256)
+  if (
+    cPackage.material.nativeAuthoritySha256 !== launch.nativeAuthoritySha256 ||
+    cPreflight.commandLock.workerSha256 !==
+      cPackage.material.lockPreflightWorkerSha256 ||
+    cPreflight.capabilityProbe.cleanupAbsence.trackedSourceSha256 !==
+      cPackage.material.sourceSha256 ||
+    cPreflight.capabilityProbe.cleanupAbsence.trackedContractSha256 !==
+      cPackage.material.launchContractSha256 ||
+    cPreflight.capabilityProbe.cleanupAbsence.trackedLauncherSha256 !==
+      cPackage.material.launcherSha256 ||
+    cPreflight.capabilityProbe.cleanupAbsence.trackedAuthoritySha256 !==
+      cPackage.material.nativeAuthoritySha256 ||
+    cPreflight.capabilityProbe.cleanupAbsence.trackedWorkerSha256 !==
+      cPackage.material.lockPreflightWorkerSha256
+  )
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   return Object.freeze({ preflight: cPreflight, package: cPackage })
 }
@@ -2283,6 +2309,78 @@ export function mapPolicyExclusivePromotionHelperResult(
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   throw new PolicyBaselineError('policy-custody')
 }
+const preflightFdMapSchema = z.strictObject({
+  mode: z.enum([
+    'metadata',
+    'acl-fixture',
+    'promotion',
+    'delete-entry',
+    'terminal',
+  ]),
+  fillerTargets: z.array(z.number().int().min(3)).min(3),
+  authorityTargets: z.array(z.number().int().min(3)).min(1),
+  highestTarget: z.union([z.literal(3), z.literal(6)]),
+  observed: z.strictObject({
+    fillerParentFds: z.array(z.number().int().positive()).min(3),
+    authorityParentFds: z.array(z.number().int().positive()).min(1),
+    commandLockParentFd: z.number().int().positive(),
+    childTargets: z.array(z.number().int().min(3)).min(1),
+    argvCount: z.number().int().positive(),
+    stdoutBytes: z.literal(0),
+    stderrBytes: z.literal(0),
+    processGroupAbsent: z.literal(true),
+    streamsClosed: z.literal(true),
+  }),
+})
+const preflightMetadataSchema = z.strictObject({
+  uid: z.string().regex(/^(?:0|[1-9][0-9]*)$/),
+  device: z.string().regex(/^(?:0|[1-9][0-9]*)$/),
+  inode: z.string().regex(/^[1-9][0-9]*$/),
+  links: z.string().regex(/^[1-9][0-9]*$/),
+  mode: z.string().regex(/^(?:0|[1-9][0-9]*)$/),
+  size: z.union([z.literal('na'), z.string().regex(/^(?:0|[1-9][0-9]*)$/)]),
+})
+const preflightLifecycleSchema = z.strictObject({
+  exitCode: z.literal(0),
+  stdoutBytes: z.literal(0),
+  stderrBytes: z.literal(0),
+  processGroupAbsent: z.literal(true),
+  streamsClosed: z.literal(true),
+  argvCount: z.number().int().positive(),
+  childTargets: z.array(z.number().int().min(3)).min(1),
+  fillerParentFds: z.array(z.number().int().positive()).min(3),
+  authorityParentFds: z.array(z.number().int().positive()).min(1),
+  commandLockParentFd: z.number().int().positive(),
+})
+const preflightDeletionRecordSchema = z.strictObject({
+  role: z.string().min(1),
+  childName: z.string().min(1),
+  parentBeforeInventory: z.array(z.string().min(1)).min(1),
+  parentBeforeInventorySha256: sha256Schema,
+  parentBeforeLinks: z.number().int().positive(),
+  parentAfterInventory: z.array(z.string().min(1)),
+  parentAfterInventorySha256: sha256Schema,
+  parentAfterLinks: z.number().int().positive(),
+  child: preflightMetadataSchema,
+  childIdentitySha256: sha256Schema,
+  lifecycle: preflightLifecycleSchema,
+})
+const preflightPromotionSchema = z.strictObject({
+  exitCode: z.union([z.literal(0), z.literal(10)]),
+  sourceBeforeSha256: sha256Schema,
+  sourceAfterSha256: sha256Schema,
+  destinationBeforeSha256: sha256Schema,
+  destinationAfterSha256: sha256Schema,
+  sourceBeforeInventory: z.array(z.string().min(1)).min(1),
+  sourceAfterInventory: z.array(z.string().min(1)).min(1),
+  destinationBeforeInventory: z.array(z.string().min(1)).min(1),
+  destinationAfterInventory: z.array(z.string().min(1)).min(1),
+  sourceParent: preflightMetadataSchema,
+  destinationParent: preflightMetadataSchema,
+  sourcePromotion: preflightMetadataSchema,
+  collisionDestination: preflightMetadataSchema.nullable(),
+  lifecycle: preflightLifecycleSchema,
+})
 const policyExclusivePromotionPreflightCoreSchema = z.strictObject({
   schema: z.literal('policy-exclusive-promotion-preflight.v1'),
   version: z.literal(1),
@@ -2387,6 +2485,201 @@ const policyExclusivePromotionPreflightCoreSchema = z.strictObject({
     remainingEntryCount: z.literal(0),
     rootAbsent: z.literal(true),
   }),
+  // This is deliberately an expanded, direct record rather than a digest of
+  // the transient capability probe.  The probe's descriptors and fixture
+  // paths disappear before a preflight is emitted, so a later parser can only
+  // authenticate the exact observations retained here.
+  capabilityProbe: z.strictObject({
+    derivationHeldContender: z.strictObject({
+      before: z.strictObject({
+        device: z.string().regex(/^(?:0|[1-9][0-9]*)$/),
+        inode: z.string().regex(/^[1-9][0-9]*$/),
+        mode: z.literal(0o600),
+        links: z.literal(1),
+        bytes: z.literal(0),
+      }),
+      heldExitCode: z.literal(20),
+      releasedExitCode: z.literal(0),
+      after: z.strictObject({
+        device: z.string().regex(/^(?:0|[1-9][0-9]*)$/),
+        inode: z.string().regex(/^[1-9][0-9]*$/),
+        mode: z.literal(0o600),
+        links: z.literal(1),
+        bytes: z.literal(0),
+      }),
+    }),
+    metadata: z.tuple([
+      z.strictObject({
+        role: z.literal('build-root'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('build-tmp'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('build-source'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('build-helper'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('preflight-root'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('preflight-directory'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('preflight-file'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+      z.strictObject({
+        role: z.literal('command-lock'),
+        exitCode: z.literal(0),
+        evidenceSha256: sha256Schema,
+      }),
+    ]),
+    fdMaps: z.array(preflightFdMapSchema).length(5),
+    aclFixture: z.strictObject({
+      identitySha256: sha256Schema,
+      installExitCode: z.literal(0),
+      rejectExitCode: z.literal(15),
+      removeExitCode: z.literal(0),
+      reopenExitCode: z.literal(0),
+    }),
+    promotion: z.strictObject({
+      success: preflightPromotionSchema,
+      collision: preflightPromotionSchema,
+    }),
+    deletionRecords: z.array(preflightDeletionRecordSchema).length(15),
+    apfsDeleteRows: z.tuple([
+      z.strictObject({
+        row: z.literal('R01s'),
+        beforeEntryCount: z.literal(2),
+        beforeLinks: z.literal(4),
+        afterEntryCount: z.literal(1),
+        afterLinks: z.literal(3),
+      }),
+      z.strictObject({
+        row: z.literal('R02'),
+        beforeEntryCount: z.literal(2),
+        beforeLinks: z.literal(4),
+        afterEntryCount: z.literal(1),
+        afterLinks: z.literal(3),
+      }),
+      z.strictObject({
+        row: z.literal('R03'),
+        beforeEntryCount: z.literal(2),
+        beforeLinks: z.literal(4),
+        afterEntryCount: z.literal(1),
+        afterLinks: z.literal(3),
+      }),
+      z.strictObject({
+        row: z.literal('R04'),
+        beforeEntryCount: z.literal(1),
+        beforeLinks: z.literal(3),
+        afterEntryCount: z.literal(0),
+        afterLinks: z.literal(2),
+      }),
+      z.strictObject({
+        row: z.literal('R05'),
+        beforeEntryCount: z.literal(1),
+        beforeLinks: z.literal(3),
+        afterEntryCount: z.literal(0),
+        afterLinks: z.literal(2),
+      }),
+      z.strictObject({
+        row: z.literal('R06'),
+        beforeEntryCount: z.literal(1),
+        beforeLinks: z.literal(3),
+        afterEntryCount: z.literal(0),
+        afterLinks: z.literal(2),
+      }),
+      z.strictObject({
+        row: z.literal('R07'),
+        beforeEntryCount: z.literal(1),
+        beforeLinks: z.literal(3),
+        afterEntryCount: z.literal(0),
+        afterLinks: z.literal(2),
+      }),
+      z.strictObject({
+        row: z.literal('R08'),
+        beforeEntryCount: z.literal(5),
+        beforeLinks: z.literal(7),
+        afterEntryCount: z.literal(4),
+        afterLinks: z.literal(6),
+      }),
+      z.strictObject({
+        row: z.literal('R09'),
+        beforeEntryCount: z.literal(4),
+        beforeLinks: z.literal(6),
+        afterEntryCount: z.literal(3),
+        afterLinks: z.literal(5),
+      }),
+      z.strictObject({
+        row: z.literal('R10'),
+        beforeEntryCount: z.literal(3),
+        beforeLinks: z.literal(5),
+        afterEntryCount: z.literal(2),
+        afterLinks: z.literal(4),
+      }),
+      z.strictObject({
+        row: z.literal('R11'),
+        beforeEntryCount: z.literal(2),
+        beforeLinks: z.literal(4),
+        afterEntryCount: z.literal(1),
+        afterLinks: z.literal(3),
+      }),
+      z.strictObject({
+        row: z.literal('R12'),
+        beforeEntryCount: z.literal(1),
+        beforeLinks: z.literal(3),
+        afterEntryCount: z.literal(0),
+        afterLinks: z.literal(2),
+      }),
+      z.strictObject({
+        row: z.literal('R13'),
+        beforeEntryCount: z.literal(3),
+        beforeLinks: z.literal(5),
+        afterEntryCount: z.literal(2),
+        afterLinks: z.literal(4),
+      }),
+      z.strictObject({
+        row: z.literal('R14'),
+        beforeEntryCount: z.literal(3),
+        beforeLinks: z.literal(5),
+        afterEntryCount: z.literal(2),
+        afterLinks: z.literal(4),
+      }),
+      z.strictObject({
+        row: z.literal('R15'),
+        beforeEntryCount: z.literal(2),
+        beforeLinks: z.literal(4),
+        afterEntryCount: z.literal(1),
+        afterLinks: z.literal(3),
+      }),
+    ]),
+    cleanupAbsence: z.strictObject({
+      buildAbsent: z.literal(true),
+      preflightAbsent: z.literal(true),
+      trackedSourceSha256: sha256Schema,
+      trackedContractSha256: sha256Schema,
+      trackedLauncherSha256: sha256Schema,
+      trackedAuthoritySha256: sha256Schema,
+      trackedWorkerSha256: sha256Schema,
+    }),
+  }),
 })
 export const policyExclusivePromotionPreflightSchema =
   policyExclusivePromotionPreflightCoreSchema
@@ -2395,6 +2688,154 @@ export const policyExclusivePromotionPreflightSchema =
 export type PolicyExclusivePromotionPreflightAuthority = z.infer<
   typeof policyExclusivePromotionPreflightSchema
 >
+function assertObservedPreflightEvidence(
+  core: z.infer<typeof policyExclusivePromotionPreflightCoreSchema>,
+): void {
+  const expectedFdMaps = [
+    ['metadata', [3, 4, 5], [3], 3],
+    ['acl-fixture', [3, 4, 5], [3], 3],
+    ['promotion', [3, 4, 5, 6], [3, 4, 5, 6], 6],
+    ['delete-entry', [3, 4, 5], [3, 4, 5], 3],
+    ['terminal', [3, 4, 5, 6], [3, 4, 5, 6], 6],
+  ] as const
+  for (const [index, expected] of expectedFdMaps.entries()) {
+    const actual = core.capabilityProbe.fdMaps[index]
+    if (
+      actual === undefined ||
+      actual.mode !== expected[0] ||
+      canonicalJson(actual.fillerTargets) !== canonicalJson(expected[1]) ||
+      canonicalJson(actual.authorityTargets) !== canonicalJson(expected[2]) ||
+      actual.highestTarget !== expected[3] ||
+      canonicalJson(actual.observed.childTargets) !==
+        canonicalJson(expected[2]) ||
+      actual.observed.fillerParentFds.length !== expected[1].length ||
+      actual.observed.authorityParentFds.length !== expected[2].length ||
+      new Set([
+        ...actual.observed.fillerParentFds,
+        ...actual.observed.authorityParentFds,
+        actual.observed.commandLockParentFd,
+      ]).size !==
+        actual.observed.fillerParentFds.length +
+          actual.observed.authorityParentFds.length +
+          1 ||
+      actual.observed.fillerParentFds.some((fd) => fd <= expected[3]) ||
+      actual.observed.authorityParentFds.some((fd) => fd <= expected[3]) ||
+      actual.observed.commandLockParentFd <= expected[3] ||
+      (expected[0] === 'promotion' && actual.observed.argvCount !== 17)
+    )
+      throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  }
+  const roles = [
+    'preflight-success-destination-promotion',
+    'preflight-collision-source-promotion',
+    'preflight-collision-destination-promotion',
+    'preflight-success-source-file',
+    'preflight-success-destination-file',
+    'preflight-collision-source-file',
+    'preflight-collision-destination-file',
+    'preflight-success-source-directory',
+    'preflight-success-destination-directory',
+    'preflight-collision-source-directory',
+    'preflight-collision-destination-directory',
+    'preflight-acl-fixture-directory',
+    'preflight-root',
+    'build-source',
+    'build-tmp',
+  ]
+  if (
+    canonicalJson(
+      core.capabilityProbe.deletionRecords.map(({ role }) => role),
+    ) !== canonicalJson(roles)
+  )
+    throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  for (const record of core.capabilityProbe.deletionRecords) {
+    if (
+      record.parentBeforeInventorySha256 !==
+        sha256Bytes(Buffer.from(canonicalJson(record.parentBeforeInventory))) ||
+      record.parentAfterInventorySha256 !==
+        sha256Bytes(Buffer.from(canonicalJson(record.parentAfterInventory))) ||
+      record.parentBeforeLinks !== 2 + record.parentBeforeInventory.length ||
+      record.parentAfterLinks !== 2 + record.parentAfterInventory.length ||
+      record.parentAfterLinks !== record.parentBeforeLinks - 1 ||
+      record.parentAfterInventory.length !==
+        record.parentBeforeInventory.length - 1 ||
+      record.parentBeforeInventory.some(
+        (entry, index, entries) => index > 0 && entries[index - 1]! >= entry,
+      ) ||
+      record.parentAfterInventory.some(
+        (entry, index, entries) => index > 0 && entries[index - 1]! >= entry,
+      ) ||
+      (record.role === 'preflight-root'
+        ? record.childName !== '.policy-exclusive-promotion-preflight' ||
+          canonicalJson(record.parentBeforeInventory) !==
+            canonicalJson([
+              '.policy-exclusive-promotion-build',
+              '.policy-exclusive-promotion-preflight',
+              '.policy-exclusive-promotion.lock',
+            ]) ||
+          canonicalJson(record.parentAfterInventory) !==
+            canonicalJson([
+              '.policy-exclusive-promotion-build',
+              '.policy-exclusive-promotion.lock',
+            ])
+        : canonicalJson(
+            record.parentBeforeInventory.filter(
+              (entry) => entry !== record.childName,
+            ),
+          ) !== canonicalJson(record.parentAfterInventory)) ||
+      record.childIdentitySha256 !==
+        sha256Bytes(Buffer.from(canonicalJson(record.child))) ||
+      record.lifecycle.childTargets.length !==
+        record.lifecycle.authorityParentFds.length ||
+      record.lifecycle.fillerParentFds.length !== 3 ||
+      record.lifecycle.childTargets.some((target) => target < 3) ||
+      record.lifecycle.authorityParentFds.some((fd) => fd <= 3) ||
+      record.lifecycle.fillerParentFds.some((fd) => fd <= 3) ||
+      record.lifecycle.commandLockParentFd <= 3
+    )
+      throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  }
+  for (const [index, row] of core.capabilityProbe.apfsDeleteRows.entries()) {
+    const record = core.capabilityProbe.deletionRecords[index]
+    if (
+      record === undefined ||
+      row.beforeEntryCount !== record.parentBeforeInventory.length ||
+      row.beforeLinks !== record.parentBeforeLinks ||
+      row.afterEntryCount !== record.parentAfterInventory.length ||
+      row.afterLinks !== record.parentAfterLinks
+    )
+      throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  }
+  const promotion = core.capabilityProbe.promotion
+  for (const [outcome, record] of Object.entries(promotion)) {
+    if (
+      record.lifecycle.argvCount !== 17 ||
+      canonicalJson(record.lifecycle.childTargets) !==
+        canonicalJson([3, 4, 5, 6]) ||
+      record.lifecycle.fillerParentFds.length !== 4 ||
+      record.lifecycle.authorityParentFds.length !== 4 ||
+      record.lifecycle.fillerParentFds.some((fd) => fd <= 6) ||
+      record.lifecycle.authorityParentFds.some((fd) => fd <= 6) ||
+      record.lifecycle.commandLockParentFd <= 6 ||
+      record.sourceParent.device !== core.device ||
+      record.destinationParent.device !== core.device ||
+      record.sourcePromotion.device !== core.device ||
+      record.sourceParent.links !== (outcome === 'success' ? '4' : '4') ||
+      record.sourcePromotion.links !== '2' ||
+      record.sourceBeforeInventory.join('\0') !== 'fixture.bin\0promotion' ||
+      record.destinationBeforeInventory.join('\0') !==
+        (outcome === 'success' ? 'fixture.bin' : 'fixture.bin\0promotion') ||
+      record.sourceAfterInventory.join('\0') !==
+        (outcome === 'success' ? 'fixture.bin' : 'fixture.bin\0promotion') ||
+      record.destinationAfterInventory.join('\0') !==
+        'fixture.bin\0promotion' ||
+      (outcome === 'success'
+        ? record.collisionDestination !== null || record.exitCode !== 0
+        : record.collisionDestination === null || record.exitCode !== 10)
+    )
+      throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  }
+}
 function createPolicyExclusivePromotionPreflightAuthorityFromCore(
   input: z.input<typeof policyExclusivePromotionPreflightCoreSchema>,
 ): PolicyExclusivePromotionPreflightAuthority {
@@ -2404,6 +2845,7 @@ function createPolicyExclusivePromotionPreflightAuthorityFromCore(
   } catch {
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   }
+  assertObservedPreflightEvidence(core)
   if (
     core.promotion.collisionSourceBeforeSha256 !==
       core.promotion.collisionSourceAfterSha256 ||
@@ -2411,7 +2853,24 @@ function createPolicyExclusivePromotionPreflightAuthorityFromCore(
       core.promotion.collisionDestinationAfterSha256 ||
     canonicalJson(core.commandLock.before) !==
       canonicalJson(core.commandLock.after) ||
-    core.commandLock.before.device !== core.device
+    core.commandLock.before.device !== core.device ||
+    canonicalJson(core.metadataRoleResults) !==
+      canonicalJson(
+        core.capabilityProbe.metadata.map(({ role, exitCode }) => ({
+          role,
+          exitCode,
+        })),
+      ) ||
+    canonicalJson(core.capabilityProbe.derivationHeldContender.before) !==
+      canonicalJson(core.capabilityProbe.derivationHeldContender.after) ||
+    canonicalJson(core.capabilityProbe.derivationHeldContender.before) !==
+      canonicalJson(core.commandLock.before) ||
+    core.capabilityProbe.aclFixture.identitySha256 === '0'.repeat(64) ||
+    core.capabilityProbe.promotion.collision.sourceBeforeSha256 !==
+      core.capabilityProbe.promotion.collision.sourceAfterSha256 ||
+    core.capabilityProbe.promotion.collision.destinationBeforeSha256 !==
+      core.capabilityProbe.promotion.collision.destinationAfterSha256 ||
+    core.capabilityProbe.cleanupAbsence.trackedSourceSha256 === '0'.repeat(64)
   )
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
   return {
