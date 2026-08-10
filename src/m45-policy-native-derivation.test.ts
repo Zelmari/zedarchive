@@ -209,6 +209,7 @@ function fixture(
     syntheticLegacy?: boolean
     substituteDuringHeldFile?: string
     wrongPostNlinkPath?: string
+    deriveALockTransition?: boolean
   }> = {},
 ) {
   let inode = 100
@@ -216,6 +217,9 @@ function fixture(
   const entries = new Map<string, Entry>()
   const directoryInventoryReads: string[] = []
   const heldFileReads: string[] = []
+  const wrongPostNlinkPaths = new Set(
+    options.wrongPostNlinkPath ? [options.wrongPostNlinkPath] : [],
+  )
   const syntheticFixture = options.syntheticLegacy
     ? createPolicySyntheticNativeDerivationFixture()
     : undefined
@@ -272,6 +276,24 @@ function fixture(
       metadata: { ...synthetic.baseline },
       bytes: Buffer.from(synthetic.baselineBytes),
     })
+  }
+  const addCommandLock = () => {
+    const path = `${m45}/.policy-exclusive-promotion.lock`
+    if (entries.has(path)) throw new Error('lock-exists')
+    entries.set(path, {
+      metadata: {
+        uid: 501,
+        dev: 9,
+        ino: inode++,
+        mode: 0o600,
+        nlink: 1,
+        size: 0,
+        file: true,
+        directory: false,
+        symbolicLink: false,
+      },
+    })
+    entries.get(m45)!.entries!.add('.policy-exclusive-promotion.lock')
   }
   const filesystem = {
     lstat: vi.fn(async (path: string) => {
@@ -386,9 +408,7 @@ function fixture(
         const after = {
           ...value.metadata,
           nlink:
-            2 +
-            value.entries!.size +
-            (fixtureOptions.wrongPostNlinkPath === path ? 1 : 0),
+            2 + value.entries!.size + (wrongPostNlinkPaths.has(path) ? 1 : 0),
         }
         if (
           before.uid !== after.uid ||
@@ -447,6 +467,24 @@ function fixture(
       await revalidate()
       return result
     },
+    withHeldMetadataFile: async <T>(
+      path: string,
+      operation: (
+        metadata: Entry['metadata'],
+        revalidate: () => Promise<void>,
+      ) => Promise<T>,
+    ) => {
+      const value = entries.get(path)
+      if (!value || value.bytes || value.entries) throw new Error('not-file')
+      const before = { ...value.metadata }
+      const revalidate = async () => {
+        if (canonical(before) !== canonical(value.metadata))
+          throw new Error('drift')
+      }
+      const result = await operation(before, revalidate)
+      await revalidate()
+      return result
+    },
   }
   const seams: Partial<PolicyNativeDerivationSeams> = {
     filesystem,
@@ -461,14 +499,38 @@ function fixture(
     deriveA: vi.fn(),
     deriveB: vi.fn(),
   }
+  const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
+  const run = (
+    argv: readonly string[],
+    overrides: Partial<PolicyNativeDerivationSeams> = {},
+  ) => {
+    const deriveA = overrides.deriveA
+    const effectiveOverrides =
+      argv[0] === 'derive-a' &&
+      deriveA !== undefined &&
+      fixtureOptions.deriveALockTransition !== false
+        ? {
+            ...overrides,
+            deriveA: async (
+              input: Parameters<PolicyNativeDerivationSeams['deriveA']>[0],
+            ) => {
+              const result = await deriveA(input)
+              addCommandLock()
+              return result
+            },
+          }
+        : overrides
+    return baseRun(argv, effectiveOverrides)
+  }
   return {
     entries,
     filesystem,
     seams,
     directoryInventoryReads,
     heldFileReads,
+    wrongPostNlinkPaths,
     syntheticResidue: syntheticFixture?.residue,
-    run: syntheticFixture?.run ?? runPolicyNativeDerivationCommand,
+    run,
   }
 }
 
@@ -586,11 +648,33 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(filesystem.writeFile).not.toHaveBeenCalled()
   })
 
+  it('rejects successful A output when the native transition leaves no persistent lock', async () => {
+    const { seams, entries, run } = fixture({
+      syntheticLegacy: true,
+      deriveALockTransition: false,
+    })
+    const deriveA = vi.fn(async () => stageAPackage())
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).rejects.toThrow()
+    expect(deriveA).toHaveBeenCalledOnce()
+    expect(entries.has(`${control}/stage-a.v1.json`)).toBe(false)
+  })
+
   it('derives A directly through the same exact synthetic residue validator and binds it', async () => {
-    const { seams, entries, directoryInventoryReads, syntheticResidue, run } =
-      fixture({
-        syntheticLegacy: true,
-      })
+    const {
+      seams,
+      entries,
+      directoryInventoryReads,
+      heldFileReads,
+      syntheticResidue,
+      run,
+    } = fixture({
+      syntheticLegacy: true,
+    })
     const deriveA = vi.fn(async () => stageAPackage())
     await expect(
       run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
@@ -602,6 +686,26 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(directoryInventoryReads).not.toContain(`${m45}/candidate-review`)
     expect(directoryInventoryReads).not.toContain(`${m45}/discovery`)
     expect(directoryInventoryReads).not.toContain(`${m45}/predecessor-review`)
+    const lockPath = `${m45}/.policy-exclusive-promotion.lock`
+    expect(entries.get(m45)!.entries).toContain(
+      '.policy-exclusive-promotion.lock',
+    )
+    expect(entries.get(m45)!.entries!.size).toBe(5)
+    expect(entries.get(lockPath)).toMatchObject({
+      metadata: {
+        uid: 501,
+        dev: 9,
+        mode: 0o600,
+        nlink: 1,
+        size: 0,
+        file: true,
+        directory: false,
+        symbolicLink: false,
+      },
+    })
+    expect(entries.get(lockPath)!.bytes).toBeUndefined()
+    expect(heldFileReads).not.toContain(lockPath)
+    expect(directoryInventoryReads).not.toContain(lockPath)
     const stageA = JSON.parse(
       entries.get(`${control}/stage-a.v1.json`)!.bytes!.toString('utf8'),
     ) as Record<string, unknown>
@@ -616,6 +720,153 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     expect(deriveA).toHaveBeenCalledTimes(1)
   })
+
+  it.each([
+    [
+      'type',
+      (entry: Entry): void => {
+        entry.metadata.file = false
+        entry.metadata.directory = true
+      },
+    ],
+    [
+      'owner',
+      (entry: Entry): void => {
+        entry.metadata.uid++
+      },
+    ],
+    [
+      'device',
+      (entry: Entry): void => {
+        entry.metadata.dev++
+      },
+    ],
+    [
+      'mode',
+      (entry: Entry): void => {
+        entry.metadata.mode = 0o644
+      },
+    ],
+    [
+      'link',
+      (entry: Entry): void => {
+        entry.metadata.nlink++
+      },
+    ],
+    [
+      'size',
+      (entry: Entry): void => {
+        entry.metadata.size++
+      },
+    ],
+    [
+      'symlink',
+      (entry: Entry): void => {
+        entry.metadata.symbolicLink = true
+      },
+    ],
+  ] as const)(
+    'rejects command-lock %s drift before B without reading lock contents',
+    async (_name, mutate) => {
+      const { seams, entries, heldFileReads, run } = fixture({
+        syntheticLegacy: true,
+      })
+      const packages = await actualStagePackages()
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(async () => packages.stageA),
+      })
+      const lockPath = `${m45}/.policy-exclusive-promotion.lock`
+      mutate(entries.get(lockPath)!)
+      const deriveB = vi.fn()
+      await expect(
+        run(['derive-b', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveB,
+        }),
+      ).rejects.toThrow()
+      expect(deriveB).not.toHaveBeenCalled()
+      expect(heldFileReads).not.toContain(lockPath)
+    },
+  )
+
+  it('requires lock presence at B entry', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    const packages = await actualStagePackages()
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(async () => packages.stageA),
+    })
+    entries.get(m45)!.entries!.delete('.policy-exclusive-promotion.lock')
+    entries.delete(`${m45}/.policy-exclusive-promotion.lock`)
+    const deriveB = vi.fn()
+    await expect(
+      run(['derive-b', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveB,
+      }),
+    ).rejects.toThrow()
+    expect(deriveB).not.toHaveBeenCalled()
+  })
+
+  it('requires lock presence at review entry', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    const packages = await actualStagePackages()
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(async () => packages.stageA),
+    })
+    await run(['derive-b', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveB: vi.fn(async () => ({
+        preflight: { schema: 'fixture' },
+        package: packages.stageB,
+      })),
+    })
+    entries.get(m45)!.entries!.delete('.policy-exclusive-promotion.lock')
+    entries.delete(`${m45}/.policy-exclusive-promotion.lock`)
+    await expect(
+      run(['review-candidate', '--confirm-m45-policy-native-review-v1'], seams),
+    ).rejects.toThrow()
+    expect(entries.has(`${control}/review-input.v1.json`)).toBe(false)
+  })
+
+  it.each(['derive-b', 'review-candidate'] as const)(
+    'rejects an off-by-one held root link count during %s',
+    async (phase) => {
+      const { seams, wrongPostNlinkPaths, run } = fixture({
+        syntheticLegacy: true,
+      })
+      const packages = await actualStagePackages()
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(async () => packages.stageA),
+      })
+      if (phase === 'review-candidate')
+        await run(['derive-b', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveB: vi.fn(async () => ({
+            preflight: { schema: 'fixture' },
+            package: packages.stageB,
+          })),
+        })
+      wrongPostNlinkPaths.add(m45)
+      await expect(
+        phase === 'derive-b'
+          ? run(['derive-b', '--confirm-m45-policy-native-derivation-v1'], {
+              ...seams,
+              deriveB: vi.fn(async () => ({
+                preflight: { schema: 'fixture' },
+                package: packages.stageB,
+              })),
+            })
+          : run(
+              ['review-candidate', '--confirm-m45-policy-native-review-v1'],
+              seams,
+            ),
+      ).rejects.toThrow()
+    },
+  )
 
   it('revalidates the full gate on a fresh A invocation after a safe no-artifact failure', async () => {
     const { seams, entries, run } = fixture({ syntheticLegacy: true })

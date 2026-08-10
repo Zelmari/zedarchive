@@ -31,6 +31,7 @@ const stageAName = 'stage-a.v1.json'
 const stageBName = 'stage-b.v1.json'
 const candidateName = 'candidate.v1.json'
 const reviewInputName = 'review-input.v1.json'
+const commandLockName = '.policy-exclusive-promotion.lock'
 const preservedSiblings = [
   'candidate-review',
   'discovery',
@@ -107,6 +108,13 @@ type RunnerFilesystem = Readonly<{
     operation: (
       metadata: Metadata,
       bytes: Buffer,
+      revalidate: () => Promise<void>,
+    ) => Promise<T>,
+  ) => Promise<T>
+  withHeldMetadataFile: <T>(
+    path: string,
+    operation: (
+      metadata: Metadata,
       revalidate: () => Promise<void>,
     ) => Promise<T>,
   ) => Promise<T>
@@ -601,8 +609,31 @@ type LegacyCustody = Readonly<{
   control: Metadata
   siblings: Readonly<Record<string, Metadata>>
   baseline: LegacyBaseline
-  revalidate: (controlEntries: readonly string[]) => Promise<void>
+  revalidate: (
+    controlEntries: readonly string[],
+    rootEntries: readonly string[],
+  ) => Promise<void>
 }>
+
+const baseRootEntries = Object.freeze([...preservedSiblings, controlName])
+const lockedRootEntries = Object.freeze([...baseRootEntries, commandLockName])
+
+async function withHeldCommandLock<T>(
+  filesystem: RunnerFilesystem,
+  m45: string,
+  root: Metadata,
+  owner: number,
+  operation: (revalidate: () => Promise<void>) => Promise<T>,
+): Promise<T> {
+  return filesystem.withHeldMetadataFile(
+    join(m45, commandLockName),
+    async (lock, revalidate) => {
+      assertMetadata(lock, 'file', owner, 0o600, root.dev)
+      if (lock.nlink !== 1 || lock.size !== 0) throw new Error('command-lock')
+      return operation(revalidate)
+    },
+  )
+}
 
 function parseLegacyBaseline(
   metadata: Metadata,
@@ -639,22 +670,25 @@ async function withLegacyCustody<T>(
   controlRoot: string,
   profile: ResidueProfile,
   owner: number,
+  expectedRootEntries: readonly string[],
+  postRootEntries: readonly string[],
   controlEntries: readonly string[],
   postControlEntries: readonly string[] | undefined,
+  holdCommandLock: boolean,
   exactResidue: boolean,
   operation: (custody: LegacyCustody) => Promise<T>,
 ): Promise<T> {
   return filesystem.withHeldDirectory(
     m45,
     true,
-    undefined,
-    async (root, rootEntries, revalidateRoot) => {
+    postRootEntries,
+    async (root, observedRootEntries, revalidateRoot) => {
       assertMetadata(root, 'directory', owner, 0o700, profile.root.dev)
       if (
         root.uid !== profile.root.uid ||
         root.ino !== profile.root.ino ||
-        root.nlink !== 2 + preservedSiblings.length + 1 ||
-        !exactEntries(rootEntries ?? [], [...preservedSiblings, controlName]) ||
+        root.nlink !== 2 + expectedRootEntries.length ||
+        !exactEntries(observedRootEntries ?? [], expectedRootEntries) ||
         (exactResidue &&
           (root.nlink !== profile.root.nlink ||
             root.size !== profile.root.size))
@@ -699,19 +733,35 @@ async function withLegacyCustody<T>(
               const holdSibling = async (index: number): Promise<T> => {
                 if (index === preservedSiblings.length) {
                   assertSameSiblings(baseline.artifact, siblings)
-                  return operation({
-                    root,
-                    control,
-                    siblings: Object.freeze({ ...siblings }),
-                    baseline,
-                    revalidate: async (expectedControlEntries) => {
-                      await revalidateRoot()
-                      await revalidateControl(expectedControlEntries)
-                      await revalidateBaseline()
-                      for (const revalidateSibling of siblingRevalidators)
-                        await revalidateSibling()
-                    },
-                  })
+                  const invokeOperation = (
+                    revalidateLock?: () => Promise<void>,
+                  ) =>
+                    operation({
+                      root,
+                      control,
+                      siblings: Object.freeze({ ...siblings }),
+                      baseline,
+                      revalidate: async (
+                        expectedControlEntries,
+                        revalidatedRootEntries,
+                      ) => {
+                        await revalidateRoot(revalidatedRootEntries)
+                        await revalidateControl(expectedControlEntries)
+                        await revalidateBaseline()
+                        for (const revalidateSibling of siblingRevalidators)
+                          await revalidateSibling()
+                        await revalidateLock?.()
+                      },
+                    })
+                  return holdCommandLock
+                    ? withHeldCommandLock(
+                        filesystem,
+                        m45,
+                        root,
+                        owner,
+                        invokeOperation,
+                      )
+                    : invokeOperation()
                 }
                 const name = preservedSiblings[index]!
                 return filesystem.withHeldDirectory(
@@ -925,6 +975,42 @@ function defaultFilesystem(): RunnerFilesystem {
         await handle.close()
       }
     },
+    withHeldMetadataFile: async (path, operation) => {
+      const handle = await open(
+        path,
+        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+      )
+      try {
+        const toMetadata = (
+          value: Awaited<ReturnType<typeof handle.stat>>,
+        ): Metadata => ({
+          uid: Number(value.uid),
+          dev: Number(value.dev),
+          ino: Number(value.ino),
+          mode: Number(value.mode),
+          nlink: Number(value.nlink),
+          size: Number(value.size),
+          file: value.isFile(),
+          directory: value.isDirectory(),
+          symbolicLink: value.isSymbolicLink(),
+        })
+        const before = toMetadata(await handle.stat())
+        const revalidate = async () => {
+          const after = toMetadata(await handle.stat())
+          const pathAfter = await metadata(path)
+          if (
+            canonical(before) !== canonical(after) ||
+            canonical(before) !== canonical(pathAfter)
+          )
+            throw new Error('held-file-drift')
+        }
+        const result = await operation(before, revalidate)
+        await revalidate()
+        return result
+      } finally {
+        await handle.close()
+      }
+    },
     chmodHeldDirectory: async (path, requiredMode, expected) => {
       const handle = await open(
         path,
@@ -1124,8 +1210,11 @@ async function runPolicyNativeDerivationCommandWithProfile(
       controlRoot,
       profile,
       seams.effectiveUid,
+      baseRootEntries,
+      baseRootEntries,
       [baselineName],
       undefined,
+      false,
       true,
       async (recovered) => ({
         mode,
@@ -1145,10 +1234,14 @@ async function runPolicyNativeDerivationCommandWithProfile(
       controlRoot,
       profile,
       seams.effectiveUid,
+      baseRootEntries,
+      lockedRootEntries,
       [baselineName],
       [baselineName, stageAName],
+      false,
       true,
       async (recovered) => {
+        await recovered.revalidate([baselineName], baseRootEntries)
         const stageA = parsePolicyPromotionPackage(
           await seams.deriveA({
             repositoryRoot,
@@ -1168,35 +1261,49 @@ async function runPolicyNativeDerivationCommandWithProfile(
             },
           }),
         )
-        await recovered.revalidate([baselineName])
-        const artifact = await writeArtifact(
+        await recovered.revalidate([baselineName], lockedRootEntries)
+        return withHeldCommandLock(
           seams.filesystem,
-          controlRoot,
-          stageAName,
-          createArtifact(`m45-policy-native-${stageAName}.v1`, {
-            package: stageA,
-            tracked: commitments,
-            legacyBaselineRawSha256: recovered.baseline.rawSha256,
-          }),
-          recovered.root.dev,
+          m45,
+          recovered.root,
           seams.effectiveUid,
-        )
-        await recovered.revalidate([baselineName, stageAName])
-        await validateControl(
-          seams.filesystem,
-          controlRoot,
-          recovered.root.dev,
-          seams.effectiveUid,
-          [baselineName, stageAName],
-        )
-        return {
-          mode,
-          status: 'a-derived',
-          commitments: {
-            ...commitments,
-            stageASha256: String(artifact.artifactSha256),
+          async (revalidateLock) => {
+            await recovered.revalidate([baselineName], lockedRootEntries)
+            await revalidateLock()
+            const artifact = await writeArtifact(
+              seams.filesystem,
+              controlRoot,
+              stageAName,
+              createArtifact(`m45-policy-native-${stageAName}.v1`, {
+                package: stageA,
+                tracked: commitments,
+                legacyBaselineRawSha256: recovered.baseline.rawSha256,
+              }),
+              recovered.root.dev,
+              seams.effectiveUid,
+            )
+            await revalidateLock()
+            await recovered.revalidate(
+              [baselineName, stageAName],
+              lockedRootEntries,
+            )
+            await validateControl(
+              seams.filesystem,
+              controlRoot,
+              recovered.root.dev,
+              seams.effectiveUid,
+              [baselineName, stageAName],
+            )
+            return {
+              mode,
+              status: 'a-derived',
+              commitments: {
+                ...commitments,
+                stageASha256: String(artifact.artifactSha256),
+              },
+            }
           },
-        }
+        )
       },
     )
   }
@@ -1208,8 +1315,11 @@ async function runPolicyNativeDerivationCommandWithProfile(
       controlRoot,
       profile,
       seams.effectiveUid,
+      lockedRootEntries,
+      lockedRootEntries,
       [baselineName, stageAName],
       [baselineName, stageAName, stageBName, candidateName],
+      true,
       false,
       async (shared) =>
         withHeldArtifact(
@@ -1241,14 +1351,20 @@ async function runPolicyNativeDerivationCommandWithProfile(
               },
             })
             await revalidateStageA()
-            await shared.revalidate([baselineName, stageAName])
+            await shared.revalidate(
+              [baselineName, stageAName],
+              lockedRootEntries,
+            )
             const stageBPackage = parsePolicyPromotionPackage(output.package)
             const candidate = await createPolicyPromotionProvenanceCandidate(
               stageA.package,
               stageBPackage,
             )
             await revalidateStageA()
-            await shared.revalidate([baselineName, stageAName])
+            await shared.revalidate(
+              [baselineName, stageAName],
+              lockedRootEntries,
+            )
             const stageB = await writeArtifact(
               seams.filesystem,
               controlRoot,
@@ -1264,7 +1380,10 @@ async function runPolicyNativeDerivationCommandWithProfile(
               seams.effectiveUid,
             )
             await revalidateStageA()
-            await shared.revalidate([baselineName, stageAName, stageBName])
+            await shared.revalidate(
+              [baselineName, stageAName, stageBName],
+              lockedRootEntries,
+            )
             await validateControl(
               seams.filesystem,
               controlRoot,
@@ -1287,12 +1406,10 @@ async function runPolicyNativeDerivationCommandWithProfile(
               seams.effectiveUid,
             )
             await revalidateStageA()
-            await shared.revalidate([
-              baselineName,
-              stageAName,
-              stageBName,
-              candidateName,
-            ])
+            await shared.revalidate(
+              [baselineName, stageAName, stageBName, candidateName],
+              lockedRootEntries,
+            )
             await validateControl(
               seams.filesystem,
               controlRoot,
@@ -1319,8 +1436,11 @@ async function runPolicyNativeDerivationCommandWithProfile(
     controlRoot,
     profile,
     seams.effectiveUid,
+    lockedRootEntries,
+    lockedRootEntries,
     [baselineName, stageAName, stageBName, candidateName],
     [baselineName, stageAName, stageBName, candidateName, reviewInputName],
+    true,
     false,
     async (shared) =>
       withHeldArtifact(
@@ -1362,12 +1482,10 @@ async function runPolicyNativeDerivationCommandWithProfile(
                   await revalidateStageA()
                   await revalidateStageB()
                   await revalidateCandidate()
-                  await shared.revalidate([
-                    baselineName,
-                    stageAName,
-                    stageBName,
-                    candidateName,
-                  ])
+                  await shared.revalidate(
+                    [baselineName, stageAName, stageBName, candidateName],
+                    lockedRootEntries,
+                  )
                   const review = await writeArtifact(
                     seams.filesystem,
                     controlRoot,
@@ -1391,13 +1509,16 @@ async function runPolicyNativeDerivationCommandWithProfile(
                   await revalidateStageA()
                   await revalidateStageB()
                   await revalidateCandidate()
-                  await shared.revalidate([
-                    baselineName,
-                    stageAName,
-                    stageBName,
-                    candidateName,
-                    reviewInputName,
-                  ])
+                  await shared.revalidate(
+                    [
+                      baselineName,
+                      stageAName,
+                      stageBName,
+                      candidateName,
+                      reviewInputName,
+                    ],
+                    lockedRootEntries,
+                  )
                   await validateControl(
                     seams.filesystem,
                     controlRoot,
