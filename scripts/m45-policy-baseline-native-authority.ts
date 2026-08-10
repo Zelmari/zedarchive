@@ -152,58 +152,102 @@ function successfulDiagnostic(result: {
   code: number
   stdout: Buffer
   stderr: Buffer
-  processGroupAbsent: true
-  streamsClosed: true
+  processGroupAbsent: boolean
+  streamsClosed: boolean
 }) {
   if (result.code !== 0 || !result.processGroupAbsent || !result.streamsClosed)
     throw new Error('policy-native-authority')
   return result
 }
-/**
- * Complete high-level toolchain derivation. The parent trust root supplies only
- * its externally computed bridge commitment; executable selection and every
- * child launch remain private to this module.
- */
-export async function runPolicyNativeToolchainDerivation(
+
+type ProvisionalAPrebuildBoundary =
+  | 'xcrun-compiler-resolution'
+  | 'xcrun-sdk-resolution'
+  | 'toolchain-input-attestation'
+  | 'compiler-diagnostic'
+  | 'toolchain-authority'
+
+type ProvisionalAPrebuildObserver = (
+  boundary: ProvisionalAPrebuildBoundary,
+) => void
+
+type ProvisionalAPrebuildChildResult = Readonly<{
+  code: number
+  stdout: Buffer
+  stderr: Buffer
+  processGroupAbsent: boolean
+  streamsClosed: boolean
+}>
+
+type ProvisionalAPrebuildToolchainHarness = Readonly<{
+  realpath: typeof realpath
+  readFile: typeof readFile
+  inspectProtectedPath: typeof inspectProtectedPath
+  runXcrunCompilerPath: (
+    input: Parameters<typeof broker.runXcrunCompilerPath>[0],
+  ) => Promise<ProvisionalAPrebuildChildResult>
+  runXcrunSdkPath: (
+    input: Parameters<typeof broker.runXcrunSdkPath>[0],
+  ) => Promise<ProvisionalAPrebuildChildResult>
+  runCompilerDiagnostic: (
+    input: Parameters<typeof broker.runCompilerDiagnostic>[0],
+  ) => Promise<ProvisionalAPrebuildChildResult>
+  beforeAuthority?: () => void
+}>
+
+async function runPolicyNativeToolchainDerivationWithObserver(
   input: unknown,
+  observe?: ProvisionalAPrebuildObserver,
+  harness?: ProvisionalAPrebuildToolchainHarness,
 ): Promise<Readonly<Record<string, unknown>>> {
+  const runtime: ProvisionalAPrebuildToolchainHarness =
+    harness ??
+    Object.freeze({
+      realpath,
+      readFile,
+      inspectProtectedPath,
+      runXcrunCompilerPath: broker.runXcrunCompilerPath,
+      runXcrunSdkPath: broker.runXcrunSdkPath,
+      runCompilerDiagnostic: broker.runCompilerDiagnostic,
+    })
   exactObject(input, ['repositoryRoot', 'nativeAuthoritySha256'])
   const repositoryRoot = safeRoot(input.repositoryRoot)
-  if ((await realpath(repositoryRoot)) !== repositoryRoot)
+  if ((await runtime.realpath(repositoryRoot)) !== repositoryRoot)
     throw new Error('policy-native-authority')
   const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
   const [source, launchContract, launcher, worker] = await Promise.all([
-    readFile(helperSourcePath),
-    readFile(launchContractPath),
-    readFile(launcherPath),
-    readFile(lockWorkerPath),
+    runtime.readFile(helperSourcePath),
+    runtime.readFile(launchContractPath),
+    runtime.readFile(launcherPath),
+    runtime.readFile(lockWorkerPath),
   ])
-  const xcrunBefore = await inspectProtectedPath(xcrunPath, 'file')
-  const xcrunBytesBefore = await readFile(xcrunPath)
+  const xcrunBefore = await runtime.inspectProtectedPath(xcrunPath, 'file')
+  const xcrunBytesBefore = await runtime.readFile(xcrunPath)
   const compilerResolution = successfulDiagnostic(
-    await broker.runXcrunCompilerPath({ repositoryRoot }),
+    await runtime.runXcrunCompilerPath({ repositoryRoot }),
   )
-  const sdkResolution = successfulDiagnostic(
-    await broker.runXcrunSdkPath({ repositoryRoot }),
-  )
-  if (
-    compilerResolution.stderr.byteLength !== 0 ||
-    sdkResolution.stderr.byteLength !== 0
-  )
+  if (compilerResolution.stderr.byteLength !== 0)
     throw new Error('policy-native-authority')
   const compilerPath = parseResolverOutput(compilerResolution.stdout)
+  observe?.('xcrun-compiler-resolution')
+  const sdkResolution = successfulDiagnostic(
+    await runtime.runXcrunSdkPath({ repositoryRoot }),
+  )
+  if (sdkResolution.stderr.byteLength !== 0)
+    throw new Error('policy-native-authority')
   const sdkRoot = parseResolverOutput(sdkResolution.stdout)
+  observe?.('xcrun-sdk-resolution')
   const [compilerBefore, sdkBefore] = await Promise.all([
-    inspectProtectedPath(compilerPath, 'file'),
-    inspectProtectedPath(sdkRoot, 'directory'),
+    runtime.inspectProtectedPath(compilerPath, 'file'),
+    runtime.inspectProtectedPath(sdkRoot, 'directory'),
   ])
   const [compilerBytes, headers] = await Promise.all([
-    readFile(compilerPath),
+    runtime.readFile(compilerPath),
     Promise.all(
       sdkHeaderPaths.map(async (relativePath) => {
         const path = join(sdkRoot, relativePath)
-        const metadata = await inspectProtectedPath(path, 'file')
-        const bytes = await readFile(path)
+        const metadata = await runtime.inspectProtectedPath(path, 'file')
+        const bytes = await runtime.readFile(path)
         return {
           relativePath,
           device: String(metadata.dev),
@@ -218,6 +262,8 @@ export async function runPolicyNativeToolchainDerivation(
     repositoryRoot,
     '.local/m45/.policy-exclusive-promotion-build',
   )
+  // D118 records only a hypothesis: the `-###` plan names these staged paths,
+  // but that driver mode need not open or compile the staged source.
   const compileContractSha256 = hashAuthority({
     arguments: [
       '-std=c17',
@@ -261,8 +307,9 @@ export async function runPolicyNativeToolchainDerivation(
     nativeAuthoritySha256,
     lockPreflightWorkerSha256: hash(worker),
   }
+  observe?.('toolchain-input-attestation')
   const diagnostic = successfulDiagnostic(
-    await broker.runCompilerDiagnostic({
+    await runtime.runCompilerDiagnostic({
       repositoryRoot,
       compilerPath,
       sdkRoot,
@@ -280,16 +327,33 @@ export async function runPolicyNativeToolchainDerivation(
     launcherAfter,
     workerAfter,
     compilerAfter,
+    compilerBytesAfter,
     sdkAfter,
+    headersAfter,
   ] = await Promise.all([
-    inspectProtectedPath(xcrunPath, 'file'),
-    readFile(xcrunPath),
-    readFile(helperSourcePath),
-    readFile(launchContractPath),
-    readFile(launcherPath),
-    readFile(lockWorkerPath),
-    inspectProtectedPath(compilerPath, 'file'),
-    inspectProtectedPath(sdkRoot, 'directory'),
+    runtime.inspectProtectedPath(xcrunPath, 'file'),
+    runtime.readFile(xcrunPath),
+    runtime.readFile(helperSourcePath),
+    runtime.readFile(launchContractPath),
+    runtime.readFile(launcherPath),
+    runtime.readFile(lockWorkerPath),
+    runtime.inspectProtectedPath(compilerPath, 'file'),
+    runtime.readFile(compilerPath),
+    runtime.inspectProtectedPath(sdkRoot, 'directory'),
+    Promise.all(
+      sdkHeaderPaths.map(async (relativePath) => {
+        const path = join(sdkRoot, relativePath)
+        const metadata = await runtime.inspectProtectedPath(path, 'file')
+        const bytes = await runtime.readFile(path)
+        return {
+          relativePath,
+          device: String(metadata.dev),
+          inode: String(metadata.ino),
+          byteCount: bytes.byteLength,
+          sha256: hash(bytes),
+        }
+      }),
+    ),
   ])
   if (
     xcrunAfter.dev !== xcrunBefore.dev ||
@@ -301,10 +365,13 @@ export async function runPolicyNativeToolchainDerivation(
     hash(workerAfter) !== preliminary.lockPreflightWorkerSha256 ||
     compilerAfter.dev !== compilerBefore.dev ||
     compilerAfter.ino !== compilerBefore.ino ||
+    hash(compilerBytesAfter) !== preliminary.compilerSha256 ||
     sdkAfter.dev !== sdkBefore.dev ||
-    sdkAfter.ino !== sdkBefore.ino
+    sdkAfter.ino !== sdkBefore.ino ||
+    hashAuthority(headersAfter) !== preliminary.headerSetSha256
   )
     throw new Error('policy-native-authority')
+  observe?.('compiler-diagnostic')
   const core = {
     ...preliminary,
     diagnosticSha256: hashAuthority({
@@ -312,10 +379,23 @@ export async function runPolicyNativeToolchainDerivation(
       stderr: diagnostic.stderr.toString('base64'),
     }),
   }
-  return Object.freeze({
+  const authority = Object.freeze({
     ...core,
     authorityPackageSha256: hashAuthority(core),
   })
+  runtime.beforeAuthority?.()
+  observe?.('toolchain-authority')
+  return authority
+}
+/**
+ * Complete high-level toolchain derivation. The parent trust root supplies only
+ * its externally computed bridge commitment; executable selection and every
+ * child launch remain private to this module.
+ */
+export async function runPolicyNativeToolchainDerivation(
+  input: unknown,
+): Promise<Readonly<Record<string, unknown>>> {
+  return runPolicyNativeToolchainDerivationWithObserver(input)
 }
 // D111 keeps all lower-level build, contender, helper, candidate, and cleanup
 // operations private. The complete A/B/C workflows are added below this trust
@@ -642,6 +722,430 @@ async function closeDerivationLock(
     })
   if (validationFailure !== undefined) throw validationFailure
   if (closeFailure !== undefined) throw closeFailure
+}
+
+const provisionalAPrebuildBoundaries = [
+  'entry-custody',
+  'lock-capability',
+  'derivation-lock-open',
+  'xcrun-compiler-resolution',
+  'xcrun-sdk-resolution',
+  'toolchain-input-attestation',
+  'compiler-diagnostic',
+  'toolchain-authority',
+  'derivation-lock-cycle-closed',
+] as const
+
+type ProvisionalAPrebuildJournalBoundary =
+  (typeof provisionalAPrebuildBoundaries)[number]
+
+type ProvisionalAPrebuildDiagnosticResult = Readonly<{
+  lastSuccessfulBoundary: ProvisionalAPrebuildJournalBoundary
+  derivationLockCycleClosed?: true
+  authorityPackageSha256?: string
+}>
+
+type ProvisionalAPrebuildDiagnosticOperations = Readonly<{
+  probeLockCapability: () => Promise<void>
+  openLock: () => Promise<unknown>
+  deriveToolchain: (observe: ProvisionalAPrebuildObserver) => Promise<string>
+  closeLock: (custody: unknown) => Promise<void>
+}>
+
+type ProvisionalAPrebuildNativeOperations = Readonly<{
+  readWorker: () => Promise<Buffer>
+  probeLockCapability: (
+    repositoryRoot: string,
+    workerSha256: string,
+    expectedReentryLock: LockIdentity,
+  ) => Promise<void>
+  openLock: (
+    repositoryRoot: string,
+    expectedReentryLock: LockIdentity,
+  ) => Promise<unknown>
+  deriveToolchain: (
+    repositoryRoot: string,
+    nativeAuthoritySha256: string,
+    observe: ProvisionalAPrebuildObserver,
+  ) => Promise<Readonly<Record<string, unknown>>>
+  closeLock: (custody: unknown) => Promise<void>
+}>
+
+class ProvisionalAPrebuildJournalError extends Error {}
+
+async function runPolicyProvisionalAPrebuildDiagnosticBridge(
+  operations: ProvisionalAPrebuildDiagnosticOperations,
+): Promise<ProvisionalAPrebuildDiagnosticResult> {
+  const journal: ProvisionalAPrebuildJournalBoundary[] = []
+  const append = (boundary: ProvisionalAPrebuildJournalBoundary) => {
+    if (provisionalAPrebuildBoundaries[journal.length] !== boundary)
+      throw new ProvisionalAPrebuildJournalError()
+    journal.push(boundary)
+  }
+  const result = (
+    derivationLockCycleClosed?: true,
+    authorityPackageSha256?: string,
+  ): ProvisionalAPrebuildDiagnosticResult =>
+    Object.freeze({
+      lastSuccessfulBoundary: journal.at(-1)!,
+      ...(derivationLockCycleClosed === true
+        ? { derivationLockCycleClosed }
+        : {}),
+      ...(authorityPackageSha256 === undefined
+        ? {}
+        : { authorityPackageSha256 }),
+    })
+
+  append('entry-custody')
+  // A failed capability probe may have an uncertain contender/lock closure, so
+  // it deliberately produces no diagnostic result for the runner to expose.
+  await operations.probeLockCapability()
+  append('lock-capability')
+
+  // A partial positioning failure is likewise non-reportable: the public
+  // stopped result must not overstate derivation-lock lifecycle closure.
+  const custody = await operations.openLock()
+  append('derivation-lock-open')
+  let authorityPackageSha256: string | undefined
+  let diagnosticFailure: unknown
+  try {
+    authorityPackageSha256 = await operations.deriveToolchain(append)
+  } catch (error) {
+    diagnosticFailure = error
+  }
+
+  // A typed stopped result is safe only once the held named lock has passed its
+  // final identity check and closed. Any ambiguity throws to the outer generic
+  // stopped path instead.
+  await operations.closeLock(custody)
+  if (diagnosticFailure !== undefined) {
+    if (diagnosticFailure instanceof ProvisionalAPrebuildJournalError)
+      throw diagnosticFailure
+    return result(true)
+  }
+  if (
+    authorityPackageSha256 === undefined ||
+    !sha256Pattern.test(authorityPackageSha256)
+  )
+    throw new Error('policy-native-authority')
+  append('derivation-lock-cycle-closed')
+  return result(true, authorityPackageSha256)
+}
+
+/**
+ * D118's sole diagnostic bridge. It keeps the compiler's raw plan private and
+ * never enters a package-builder or repository-mutating authority.
+ */
+async function diagnosePolicyProvisionalBuildAPrebuildWithOperations(
+  input: unknown,
+  operations: ProvisionalAPrebuildNativeOperations,
+): Promise<ProvisionalAPrebuildDiagnosticResult> {
+  exactObject(input, ['repositoryRoot', 'nativeAuthoritySha256', 'commandLock'])
+  const repositoryRoot = safeRoot(input.repositoryRoot)
+  const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
+  const expectedReentryLock = reentryLockIdentity(input.commandLock)
+  if (expectedReentryLock === null) throw new Error('policy-native-authority')
+  const workerSha256 = hash(await operations.readWorker())
+  return runPolicyProvisionalAPrebuildDiagnosticBridge({
+    probeLockCapability: async () => {
+      await operations.probeLockCapability(
+        repositoryRoot,
+        workerSha256,
+        expectedReentryLock,
+      )
+    },
+    openLock: () => operations.openLock(repositoryRoot, expectedReentryLock),
+    deriveToolchain: async (observe) => {
+      const authority = await operations.deriveToolchain(
+        repositoryRoot,
+        nativeAuthoritySha256,
+        observe,
+      )
+      const authorityPackageSha256 = authority.authorityPackageSha256
+      if (
+        typeof authorityPackageSha256 !== 'string' ||
+        !sha256Pattern.test(authorityPackageSha256)
+      )
+        throw new Error('policy-native-authority')
+      return authorityPackageSha256
+    },
+    closeLock: operations.closeLock,
+  })
+}
+
+export async function diagnosePolicyProvisionalBuildAPrebuild(
+  input: unknown,
+): Promise<ProvisionalAPrebuildDiagnosticResult> {
+  return diagnosePolicyProvisionalBuildAPrebuildWithOperations(input, {
+    readWorker: () => readFile(lockWorkerPath),
+    probeLockCapability: async (
+      repositoryRoot,
+      workerSha256,
+      expectedReentryLock,
+    ) => {
+      await commandLockCapabilityProbe(
+        repositoryRoot,
+        workerSha256,
+        expectedReentryLock,
+      )
+    },
+    openLock: openDerivationLock,
+    deriveToolchain: (repositoryRoot, nativeAuthoritySha256, observe) =>
+      runPolicyNativeToolchainDerivationWithObserver(
+        { repositoryRoot, nativeAuthoritySha256 },
+        observe,
+      ),
+    closeLock: (custody) =>
+      closeDerivationLock(
+        custody as Awaited<ReturnType<typeof openDerivationLock>>,
+      ),
+  })
+}
+
+const provisionalAPrebuildFixtureFaults = [
+  'capability-open',
+  'held-contender-child',
+  'held-contender-lifecycle',
+  'held-contender-postcheck',
+  'released-contender-child',
+  'released-contender-lifecycle',
+  'released-contender-postcheck',
+  'derivation-lock-open',
+  'compiler-child',
+  'compiler-lifecycle',
+  'compiler-output',
+  'sdk-child',
+  'sdk-lifecycle',
+  'sdk-output',
+  'attestation-protected-stat',
+  'attestation-protected-read',
+  'diagnostic-child',
+  'diagnostic-lifecycle',
+  'postcheck-tracked-source',
+  'postcheck-xcrun',
+  'postcheck-compiler',
+  'postcheck-compiler-bytes',
+  'postcheck-sdk',
+  'postcheck-sdk-headers',
+  'authority-package',
+  'lock-final-validation',
+  'lock-close',
+  'journal-duplicate',
+  'journal-omission',
+  'journal-reorder',
+] as const
+
+type ProvisionalAPrebuildFixtureFault =
+  (typeof provisionalAPrebuildFixtureFaults)[number]
+
+/** Test-only execution of the exact D118 bridge with closed fake operations. */
+export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
+  input: unknown,
+) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  exactObject(input, ['faultAt'])
+  const faultAt = input.faultAt
+  if (
+    faultAt !== null &&
+    (typeof faultAt !== 'string' ||
+      !provisionalAPrebuildFixtureFaults.includes(
+        faultAt as ProvisionalAPrebuildFixtureFault,
+      ))
+  )
+    throw new Error('test-only')
+  const fault = faultAt as ProvisionalAPrebuildFixtureFault | null
+  const childOrder: string[] = []
+  const lifecycle: string[] = []
+  const boundaryOrder: ProvisionalAPrebuildJournalBoundary[] = ['entry-custody']
+  let toolchainCompleted = false
+  const stopAt = (point: ProvisionalAPrebuildFixtureFault) => {
+    lifecycle.push(point)
+    if (fault === point) throw new Error('fixture-fault')
+  }
+  let result: ProvisionalAPrebuildDiagnosticResult | undefined
+  let genericStopped = false
+  try {
+    result = await diagnosePolicyProvisionalBuildAPrebuildWithOperations(
+      {
+        repositoryRoot: '/fixture/repository',
+        nativeAuthoritySha256: 'b'.repeat(64),
+        commandLock: {
+          uid: '501',
+          device: '1',
+          inode: '2',
+          mode: '384',
+          links: '1',
+          size: '0',
+        },
+      },
+      {
+        readWorker: async () => Buffer.from('fixture-worker'),
+        probeLockCapability: async () => {
+          stopAt('capability-open')
+          childOrder.push('held-lock-contender')
+          stopAt('held-contender-child')
+          stopAt('held-contender-lifecycle')
+          stopAt('held-contender-postcheck')
+          childOrder.push('released-lock-contender')
+          stopAt('released-contender-child')
+          stopAt('released-contender-lifecycle')
+          stopAt('released-contender-postcheck')
+          boundaryOrder.push('lock-capability')
+        },
+        openLock: async () => {
+          stopAt('derivation-lock-open')
+          boundaryOrder.push('derivation-lock-open')
+          return Object.freeze({ fixture: 'held-lock' })
+        },
+        deriveToolchain: async (
+          _repositoryRoot,
+          _nativeAuthoritySha256,
+          observe,
+        ) => {
+          const compilerPath = '/fixture/clang'
+          const sdkRoot = '/fixture/sdk'
+          const readCounts = new Map<string, number>()
+          const inspectCounts = new Map<string, number>()
+          let attestationReadObserved = false
+          let attestationStatObserved = false
+          let sdkHeaderPostcheckObserved = false
+          const metadata = (path: string) =>
+            ({
+              dev: path === sdkRoot ? 3 : path === compilerPath ? 2 : 1,
+              ino: path === sdkRoot ? 30 : path === compilerPath ? 20 : 10,
+            }) as Awaited<ReturnType<typeof inspectProtectedPath>>
+          const closedChild = (stdout: string, lifecycleFault = false) => ({
+            code: 0,
+            stdout: Buffer.from(stdout),
+            stderr: Buffer.alloc(0),
+            processGroupAbsent: lifecycleFault
+              ? (false as const)
+              : (true as const),
+            streamsClosed: true as const,
+          })
+          const harness: ProvisionalAPrebuildToolchainHarness = {
+            realpath: (async (path: string) => path) as typeof realpath,
+            readFile: (async (path: string) => {
+              const count = (readCounts.get(path) ?? 0) + 1
+              readCounts.set(path, count)
+              if (path === compilerPath && !attestationReadObserved) {
+                attestationReadObserved = true
+                stopAt('attestation-protected-read')
+              }
+              if (path === helperSourcePath && count === 2)
+                stopAt('postcheck-tracked-source')
+              if (path === xcrunPath && count === 2) stopAt('postcheck-xcrun')
+              if (path === compilerPath && count === 2)
+                stopAt('postcheck-compiler-bytes')
+              if (
+                path.startsWith(`${sdkRoot}/`) &&
+                count === 2 &&
+                !sdkHeaderPostcheckObserved
+              ) {
+                sdkHeaderPostcheckObserved = true
+                stopAt('postcheck-sdk-headers')
+              }
+              return Buffer.from(`fixture:${path}`)
+            }) as typeof readFile,
+            inspectProtectedPath: async (path) => {
+              const count = (inspectCounts.get(path) ?? 0) + 1
+              inspectCounts.set(path, count)
+              if (
+                (path === compilerPath || path === sdkRoot) &&
+                count === 1 &&
+                !attestationStatObserved
+              ) {
+                attestationStatObserved = true
+                stopAt('attestation-protected-stat')
+              }
+              if (path === compilerPath && count === 2)
+                stopAt('postcheck-compiler')
+              if (path === sdkRoot && count === 2) stopAt('postcheck-sdk')
+              return metadata(path)
+            },
+            runXcrunCompilerPath: async () => {
+              childOrder.push('xcrun-compiler-resolver')
+              stopAt('compiler-child')
+              lifecycle.push('compiler-lifecycle')
+              const output =
+                fault === 'compiler-output' ? compilerPath : `${compilerPath}\n`
+              lifecycle.push('compiler-output')
+              return closedChild(output, fault === 'compiler-lifecycle')
+            },
+            runXcrunSdkPath: async () => {
+              childOrder.push('xcrun-sdk-resolver')
+              stopAt('sdk-child')
+              lifecycle.push('sdk-lifecycle')
+              const output = fault === 'sdk-output' ? sdkRoot : `${sdkRoot}\n`
+              lifecycle.push('sdk-output')
+              return closedChild(output, fault === 'sdk-lifecycle')
+            },
+            runCompilerDiagnostic: async () => {
+              childOrder.push('compiler-diagnostic')
+              stopAt('diagnostic-child')
+              lifecycle.push('diagnostic-lifecycle')
+              return closedChild(
+                'fixture-plan',
+                fault === 'diagnostic-lifecycle',
+              )
+            },
+            beforeAuthority: () => stopAt('authority-package'),
+          }
+          if (fault === 'journal-reorder') observe('xcrun-sdk-resolution')
+          if (fault === 'journal-duplicate')
+            observe('xcrun-compiler-resolution')
+          const diagnosticObserver: ProvisionalAPrebuildObserver = (
+            boundary,
+          ) => {
+            if (
+              fault === 'journal-omission' &&
+              boundary === 'xcrun-compiler-resolution'
+            )
+              return
+            observe(boundary)
+            boundaryOrder.push(boundary)
+          }
+          const authority =
+            await runPolicyNativeToolchainDerivationWithObserver(
+              {
+                repositoryRoot: '/fixture/repository',
+                nativeAuthoritySha256: 'b'.repeat(64),
+              },
+              diagnosticObserver,
+              harness,
+            )
+          const commitment = authority.authorityPackageSha256
+          if (typeof commitment !== 'string') throw new Error('fixture-fault')
+          toolchainCompleted = true
+          return authority
+        },
+        closeLock: async () => {
+          stopAt('lock-final-validation')
+          stopAt('lock-close')
+          if (toolchainCompleted)
+            boundaryOrder.push('derivation-lock-cycle-closed')
+        },
+      },
+    )
+  } catch {
+    genericStopped = true
+  }
+  return Object.freeze({
+    output:
+      result === undefined
+        ? Object.freeze({ status: 'stopped' as const })
+        : Object.freeze({
+            status:
+              result.authorityPackageSha256 === undefined
+                ? ('diagnostic-stopped' as const)
+                : ('diagnostic-complete' as const),
+            ...result,
+          }),
+    childOrder: Object.freeze(childOrder),
+    lifecycle: Object.freeze(lifecycle),
+    boundaryOrder: Object.freeze(boundaryOrder),
+    genericStopped,
+  })
 }
 
 type ChildFdHandle = Readonly<{ fd: number; close: () => Promise<void> }>

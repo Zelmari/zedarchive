@@ -21,8 +21,10 @@ import {
   inspectPolicyExclusivePromotionSource,
   parsePolicyPromotionPackage,
 } from './m45-policy-baseline'
+import { diagnosePolicyProvisionalBuildAPrebuild } from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
+const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v1'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -46,6 +48,7 @@ export type PolicyNativeDerivationMode =
   | 'check'
   | 'preflight'
   | 'recover-preflight'
+  | 'diagnose-a'
   | 'derive-a'
   | 'derive-b'
   | 'review-candidate'
@@ -56,12 +59,37 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'checked'
     | 'preflight-ready'
     | 'preflight-recovered'
+    | 'diagnostic-complete'
+    | 'diagnostic-stopped'
     | 'a-derived'
     | 'a-residue-preserved'
     | 'b-derived'
     | 'review-ready'
     | 'stopped'
   commitments?: Readonly<Record<string, string>>
+  lastSuccessfulBoundary?: PolicyProvisionalAPrebuildBoundary
+  derivationLockCycleClosed?: true
+}>
+
+export const policyProvisionalAPrebuildBoundaries = [
+  'entry-custody',
+  'lock-capability',
+  'derivation-lock-open',
+  'xcrun-compiler-resolution',
+  'xcrun-sdk-resolution',
+  'toolchain-input-attestation',
+  'compiler-diagnostic',
+  'toolchain-authority',
+  'derivation-lock-cycle-closed',
+] as const
+
+export type PolicyProvisionalAPrebuildBoundary =
+  (typeof policyProvisionalAPrebuildBoundaries)[number]
+
+type PolicyProvisionalAPrebuildDiagnostic = Readonly<{
+  lastSuccessfulBoundary: PolicyProvisionalAPrebuildBoundary
+  derivationLockCycleClosed?: true
+  authorityPackageSha256?: string
 }>
 
 type Metadata = Readonly<{
@@ -222,6 +250,11 @@ export type PolicyNativeDerivationSeams = Readonly<{
     cleanedStageAPackage: unknown
     sharedTerminal: unknown
   }) => Promise<Readonly<{ preflight: unknown; package: unknown }>>
+  diagnoseA: (input: {
+    repositoryRoot: string
+    nativeAuthoritySha256: string
+    commandLock: unknown
+  }) => Promise<PolicyProvisionalAPrebuildDiagnostic>
 }>
 
 function canonical(value: unknown): string {
@@ -257,6 +290,8 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
       operation === 'derive-b') &&
     literal === confirmation
   )
+    return operation
+  if (operation === 'diagnose-a' && literal === diagnosticConfirmation)
     return operation
   if (operation === 'review-candidate' && literal === reviewConfirmation)
     return operation
@@ -1217,6 +1252,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     nonce: () => sha256(randomBytes(32)),
     deriveA: derivePolicyProvisionalBuildA,
     deriveB: derivePolicyProvisionalBuildB,
+    diagnoseA: diagnosePolicyProvisionalBuildAPrebuild,
   }
 }
 
@@ -1263,6 +1299,62 @@ async function assertTrackedUnchanged(
     canonical(expected)
   )
     throw new Error('tracked-drift')
+}
+
+function parseProvisionalAPrebuildDiagnostic(
+  value: unknown,
+): PolicyProvisionalAPrebuildDiagnostic {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('diagnostic')
+  const record = value as Record<string, unknown>
+  const keys = Object.keys(record).sort()
+  const allowed = [
+    'authorityPackageSha256',
+    'derivationLockCycleClosed',
+    'lastSuccessfulBoundary',
+  ].sort()
+  if (
+    !keys.includes('lastSuccessfulBoundary') ||
+    !keys.every((key) => allowed.includes(key)) ||
+    typeof record.lastSuccessfulBoundary !== 'string' ||
+    !policyProvisionalAPrebuildBoundaries.includes(
+      record.lastSuccessfulBoundary as PolicyProvisionalAPrebuildBoundary,
+    )
+  )
+    throw new Error('diagnostic')
+  if (
+    record.derivationLockCycleClosed !== undefined &&
+    record.derivationLockCycleClosed !== true
+  )
+    throw new Error('diagnostic')
+  if (
+    record.authorityPackageSha256 !== undefined &&
+    (typeof record.authorityPackageSha256 !== 'string' ||
+      !/^[a-f0-9]{64}$/u.test(record.authorityPackageSha256))
+  )
+    throw new Error('diagnostic')
+  const complete =
+    record.lastSuccessfulBoundary === 'derivation-lock-cycle-closed'
+  const lockOpened =
+    policyProvisionalAPrebuildBoundaries.indexOf(
+      record.lastSuccessfulBoundary as PolicyProvisionalAPrebuildBoundary,
+    ) >= policyProvisionalAPrebuildBoundaries.indexOf('derivation-lock-open')
+  if (
+    complete !== (record.authorityPackageSha256 !== undefined) ||
+    !lockOpened ||
+    record.derivationLockCycleClosed !== true
+  )
+    throw new Error('diagnostic')
+  return Object.freeze({
+    lastSuccessfulBoundary:
+      record.lastSuccessfulBoundary as PolicyProvisionalAPrebuildBoundary,
+    ...(record.derivationLockCycleClosed === true
+      ? { derivationLockCycleClosed: true as const }
+      : {}),
+    ...(record.authorityPackageSha256 === undefined
+      ? {}
+      : { authorityPackageSha256: record.authorityPackageSha256 }),
+  })
 }
 
 async function runPolicyNativeDerivationCommandWithProfile(
@@ -1366,6 +1458,56 @@ async function runPolicyNativeDerivationCommandWithProfile(
           immutableBaselineRawSha256: recovered.baseline.rawSha256,
         },
       }),
+    )
+  }
+
+  if (mode === 'diagnose-a') {
+    return withLegacyCustody(
+      seams.filesystem,
+      m45,
+      controlRoot,
+      profile,
+      profile.lockOnlyRoot,
+      seams.effectiveUid,
+      lockedRootEntries,
+      lockedRootEntries,
+      [baselineName],
+      [baselineName],
+      true,
+      true,
+      async (recovered) => {
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], lockedRootEntries)
+        const diagnostic = parseProvisionalAPrebuildDiagnostic(
+          await seams.diagnoseA({
+            repositoryRoot,
+            nativeAuthoritySha256: tracked.nativeAuthoritySha256,
+            commandLock: terminalEvidence(recovered.commandLock!),
+          }),
+        )
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], lockedRootEntries)
+        return {
+          mode,
+          status:
+            diagnostic.authorityPackageSha256 === undefined
+              ? ('diagnostic-stopped' as const)
+              : ('diagnostic-complete' as const),
+          lastSuccessfulBoundary: diagnostic.lastSuccessfulBoundary,
+          ...(diagnostic.derivationLockCycleClosed === true
+            ? { derivationLockCycleClosed: true as const }
+            : {}),
+          commitments: {
+            ...commitments,
+            ...(diagnostic.authorityPackageSha256 === undefined
+              ? {}
+              : {
+                  toolchainAuthorityPackageSha256:
+                    diagnostic.authorityPackageSha256,
+                }),
+          },
+        }
+      },
     )
   }
 
@@ -1775,6 +1917,7 @@ export async function executePolicyNativeDerivationCli(
       argv[0] === 'check' ||
       argv[0] === 'preflight' ||
       argv[0] === 'recover-preflight' ||
+      argv[0] === 'diagnose-a' ||
       argv[0] === 'derive-a' ||
       argv[0] === 'derive-b' ||
       argv[0] === 'review-candidate'

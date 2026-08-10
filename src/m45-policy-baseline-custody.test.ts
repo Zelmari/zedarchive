@@ -1992,6 +1992,8 @@ describe('M45 policy baseline filesystem custody', () => {
     ].map((match) => match[1])
     expect(authorityExports).toEqual([
       'runPolicyNativeToolchainDerivation',
+      'diagnosePolicyProvisionalBuildAPrebuild',
+      'runPolicyProvisionalAPrebuildDiagnosticForFixture',
       'runPolicyNativeChildFdLifecycleForFixture',
       'runPolicyNativePositioningForFixture',
       'runPolicyBCandidateLifecycleForFixture',
@@ -2004,6 +2006,37 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(nativeAuthority).not.toMatch(
       /export async function .*?(?:Compiler|Helper|Contender|Cleanup)/u,
     )
+    const diagnosticBridge = nativeAuthority.slice(
+      nativeAuthority.indexOf(
+        'export async function diagnosePolicyProvisionalBuildAPrebuild',
+      ),
+      nativeAuthority.indexOf('type ChildFdHandle'),
+    )
+    const diagnosticCoreName =
+      'diagnosePolicyProvisionalBuildAPrebuildWithOperations'
+    expect(
+      nativeAuthority.match(new RegExp(diagnosticCoreName, 'gu')),
+    ).toHaveLength(3)
+    expect(diagnosticBridge).toContain(`return ${diagnosticCoreName}(input, {`)
+    expect(diagnosticBridge).toContain(`result = await ${diagnosticCoreName}(`)
+    const lockProbe = nativeAuthority.slice(
+      nativeAuthority.indexOf('async function commandLockCapabilityProbe'),
+      nativeAuthority.indexOf('type PositioningFixtureHarness'),
+    )
+    expect(lockProbe.match(/broker\.runLockContender/gu)).toHaveLength(2)
+    for (const forbidden of [
+      'buildAndCleanupA',
+      'runPolicyProvisionalBuildA',
+      'runPolicyProvisionalBuildB',
+      'runPolicyProvisionalBuildC',
+      'build-root',
+      'preflight-root',
+      'helper-capability',
+      'acl-fixture',
+      'accepted-literals',
+      'review-candidate',
+    ])
+      expect(diagnosticBridge).not.toContain(forbidden)
     // Decision 112 has two non-overlapping filler lifetimes: four initial
     // positioners establish a lock above FD 6, while every helper child gets a
     // fresh three- or four-filler set and closes it before the next child.

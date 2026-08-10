@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import {
   createPolicySyntheticNativeDerivationFixture,
+  executePolicyNativeDerivationCli,
   runPolicyNativeDerivationCommand,
   type PolicyNativeDerivationSeams,
 } from '@/../scripts/m45-policy-native-derivation'
@@ -12,7 +13,10 @@ import {
   inspectPolicyLockPreflightWorker,
   inspectPolicyNativeLaunchSources,
 } from '@/../scripts/m45-policy-baseline'
-import { runPolicyProvisionalBuildC } from '@/../scripts/m45-policy-baseline-native-authority'
+import {
+  runPolicyProvisionalAPrebuildDiagnosticForFixture,
+  runPolicyProvisionalBuildC,
+} from '@/../scripts/m45-policy-baseline-native-authority'
 import { createPolicySharedTerminalPlanForFixture } from '@/../scripts/m45-policy-baseline-native-launch-contract'
 
 const root = '/repo'
@@ -524,6 +528,7 @@ function fixture(
     nonce: () => digest,
     deriveA: vi.fn(),
     deriveB: vi.fn(),
+    diagnoseA: vi.fn(),
   }
   const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
   const run = (
@@ -585,6 +590,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-derivation-v1'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -615,6 +626,337 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(filesystem.mkdir).not.toHaveBeenCalled()
     expect(filesystem.writeFile).not.toHaveBeenCalled()
     expect(filesystem.chmodHeldDirectory).not.toHaveBeenCalled()
+  })
+
+  it('admits diagnose-a only from the exact D117 lock-only custody state', async () => {
+    const { seams, entries, heldFileReads, run } = fixture({
+      syntheticLegacy: true,
+    })
+    const diagnostic = vi.fn(async () => ({
+      lastSuccessfulBoundary: 'toolchain-authority' as const,
+      derivationLockCycleClosed: true as const,
+    }))
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        ...seams,
+        diagnoseA: diagnostic,
+      }),
+    ).rejects.toThrow()
+    expect(diagnostic).not.toHaveBeenCalled()
+
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      }),
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+    const lockPath = `${m45}/.policy-exclusive-promotion.lock`
+    const before = { ...entries.get(lockPath)!.metadata }
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        ...seams,
+        diagnoseA: diagnostic,
+      }),
+    ).resolves.toMatchObject({
+      mode: 'diagnose-a',
+      status: 'diagnostic-stopped',
+      lastSuccessfulBoundary: 'toolchain-authority',
+      derivationLockCycleClosed: true,
+    })
+    expect(diagnostic).toHaveBeenCalledOnce()
+    expect(entries.get(lockPath)?.metadata).toEqual(before)
+    expect(heldFileReads).not.toContain(lockPath)
+  })
+
+  it('emits the toolchain commitment only after the closed diagnostic boundary', async () => {
+    const { seams, filesystem, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        ...seams,
+        diagnoseA: vi.fn(async () => ({
+          lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
+          derivationLockCycleClosed: true as const,
+          authorityPackageSha256: digest,
+        })),
+      }),
+    ).resolves.toMatchObject({
+      status: 'diagnostic-complete',
+      lastSuccessfulBoundary: 'derivation-lock-cycle-closed',
+      commitments: { toolchainAuthorityPackageSha256: digest },
+    })
+    expect(filesystem.mkdir).not.toHaveBeenCalled()
+    expect(filesystem.writeFile).not.toHaveBeenCalled()
+    expect(filesystem.chmodHeldDirectory).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed diagnostic bridge material without adding authority', async () => {
+    const { seams, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        ...seams,
+        diagnoseA: vi.fn(async () => ({
+          lastSuccessfulBoundary: 'compiler-diagnostic' as const,
+          authorityPackageSha256: digest,
+        })),
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('rejects diagnostic bridge material with any extra field', async () => {
+    const { seams, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        ...seams,
+        diagnoseA: vi.fn(async () => ({
+          lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
+          derivationLockCycleClosed: true as const,
+          authorityPackageSha256: digest,
+          paths: ['/private/compiler'],
+        })),
+      }),
+    ).rejects.toThrow()
+  })
+
+  it.each([
+    [
+      'root identity',
+      (entries: Map<string, Entry>) => entries.get(m45)!.metadata.ino++,
+    ],
+    [
+      'control identity',
+      (entries: Map<string, Entry>) => entries.get(control)!.metadata.ino++,
+    ],
+    [
+      'baseline bytes',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.bytes!.fill(0),
+    ],
+    [
+      'preserved sibling identity',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.metadata.ino++,
+    ],
+    [
+      'lock identity',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.ino++,
+    ],
+    [
+      'fixed absence',
+      (entries: Map<string, Entry>) =>
+        entries.get(m45)!.entries!.add('.policy-exclusive-promotion-build'),
+    ],
+  ] as const)(
+    'rejects diagnostic %s drift before its native bridge',
+    async (_label, mutate) => {
+      const { seams, entries, run } = fixture({ syntheticLegacy: true })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      })
+      mutate(entries)
+      const diagnoseA = vi.fn()
+      await expect(
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+          ...seams,
+          diagnoseA,
+        }),
+      ).rejects.toThrow()
+      expect(diagnoseA).not.toHaveBeenCalled()
+    },
+  )
+
+  it('collapses post-diagnostic tracked-source or outer-custody drift', async () => {
+    for (const drift of ['tracked', 'custody'] as const) {
+      const { seams, entries, run } = fixture({ syntheticLegacy: true })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      })
+      let trackedChecks = 0
+      const diagnoseA = vi.fn(async () => {
+        if (drift === 'custody') entries.get(m45)!.metadata.ino++
+        return {
+          lastSuccessfulBoundary: 'toolchain-authority' as const,
+          derivationLockCycleClosed: true as const,
+        }
+      })
+      await expect(
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+          ...seams,
+          diagnoseA,
+          revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
+            trackedChecks += 1
+            return drift === 'tracked' && trackedChecks === 2
+              ? { ...expected, commit: 'd'.repeat(40) }
+              : expected
+          }),
+        }),
+      ).rejects.toThrow()
+      expect(diagnoseA).toHaveBeenCalledOnce()
+    }
+  })
+
+  it('runs the exact five-child diagnostic bridge in fixed order with closed safe output', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const observed = await runPolicyProvisionalAPrebuildDiagnosticForFixture({
+      faultAt: null,
+    })
+    expect(observed).toEqual({
+      output: {
+        status: 'diagnostic-complete',
+        lastSuccessfulBoundary: 'derivation-lock-cycle-closed',
+        derivationLockCycleClosed: true,
+        authorityPackageSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      },
+      childOrder: [
+        'held-lock-contender',
+        'released-lock-contender',
+        'xcrun-compiler-resolver',
+        'xcrun-sdk-resolver',
+        'compiler-diagnostic',
+      ],
+      lifecycle: [
+        'capability-open',
+        'held-contender-child',
+        'held-contender-lifecycle',
+        'held-contender-postcheck',
+        'released-contender-child',
+        'released-contender-lifecycle',
+        'released-contender-postcheck',
+        'derivation-lock-open',
+        'compiler-child',
+        'compiler-lifecycle',
+        'compiler-output',
+        'sdk-child',
+        'sdk-lifecycle',
+        'sdk-output',
+        'attestation-protected-stat',
+        'attestation-protected-read',
+        'diagnostic-child',
+        'diagnostic-lifecycle',
+        'postcheck-xcrun',
+        'postcheck-tracked-source',
+        'postcheck-compiler',
+        'postcheck-compiler-bytes',
+        'postcheck-sdk',
+        'postcheck-sdk-headers',
+        'authority-package',
+        'lock-final-validation',
+        'lock-close',
+      ],
+      boundaryOrder: [
+        'entry-custody',
+        'lock-capability',
+        'derivation-lock-open',
+        'xcrun-compiler-resolution',
+        'xcrun-sdk-resolution',
+        'toolchain-input-attestation',
+        'compiler-diagnostic',
+        'toolchain-authority',
+        'derivation-lock-cycle-closed',
+      ],
+      genericStopped: false,
+    })
+    expect(Object.keys(observed.output).sort()).toEqual([
+      'authorityPackageSha256',
+      'derivationLockCycleClosed',
+      'lastSuccessfulBoundary',
+      'status',
+    ])
+    vi.unstubAllEnvs()
+  })
+
+  it.each([
+    'capability-open',
+    'held-contender-child',
+    'held-contender-lifecycle',
+    'held-contender-postcheck',
+    'released-contender-child',
+    'released-contender-lifecycle',
+    'released-contender-postcheck',
+    'derivation-lock-open',
+    'lock-final-validation',
+    'lock-close',
+    'journal-duplicate',
+    'journal-omission',
+    'journal-reorder',
+  ] as const)('collapses %s ambiguity to generic stopped', async (faultAt) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const observed = await runPolicyProvisionalAPrebuildDiagnosticForFixture({
+      faultAt,
+    })
+    expect(observed.output).toEqual({ status: 'stopped' })
+    expect(observed.genericStopped).toBe(true)
+    expect(observed.childOrder.length).toBeLessThanOrEqual(5)
+    vi.unstubAllEnvs()
+  })
+
+  it.each([
+    ['compiler-child', 'derivation-lock-open'],
+    ['compiler-lifecycle', 'derivation-lock-open'],
+    ['compiler-output', 'derivation-lock-open'],
+    ['sdk-child', 'xcrun-compiler-resolution'],
+    ['sdk-lifecycle', 'xcrun-compiler-resolution'],
+    ['sdk-output', 'xcrun-compiler-resolution'],
+    ['attestation-protected-stat', 'xcrun-sdk-resolution'],
+    ['attestation-protected-read', 'xcrun-sdk-resolution'],
+    ['diagnostic-child', 'toolchain-input-attestation'],
+    ['diagnostic-lifecycle', 'toolchain-input-attestation'],
+    ['postcheck-tracked-source', 'toolchain-input-attestation'],
+    ['postcheck-xcrun', 'toolchain-input-attestation'],
+    ['postcheck-compiler', 'toolchain-input-attestation'],
+    ['postcheck-compiler-bytes', 'toolchain-input-attestation'],
+    ['postcheck-sdk', 'toolchain-input-attestation'],
+    ['postcheck-sdk-headers', 'toolchain-input-attestation'],
+    ['authority-package', 'compiler-diagnostic'],
+  ] as const)(
+    'reports only the preceding completed boundary for %s',
+    async (faultAt, expectedBoundary) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const observed = await runPolicyProvisionalAPrebuildDiagnosticForFixture({
+        faultAt,
+      })
+      expect(observed.output).toEqual({
+        status: 'diagnostic-stopped',
+        lastSuccessfulBoundary: expectedBoundary,
+        derivationLockCycleClosed: true,
+      })
+      expect(observed.genericStopped).toBe(false)
+      expect(observed.childOrder.length).toBeLessThanOrEqual(5)
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it('prints one generic safe CLI line for a rejected diagnostic invocation', async () => {
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    await expect(
+      executePolicyNativeDerivationCli([
+        'diagnose-a',
+        '--confirm-m45-policy-native-derivation-v1',
+      ]),
+    ).resolves.toBe(1)
+    expect(write).toHaveBeenCalledOnce()
+    const line = String(write.mock.calls[0]![0])
+    expect(line).toBe('{"mode":"diagnose-a","status":"stopped"}\n')
+    expect(line).not.toMatch(
+      /path|stderr|stdout|error|cause|stack|environment|fd|pid/iu,
+    )
+    write.mockRestore()
   })
 
   it('rejects an exact post-inventory when its held directory link count is wrong', async () => {
@@ -2094,6 +2436,25 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(classifierTrackedCheck).not.toMatch(/execFile|\bgit\(/u)
     expect(runner).not.toContain('a-failed-no-authority')
     expect(runner).toContain("| 'a-residue-preserved'")
+  })
+
+  it('records the staged diagnostic path only as a non-causal hypothesis', async () => {
+    const authority = await readFile(
+      new URL(
+        '../scripts/m45-policy-baseline-native-authority.ts',
+        import.meta.url,
+      ),
+      'utf8',
+    )
+    expect(authority).toContain(
+      'D118 records only a hypothesis: the `-###` plan names these staged paths',
+    )
+    expect(authority).toContain(
+      'that driver mode need not open or compile the staged source',
+    )
+    expect(authority).not.toMatch(
+      /`-###` (?:opens|compiles) the staged source/u,
+    )
   })
 
   it('rejects a non-Darwin, non-pinned-node, or noncanonical cwd before custody work', async () => {
