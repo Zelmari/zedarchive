@@ -57,6 +57,7 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'preflight-ready'
     | 'preflight-recovered'
     | 'a-derived'
+    | 'a-residue-preserved'
     | 'b-derived'
     | 'review-ready'
     | 'stopped'
@@ -95,7 +96,8 @@ type RunnerFilesystem = Readonly<{
   withHeldDirectory: <T>(
     path: string,
     readEntries: boolean,
-    postEntries: readonly string[] | undefined,
+    postEntries:
+      readonly string[] | (() => readonly string[] | undefined) | undefined,
     operation: (
       metadata: Metadata,
       entries: readonly string[] | undefined,
@@ -144,6 +146,14 @@ const legacyResidue = Object.freeze({
     nlink: 6,
     size: 192,
   }),
+  lockOnlyRoot: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 9973053,
+    mode: 0o700,
+    nlink: 7,
+    size: 224,
+  }),
   control: Object.freeze({
     uid: 501,
     dev: 16777231,
@@ -160,6 +170,14 @@ const legacyResidue = Object.freeze({
     nlink: 1,
     size: 1634,
     sha256: 'b5eee8c0e7ba784b7dcaebb42d20ab252a81703ebdaa3188058b177548a34e7c',
+  }),
+  lock: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 13221608,
+    mode: 0o600,
+    nlink: 1,
+    size: 0,
   }),
   tracked: Object.freeze({
     commit: '0b5877f4560cb56749a585b60a337e909e9f3947',
@@ -187,11 +205,16 @@ export type PolicyNativeDerivationSeams = Readonly<{
   effectiveUid: number
   cwd: string
   tracked: (repositoryRoot: string) => Promise<TrackedCommitments>
+  revalidateTracked: (
+    repositoryRoot: string,
+    expected: TrackedCommitments,
+  ) => Promise<TrackedCommitments>
   nonce: () => string
   deriveA: (input: {
     repositoryRoot: string
     rootNonceSha256: string
     sharedTerminal: unknown
+    commandLock: unknown
   }) => Promise<unknown>
   deriveB: (input: {
     repositoryRoot: string
@@ -359,11 +382,26 @@ function createPolicySyntheticLegacyResidue() {
     directory: false,
     symbolicLink: false,
   })
+  const lock = Object.freeze({
+    uid: 501,
+    dev: 9,
+    ino: 106,
+    mode: 0o600,
+    nlink: 1,
+    size: 0,
+  })
+  const lockOnlyRoot = Object.freeze({
+    ...root,
+    nlink: 7,
+    size: root.size + 32,
+  })
   return Object.freeze({
     root,
+    lockOnlyRoot,
     control: Object.freeze(control),
     siblings,
     baseline,
+    lock,
     baselineBytes: Buffer.from(bytes),
     tracked: syntheticTracked,
   })
@@ -521,6 +559,20 @@ function exactRecordKeys(value: unknown, keys: readonly string[]): void {
     throw new Error('legacy-baseline')
 }
 
+function parseASeamResult(
+  input: unknown,
+  expectedNativeAuthoritySha256: string,
+): ReturnType<typeof parsePolicyPromotionPackage> {
+  const packageResult = parsePolicyPromotionPackage(input)
+  if (
+    packageResult.stage !== 'A' ||
+    packageResult.material.nativeAuthoritySha256 !==
+      expectedNativeAuthoritySha256
+  )
+    throw new Error('a-seam-outcome')
+  return packageResult
+}
+
 function assertLegacyMetadata(
   metadata: Metadata,
   expected: Readonly<{
@@ -584,6 +636,14 @@ type ResidueProfile = Readonly<{
     nlink: number
     size: number
   }>
+  lockOnlyRoot: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>
   control: Readonly<{
     uid: number
     dev: number
@@ -601,6 +661,14 @@ type ResidueProfile = Readonly<{
     size: number
     sha256: string
   }>
+  lock: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>
   tracked: TrackedCommitments
 }>
 
@@ -609,10 +677,12 @@ type LegacyCustody = Readonly<{
   control: Metadata
   siblings: Readonly<Record<string, Metadata>>
   baseline: LegacyBaseline
+  commandLock?: Metadata
   revalidate: (
     controlEntries: readonly string[],
     rootEntries: readonly string[],
   ) => Promise<void>
+  setPostControlEntries: (entries: readonly string[]) => void
 }>
 
 const baseRootEntries = Object.freeze([...preservedSiblings, controlName])
@@ -623,14 +693,14 @@ async function withHeldCommandLock<T>(
   m45: string,
   root: Metadata,
   owner: number,
-  operation: (revalidate: () => Promise<void>) => Promise<T>,
+  operation: (lock: Metadata, revalidate: () => Promise<void>) => Promise<T>,
 ): Promise<T> {
   return filesystem.withHeldMetadataFile(
     join(m45, commandLockName),
     async (lock, revalidate) => {
       assertMetadata(lock, 'file', owner, 0o600, root.dev)
       if (lock.nlink !== 1 || lock.size !== 0) throw new Error('command-lock')
-      return operation(revalidate)
+      return operation(lock, revalidate)
     },
   )
 }
@@ -669,6 +739,7 @@ async function withLegacyCustody<T>(
   m45: string,
   controlRoot: string,
   profile: ResidueProfile,
+  exactRoot: ResidueProfile['root'],
   owner: number,
   expectedRootEntries: readonly string[],
   postRootEntries: readonly string[],
@@ -678,6 +749,7 @@ async function withLegacyCustody<T>(
   exactResidue: boolean,
   operation: (custody: LegacyCustody) => Promise<T>,
 ): Promise<T> {
+  let finalControlEntries = postControlEntries
   return filesystem.withHeldDirectory(
     m45,
     true,
@@ -690,14 +762,13 @@ async function withLegacyCustody<T>(
         root.nlink !== 2 + expectedRootEntries.length ||
         !exactEntries(observedRootEntries ?? [], expectedRootEntries) ||
         (exactResidue &&
-          (root.nlink !== profile.root.nlink ||
-            root.size !== profile.root.size))
+          (root.nlink !== exactRoot.nlink || root.size !== exactRoot.size))
       )
         throw new Error('legacy-baseline')
       return filesystem.withHeldDirectory(
         controlRoot,
         true,
-        postControlEntries,
+        () => finalControlEntries,
         async (control, observedControlEntries, revalidateControl) => {
           assertMetadata(control, 'directory', owner, 0o700, root.dev)
           if (
@@ -734,6 +805,7 @@ async function withLegacyCustody<T>(
                 if (index === preservedSiblings.length) {
                   assertSameSiblings(baseline.artifact, siblings)
                   const invokeOperation = (
+                    commandLock?: Metadata,
                     revalidateLock?: () => Promise<void>,
                   ) =>
                     operation({
@@ -741,6 +813,7 @@ async function withLegacyCustody<T>(
                       control,
                       siblings: Object.freeze({ ...siblings }),
                       baseline,
+                      commandLock,
                       revalidate: async (
                         expectedControlEntries,
                         revalidatedRootEntries,
@@ -752,6 +825,9 @@ async function withLegacyCustody<T>(
                           await revalidateSibling()
                         await revalidateLock?.()
                       },
+                      setPostControlEntries: (entries) => {
+                        finalControlEntries = entries
+                      },
                     })
                   return holdCommandLock
                     ? withHeldCommandLock(
@@ -759,7 +835,14 @@ async function withLegacyCustody<T>(
                         m45,
                         root,
                         owner,
-                        invokeOperation,
+                        (commandLock, revalidateLock) => {
+                          assertLegacyMetadata(
+                            commandLock,
+                            profile.lock,
+                            'file',
+                          )
+                          return invokeOperation(commandLock, revalidateLock)
+                        },
                       )
                     : invokeOperation()
                 }
@@ -892,7 +975,11 @@ function defaultFilesystem(): RunnerFilesystem {
         const before = toMetadata(await handle.stat())
         const entries = readEntries ? await readdir(path) : undefined
         const revalidate = async (
-          expectedEntries = postEntries ?? entries ?? [],
+          expectedEntries = (typeof postEntries === 'function'
+            ? postEntries()
+            : postEntries) ??
+            entries ??
+            [],
         ) => {
           const after = toMetadata(await handle.stat())
           const pathAfter = await metadata(path)
@@ -1092,6 +1179,30 @@ async function defaultTracked(
   }
 }
 
+async function defaultRevalidateTracked(
+  _repositoryRoot: string,
+  expected: TrackedCommitments,
+): Promise<TrackedCommitments> {
+  // The pre-seam clean-HEAD gate owns commit identity. Failure classification
+  // launches no child and grants no authority, so it rehashes only the
+  // security-critical source graph while retaining that already-gated commit.
+  const [source, launches, worker, runner] = await Promise.all([
+    inspectPolicyExclusivePromotionSource(),
+    inspectPolicyNativeLaunchSources(),
+    inspectPolicyLockPreflightWorker(),
+    readFile(fileURLToPath(import.meta.url)),
+  ])
+  return {
+    commit: expected.commit,
+    runnerSha256: sha256(runner),
+    sourceSha256: source.sha256,
+    launchContractSha256: launches.launchContractSha256,
+    launcherSha256: launches.launcherSha256,
+    nativeAuthoritySha256: launches.nativeAuthoritySha256,
+    lockPreflightWorkerSha256: worker.sha256,
+  }
+}
+
 function defaultSeams(): PolicyNativeDerivationSeams {
   return {
     filesystem: defaultFilesystem(),
@@ -1102,6 +1213,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     effectiveUid: process.geteuid?.() ?? -1,
     cwd: process.cwd(),
     tracked: defaultTracked,
+    revalidateTracked: defaultRevalidateTracked,
     nonce: () => sha256(randomBytes(32)),
     deriveA: derivePolicyProvisionalBuildA,
     deriveB: derivePolicyProvisionalBuildB,
@@ -1122,6 +1234,35 @@ function assertHost(
     seams.cwd !== repositoryRoot
   )
     throw new Error('host')
+}
+
+type AEntry = 'fresh-base' | 'lock-only-reentry'
+
+async function selectAEntry(
+  filesystem: RunnerFilesystem,
+  m45: string,
+): Promise<AEntry> {
+  const held = await filesystem.heldDirectory(m45)
+  if (
+    canonical(held.before) !== canonical(held.after) ||
+    canonical(held.before) !== canonical(held.pathAfter)
+  )
+    throw new Error('a-entry')
+  if (exactEntries(held.entries, baseRootEntries)) return 'fresh-base'
+  if (exactEntries(held.entries, lockedRootEntries)) return 'lock-only-reentry'
+  throw new Error('a-entry')
+}
+
+async function assertTrackedUnchanged(
+  seams: PolicyNativeDerivationSeams,
+  repositoryRoot: string,
+  expected: TrackedCommitments,
+): Promise<void> {
+  if (
+    canonical(await seams.revalidateTracked(repositoryRoot, expected)) !==
+    canonical(expected)
+  )
+    throw new Error('tracked-drift')
 }
 
 async function runPolicyNativeDerivationCommandWithProfile(
@@ -1209,6 +1350,7 @@ async function runPolicyNativeDerivationCommandWithProfile(
       m45,
       controlRoot,
       profile,
+      profile.root,
       seams.effectiveUid,
       baseRootEntries,
       baseRootEntries,
@@ -1228,22 +1370,28 @@ async function runPolicyNativeDerivationCommandWithProfile(
   }
 
   if (mode === 'derive-a') {
+    const entry = await selectAEntry(seams.filesystem, m45)
+    const expectedRootEntries =
+      entry === 'fresh-base' ? baseRootEntries : lockedRootEntries
     return withLegacyCustody(
       seams.filesystem,
       m45,
       controlRoot,
       profile,
+      entry === 'lock-only-reentry' ? profile.lockOnlyRoot : profile.root,
       seams.effectiveUid,
-      baseRootEntries,
+      expectedRootEntries,
       lockedRootEntries,
       [baselineName],
       [baselineName, stageAName],
-      false,
+      entry === 'lock-only-reentry',
       true,
       async (recovered) => {
-        await recovered.revalidate([baselineName], baseRootEntries)
-        const stageA = parsePolicyPromotionPackage(
-          await seams.deriveA({
+        let seamEntered = false
+        try {
+          await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+          await recovered.revalidate([baselineName], expectedRootEntries)
+          const aInput = {
             repositoryRoot,
             rootNonceSha256: seams.nonce(),
             sharedTerminal: {
@@ -1259,15 +1407,19 @@ async function runPolicyNativeDerivationCommandWithProfile(
                 'policy-native-derivation': terminalEvidence(recovered.control),
               }),
             },
-          }),
-        )
-        await recovered.revalidate([baselineName], lockedRootEntries)
-        return withHeldCommandLock(
-          seams.filesystem,
-          m45,
-          recovered.root,
-          seams.effectiveUid,
-          async (revalidateLock) => {
+            commandLock:
+              entry === 'lock-only-reentry'
+                ? terminalEvidence(recovered.commandLock!)
+                : null,
+          }
+          seamEntered = true
+          const stageA = parseASeamResult(
+            await seams.deriveA(aInput),
+            tracked.nativeAuthoritySha256,
+          )
+          await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+          await recovered.revalidate([baselineName], lockedRootEntries)
+          const write = async (revalidateLock: () => Promise<void>) => {
             await recovered.revalidate([baselineName], lockedRootEntries)
             await revalidateLock()
             const artifact = await writeArtifact(
@@ -1296,14 +1448,51 @@ async function runPolicyNativeDerivationCommandWithProfile(
             )
             return {
               mode,
-              status: 'a-derived',
+              status: 'a-derived' as const,
               commitments: {
                 ...commitments,
                 stageASha256: String(artifact.artifactSha256),
               },
             }
-          },
-        )
+          }
+          return await (recovered.commandLock === undefined
+            ? withHeldCommandLock(
+                seams.filesystem,
+                m45,
+                recovered.root,
+                seams.effectiveUid,
+                (_commandLock, revalidateLock) => write(revalidateLock),
+              )
+            : write(async () => undefined))
+        } catch (error) {
+          if (!seamEntered) throw error
+          try {
+            await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+            await recovered.revalidate([baselineName], lockedRootEntries)
+            await absent(seams.filesystem, join(controlRoot, stageAName))
+            recovered.setPostControlEntries([baselineName])
+            return {
+              mode,
+              status: 'a-residue-preserved' as const,
+              commitments,
+            }
+          } catch {
+            try {
+              await recovered.revalidate(
+                [baselineName, stageAName],
+                lockedRootEntries,
+              )
+              recovered.setPostControlEntries([baselineName, stageAName])
+              return {
+                mode,
+                status: 'a-residue-preserved' as const,
+                commitments,
+              }
+            } catch {
+              throw error
+            }
+          }
+        }
       },
     )
   }
@@ -1314,6 +1503,7 @@ async function runPolicyNativeDerivationCommandWithProfile(
       m45,
       controlRoot,
       profile,
+      profile.root,
       seams.effectiveUid,
       lockedRootEntries,
       lockedRootEntries,
@@ -1435,6 +1625,7 @@ async function runPolicyNativeDerivationCommandWithProfile(
     m45,
     controlRoot,
     profile,
+    profile.root,
     seams.effectiveUid,
     lockedRootEntries,
     lockedRootEntries,

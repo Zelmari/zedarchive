@@ -954,6 +954,7 @@ export async function derivePolicyProvisionalBuildA(
     repositoryRoot: string
     rootNonceSha256: string
     sharedTerminal: unknown
+    commandLock: unknown
   }>,
 ): Promise<PolicyPromotionPackage> {
   const repositoryRoot = await realpath(input.repositoryRoot)
@@ -968,6 +969,7 @@ export async function derivePolicyProvisionalBuildA(
     nativeAuthoritySha256: launch.nativeAuthoritySha256,
     rootNonceSha256: input.rootNonceSha256,
     sharedTerminal: input.sharedTerminal,
+    commandLock: input.commandLock,
   })
   const packageResult = parsePolicyPromotionPackage(result)
   if (

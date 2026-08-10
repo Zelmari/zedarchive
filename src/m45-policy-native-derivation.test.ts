@@ -29,6 +29,10 @@ const tracked = {
   lockPreflightWorkerSha256: digest,
 }
 
+async function residueFailure(): Promise<never> {
+  throw new Error('residue')
+}
+
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
   if (value !== null && typeof value === 'object')
@@ -70,7 +74,7 @@ function stageAPackage() {
     xcrunSha256: digest,
     xcrunDevice: '1',
     xcrunInode: '1',
-    sourceSha256: digest,
+    sourceSha256: tracked.sourceSha256,
     compilerSha256: digest,
     compilerDevice: '1',
     compilerInode: '1',
@@ -80,10 +84,10 @@ function stageAPackage() {
     headerSetSha256: digest,
     diagnosticSha256: digest,
     compileContractSha256: digest,
-    launchContractSha256: digest,
-    launcherSha256: digest,
-    nativeAuthoritySha256: digest,
-    lockPreflightWorkerSha256: digest,
+    launchContractSha256: tracked.launchContractSha256,
+    launcherSha256: tracked.launcherSha256,
+    nativeAuthoritySha256: tracked.nativeAuthoritySha256,
+    lockPreflightWorkerSha256: tracked.lockPreflightWorkerSha256,
     helperSha256: digest,
   }
   const core = {
@@ -125,6 +129,11 @@ async function actualStagePackages() {
     inspectPolicyNativeLaunchSources(),
     inspectPolicyLockPreflightWorker(),
   ])
+  tracked.sourceSha256 = source.sha256
+  tracked.launchContractSha256 = launch.launchContractSha256
+  tracked.launcherSha256 = launch.launcherSha256
+  tracked.nativeAuthoritySha256 = launch.nativeAuthoritySha256
+  tracked.lockPreflightWorkerSha256 = worker.sha256
   const create = (stage: 'A' | 'B') => {
     const seed = stage === 'A' ? stageAPackage() : stageBPackage()
     const core = Object.fromEntries(
@@ -217,9 +226,11 @@ function fixture(
   const entries = new Map<string, Entry>()
   const directoryInventoryReads: string[] = []
   const heldFileReads: string[] = []
+  const heldMetadataPaths = new Set<string>()
   const wrongPostNlinkPaths = new Set(
     options.wrongPostNlinkPath ? [options.wrongPostNlinkPath] : [],
   )
+  const wrongInitialNlinkPaths = new Set<string>()
   const syntheticFixture = options.syntheticLegacy
     ? createPolicySyntheticNativeDerivationFixture()
     : undefined
@@ -282,18 +293,23 @@ function fixture(
     if (entries.has(path)) throw new Error('lock-exists')
     entries.set(path, {
       metadata: {
-        uid: 501,
-        dev: 9,
-        ino: inode++,
-        mode: 0o600,
-        nlink: 1,
-        size: 0,
+        ...(syntheticFixture?.residue.lock ?? {
+          uid: 501,
+          dev: 9,
+          ino: inode++,
+          mode: 0o600,
+          nlink: 1,
+          size: 0,
+        }),
         file: true,
         directory: false,
         symbolicLink: false,
       },
     })
     entries.get(m45)!.entries!.add('.policy-exclusive-promotion.lock')
+    if (syntheticFixture)
+      entries.get(m45)!.metadata.size =
+        syntheticFixture.residue.lockOnlyRoot.size
   }
   const filesystem = {
     lstat: vi.fn(async (path: string) => {
@@ -387,7 +403,8 @@ function fixture(
     withHeldDirectory: async <T>(
       path: string,
       readEntries: boolean,
-      postEntries: readonly string[] | undefined,
+      postEntries:
+        readonly string[] | (() => readonly string[] | undefined) | undefined,
       operation: (
         metadata: Entry['metadata'],
         entries: readonly string[] | undefined,
@@ -400,10 +417,13 @@ function fixture(
       const beforeEntries = [...value.entries]
       const before = {
         ...value.metadata,
-        nlink: 2 + value.entries.size,
+        nlink:
+          2 + value.entries.size + (wrongInitialNlinkPaths.has(path) ? 1 : 0),
       }
       const revalidate = async (
-        expectedEntries = postEntries ?? beforeEntries,
+        expectedEntries = (typeof postEntries === 'function'
+          ? postEntries()
+          : postEntries) ?? beforeEntries,
       ) => {
         const after = {
           ...value.metadata,
@@ -481,9 +501,14 @@ function fixture(
         if (canonical(before) !== canonical(value.metadata))
           throw new Error('drift')
       }
-      const result = await operation(before, revalidate)
-      await revalidate()
-      return result
+      heldMetadataPaths.add(path)
+      try {
+        const result = await operation(before, revalidate)
+        await revalidate()
+        return result
+      } finally {
+        heldMetadataPaths.delete(path)
+      }
     },
   }
   const seams: Partial<PolicyNativeDerivationSeams> = {
@@ -495,6 +520,7 @@ function fixture(
     effectiveUid: 501,
     cwd: root,
     tracked: vi.fn(async () => tracked),
+    revalidateTracked: vi.fn(async (_repositoryRoot, expected) => expected),
     nonce: () => digest,
     deriveA: vi.fn(),
     deriveB: vi.fn(),
@@ -514,9 +540,12 @@ function fixture(
             deriveA: async (
               input: Parameters<PolicyNativeDerivationSeams['deriveA']>[0],
             ) => {
-              const result = await deriveA(input)
-              addCommandLock()
-              return result
+              try {
+                return await deriveA(input)
+              } finally {
+                if (!entries.has(`${m45}/.policy-exclusive-promotion.lock`))
+                  addCommandLock()
+              }
             },
           }
         : overrides
@@ -528,7 +557,9 @@ function fixture(
     seams,
     directoryInventoryReads,
     heldFileReads,
+    heldMetadataPaths,
     wrongPostNlinkPaths,
+    wrongInitialNlinkPaths,
     syntheticResidue: syntheticFixture?.residue,
     run,
   }
@@ -872,15 +903,16 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const { seams, entries, run } = fixture({ syntheticLegacy: true })
     const deriveA = vi
       .fn<() => Promise<unknown>>()
-      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('residue'))
       .mockResolvedValue(stageAPackage())
     await expect(
       run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
         ...seams,
         deriveA,
       }),
-    ).rejects.toThrow()
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
     expect(entries.has(`${control}/stage-a.v1.json`)).toBe(false)
+    expect(entries.has(`${m45}/.policy-exclusive-promotion.lock`)).toBe(true)
     entries.get(`${m45}/discovery`)!.metadata.ino++
     await expect(
       run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
@@ -889,6 +921,564 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       }),
     ).rejects.toThrow()
     expect(deriveA).toHaveBeenCalledTimes(1)
+  })
+
+  it('admits one exact lock-only re-entry without recreating or rewriting the lock', async () => {
+    const { seams, entries, filesystem, heldMetadataPaths, run } = fixture({
+      syntheticLegacy: true,
+    })
+    const deriveA = vi
+      .fn<
+        (
+          input: Parameters<PolicyNativeDerivationSeams['deriveA']>[0],
+        ) => Promise<unknown>
+      >()
+      .mockRejectedValueOnce(new Error('residue'))
+      .mockImplementationOnce(async () => {
+        expect(
+          heldMetadataPaths.has(`${m45}/.policy-exclusive-promotion.lock`),
+        ).toBe(true)
+        return stageAPackage()
+      })
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+    const lockPath = `${m45}/.policy-exclusive-promotion.lock`
+    const lockBefore = { ...entries.get(lockPath)!.metadata }
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).resolves.toMatchObject({ status: 'a-derived' })
+    expect(deriveA).toHaveBeenCalledTimes(2)
+    expect(deriveA.mock.calls[1]![0].commandLock).toEqual({
+      uid: '501',
+      device: '9',
+      inode: String(lockBefore.ino),
+      links: '1',
+      mode: '384',
+      size: '0',
+    })
+    expect(entries.get(lockPath)?.metadata).toEqual(lockBefore)
+    expect(filesystem.writeFile).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['before', 'during', 'after'] as const)(
+    'rejects lock substitution %s a lock-only A seam',
+    async (timing) => {
+      const { seams, entries, run } = fixture({ syntheticLegacy: true })
+      const first = vi.fn(async () => {
+        throw new Error('residue')
+      })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: first,
+      })
+      const lockPath = `${m45}/.policy-exclusive-promotion.lock`
+      const second = vi.fn(async () => {
+        if (timing === 'during') entries.get(lockPath)!.metadata.ino++
+        return stageAPackage()
+      })
+      if (timing === 'before') entries.get(lockPath)!.metadata.ino++
+      const baseFilesystem = seams.filesystem!
+      const filesystem =
+        timing === 'after'
+          ? {
+              ...baseFilesystem,
+              writeFile: async (
+                ...args: Parameters<typeof baseFilesystem.writeFile>
+              ) => {
+                await baseFilesystem.writeFile(...args)
+                entries.get(lockPath)!.metadata.ino++
+              },
+            }
+          : baseFilesystem
+      await expect(
+        run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          filesystem,
+          deriveA: second,
+        }),
+      ).rejects.toThrow()
+      expect(entries.has(`${control}/stage-a.v1.json`)).toBe(timing === 'after')
+      expect(second).toHaveBeenCalledTimes(timing === 'before' ? 0 : 1)
+    },
+  )
+
+  it('maps malformed seam output to residue-preserved without a retry', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    const deriveA = vi.fn(async () => ({}))
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+    expect(entries.has(`${control}/stage-a.v1.json`)).toBe(false)
+    expect(deriveA).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['derived B', () => stageBPackage()],
+    [
+      'wrong native authority',
+      () => {
+        const value = stageAPackage()
+        const { packageSha256: _packageSha256, ...packageCore } = value
+        void _packageSha256
+        const core = {
+          ...packageCore,
+          material: {
+            ...value.material,
+            nativeAuthoritySha256: 'f'.repeat(64),
+          },
+        }
+        return {
+          ...core,
+          packageSha256: createHash('sha256')
+            .update(canonical(core))
+            .digest('hex'),
+        }
+      },
+    ],
+  ] as const)(
+    'preserves a %s seam result as residue',
+    async (_name, result) => {
+      const { seams, entries, run } = fixture({ syntheticLegacy: true })
+      await expect(
+        run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveA: vi.fn(async () => result()),
+        }),
+      ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+      expect(entries.has(`${control}/stage-a.v1.json`)).toBe(false)
+    },
+  )
+
+  it('maps a no-artifact Stage-A write failure to residue-preserved', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    const filesystem = {
+      ...seams.filesystem!,
+      writeFile: vi.fn(async () => {
+        throw new Error('write-failed')
+      }),
+    }
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        filesystem,
+        deriveA: vi.fn(async () => stageAPackage()),
+      }),
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+    expect(entries.has(`${control}/stage-a.v1.json`)).toBe(false)
+    expect(filesystem.writeFile).toHaveBeenCalledOnce()
+  })
+
+  it('maps an arbitrary in-seam rejection to residue-preserved', async () => {
+    const { seams, filesystem, run } = fixture({ syntheticLegacy: true })
+    const result = await run(
+      ['derive-a', '--confirm-m45-policy-native-derivation-v1'],
+      {
+        ...seams,
+        deriveA: vi.fn(async () => {
+          throw new Error('uncertain-lifecycle')
+        }),
+      },
+    )
+    expect(result).toMatchObject({ status: 'a-residue-preserved' })
+    const line = `${JSON.stringify(result)}\n`
+    expect(line.endsWith('\n')).toBe(true)
+    expect(line.slice(0, -1)).not.toContain('\n')
+    expect(line).not.toMatch(/\/repo|descriptor|uncertain-lifecycle/iu)
+    expect(seams.tracked).toHaveBeenCalledOnce()
+    expect(seams.revalidateTracked).toHaveBeenCalled()
+    expect(filesystem.writeFile).not.toHaveBeenCalled()
+  })
+
+  it('keeps nonce construction before the A seam and outer-stopped', async () => {
+    const { seams, filesystem, run } = fixture({ syntheticLegacy: true })
+    const deriveA = vi.fn()
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        nonce: () => {
+          throw new Error('nonce')
+        },
+        deriveA,
+      }),
+    ).rejects.toThrow()
+    expect(deriveA).not.toHaveBeenCalled()
+    expect(filesystem.writeFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects deletion of the lock-only checkpoint as a false fresh base', async () => {
+    const { seams, entries, filesystem, run } = fixture({
+      syntheticLegacy: true,
+    })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    entries.get(m45)!.entries!.delete('.policy-exclusive-promotion.lock')
+    entries.delete(`${m45}/.policy-exclusive-promotion.lock`)
+    const deriveA = vi.fn()
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).rejects.toThrow()
+    expect(entries.get(m45)!.metadata.size).toBe(
+      createPolicySyntheticNativeDerivationFixture().residue.lockOnlyRoot.size,
+    )
+    expect(deriveA).not.toHaveBeenCalled()
+    expect(filesystem.writeFile).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'root uid',
+      (entries: Map<string, Entry>) => entries.get(m45)!.metadata.uid++,
+    ],
+    [
+      'root dev',
+      (entries: Map<string, Entry>) => entries.get(m45)!.metadata.dev++,
+    ],
+    [
+      'root ino',
+      (entries: Map<string, Entry>) => entries.get(m45)!.metadata.ino++,
+    ],
+    [
+      'root mode',
+      (entries: Map<string, Entry>) =>
+        (entries.get(m45)!.metadata.mode = 0o755),
+    ],
+    [
+      'root size',
+      (entries: Map<string, Entry>) => entries.get(m45)!.metadata.size++,
+    ],
+    [
+      'root type',
+      (entries: Map<string, Entry>) =>
+        (entries.get(m45)!.metadata.directory = false),
+    ],
+    [
+      'root inventory',
+      (entries: Map<string, Entry>) =>
+        entries.get(m45)!.entries!.add('unknown'),
+    ],
+    [
+      'control uid',
+      (entries: Map<string, Entry>) => entries.get(control)!.metadata.uid++,
+    ],
+    [
+      'control dev',
+      (entries: Map<string, Entry>) => entries.get(control)!.metadata.dev++,
+    ],
+    [
+      'control ino',
+      (entries: Map<string, Entry>) => entries.get(control)!.metadata.ino++,
+    ],
+    [
+      'control mode',
+      (entries: Map<string, Entry>) =>
+        (entries.get(control)!.metadata.mode = 0o755),
+    ],
+    [
+      'control size',
+      (entries: Map<string, Entry>) => entries.get(control)!.metadata.size++,
+    ],
+    [
+      'control type',
+      (entries: Map<string, Entry>) =>
+        (entries.get(control)!.metadata.directory = false),
+    ],
+    [
+      'control inventory',
+      (entries: Map<string, Entry>) =>
+        entries.get(control)!.entries!.add('unknown'),
+    ],
+    [
+      'baseline uid',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.uid++,
+    ],
+    [
+      'baseline dev',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.dev++,
+    ],
+    [
+      'baseline ino',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.ino++,
+    ],
+    [
+      'baseline mode',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.mode =
+          0o400),
+    ],
+    [
+      'baseline nlink',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata
+          .nlink++,
+    ],
+    [
+      'baseline size',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.size++,
+    ],
+    [
+      'baseline type',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${control}/shared-root-baseline.v1.json`)!.metadata.file =
+          false),
+    ],
+    [
+      'sibling uid',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.metadata.uid++,
+    ],
+    [
+      'sibling dev',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.metadata.dev++,
+    ],
+    [
+      'sibling ino',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.metadata.ino++,
+    ],
+    [
+      'sibling mode',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${m45}/discovery`)!.metadata.mode = 0o700),
+    ],
+    [
+      'sibling nlink',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.entries!.add('opaque'),
+    ],
+    [
+      'sibling size',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/discovery`)!.metadata.size++,
+    ],
+    [
+      'sibling type',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${m45}/discovery`)!.metadata.directory = false),
+    ],
+    [
+      'lock uid',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.uid++,
+    ],
+    [
+      'lock dev',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.dev++,
+    ],
+    [
+      'lock ino',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.ino++,
+    ],
+    [
+      'lock mode',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.mode =
+          0o644),
+    ],
+    [
+      'lock nlink',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata
+          .nlink++,
+    ],
+    [
+      'lock size',
+      (entries: Map<string, Entry>) =>
+        entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.size++,
+    ],
+    [
+      'lock type',
+      (entries: Map<string, Entry>) =>
+        (entries.get(`${m45}/.policy-exclusive-promotion.lock`)!.metadata.file =
+          false),
+    ],
+  ] satisfies readonly (readonly [
+    string,
+    (entries: Map<string, Entry>) => unknown,
+  ])[])('rejects lock-only pre-seam %s drift', async (_name, mutate) => {
+    const { seams, entries, filesystem, run } = fixture({
+      syntheticLegacy: true,
+    })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    mutate(entries)
+    const deriveA = vi.fn()
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).rejects.toThrow()
+    expect(deriveA).not.toHaveBeenCalled()
+    expect(filesystem.writeFile).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'bytes',
+      (bytes: Buffer) => {
+        bytes[0] ^= 1
+      },
+    ],
+    [
+      'schema',
+      (bytes: Buffer) => {
+        const index = bytes.indexOf('m45-policy-native-shared-root-baseline')
+        bytes[index] = 'n'.charCodeAt(0)
+      },
+    ],
+    [
+      'profile',
+      (bytes: Buffer) => {
+        const index = bytes.indexOf('c'.repeat(40))
+        bytes[index] = 'd'.charCodeAt(0)
+      },
+    ],
+  ] as const)(
+    'rejects lock-only baseline %s drift before the seam',
+    async (_name, mutate) => {
+      const { seams, entries, filesystem, run } = fixture({
+        syntheticLegacy: true,
+      })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      })
+      mutate(entries.get(`${control}/shared-root-baseline.v1.json`)!.bytes!)
+      const deriveA = vi.fn()
+      await expect(
+        run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveA,
+        }),
+      ).rejects.toThrow()
+      expect(deriveA).not.toHaveBeenCalled()
+      expect(filesystem.writeFile).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([
+    ['build', m45, '.policy-exclusive-promotion-build'],
+    ['preflight', m45, '.policy-exclusive-promotion-preflight'],
+    ['stage A', control, 'stage-a.v1.json'],
+    ['stage B', control, 'stage-b.v1.json'],
+    ['candidate', control, 'candidate.v1.json'],
+    ['review', control, 'review-input.v1.json'],
+  ] as const)(
+    'rejects lock-only fixed %s presence before the seam',
+    async (_name, parent, entry) => {
+      const { seams, entries, filesystem, run } = fixture({
+        syntheticLegacy: true,
+      })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      })
+      entries.get(parent)!.entries!.add(entry)
+      const deriveA = vi.fn()
+      await expect(
+        run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveA,
+        }),
+      ).rejects.toThrow()
+      expect(deriveA).not.toHaveBeenCalled()
+      expect(filesystem.writeFile).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([m45, control])(
+    'rejects a lock-only held nlink mismatch at %s',
+    async (path) => {
+      const { seams, filesystem, wrongInitialNlinkPaths, run } = fixture({
+        syntheticLegacy: true,
+      })
+      await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(residueFailure),
+      })
+      wrongInitialNlinkPaths.add(path)
+      const deriveA = vi.fn()
+      await expect(
+        run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+          ...seams,
+          deriveA,
+        }),
+      ).rejects.toThrow()
+      expect(deriveA).not.toHaveBeenCalled()
+      expect(filesystem.writeFile).not.toHaveBeenCalled()
+    },
+  )
+
+  it('preserves a Stage-A write collision as closed residue', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(async () => {
+        throw new Error('residue')
+      }),
+    })
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA: vi.fn(async () => {
+          entries.set(`${control}/stage-a.v1.json`, {
+            metadata: {
+              uid: 501,
+              dev: 9,
+              ino: 999,
+              mode: 0o600,
+              nlink: 1,
+              size: 1,
+              file: true,
+              directory: false,
+              symbolicLink: false,
+            },
+            bytes: Buffer.from('x'),
+          })
+          entries.get(control)!.entries!.add('stage-a.v1.json')
+          return stageAPackage()
+        }),
+      }),
+    ).resolves.toMatchObject({ status: 'a-residue-preserved' })
+  })
+
+  it('keeps a classifier failure outer-stopped', async () => {
+    const { seams, entries, run } = fixture({ syntheticLegacy: true })
+    const deriveA = vi.fn(async () => {
+      entries.get(control)!.entries!.add('unclassified')
+      throw new Error('residue')
+    })
+    await expect(
+      run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+        ...seams,
+        deriveA,
+      }),
+    ).rejects.toThrow()
+    expect(deriveA).toHaveBeenCalledOnce()
   })
 
   it.each([
@@ -1394,7 +1984,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
             ['derive-a', '--confirm-m45-policy-native-derivation-v1'],
             deriveA,
           ),
-        ).rejects.toThrow()
+        ).resolves.toMatchObject({ status: 'a-residue-preserved' })
         return
       }
       await run(
@@ -1458,6 +2048,52 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(helper).toContain('parent_after.st_nlink != 7')
     expect(helper).not.toContain('parent_expected.links != 7')
     expect(helper).not.toContain('parent_after.st_nlink != 6')
+  })
+
+  it('keeps D117 re-entry fixed, non-mutating, and retry-selector-free', async () => {
+    const [runner, authority] = await Promise.all([
+      readFile(
+        new URL('../scripts/m45-policy-native-derivation.ts', import.meta.url),
+        'utf8',
+      ),
+      readFile(
+        new URL(
+          '../scripts/m45-policy-baseline-native-authority.ts',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    ])
+    const existingLockOpen = authority.slice(
+      authority.indexOf('async function openCommandLock'),
+      authority.indexOf('function closedContender'),
+    )
+    expect(existingLockOpen).toContain(
+      'if (mustExist) return open(lockPath, lockExistingFlags)',
+    )
+    expect(existingLockOpen).not.toMatch(/truncate|chmod|unlink|rename/u)
+    const existingLockFlags = authority.slice(
+      authority.indexOf('const lockExistingFlags'),
+      authority.indexOf('const sdkHeaderPaths'),
+    )
+    expect(existingLockFlags).not.toMatch(/O_CREAT|O_TRUNC/u)
+    expect(existingLockFlags).toContain('darwinFlags.noFollow')
+    expect(existingLockFlags).toContain('darwinFlags.exclusiveLock')
+    expect(authority).toContain(
+      'canonical(identity) !== canonical(expectedReentryLock)',
+    )
+    expect(runner).not.toMatch(
+      /export[^\n]*(?:retry|profile|inode|path)[A-Za-z0-9_]*/iu,
+    )
+    expect(runner).not.toContain('while (')
+    expect(runner).not.toContain('for (;;')
+    const classifierTrackedCheck = runner.slice(
+      runner.indexOf('async function defaultRevalidateTracked'),
+      runner.indexOf('function defaultSeams'),
+    )
+    expect(classifierTrackedCheck).not.toMatch(/execFile|\bgit\(/u)
+    expect(runner).not.toContain('a-failed-no-authority')
+    expect(runner).toContain("| 'a-residue-preserved'")
   })
 
   it('rejects a non-Darwin, non-pinned-node, or noncanonical cwd before custody work', async () => {

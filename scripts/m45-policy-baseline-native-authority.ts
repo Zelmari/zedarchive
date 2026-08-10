@@ -329,6 +329,40 @@ type LockIdentity = Readonly<{
   links: 1
   bytes: 0
 }>
+function reentryLockIdentity(value: unknown): LockIdentity | null {
+  if (value === null) return null
+  exactObject(value, ['uid', 'device', 'inode', 'links', 'mode', 'size'])
+  for (const key of ['uid', 'device', 'inode', 'links', 'mode'] as const)
+    if (
+      typeof value[key] !== 'string' ||
+      !/^(?:0|[1-9][0-9]*)$/u.test(value[key])
+    )
+      throw new Error('policy-native-authority')
+  if (
+    value.links !== '1' ||
+    value.mode !== '384' ||
+    value.size !== '0' ||
+    !Number.isSafeInteger(Number(value.uid))
+  )
+    throw new Error('policy-native-authority')
+  const uid = value.uid
+  const device = value.device
+  const inode = value.inode
+  if (
+    typeof uid !== 'string' ||
+    typeof device !== 'string' ||
+    typeof inode !== 'string'
+  )
+    throw new Error('policy-native-authority')
+  return Object.freeze({
+    uid: Number(uid),
+    device,
+    inode,
+    mode: 384,
+    links: 1,
+    bytes: 0,
+  })
+}
 function lockIdentity(
   metadata: Awaited<ReturnType<FileHandle['stat']>>,
 ): LockIdentity {
@@ -373,7 +407,11 @@ async function validateNamedLock(
   )
     throw new Error('policy-native-authority')
 }
-async function openCommandLock(lockPath: string): Promise<FileHandle> {
+async function openCommandLock(
+  lockPath: string,
+  mustExist: boolean,
+): Promise<FileHandle> {
+  if (mustExist) return open(lockPath, lockExistingFlags)
   try {
     return await open(lockPath, lockCreateFlags, 0o600)
   } catch (error) {
@@ -404,15 +442,21 @@ function closedContender(
 async function commandLockCapabilityProbe(
   repositoryRoot: string,
   workerSha256: string,
+  expectedReentryLock: LockIdentity | null = null,
 ) {
   const lockPath = join(
     repositoryRoot,
     '.local/m45/.policy-exclusive-promotion.lock',
   )
-  const held = await openCommandLock(lockPath)
+  const held = await openCommandLock(lockPath, expectedReentryLock !== null)
   let before: LockIdentity
   try {
     before = lockIdentity(await held.stat())
+    if (
+      expectedReentryLock !== null &&
+      canonical(before) !== canonical(expectedReentryLock)
+    )
+      throw new Error('policy-native-authority')
     await validateNamedLock(held, lockPath, before)
     const contender = closedContender(
       await broker.runLockContender(
@@ -482,6 +526,7 @@ type PositioningFixtureHarness = Readonly<{
 
 async function openDerivationLock(
   repositoryRoot: string,
+  expectedReentryLock?: LockIdentity | null,
   fixtureHarness?: PositioningFixtureHarness,
 ) {
   const positioningFillers: FileHandle[] = []
@@ -539,6 +584,13 @@ async function openDerivationLock(
     const identity = fixtureHarness
       ? ({} as LockIdentity)
       : lockIdentity(await lock.stat())
+    if (
+      !fixtureHarness &&
+      expectedReentryLock !== undefined &&
+      expectedReentryLock !== null &&
+      canonical(identity) !== canonical(expectedReentryLock)
+    )
+      throw new Error('policy-native-authority')
     if (fixtureHarness) await fixtureHarness.validateLock()
     else await validateNamedLock(lock, lockPath, identity)
     await closeRemainingDescending(positioningFillers)
@@ -820,6 +872,7 @@ export async function runPolicyNativePositioningForFixture(
     throw new Error('policy-wrapper-isolation')
   const custody = await openDerivationLock(
     '/test-only-policy-native-positioning',
+    null,
     {
       expectedFillerIdentity: {
         device: 'test-dev-null',
@@ -2708,14 +2761,20 @@ export async function runPolicyProvisionalBuildA(
     'nativeAuthoritySha256',
     'rootNonceSha256',
     'sharedTerminal',
+    'commandLock',
   ])
   const repositoryRoot = safeRoot(input.repositoryRoot)
   const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
   const rootNonceSha256 = sha256(input.rootNonceSha256)
   const sharedTerminal = sharedTerminalInput(input.sharedTerminal)
+  const expectedReentryLock = reentryLockIdentity(input.commandLock)
   const workerSha256 = hash(await readFile(lockWorkerPath))
-  await commandLockCapabilityProbe(repositoryRoot, workerSha256)
-  const custody = await openDerivationLock(repositoryRoot)
+  await commandLockCapabilityProbe(
+    repositoryRoot,
+    workerSha256,
+    expectedReentryLock,
+  )
+  const custody = await openDerivationLock(repositoryRoot, expectedReentryLock)
   try {
     await validateNamedLock(custody.lock, custody.lockPath, custody.identity)
     const authority = await runPolicyNativeToolchainDerivation({
