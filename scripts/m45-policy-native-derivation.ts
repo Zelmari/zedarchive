@@ -24,6 +24,7 @@ import {
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
+const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
 const baselineName = 'shared-root-baseline.v1.json'
 const stageAName = 'stage-a.v1.json'
@@ -36,17 +37,24 @@ const preservedSiblings = [
   'predecessor-review',
 ] as const
 const policyNode = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
+const maxHeldArtifactBytes = 16 * 1024 * 1024
 const sha256 = (value: Uint8Array | string) =>
   createHash('sha256').update(value).digest('hex')
 
 export type PolicyNativeDerivationMode =
-  'check' | 'preflight' | 'derive-a' | 'derive-b' | 'review-candidate'
+  | 'check'
+  | 'preflight'
+  | 'recover-preflight'
+  | 'derive-a'
+  | 'derive-b'
+  | 'review-candidate'
 
 export type PolicyNativeDerivationResult = Readonly<{
   mode: PolicyNativeDerivationMode | 'unknown'
   status:
     | 'checked'
     | 'preflight-ready'
+    | 'preflight-recovered'
     | 'a-derived'
     | 'b-derived'
     | 'review-ready'
@@ -77,11 +85,31 @@ type RunnerFilesystem = Readonly<{
     contents: string,
     options: { flag: string; mode: number },
   ) => Promise<void>
-  heldRead: (path: string) => Promise<{
+  heldDirectory: (path: string) => Promise<{
     before: Metadata
-    bytes: Buffer
+    entries: readonly string[]
     after: Metadata
+    pathAfter: Metadata
   }>
+  withHeldDirectory: <T>(
+    path: string,
+    readEntries: boolean,
+    postEntries: readonly string[] | undefined,
+    operation: (
+      metadata: Metadata,
+      entries: readonly string[] | undefined,
+      revalidate: (expectedEntries?: readonly string[]) => Promise<void>,
+    ) => Promise<T>,
+  ) => Promise<T>
+  withHeldFile: <T>(
+    path: string,
+    expectedSize: number | undefined,
+    operation: (
+      metadata: Metadata,
+      bytes: Buffer,
+      revalidate: () => Promise<void>,
+    ) => Promise<T>,
+  ) => Promise<T>
   chmodHeldDirectory: (
     path: string,
     mode: number,
@@ -98,6 +126,49 @@ type TrackedCommitments = Readonly<{
   nativeAuthoritySha256: string
   lockPreflightWorkerSha256: string
 }>
+
+const legacyResidue = Object.freeze({
+  root: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 9973053,
+    mode: 0o700,
+    nlink: 6,
+    size: 192,
+  }),
+  control: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 13087256,
+    mode: 0o700,
+    nlink: 3,
+    size: 96,
+  }),
+  baseline: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 13087257,
+    mode: 0o600,
+    nlink: 1,
+    size: 1634,
+    sha256: 'b5eee8c0e7ba784b7dcaebb42d20ab252a81703ebdaa3188058b177548a34e7c',
+  }),
+  tracked: Object.freeze({
+    commit: '0b5877f4560cb56749a585b60a337e909e9f3947',
+    runnerSha256:
+      '510a0c2bc8b3602cd2c4a4383ac9729b5097672ce869298ae8cf00bcde4cda22',
+    sourceSha256:
+      '6c30a868dc8599854aa9ed075de15dd9341f3700c2c0b9c1e0bd1b6958e6020d',
+    launchContractSha256:
+      '383d9c0ae2586860607961461db62098000127306e82d899d642e743c2a6b143',
+    launcherSha256:
+      '63506e24818967f2a015767a48e87a89253668a76bded43b95b97ec0d835f17a',
+    nativeAuthoritySha256:
+      '46d089cfb264f46951c4c0353b1edebf3f33ce0a400f9794fcf8c6e0baac7f41',
+    lockPreflightWorkerSha256:
+      '6477481e06242a4da4db2f2ce9e3b793f59f25c3db27a2eb3b4296043ffe1112',
+  }),
+})
 
 export type PolicyNativeDerivationSeams = Readonly<{
   filesystem: RunnerFilesystem
@@ -147,6 +218,8 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
   if (argv.length === 1 && argv[0] === 'check') return 'check'
   if (argv.length !== 2) throw new Error('arguments')
   const [operation, literal] = argv
+  if (operation === 'recover-preflight' && literal === recoveryConfirmation)
+    return operation
   if (
     (operation === 'preflight' ||
       operation === 'derive-a' ||
@@ -225,6 +298,69 @@ function createArtifact(schema: string, core: Record<string, unknown>): string {
   return `${canonical({ ...value, artifactSha256: sha256(canonical(value)) })}\n`
 }
 
+const syntheticTracked = Object.freeze({
+  commit: 'c'.repeat(40),
+  runnerSha256: '1'.repeat(64),
+  sourceSha256: '2'.repeat(64),
+  launchContractSha256: '3'.repeat(64),
+  launcherSha256: '4'.repeat(64),
+  nativeAuthoritySha256: '5'.repeat(64),
+  lockPreflightWorkerSha256: '6'.repeat(64),
+})
+
+function createPolicySyntheticLegacyResidue() {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  const directory = (ino: number, entryCount: number, requiredMode = 0o755) =>
+    Object.freeze({
+      uid: 501,
+      dev: 9,
+      ino,
+      mode: requiredMode,
+      nlink: 2 + entryCount,
+      size: 32 + entryCount * 32,
+      file: false,
+      directory: true,
+      symbolicLink: false,
+    })
+  const root = directory(100, 4, 0o700)
+  const controlCreated = directory(104, 0, 0o700)
+  const control = { ...controlCreated, nlink: 3, size: 64 }
+  const siblings = Object.freeze({
+    'candidate-review': directory(101, 0),
+    discovery: directory(102, 0),
+    'predecessor-review': directory(103, 0),
+  })
+  const bytes = Buffer.from(
+    createArtifact(`m45-policy-native-${baselineName}.v1`, {
+      sharedRootOriginal: { ...root, mode: 0o755, nlink: 5 },
+      sharedRootSecured: root,
+      preservedSiblings: siblings,
+      controlRoot: controlCreated,
+      tracked: syntheticTracked,
+    }),
+  )
+  const baseline = Object.freeze({
+    uid: 501,
+    dev: 9,
+    ino: 105,
+    mode: 0o600,
+    nlink: 1,
+    size: bytes.byteLength,
+    sha256: sha256(bytes),
+    file: true,
+    directory: false,
+    symbolicLink: false,
+  })
+  return Object.freeze({
+    root,
+    control: Object.freeze(control),
+    siblings,
+    baseline,
+    baselineBytes: Buffer.from(bytes),
+    tracked: syntheticTracked,
+  })
+}
+
 async function absent(
   filesystem: RunnerFilesystem,
   path: string,
@@ -245,13 +381,41 @@ async function heldArtifact(
   rootDevice: number,
   owner: number,
 ): Promise<Record<string, unknown>> {
-  const held = await filesystem.heldRead(path)
-  const { before, bytes, after } = held
-  assertMetadata(before, 'file', owner, 0o600, rootDevice)
-  if (before.nlink !== 1 || before.size === 0) throw new Error('artifact')
-  if (bytes.byteLength !== before.size) throw new Error('artifact')
-  if (canonical(before) !== canonical(after)) throw new Error('artifact')
-  return parseSelfHashedArtifact(bytes, schema)
+  return withHeldArtifact(
+    filesystem,
+    path,
+    schema,
+    rootDevice,
+    owner,
+    async (artifact) => artifact,
+  )
+}
+
+async function withHeldArtifact<T>(
+  filesystem: RunnerFilesystem,
+  path: string,
+  schema: string,
+  rootDevice: number,
+  owner: number,
+  operation: (
+    artifact: Record<string, unknown>,
+    revalidate: () => Promise<void>,
+  ) => Promise<T>,
+): Promise<T> {
+  return filesystem.withHeldFile(
+    path,
+    undefined,
+    async (metadata, bytes, revalidate) => {
+      assertMetadata(metadata, 'file', owner, 0o600, rootDevice)
+      if (
+        metadata.nlink !== 1 ||
+        metadata.size === 0 ||
+        bytes.byteLength !== metadata.size
+      )
+        throw new Error('artifact')
+      return operation(parseSelfHashedArtifact(bytes, schema), revalidate)
+    },
+  )
 }
 
 async function validateControl(
@@ -261,11 +425,16 @@ async function validateControl(
   owner: number,
   entries: readonly string[],
 ): Promise<void> {
-  const metadata = await filesystem.lstat(controlRoot)
-  assertMetadata(metadata, 'directory', owner, 0o700, rootDevice)
-  if (metadata.nlink !== 2) throw new Error('control')
-  if (!exactEntries(await filesystem.readdir(controlRoot), entries))
+  const held = await filesystem.heldDirectory(controlRoot)
+  if (
+    canonical(held.before) !== canonical(held.after) ||
+    canonical(held.before) !== canonical(held.pathAfter)
+  )
     throw new Error('control')
+  const metadata = held.before
+  assertMetadata(metadata, 'directory', owner, 0o700, rootDevice)
+  if (metadata.nlink !== 2 + entries.length) throw new Error('control')
+  if (!exactEntries(held.entries, entries)) throw new Error('control')
 }
 
 async function writeArtifact(
@@ -297,13 +466,20 @@ async function currentSharedRoot(
 ): Promise<
   Readonly<{ root: Metadata; siblings: Readonly<Record<string, Metadata>> }>
 > {
-  const metadata = await filesystem.lstat(root)
-  assertMetadata(metadata, 'directory', owner, requiredMode)
+  const held = await filesystem.heldDirectory(root)
   if (
-    !exactEntries(
-      await filesystem.readdir(root),
-      controlPresent ? [...preservedSiblings, controlName] : preservedSiblings,
-    )
+    canonical(held.before) !== canonical(held.after) ||
+    canonical(held.before) !== canonical(held.pathAfter)
+  )
+    throw new Error('shared-root')
+  const metadata = held.before
+  assertMetadata(metadata, 'directory', owner, requiredMode)
+  const expectedEntries = controlPresent
+    ? [...preservedSiblings, controlName]
+    : preservedSiblings
+  if (
+    metadata.nlink !== 2 + expectedEntries.length ||
+    !exactEntries(held.entries, expectedEntries)
   )
     throw new Error('shared-root')
   const siblings: Record<string, Metadata> = {}
@@ -330,6 +506,258 @@ function assertSameSiblings(
     throw new Error('sibling-drift')
 }
 
+function exactRecordKeys(value: unknown, keys: readonly string[]): void {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('legacy-baseline')
+  if (!exactEntries(Object.keys(value as Record<string, unknown>), keys))
+    throw new Error('legacy-baseline')
+}
+
+function assertLegacyMetadata(
+  metadata: Metadata,
+  expected: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>,
+  kind: 'file' | 'directory',
+): void {
+  assertMetadata(metadata, kind, expected.uid, expected.mode, expected.dev)
+  if (
+    metadata.ino !== expected.ino ||
+    metadata.nlink !== expected.nlink ||
+    metadata.size !== expected.size
+  )
+    throw new Error('legacy-baseline')
+}
+
+function assertStableDirectoryIdentity(
+  value: unknown,
+  observed: Metadata,
+): void {
+  exactRecordKeys(value, [
+    'uid',
+    'dev',
+    'ino',
+    'mode',
+    'nlink',
+    'size',
+    'file',
+    'directory',
+    'symbolicLink',
+  ])
+  const sealed = value as Record<string, unknown>
+  if (
+    sealed.uid !== observed.uid ||
+    sealed.dev !== observed.dev ||
+    sealed.ino !== observed.ino ||
+    sealed.mode !== observed.mode ||
+    sealed.file !== false ||
+    sealed.directory !== true ||
+    sealed.symbolicLink !== false
+  )
+    throw new Error('legacy-baseline')
+}
+
+type LegacyBaseline = Readonly<{
+  artifact: Record<string, unknown>
+  rawSha256: string
+}>
+
+type ResidueProfile = Readonly<{
+  root: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>
+  control: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>
+  baseline: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+    sha256: string
+  }>
+  tracked: TrackedCommitments
+}>
+
+type LegacyCustody = Readonly<{
+  root: Metadata
+  control: Metadata
+  siblings: Readonly<Record<string, Metadata>>
+  baseline: LegacyBaseline
+  revalidate: (controlEntries: readonly string[]) => Promise<void>
+}>
+
+function parseLegacyBaseline(
+  metadata: Metadata,
+  bytes: Buffer,
+  profile: ResidueProfile,
+): LegacyBaseline {
+  assertLegacyMetadata(metadata, profile.baseline, 'file')
+  if (bytes.byteLength !== profile.baseline.size)
+    throw new Error('legacy-baseline')
+  const rawSha256 = sha256(bytes)
+  if (rawSha256 !== profile.baseline.sha256) throw new Error('legacy-baseline')
+  const artifact = parseSelfHashedArtifact(
+    bytes,
+    `m45-policy-native-${baselineName}.v1`,
+  )
+  exactRecordKeys(artifact, [
+    'schema',
+    'version',
+    'sharedRootOriginal',
+    'sharedRootSecured',
+    'preservedSiblings',
+    'controlRoot',
+    'tracked',
+    'artifactSha256',
+  ])
+  if (canonical(artifact.tracked) !== canonical(profile.tracked))
+    throw new Error('legacy-baseline')
+  return Object.freeze({ artifact, rawSha256 })
+}
+
+async function withLegacyCustody<T>(
+  filesystem: RunnerFilesystem,
+  m45: string,
+  controlRoot: string,
+  profile: ResidueProfile,
+  owner: number,
+  controlEntries: readonly string[],
+  postControlEntries: readonly string[] | undefined,
+  exactResidue: boolean,
+  operation: (custody: LegacyCustody) => Promise<T>,
+): Promise<T> {
+  return filesystem.withHeldDirectory(
+    m45,
+    true,
+    undefined,
+    async (root, rootEntries, revalidateRoot) => {
+      assertMetadata(root, 'directory', owner, 0o700, profile.root.dev)
+      if (
+        root.uid !== profile.root.uid ||
+        root.ino !== profile.root.ino ||
+        root.nlink !== 2 + preservedSiblings.length + 1 ||
+        !exactEntries(rootEntries ?? [], [...preservedSiblings, controlName]) ||
+        (exactResidue &&
+          (root.nlink !== profile.root.nlink ||
+            root.size !== profile.root.size))
+      )
+        throw new Error('legacy-baseline')
+      return filesystem.withHeldDirectory(
+        controlRoot,
+        true,
+        postControlEntries,
+        async (control, observedControlEntries, revalidateControl) => {
+          assertMetadata(control, 'directory', owner, 0o700, root.dev)
+          if (
+            control.ino !== profile.control.ino ||
+            control.nlink !== 2 + controlEntries.length ||
+            !exactEntries(observedControlEntries ?? [], controlEntries) ||
+            (exactResidue &&
+              (control.nlink !== profile.control.nlink ||
+                control.size !== profile.control.size))
+          )
+            throw new Error('legacy-baseline')
+          return filesystem.withHeldFile(
+            join(controlRoot, baselineName),
+            profile.baseline.size,
+            async (baselineMetadata, bytes, revalidateBaseline) => {
+              const baseline = parseLegacyBaseline(
+                baselineMetadata,
+                bytes,
+                profile,
+              )
+              assertStableDirectoryIdentity(
+                baseline.artifact.sharedRootSecured,
+                root,
+              )
+              assertStableDirectoryIdentity(
+                baseline.artifact.controlRoot,
+                control,
+              )
+              const sealedSiblings = baseline.artifact.preservedSiblings
+              exactRecordKeys(sealedSiblings, preservedSiblings)
+              const siblings: Record<string, Metadata> = {}
+              const siblingRevalidators: Array<() => Promise<void>> = []
+              const holdSibling = async (index: number): Promise<T> => {
+                if (index === preservedSiblings.length) {
+                  assertSameSiblings(baseline.artifact, siblings)
+                  return operation({
+                    root,
+                    control,
+                    siblings: Object.freeze({ ...siblings }),
+                    baseline,
+                    revalidate: async (expectedControlEntries) => {
+                      await revalidateRoot()
+                      await revalidateControl(expectedControlEntries)
+                      await revalidateBaseline()
+                      for (const revalidateSibling of siblingRevalidators)
+                        await revalidateSibling()
+                    },
+                  })
+                }
+                const name = preservedSiblings[index]!
+                return filesystem.withHeldDirectory(
+                  join(m45, name),
+                  false,
+                  undefined,
+                  async (sibling, entries, revalidateSibling) => {
+                    if (entries !== undefined)
+                      throw new Error('sibling-contents')
+                    assertMetadata(
+                      sibling,
+                      'directory',
+                      root.uid,
+                      mode(sibling),
+                      root.dev,
+                    )
+                    if (
+                      canonical(sibling) !==
+                      canonical(
+                        (sealedSiblings as Record<string, unknown>)[name],
+                      )
+                    )
+                      throw new Error('sibling-drift')
+                    siblings[name] = sibling
+                    siblingRevalidators.push(revalidateSibling)
+                    return holdSibling(index + 1)
+                  },
+                )
+              }
+              return holdSibling(0)
+            },
+          )
+        },
+      )
+    },
+  )
+}
+
+function assertLegacyBinding(
+  artifact: Record<string, unknown>,
+  baseline: LegacyBaseline,
+): void {
+  if (artifact.legacyBaselineRawSha256 !== baseline.rawSha256)
+    throw new Error('legacy-baseline')
+}
+
 function terminalEvidence(
   metadata: Metadata,
 ): Readonly<Record<string, string>> {
@@ -340,24 +768,6 @@ function terminalEvidence(
     links: String(metadata.nlink),
     mode: String(mode(metadata)),
     size: metadata.directory ? 'na' : String(metadata.size),
-  })
-}
-
-async function sharedTerminalInput(
-  filesystem: RunnerFilesystem,
-  controlRoot: string,
-  phase: 'shared-a' | 'shared-b',
-  siblings: Readonly<Record<string, Metadata>>,
-): Promise<Readonly<Record<string, unknown>>> {
-  const control = await filesystem.lstat(controlRoot)
-  return Object.freeze({
-    phase,
-    siblings: Object.freeze({
-      'candidate-review': terminalEvidence(siblings['candidate-review']!),
-      discovery: terminalEvidence(siblings.discovery!),
-      'predecessor-review': terminalEvidence(siblings['predecessor-review']!),
-      'policy-native-derivation': terminalEvidence(control),
-    }),
   })
 }
 
@@ -383,15 +793,12 @@ function defaultFilesystem(): RunnerFilesystem {
     realpath,
     mkdir,
     writeFile,
-    heldRead: async (path) => {
+    heldDirectory: async (path) => {
       const handle = await open(
         path,
-        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+        fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
       )
       try {
-        const beforeStat = await handle.stat()
-        const bytes = await handle.readFile()
-        const afterStat = await handle.stat()
         const toMetadata = (
           value: Awaited<ReturnType<typeof handle.stat>>,
         ): Metadata => ({
@@ -405,11 +812,115 @@ function defaultFilesystem(): RunnerFilesystem {
           directory: value.isDirectory(),
           symbolicLink: value.isSymbolicLink(),
         })
-        return {
-          before: toMetadata(beforeStat),
-          bytes,
-          after: toMetadata(afterStat),
+        const before = toMetadata(await handle.stat())
+        const entries = await readdir(path)
+        const after = toMetadata(await handle.stat())
+        return { before, entries, after, pathAfter: await metadata(path) }
+      } finally {
+        await handle.close()
+      }
+    },
+    withHeldDirectory: async (path, readEntries, postEntries, operation) => {
+      const handle = await open(
+        path,
+        fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
+      )
+      try {
+        const toMetadata = (
+          value: Awaited<ReturnType<typeof handle.stat>>,
+        ): Metadata => ({
+          uid: Number(value.uid),
+          dev: Number(value.dev),
+          ino: Number(value.ino),
+          mode: Number(value.mode),
+          nlink: Number(value.nlink),
+          size: Number(value.size),
+          file: value.isFile(),
+          directory: value.isDirectory(),
+          symbolicLink: value.isSymbolicLink(),
+        })
+        const before = toMetadata(await handle.stat())
+        const entries = readEntries ? await readdir(path) : undefined
+        const revalidate = async (
+          expectedEntries = postEntries ?? entries ?? [],
+        ) => {
+          const after = toMetadata(await handle.stat())
+          const pathAfter = await metadata(path)
+          const afterEntries = readEntries ? await readdir(path) : undefined
+          if (
+            before.uid !== after.uid ||
+            before.dev !== after.dev ||
+            before.ino !== after.ino ||
+            before.mode !== after.mode ||
+            before.file !== after.file ||
+            before.directory !== after.directory ||
+            before.symbolicLink !== after.symbolicLink ||
+            canonical(after) !== canonical(pathAfter) ||
+            (!readEntries && canonical(before) !== canonical(after)) ||
+            (readEntries &&
+              (!exactEntries(expectedEntries, afterEntries ?? []) ||
+                after.nlink !== 2 + expectedEntries.length))
+          )
+            throw new Error('held-directory-drift')
         }
+        const result = await operation(before, entries, revalidate)
+        await revalidate()
+        return result
+      } finally {
+        await handle.close()
+      }
+    },
+    withHeldFile: async (path, expectedSize, operation) => {
+      const handle = await open(
+        path,
+        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+      )
+      try {
+        const toMetadata = (
+          value: Awaited<ReturnType<typeof handle.stat>>,
+        ): Metadata => ({
+          uid: Number(value.uid),
+          dev: Number(value.dev),
+          ino: Number(value.ino),
+          mode: Number(value.mode),
+          nlink: Number(value.nlink),
+          size: Number(value.size),
+          file: value.isFile(),
+          directory: value.isDirectory(),
+          symbolicLink: value.isSymbolicLink(),
+        })
+        const before = toMetadata(await handle.stat())
+        if (
+          !Number.isSafeInteger(before.size) ||
+          before.size <= 0 ||
+          before.size > maxHeldArtifactBytes ||
+          (expectedSize !== undefined && before.size !== expectedSize)
+        )
+          throw new Error('held-file-size')
+        const readHeldBytes = async (size: number) => {
+          const bytes = Buffer.alloc(size)
+          const read = await handle.read(bytes, 0, size, 0)
+          const trailing = await handle.read(Buffer.alloc(1), 0, 1, size)
+          if (read.bytesRead !== size || trailing.bytesRead !== 0)
+            throw new Error('held-file-read')
+          return bytes
+        }
+        const bytes = await readHeldBytes(before.size)
+        const revalidate = async () => {
+          const after = toMetadata(await handle.stat())
+          const pathAfter = await metadata(path)
+          if (canonical(before) !== canonical(after))
+            throw new Error('held-file-drift')
+          const afterBytes = await readHeldBytes(before.size)
+          if (
+            !bytes.equals(afterBytes) ||
+            canonical(before) !== canonical(pathAfter)
+          )
+            throw new Error('held-file-drift')
+        }
+        const result = await operation(before, bytes, revalidate)
+        await revalidate()
+        return result
       } finally {
         await handle.close()
       }
@@ -527,9 +1038,10 @@ function assertHost(
     throw new Error('host')
 }
 
-export async function runPolicyNativeDerivationCommand(
+async function runPolicyNativeDerivationCommandWithProfile(
   argv: readonly string[],
-  overrides: Partial<PolicyNativeDerivationSeams> = {},
+  overrides: Partial<PolicyNativeDerivationSeams>,
+  profile: ResidueProfile,
 ): Promise<PolicyNativeDerivationResult> {
   const seams = { ...defaultSeams(), ...overrides }
   const mode = parseArguments(argv)
@@ -605,184 +1117,338 @@ export async function runPolicyNativeDerivationCommand(
     return { mode, status: 'preflight-ready', commitments }
   }
 
-  const shared = await currentSharedRoot(
-    seams.filesystem,
-    m45,
-    seams.effectiveUid,
-    0o700,
-    true,
-  )
-  const baseline = await heldArtifact(
-    seams.filesystem,
-    join(controlRoot, baselineName),
-    `m45-policy-native-${baselineName}.v1`,
-    shared.root.dev,
-    seams.effectiveUid,
-  )
-  if (canonical(baseline.tracked) !== canonical(commitments))
-    throw new Error('tracked-drift')
-  assertSameSiblings(baseline, shared.siblings)
-
-  if (mode === 'derive-a') {
-    await validateControl(
+  if (mode === 'recover-preflight') {
+    return withLegacyCustody(
       seams.filesystem,
+      m45,
       controlRoot,
-      shared.root.dev,
+      profile,
       seams.effectiveUid,
       [baselineName],
+      undefined,
+      true,
+      async (recovered) => ({
+        mode,
+        status: 'preflight-recovered',
+        commitments: {
+          ...commitments,
+          immutableBaselineRawSha256: recovered.baseline.rawSha256,
+        },
+      }),
     )
-    const stageA = parsePolicyPromotionPackage(
-      await seams.deriveA({
-        repositoryRoot,
-        rootNonceSha256: seams.nonce(),
-        sharedTerminal: await sharedTerminalInput(
+  }
+
+  if (mode === 'derive-a') {
+    return withLegacyCustody(
+      seams.filesystem,
+      m45,
+      controlRoot,
+      profile,
+      seams.effectiveUid,
+      [baselineName],
+      [baselineName, stageAName],
+      true,
+      async (recovered) => {
+        const stageA = parsePolicyPromotionPackage(
+          await seams.deriveA({
+            repositoryRoot,
+            rootNonceSha256: seams.nonce(),
+            sharedTerminal: {
+              phase: 'shared-a',
+              siblings: Object.freeze({
+                'candidate-review': terminalEvidence(
+                  recovered.siblings['candidate-review']!,
+                ),
+                discovery: terminalEvidence(recovered.siblings.discovery!),
+                'predecessor-review': terminalEvidence(
+                  recovered.siblings['predecessor-review']!,
+                ),
+                'policy-native-derivation': terminalEvidence(recovered.control),
+              }),
+            },
+          }),
+        )
+        await recovered.revalidate([baselineName])
+        const artifact = await writeArtifact(
           seams.filesystem,
           controlRoot,
-          'shared-a',
-          shared.siblings,
-        ),
-      }),
-    )
-    const artifact = await writeArtifact(
-      seams.filesystem,
-      controlRoot,
-      stageAName,
-      createArtifact(`m45-policy-native-${stageAName}.v1`, {
-        package: stageA,
-        tracked: commitments,
-      }),
-      shared.root.dev,
-      seams.effectiveUid,
-    )
-    if (artifact.schema === undefined) throw new Error('stage-a')
-    return {
-      mode,
-      status: 'a-derived',
-      commitments: {
-        ...commitments,
-        stageASha256: String(artifact.artifactSha256),
+          stageAName,
+          createArtifact(`m45-policy-native-${stageAName}.v1`, {
+            package: stageA,
+            tracked: commitments,
+            legacyBaselineRawSha256: recovered.baseline.rawSha256,
+          }),
+          recovered.root.dev,
+          seams.effectiveUid,
+        )
+        await recovered.revalidate([baselineName, stageAName])
+        await validateControl(
+          seams.filesystem,
+          controlRoot,
+          recovered.root.dev,
+          seams.effectiveUid,
+          [baselineName, stageAName],
+        )
+        return {
+          mode,
+          status: 'a-derived',
+          commitments: {
+            ...commitments,
+            stageASha256: String(artifact.artifactSha256),
+          },
+        }
       },
-    }
+    )
   }
 
-  const stageA = await heldArtifact(
-    seams.filesystem,
-    join(controlRoot, stageAName),
-    `m45-policy-native-${stageAName}.v1`,
-    shared.root.dev,
-    seams.effectiveUid,
-  )
-  if (canonical(stageA.tracked) !== canonical(commitments))
-    throw new Error('tracked-drift')
   if (mode === 'derive-b') {
-    await validateControl(
+    return withLegacyCustody(
       seams.filesystem,
+      m45,
       controlRoot,
-      shared.root.dev,
+      profile,
       seams.effectiveUid,
       [baselineName, stageAName],
+      [baselineName, stageAName, stageBName, candidateName],
+      false,
+      async (shared) =>
+        withHeldArtifact(
+          seams.filesystem,
+          join(controlRoot, stageAName),
+          `m45-policy-native-${stageAName}.v1`,
+          shared.root.dev,
+          seams.effectiveUid,
+          async (stageA, revalidateStageA) => {
+            if (canonical(stageA.tracked) !== canonical(commitments))
+              throw new Error('tracked-drift')
+            assertLegacyBinding(stageA, shared.baseline)
+            const output = await seams.deriveB({
+              repositoryRoot,
+              rootNonceSha256: seams.nonce(),
+              cleanedStageAPackage: stageA.package,
+              sharedTerminal: {
+                phase: 'shared-b',
+                siblings: Object.freeze({
+                  'candidate-review': terminalEvidence(
+                    shared.siblings['candidate-review']!,
+                  ),
+                  discovery: terminalEvidence(shared.siblings.discovery!),
+                  'predecessor-review': terminalEvidence(
+                    shared.siblings['predecessor-review']!,
+                  ),
+                  'policy-native-derivation': terminalEvidence(shared.control),
+                }),
+              },
+            })
+            await revalidateStageA()
+            await shared.revalidate([baselineName, stageAName])
+            const stageBPackage = parsePolicyPromotionPackage(output.package)
+            const candidate = await createPolicyPromotionProvenanceCandidate(
+              stageA.package,
+              stageBPackage,
+            )
+            await revalidateStageA()
+            await shared.revalidate([baselineName, stageAName])
+            const stageB = await writeArtifact(
+              seams.filesystem,
+              controlRoot,
+              stageBName,
+              createArtifact(`m45-policy-native-${stageBName}.v1`, {
+                package: stageBPackage,
+                preflight: output.preflight,
+                tracked: commitments,
+                legacyBaselineRawSha256: shared.baseline.rawSha256,
+                stageAArtifactSha256: stageA.artifactSha256,
+              }),
+              shared.root.dev,
+              seams.effectiveUid,
+            )
+            await revalidateStageA()
+            await shared.revalidate([baselineName, stageAName, stageBName])
+            await validateControl(
+              seams.filesystem,
+              controlRoot,
+              shared.root.dev,
+              seams.effectiveUid,
+              [baselineName, stageAName, stageBName],
+            )
+            const candidateArtifact = await writeArtifact(
+              seams.filesystem,
+              controlRoot,
+              candidateName,
+              createArtifact(`m45-policy-native-${candidateName}.v1`, {
+                package: candidate,
+                stageAArtifactSha256: stageA.artifactSha256,
+                stageBArtifactSha256: stageB.artifactSha256,
+                tracked: commitments,
+                legacyBaselineRawSha256: shared.baseline.rawSha256,
+              }),
+              shared.root.dev,
+              seams.effectiveUid,
+            )
+            await revalidateStageA()
+            await shared.revalidate([
+              baselineName,
+              stageAName,
+              stageBName,
+              candidateName,
+            ])
+            await validateControl(
+              seams.filesystem,
+              controlRoot,
+              shared.root.dev,
+              seams.effectiveUid,
+              [baselineName, stageAName, stageBName, candidateName],
+            )
+            return {
+              mode,
+              status: 'b-derived',
+              commitments: {
+                ...commitments,
+                candidateSha256: String(candidateArtifact.artifactSha256),
+              },
+            }
+          },
+        ),
     )
-    const output = await seams.deriveB({
-      repositoryRoot,
-      rootNonceSha256: seams.nonce(),
-      cleanedStageAPackage: stageA.package,
-      sharedTerminal: await sharedTerminalInput(
-        seams.filesystem,
-        controlRoot,
-        'shared-b',
-        shared.siblings,
-      ),
-    })
-    const stageBPackage = parsePolicyPromotionPackage(output.package)
-    const candidate = await createPolicyPromotionProvenanceCandidate(
-      stageA.package,
-      stageBPackage,
-    )
-    const stageB = await writeArtifact(
-      seams.filesystem,
-      controlRoot,
-      stageBName,
-      createArtifact(`m45-policy-native-${stageBName}.v1`, {
-        package: stageBPackage,
-        preflight: output.preflight,
-        tracked: commitments,
-      }),
-      shared.root.dev,
-      seams.effectiveUid,
-    )
-    const candidateArtifact = await writeArtifact(
-      seams.filesystem,
-      controlRoot,
-      candidateName,
-      createArtifact(`m45-policy-native-${candidateName}.v1`, {
-        package: candidate,
-        stageAArtifactSha256: stageA.artifactSha256,
-        stageBArtifactSha256: stageB.artifactSha256,
-        tracked: commitments,
-      }),
-      shared.root.dev,
-      seams.effectiveUid,
-    )
-    return {
-      mode,
-      status: 'b-derived',
-      commitments: {
-        ...commitments,
-        candidateSha256: String(candidateArtifact.artifactSha256),
-      },
-    }
   }
 
-  const stageB = await heldArtifact(
+  return withLegacyCustody(
     seams.filesystem,
-    join(controlRoot, stageBName),
-    `m45-policy-native-${stageBName}.v1`,
-    shared.root.dev,
-    seams.effectiveUid,
-  )
-  const candidate = await heldArtifact(
-    seams.filesystem,
-    join(controlRoot, candidateName),
-    `m45-policy-native-${candidateName}.v1`,
-    shared.root.dev,
-    seams.effectiveUid,
-  )
-  if (
-    canonical(stageB.tracked) !== canonical(commitments) ||
-    canonical(candidate.tracked) !== canonical(commitments)
-  )
-    throw new Error('tracked-drift')
-  await validateControl(
-    seams.filesystem,
+    m45,
     controlRoot,
-    shared.root.dev,
+    profile,
     seams.effectiveUid,
     [baselineName, stageAName, stageBName, candidateName],
+    [baselineName, stageAName, stageBName, candidateName, reviewInputName],
+    false,
+    async (shared) =>
+      withHeldArtifact(
+        seams.filesystem,
+        join(controlRoot, stageAName),
+        `m45-policy-native-${stageAName}.v1`,
+        shared.root.dev,
+        seams.effectiveUid,
+        async (stageA, revalidateStageA) =>
+          withHeldArtifact(
+            seams.filesystem,
+            join(controlRoot, stageBName),
+            `m45-policy-native-${stageBName}.v1`,
+            shared.root.dev,
+            seams.effectiveUid,
+            async (stageB, revalidateStageB) =>
+              withHeldArtifact(
+                seams.filesystem,
+                join(controlRoot, candidateName),
+                `m45-policy-native-${candidateName}.v1`,
+                shared.root.dev,
+                seams.effectiveUid,
+                async (candidate, revalidateCandidate) => {
+                  if (
+                    [stageA, stageB, candidate].some(
+                      (artifact) =>
+                        canonical(artifact.tracked) !== canonical(commitments),
+                    )
+                  )
+                    throw new Error('tracked-drift')
+                  for (const artifact of [stageA, stageB, candidate])
+                    assertLegacyBinding(artifact, shared.baseline)
+                  if (
+                    stageB.stageAArtifactSha256 !== stageA.artifactSha256 ||
+                    candidate.stageAArtifactSha256 !== stageA.artifactSha256 ||
+                    candidate.stageBArtifactSha256 !== stageB.artifactSha256
+                  )
+                    throw new Error('artifact-binding')
+                  await revalidateStageA()
+                  await revalidateStageB()
+                  await revalidateCandidate()
+                  await shared.revalidate([
+                    baselineName,
+                    stageAName,
+                    stageBName,
+                    candidateName,
+                  ])
+                  const review = await writeArtifact(
+                    seams.filesystem,
+                    controlRoot,
+                    reviewInputName,
+                    createArtifact(`m45-policy-native-${reviewInputName}.v1`, {
+                      candidate: candidate.package,
+                      stageA: stageA.package,
+                      stageB: stageB.package,
+                      tracked: commitments,
+                      legacyBaselineRawSha256: shared.baseline.rawSha256,
+                      stageAArtifactSha256: stageA.artifactSha256,
+                      stageBArtifactSha256: stageB.artifactSha256,
+                      candidateArtifactSha256: candidate.artifactSha256,
+                      reviewScope: 'm45-policy-native-candidate-v1',
+                      reviewerContractVersion:
+                        'm45-policy-reviewer-contract-v1',
+                    }),
+                    shared.root.dev,
+                    seams.effectiveUid,
+                  )
+                  await revalidateStageA()
+                  await revalidateStageB()
+                  await revalidateCandidate()
+                  await shared.revalidate([
+                    baselineName,
+                    stageAName,
+                    stageBName,
+                    candidateName,
+                    reviewInputName,
+                  ])
+                  await validateControl(
+                    seams.filesystem,
+                    controlRoot,
+                    shared.root.dev,
+                    seams.effectiveUid,
+                    [
+                      baselineName,
+                      stageAName,
+                      stageBName,
+                      candidateName,
+                      reviewInputName,
+                    ],
+                  )
+                  return {
+                    mode,
+                    status: 'review-ready',
+                    commitments: {
+                      ...commitments,
+                      candidateSha256: String(candidate.artifactSha256),
+                      reviewInputSha256: String(review.artifactSha256),
+                    },
+                  }
+                },
+              ),
+          ),
+      ),
   )
-  const review = await writeArtifact(
-    seams.filesystem,
-    controlRoot,
-    reviewInputName,
-    createArtifact(`m45-policy-native-${reviewInputName}.v1`, {
-      candidate: candidate.package,
-      stageA: stageA.package,
-      stageB: stageB.package,
-      tracked: commitments,
-      reviewScope: 'm45-policy-native-candidate-v1',
-      reviewerContractVersion: 'm45-policy-reviewer-contract-v1',
-    }),
-    shared.root.dev,
-    seams.effectiveUid,
+}
+
+export async function runPolicyNativeDerivationCommand(
+  argv: readonly string[],
+  overrides: Partial<PolicyNativeDerivationSeams> = {},
+): Promise<PolicyNativeDerivationResult> {
+  return runPolicyNativeDerivationCommandWithProfile(
+    argv,
+    overrides,
+    legacyResidue,
   )
-  return {
-    mode,
-    status: 'review-ready',
-    commitments: {
-      ...commitments,
-      candidateSha256: String(candidate.artifactSha256),
-      reviewInputSha256: String(review.artifactSha256),
-    },
-  }
+}
+
+export function createPolicySyntheticNativeDerivationFixture() {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  const residue = createPolicySyntheticLegacyResidue()
+  const profile: ResidueProfile = residue
+  return Object.freeze({
+    residue,
+    run: (
+      argv: readonly string[],
+      overrides: Partial<PolicyNativeDerivationSeams> = {},
+    ) => runPolicyNativeDerivationCommandWithProfile(argv, overrides, profile),
+  })
 }
 
 export async function executePolicyNativeDerivationCli(
@@ -796,6 +1462,7 @@ export async function executePolicyNativeDerivationCli(
     const mode =
       argv[0] === 'check' ||
       argv[0] === 'preflight' ||
+      argv[0] === 'recover-preflight' ||
       argv[0] === 'derive-a' ||
       argv[0] === 'derive-b' ||
       argv[0] === 'review-candidate'

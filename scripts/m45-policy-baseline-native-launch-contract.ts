@@ -1401,7 +1401,7 @@ function createHelperArgumentsAndStdio(operation: unknown): Readonly<{
     }
     if (
       parent.mode !== '448' ||
-      parent.links !== '7' ||
+      parent.links !== '8' ||
       parent.size !== 'na' ||
       buildRoot.uid !== parent.uid ||
       buildRoot.device !== parent.device ||
@@ -1422,7 +1422,9 @@ function createHelperArgumentsAndStdio(operation: unknown): Readonly<{
           sibling.inode === parent.inode,
       ) ||
       siblings['policy-native-derivation'].mode !== '448' ||
-      siblings['policy-native-derivation'].links !== '2'
+      (operation.phase === 'shared-a'
+        ? siblings['policy-native-derivation'].links !== '3'
+        : siblings['policy-native-derivation'].links !== '4')
     )
       throw new PolicyNativeLaunchContractError()
     const descriptors = [

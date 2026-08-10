@@ -1060,7 +1060,7 @@ export async function derivePolicyAcceptanceBuildC(
     package: PolicyPromotionPackage
   }>
 > {
-  // Decision 115 keeps C unreachable until Decision 116 pins a complete
+  // Decision 116 keeps C unreachable until Decision 117 pins a complete
   // tracked accepted-literals object.  Test fixtures retain the structural
   // constructor solely to exercise the historical validation contract.
   if (process.env.NODE_ENV !== 'test')

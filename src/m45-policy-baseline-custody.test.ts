@@ -2631,11 +2631,58 @@ describe('M45 policy baseline filesystem custody', () => {
     const remove = async (path: string) => {
       await rm(path, { recursive: true, force: true })
     }
-    const assemble = async (repositoryRoot: string, checkpoint: string) => {
+    const assemble = async (
+      repositoryRoot: string,
+      checkpoint: string,
+      shared = false,
+    ) => {
       const m45 = join(repositoryRoot, '.local/m45')
       const build = join(m45, '.policy-exclusive-promotion-build')
       const preflight = join(m45, '.policy-exclusive-promotion-preflight')
       await makeDirectory(m45)
+      if (shared) {
+        for (const name of [
+          'candidate-review',
+          'discovery',
+          'predecessor-review',
+        ]) {
+          await makeDirectory(join(m45, name))
+          await chmod(join(m45, name), 0o755)
+        }
+        const control = join(m45, 'policy-native-derivation')
+        await makeDirectory(control)
+        await writeExact(
+          join(control, 'shared-root-baseline.v1.json'),
+          Buffer.from('baseline\n'),
+          0o600,
+        )
+        await writeExact(
+          join(control, 'stage-a.v1.json'),
+          Buffer.from('stage-a\n'),
+          0o600,
+        )
+      }
+      const sharedEvidence = async (name: string) => {
+        const metadata = await lstat(join(m45, name))
+        return {
+          uid: String(metadata.uid),
+          device: String(metadata.dev),
+          inode: String(metadata.ino),
+          links: String(metadata.nlink),
+          mode: String(metadata.mode & 0o7777),
+          size: 'na' as const,
+        }
+      }
+      const sharedSiblings = shared
+        ? {
+            'candidate-review': await sharedEvidence('candidate-review'),
+            discovery: await sharedEvidence('discovery'),
+            'predecessor-review': await sharedEvidence('predecessor-review'),
+            'policy-native-derivation': await sharedEvidence(
+              'policy-native-derivation',
+            ),
+          }
+        : undefined
       await writeExact(
         join(m45, '.policy-exclusive-promotion.lock'),
         Buffer.alloc(0),
@@ -2662,7 +2709,7 @@ describe('M45 policy baseline filesystem custody', () => {
         )
 
       const needsPreflight = /^(?:P|O|R(?:01|0[2-9]|1[0-3]))/u.test(checkpoint)
-      if (!needsPreflight) return { m45, build, preflight }
+      if (!needsPreflight) return { m45, build, preflight, sharedSiblings }
       await makeDirectory(preflight)
       const addDirectory = async (name: keyof typeof fixtureBytes) => {
         const directory = join(preflight, name)
@@ -2712,7 +2759,7 @@ describe('M45 policy baseline filesystem custody', () => {
           await makeDirectory(
             join(preflight, 'collision-destination/promotion'),
           )
-        return { m45, build, preflight }
+        return { m45, build, preflight, sharedSiblings }
       }
       for (const name of prefix) await addDirectory(name)
       for (const name of [
@@ -2820,7 +2867,7 @@ describe('M45 policy baseline filesystem custody', () => {
       }
       for (const path of removeForRow[checkpoint] ?? [])
         await remove(join(preflight, path))
-      return { m45, build, preflight }
+      return { m45, build, preflight, sharedSiblings }
     }
 
     for (const checkpoint of checkpoints) {
@@ -2844,6 +2891,61 @@ describe('M45 policy baseline filesystem custody', () => {
         })
         expect(reopened?.checkpoint).toBe(checkpoint)
         expect(reopened?.checkpointSha256).toMatch(/^[a-f0-9]{64}$/u)
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+
+    for (const name of [
+      'candidate-review',
+      'discovery',
+      'predecessor-review',
+      'policy-native-derivation',
+    ]) {
+      const directory = await mkdtemp(join(tmpdir(), 'm45-d116-base-drift-'))
+      try {
+        const assembled = await assemble(directory, 'B0', true)
+        if (name === 'policy-native-derivation')
+          await writeExact(
+            join(assembled.m45, name, 'extra'),
+            Buffer.from('extra\n'),
+            0o600,
+          )
+        else await chmod(join(assembled.m45, name), 0o700)
+        await expect(
+          reopenPolicyBCandidateCheckpointForFixture({
+            repositoryRoot: directory,
+            sourceSha256,
+            helperSha256,
+            sharedSiblings: assembled.sharedSiblings,
+          }),
+        ).resolves.toBeNull()
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+
+    for (const checkpoint of checkpoints) {
+      const directory = await mkdtemp(join(tmpdir(), 'm45-d116-shared-reopen-'))
+      try {
+        const assembled = await assemble(directory, checkpoint, true)
+        const reopened = await reopenPolicyBCandidateCheckpointForFixture({
+          repositoryRoot: directory,
+          sourceSha256,
+          helperSha256,
+          sharedSiblings: assembled.sharedSiblings,
+          cleanupPhase: /^(?:R|T)/u.test(checkpoint),
+          terminalLaunched: checkpoint === 'T2',
+          failedOperationFamily:
+            checkpoint === 'T0'
+              ? 'delete-build-terminal'
+              : checkpoint === 'O3'
+                ? 'preflight-promotion'
+                : 'fixture',
+          lastChildExitCode: checkpoint === 'O3' ? 10 : undefined,
+          acl: async () => (checkpoint === 'O1' ? 'fixture' : 'empty'),
+        })
+        expect(reopened?.checkpoint).toBe(checkpoint)
       } finally {
         await rm(directory, { recursive: true, force: true })
       }

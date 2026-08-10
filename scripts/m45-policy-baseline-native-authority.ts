@@ -1281,7 +1281,9 @@ function sharedTerminalInput(value: unknown): SharedTerminalInput {
         sibling.mode === '0',
     ) ||
     siblings['policy-native-derivation'].mode !== '448' ||
-    siblings['policy-native-derivation'].links !== '2'
+    (value.phase === 'shared-a'
+      ? siblings['policy-native-derivation'].links !== '3'
+      : siblings['policy-native-derivation'].links !== '4')
   )
     throw new Error('policy-native-authority')
   return Object.freeze({
@@ -1381,6 +1383,7 @@ async function reopenBCandidateCheckpoint(
     custody: Awaited<ReturnType<typeof openDerivationLock>>
     helperSha256: string
     sourceSha256: string
+    sharedSiblings?: SharedTerminalInput['siblings']
     cleanupPhase: boolean
     terminalLaunched: boolean
     failedOperationFamily: string
@@ -1469,6 +1472,7 @@ async function reopenBCandidateCheckpoint(
       'file',
     ],
     ['acl-fixture', join(preflightPath, 'acl-fixture'), 'directory'],
+    ['control', join(m45Path, 'policy-native-derivation'), 'directory'],
   ] as const
   const observed: Record<string, unknown> = {}
   const inventories: Record<string, readonly string[] | 'absent'> = {}
@@ -1570,6 +1574,33 @@ async function reopenBCandidateCheckpoint(
   } catch {
     return undefined
   }
+  if (input.sharedSiblings !== undefined) {
+    for (const [name, expected] of Object.entries(input.sharedSiblings)) {
+      const path = join(m45Path, name)
+      let handle: FileHandle | undefined
+      try {
+        handle = await open(
+          path,
+          fsConstants.O_RDONLY |
+            fsConstants.O_DIRECTORY |
+            darwinFlags.noFollow |
+            darwinFlags.closeOnExec,
+        )
+        const held = await handle.stat()
+        const named = await lstat(path)
+        if (
+          held.dev !== named.dev ||
+          held.ino !== named.ino ||
+          canonical(metadataEvidence(held)) !== canonical(expected)
+        )
+          return undefined
+      } catch {
+        return undefined
+      } finally {
+        await handle?.close()
+      }
+    }
+  }
   for (const [role, path] of paths) {
     if (role === 'acl-fixture' || observed[role] === 'absent') continue
     if (
@@ -1604,7 +1635,7 @@ async function reopenBCandidateCheckpoint(
   const m45Evidence = observed.m45 as Record<string, unknown>
   const commonDevice = m45Evidence.device
   // Decision 108 binds APFS directory links to the complete immediate entry
-  // inventory, not merely the subdirectory count.
+  // inventory, including regular files such as the persistent command lock.
   const expectedDirectoryLinks = (_role: string, entries: readonly string[]) =>
     2 + entries.length
   const canonicalMetadata = (
@@ -1663,22 +1694,20 @@ async function reopenBCandidateCheckpoint(
   )
   const m45Directory = (entries: readonly string[]) => {
     const expected = sharedRoot ? [...sharedRootEntries, ...entries] : entries
-    const childDirectories = sharedRoot
-      ? sharedRootEntries.length +
-        entries.filter((entry) => entry !== '.policy-exclusive-promotion.lock')
-          .length
-      : entries.length
     return (
       canonicalMetadata(
         'm45',
         'directory',
         '448',
-        String(2 + childDirectories),
+        String(2 + expected.length),
       ) && exact('m45', expected)
     )
   }
   const allAbsent = (...roles: readonly string[]) => roles.every(absent)
-  const preflightRoles = paths.slice(4).map(([role]) => role)
+  const preflightRoles = paths
+    .slice(4)
+    .filter(([role]) => role !== 'control')
+    .map(([role]) => role)
   const buildCore =
     directory('build', [
       'exclusive-promotion-helper',
@@ -1688,6 +1717,9 @@ async function reopenBCandidateCheckpoint(
     directory('tmp', []) &&
     file('source', '256', input.sourceSha256) &&
     file('helper', '320', input.helperSha256)
+  const sharedControl =
+    !sharedRoot ||
+    directory('control', ['shared-root-baseline.v1.json', 'stage-a.v1.json'])
   const lockOnly = m45Directory(['.policy-exclusive-promotion.lock'])
   const buildOnly = m45Directory([
     '.policy-exclusive-promotion-build',
@@ -1764,6 +1796,7 @@ async function reopenBCandidateCheckpoint(
       hash(Buffer.from(fixtureBytes['collision-destination/fixture.bin'])),
     )
   const state = (): BCandidateCheckpoint | undefined => {
+    if (!sharedControl) return undefined
     if (
       !input.cleanupPhase &&
       lockOnly &&
@@ -2297,6 +2330,7 @@ export async function reopenPolicyBCandidateCheckpointForFixture(input: {
     evidence: Readonly<Record<string, unknown>>,
   ) => Readonly<Record<string, unknown>>
   beforeNamed?: (role: string, path: string) => Promise<void>
+  sharedSiblings?: SharedTerminalInput['siblings']
 }): Promise<Readonly<{ checkpoint: string; checkpointSha256: string }> | null> {
   if (process.env.NODE_ENV !== 'test')
     throw new Error('policy-wrapper-isolation')
@@ -2321,6 +2355,7 @@ export async function reopenPolicyBCandidateCheckpointForFixture(input: {
     } as Awaited<ReturnType<typeof openDerivationLock>>,
     helperSha256: input.helperSha256,
     sourceSha256: input.sourceSha256,
+    sharedSiblings: input.sharedSiblings,
     cleanupPhase: input.cleanupPhase ?? false,
     terminalLaunched: input.terminalLaunched ?? false,
     failedOperationFamily: input.failedOperationFamily ?? 'fixture',
@@ -4508,6 +4543,8 @@ async function runPolicyProvisionalBuildWorkflow(
             custody,
             helperSha256: candidateHelperSha256,
             sourceSha256: candidateSourceSha256,
+            sharedSiblings:
+              workflow === 'B-candidate' ? sharedTerminal?.siblings : undefined,
             cleanupPhase,
             terminalLaunched,
             failedOperationFamily: lastOperationFamily,
@@ -4566,6 +4603,10 @@ async function runPolicyProvisionalBuildWorkflow(
                 custody,
                 helperSha256: candidateHelperSha256,
                 sourceSha256: candidateSourceSha256,
+                sharedSiblings:
+                  workflow === 'B-candidate'
+                    ? sharedTerminal?.siblings
+                    : undefined,
                 cleanupPhase: true,
                 terminalLaunched,
                 failedOperationFamily: lastOperationFamily,

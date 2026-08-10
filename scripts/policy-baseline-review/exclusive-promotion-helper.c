@@ -1172,7 +1172,7 @@ static int delete_build_terminal_shared_mode(int argc, char *argv[]) {
       !parse_evidence(argv, 9, &build_expected) ||
       !parse_evidence(argv, 15, &helper_expected) || !exact_child_fd_map(6) ||
       parent_expected.owner != geteuid() || parent_expected.mode != 0700 ||
-      parent_expected.links != 7 ||
+      parent_expected.links != 8 ||
       build_expected.owner != geteuid() || build_expected.mode != 0700 ||
       build_expected.links != 3 ||
       helper_expected.owner != geteuid() || helper_expected.mode != 0500 ||
@@ -1200,6 +1200,9 @@ static int delete_build_terminal_shared_mode(int argc, char *argv[]) {
         siblings[index].owner != geteuid() ||
         siblings[index].device != parent_expected.device ||
         siblings[index].links < 2 ||
+        (index == 3 &&
+         siblings[index].links !=
+             (strcmp(argv[2], "shared-a") == 0 ? 3 : 4)) ||
         !exact_shared_sibling(4, sibling_names[index], &siblings[index])) {
       return HELPER_TERMINAL_UNCLASSIFIABLE;
     }
@@ -1227,7 +1230,7 @@ static int delete_build_terminal_shared_mode(int argc, char *argv[]) {
   }
   if (fstat(4, &parent_after) != 0 || parent_after.st_uid != parent_before.st_uid ||
       parent_after.st_dev != parent_before.st_dev || parent_after.st_ino != parent_before.st_ino ||
-      parent_after.st_nlink != 6 ||
+      parent_after.st_nlink != 7 ||
       !exact_directory_inventory(4, INVENTORY(shared_terminal_after)) ||
       !exact_lock(3, parent_expected.device)) {
     return HELPER_TERMINAL_ROOT_REMOVED_UNPROVED;
