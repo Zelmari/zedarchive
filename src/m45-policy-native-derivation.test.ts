@@ -596,6 +596,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -637,7 +643,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -653,7 +659,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -675,7 +681,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -700,7 +706,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -717,7 +723,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -769,7 +775,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
           ...seams,
           diagnoseA,
         }),
@@ -794,7 +800,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v1'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {

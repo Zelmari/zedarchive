@@ -651,16 +651,18 @@ async function openDerivationLock(
         fixtureHarness?.inspectFiller ?? inspectNativeFiller,
         (handle) => positioningFillers.push(handle),
       )
+    const positioningFds = positioningFillers.map(({ fd }) => fd)
     if (
-      canonical(
-        positioningFillers.map(({ fd }) => fd).sort((a, b) => a - b),
-      ) !== canonical([3, 4, 5, 6])
+      positioningFds.length !== 4 ||
+      new Set(positioningFds).size !== 4 ||
+      positioningFds.some((fd) => !isSafeParentFd(fd, 6))
     )
       throw new Error('policy-native-authority')
     lock = fixtureHarness
       ? await fixtureHarness.openLock()
       : await open(lockPath, lockExistingFlags)
-    if (lock.fd <= 6) throw new Error('policy-native-authority')
+    if (!isSafeParentFd(lock.fd, 6) || positioningFds.includes(lock.fd))
+      throw new Error('policy-native-authority')
     const identity = fixtureHarness
       ? ({} as LockIdentity)
       : lockIdentity(await lock.stat())
@@ -1151,6 +1153,10 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
 type ChildFdHandle = Readonly<{ fd: number; close: () => Promise<void> }>
 type FillerIdentity = Readonly<{ device: string; inode: string }>
 
+function isSafeParentFd(fd: number, highestChildTarget: number): boolean {
+  return Number.isSafeInteger(fd) && fd > highestChildTarget
+}
+
 async function expectedDevNullIdentity(): Promise<FillerIdentity> {
   const metadata = await lstat('/dev/null')
   if (!metadata.isCharacterDevice()) throw new Error('policy-native-authority')
@@ -1204,7 +1210,9 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
   ) => Promise<T>,
   harness?: ChildFdLifecycleHarness<Handle>,
 ): Promise<T> {
-  const expected = highestChildAuthorityTarget === 6 ? [3, 4, 5, 6] : [3, 4, 5]
+  if (highestChildAuthorityTarget !== 3 && highestChildAuthorityTarget !== 6)
+    throw new Error('policy-native-authority')
+  const fillerCount = highestChildAuthorityTarget === 6 ? 4 : 3
   const fillers: Handle[] = []
   const authorities: Handle[] = []
   const validate = async () =>
@@ -1237,7 +1245,7 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
   }
   try {
     await validate()
-    for (let index = 0; index < expected.length; index += 1)
+    for (let index = 0; index < fillerCount; index += 1)
       await openCheckedFiller(
         expectedFillerIdentity,
         async () =>
@@ -1257,11 +1265,15 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
         inspectFiller,
         (handle) => fillers.push(handle),
       )
+    const fillerFds = fillers.map(({ fd }) => fd)
     if (
-      canonical(
-        fillers.map(({ fd }) => fd).sort((left, right) => left - right),
-      ) !== canonical(expected) ||
-      custody.lock.fd <= highestChildAuthorityTarget
+      fillerFds.length !== fillerCount ||
+      new Set(fillerFds).size !== fillerCount ||
+      fillerFds.some(
+        (fd) => !isSafeParentFd(fd, highestChildAuthorityTarget),
+      ) ||
+      fillerFds.includes(custody.lock.fd) ||
+      !isSafeParentFd(custody.lock.fd, highestChildAuthorityTarget)
     )
       throw new Error('policy-native-authority')
     const openChildAuthority = async (path: string, flags: number) => {
@@ -1271,7 +1283,7 @@ async function withChildFillers<T, Handle extends ChildFdHandle = FileHandle>(
           : await harness.open(path, flags)
       authorities.push(handle)
       if (
-        handle.fd <= highestChildAuthorityTarget ||
+        !isSafeParentFd(handle.fd, highestChildAuthorityTarget) ||
         handle.fd === custody.lock.fd ||
         fillers.some((filler) => filler.fd === handle.fd) ||
         authorities.filter(({ fd }) => fd === handle.fd).length !== 1

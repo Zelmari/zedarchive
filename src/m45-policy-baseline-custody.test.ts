@@ -2037,13 +2037,19 @@ describe('M45 policy baseline filesystem custody', () => {
       'review-candidate',
     ])
       expect(diagnosticBridge).not.toContain(forbidden)
-    // Decision 112 has two non-overlapping filler lifetimes: four initial
-    // positioners establish a lock above FD 6, while every helper child gets a
-    // fresh three- or four-filler set and closes it before the next child.
+    // Decision 119 retains the two non-overlapping filler lifetimes while
+    // requiring every observed parent source FD above its child target.
     expect(nativeAuthority).toContain('positioningFillers')
     expect(nativeAuthority).toContain('withChildFillers')
     expect(nativeAuthority).toContain('highestChildAuthorityTarget === 6')
-    expect(nativeAuthority).toContain('canonical([3, 4, 5, 6])')
+    expect(nativeAuthority).toContain('Number.isSafeInteger(fd)')
+    expect(nativeAuthority).toContain(
+      'positioningFds.some((fd) => !isSafeParentFd(fd, 6))',
+    )
+    expect(nativeAuthority).toContain(
+      '!isSafeParentFd(fd, highestChildAuthorityTarget)',
+    )
+    expect(nativeAuthority).not.toContain('canonical([3, 4, 5, 6])')
     expect(nativeAuthority).toContain('right.fd - left.fd')
     expect(nativeAuthority).toContain('broker.abortBCandidateSession')
     expect(nativeAuthority).toContain('broker.beginBCandidateCleanup')
@@ -3051,6 +3057,8 @@ describe('M45 policy baseline filesystem custody', () => {
         highest: 3 | 6
         failOpenAt?: number
         failCloseFd?: number
+        fillerFds?: readonly number[]
+        lockFd?: number
         authorityFds?: readonly number[]
         failChild?: boolean
       }>,
@@ -3067,7 +3075,7 @@ describe('M45 policy baseline filesystem custody', () => {
         },
       })
       const lock = {
-        ...handle(9),
+        ...handle(input.lockFd ?? 20),
         close: async () => {
           events.push('close:lock')
         },
@@ -3083,7 +3091,7 @@ describe('M45 policy baseline filesystem custody', () => {
             const fillerCount = input.highest === 6 ? 4 : 3
             const fd =
               opened <= fillerCount
-                ? opened + 2
+                ? (input.fillerFds?.[opened - 1] ?? input.highest + opened)
                 : (input.authorityFds?.[opened - fillerCount - 1] ??
                   10 + opened)
             return handle(fd)
@@ -3119,7 +3127,43 @@ describe('M45 policy baseline filesystem custody', () => {
         expect(attempt.childRuns()).toBe(0)
         expect(attempt.registered()).toBe(false)
       }
-      for (let fd = 3; fd <= fillerCount + 2; fd += 1) {
+      const observedParentFds = highest === 6 ? [14, 12, 13, 15] : [14, 12, 13]
+      const observed = await run({
+        highest,
+        fillerFds: observedParentFds,
+        authorityFds: [21, 22],
+      })
+      await expect(observed.result).resolves.toBeUndefined()
+      expect(observed.childRuns()).toBe(1)
+      expect(observed.registered()).toBe(true)
+      for (const fillerFds of [
+        [highest, ...observedParentFds.slice(1)],
+        [Number.NaN, ...observedParentFds.slice(1)],
+        [Number.POSITIVE_INFINITY, ...observedParentFds.slice(1)],
+        [
+          observedParentFds[0]!,
+          observedParentFds[0]!,
+          ...observedParentFds.slice(2),
+        ],
+      ]) {
+        const rejected = await run({ highest, fillerFds })
+        await expect(rejected.result).rejects.toThrow('policy-native-authority')
+        expect(rejected.childRuns()).toBe(0)
+      }
+      const lockCollision = await run({
+        highest,
+        lockFd: highest + fillerCount,
+      })
+      await expect(lockCollision.result).rejects.toThrow(
+        'policy-native-authority',
+      )
+      expect(lockCollision.childRuns()).toBe(0)
+      const invalidLock = await run({ highest, lockFd: Number.NaN })
+      await expect(invalidLock.result).rejects.toThrow(
+        'policy-native-authority',
+      )
+      expect(invalidLock.childRuns()).toBe(0)
+      for (let fd = highest + 1; fd <= highest + fillerCount; fd += 1) {
         const attempt = await run({ highest, failCloseFd: fd })
         await expect(attempt.result).rejects.toThrow('injected-close')
         expect(attempt.childRuns()).toBe(1)
@@ -3130,6 +3174,7 @@ describe('M45 policy baseline filesystem custody', () => {
         [highest, highest + 8],
         [highest + 8, highest],
         [highest + 8, highest + 8],
+        [Number.NaN, highest + 8],
       ]) {
         const attempt = await run({ highest, authorityFds })
         await expect(attempt.result).rejects.toThrow('policy-native-authority')
@@ -3151,6 +3196,12 @@ describe('M45 policy baseline filesystem custody', () => {
       }
     }
 
+    const invalidHighest = await run({ highest: 4 as 3 })
+    await expect(invalidHighest.result).rejects.toThrow(
+      'policy-native-authority',
+    )
+    expect(invalidHighest.childRuns()).toBe(0)
+
     const childFailure = await run({ highest: 6, failChild: true })
     await expect(childFailure.result).rejects.toThrow('injected-child')
     expect(childFailure.childRuns()).toBe(1)
@@ -3171,6 +3222,8 @@ describe('M45 policy baseline filesystem custody', () => {
       failValidationAt?: number
       failFinalValidation?: boolean
       driftFillerAt?: number
+      fillerFds?: readonly number[]
+      lockFd?: number
     }) => {
       const events: string[] = []
       let fillerOpen = 0
@@ -3181,9 +3234,9 @@ describe('M45 policy baseline filesystem custody', () => {
           events.push(`close:${fd}`)
           if (
             fd === input.failFillerCloseFd ||
-            (fd === 9 && input.failLockClose)
+            (fd === 20 && input.failLockClose)
           )
-            throw new Error(fd === 9 ? 'close-lock' : 'close-filler')
+            throw new Error(fd === 20 ? 'close-lock' : 'close-filler')
         },
       })
       return {
@@ -3194,7 +3247,7 @@ describe('M45 policy baseline filesystem custody', () => {
             events.push(`open:filler:${fillerOpen}`)
             if (fillerOpen === input.failFillerOpenAt)
               throw new Error('open-filler')
-            return handle(fillerOpen + 2)
+            return handle(input.fillerFds?.[fillerOpen - 1] ?? fillerOpen + 6)
           },
           inspectFiller: async (filler) =>
             filler.fd === input.driftFillerAt
@@ -3203,7 +3256,7 @@ describe('M45 policy baseline filesystem custody', () => {
           openLock: async () => {
             events.push('open:lock')
             if (input.failLockOpen) throw new Error('open-lock')
-            return handle(9)
+            return handle(input.lockFd ?? 20)
           },
           validateLock: async () => {
             validation += 1
@@ -3218,6 +3271,27 @@ describe('M45 policy baseline filesystem custody', () => {
         }),
       }
     }
+    const noncontiguous = attempt({ fillerFds: [14, 12, 13, 15] })
+    await expect(noncontiguous.result).resolves.toBeUndefined()
+    expect(noncontiguous.events).toContain('close:15')
+    expect(noncontiguous.events).toContain('close:12')
+    for (const fillerFds of [
+      [6, 8, 9, 10],
+      [Number.NaN, 8, 9, 10],
+      [7, 8, 8, 10],
+    ]) {
+      const invalid = attempt({ fillerFds })
+      await expect(invalid.result).rejects.toThrow('policy-native-authority')
+      expect(invalid.events).not.toContain('open:lock')
+    }
+    const positioningLockCollision = attempt({ lockFd: 10 })
+    await expect(positioningLockCollision.result).rejects.toThrow(
+      'policy-native-authority',
+    )
+    const invalidPositioningLock = attempt({ lockFd: Number.NaN })
+    await expect(invalidPositioningLock.result).rejects.toThrow(
+      'policy-native-authority',
+    )
     for (let failure = 1; failure <= 4; failure += 1) {
       const current = attempt({ failFillerOpenAt: failure })
       await expect(current.result).rejects.toThrow('open-filler')
@@ -3228,7 +3302,7 @@ describe('M45 policy baseline filesystem custody', () => {
         ),
         ...Array.from(
           { length: failure - 1 },
-          (_, index) => `close:${failure - index + 1}`,
+          (_, index) => `close:${failure - index + 5}`,
         ),
       ])
     }
@@ -3240,12 +3314,12 @@ describe('M45 policy baseline filesystem custody', () => {
       'open:filler:3',
       'open:filler:4',
       'open:lock',
-      'close:6',
-      'close:5',
-      'close:4',
-      'close:3',
+      'close:10',
+      'close:9',
+      'close:8',
+      'close:7',
     ])
-    for (const fd of [3, 4, 5, 6]) {
+    for (const fd of [7, 8, 9, 10]) {
       const closeFailure = attempt({ failFillerCloseFd: fd })
       await expect(closeFailure.result).rejects.toThrow(
         'policy-native-positioning-ambiguous',
@@ -3257,28 +3331,28 @@ describe('M45 policy baseline filesystem custody', () => {
         'open:filler:4',
         'open:lock',
         'validate:1',
-        'close:6',
-        'close:5',
-        'close:4',
-        'close:3',
-        'validate:2',
+        'close:10',
         'close:9',
+        'close:8',
+        'close:7',
+        'validate:2',
+        'close:20',
       ])
     }
     const validationFailure = attempt({ failValidationAt: 1 })
     await expect(validationFailure.result).rejects.toThrow('validate-lock')
-    expect(validationFailure.events.at(-1)).toBe('close:9')
-    const drift = attempt({ driftFillerAt: 4 })
+    expect(validationFailure.events.at(-1)).toBe('close:20')
+    const drift = attempt({ driftFillerAt: 8 })
     await expect(drift.result).rejects.toThrow('policy-native-authority')
     expect(drift.events).toEqual([
       'open:filler:1',
       'open:filler:2',
-      'close:4',
-      'close:3',
+      'close:8',
+      'close:7',
     ])
     const driftCloseFailure = attempt({
-      driftFillerAt: 4,
-      failFillerCloseFd: 4,
+      driftFillerAt: 8,
+      failFillerCloseFd: 8,
     })
     await expect(driftCloseFailure.result).rejects.toThrow(
       'policy-native-positioning-ambiguous',
@@ -3286,18 +3360,18 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(driftCloseFailure.events).toEqual([
       'open:filler:1',
       'open:filler:2',
-      'close:4',
-      'close:3',
+      'close:8',
+      'close:7',
     ])
     const finalValidation = attempt({ failFinalValidation: true })
     await expect(finalValidation.result).rejects.toThrow('validate-final')
     expect(finalValidation.events.slice(-2)).toEqual([
       'validate:final',
-      'close:9',
+      'close:20',
     ])
     const finalClose = attempt({ failLockClose: true })
     await expect(finalClose.result).rejects.toThrow('close-lock')
-    expect(finalClose.events.slice(-2)).toEqual(['validate:final', 'close:9'])
+    expect(finalClose.events.slice(-2)).toEqual(['validate:final', 'close:20'])
     const finalAmbiguity = attempt({
       failFinalValidation: true,
       failLockClose: true,
@@ -3307,7 +3381,7 @@ describe('M45 policy baseline filesystem custody', () => {
     )
     expect(finalAmbiguity.events.slice(-2)).toEqual([
       'validate:final',
-      'close:9',
+      'close:20',
     ])
   })
 
