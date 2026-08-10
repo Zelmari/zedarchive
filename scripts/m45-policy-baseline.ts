@@ -13,6 +13,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from '@/config/zod'
 import {
+  runPolicyProvisionalBuildA,
   runPolicyNativeToolchainDerivation,
   runPolicyProvisionalBuildB,
   runPolicyProvisionalBuildC,
@@ -945,6 +946,40 @@ export async function derivePolicyToolchainAuthority(
 }
 
 /**
+ * Decision 115's runner consumes this single high-level A operation.  It never
+ * receives a compiler, helper, lock, descriptor, or launch capability.
+ */
+export async function derivePolicyProvisionalBuildA(
+  input: Readonly<{
+    repositoryRoot: string
+    rootNonceSha256: string
+    sharedTerminal: unknown
+  }>,
+): Promise<PolicyPromotionPackage> {
+  const repositoryRoot = await realpath(input.repositoryRoot)
+  if (
+    repositoryRoot !== input.repositoryRoot ||
+    resolve(repositoryRoot) !== repositoryRoot
+  )
+    throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  const launch = await inspectPolicyNativeLaunchSources()
+  const result = await runPolicyProvisionalBuildA({
+    repositoryRoot,
+    nativeAuthoritySha256: launch.nativeAuthoritySha256,
+    rootNonceSha256: input.rootNonceSha256,
+    sharedTerminal: input.sharedTerminal,
+  })
+  const packageResult = parsePolicyPromotionPackage(result)
+  if (
+    packageResult.stage !== 'A' ||
+    packageResult.material.nativeAuthoritySha256 !==
+      launch.nativeAuthoritySha256
+  )
+    throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
+  return packageResult
+}
+
+/**
  * The policy trust root consumes only the completed strict B result.  It does
  * not receive a candidate capability, helper descriptor, FD map, launch plan,
  * or any of the bridge's intermediate filesystem state.
@@ -954,6 +989,7 @@ export async function derivePolicyProvisionalBuildB(
     repositoryRoot: string
     rootNonceSha256: string
     cleanedStageAPackage: unknown
+    sharedTerminal: unknown
   }>,
 ): Promise<
   Readonly<{
@@ -973,6 +1009,7 @@ export async function derivePolicyProvisionalBuildB(
     nativeAuthoritySha256: launch.nativeAuthoritySha256,
     rootNonceSha256: input.rootNonceSha256,
     cleanedStageAPackage: input.cleanedStageAPackage,
+    sharedTerminal: input.sharedTerminal,
   })
   if (result === null || typeof result !== 'object')
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')
@@ -1023,6 +1060,11 @@ export async function derivePolicyAcceptanceBuildC(
     package: PolicyPromotionPackage
   }>
 > {
+  // Decision 115 keeps C unreachable until Decision 116 pins a complete
+  // tracked accepted-literals object.  Test fixtures retain the structural
+  // constructor solely to exercise the historical validation contract.
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
   const repositoryRoot = await realpath(input.repositoryRoot)
   if (
     repositoryRoot !== input.repositoryRoot ||
@@ -2182,6 +2224,8 @@ export async function createAcceptedPolicyPromotionLiterals(
   candidateInput: unknown,
   reviewAuthoritySha256: string,
 ): Promise<PolicyPromotionPackage> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyBaselineError('policy-wrapper-isolation')
   const candidate = parsePolicyPromotionPackage(candidateInput)
   if (candidate.stage !== 'candidate')
     throw new PolicyBaselineError('policy-exclusive-promotion-unavailable')

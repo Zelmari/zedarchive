@@ -1231,6 +1231,64 @@ function metadataEvidence(metadata: Awaited<ReturnType<FileHandle['stat']>>) {
     size: metadata.isDirectory() ? ('na' as const) : String(metadata.size),
   }
 }
+
+type SharedTerminalInput = Readonly<{
+  phase: 'shared-a' | 'shared-b'
+  siblings: Readonly<{
+    'candidate-review': Readonly<Record<string, unknown>>
+    discovery: Readonly<Record<string, unknown>>
+    'predecessor-review': Readonly<Record<string, unknown>>
+    'policy-native-derivation': Readonly<Record<string, unknown>>
+  }>
+}>
+
+function sharedTerminalInput(value: unknown): SharedTerminalInput {
+  exactObject(value, ['phase', 'siblings'])
+  if (value.phase !== 'shared-a' && value.phase !== 'shared-b')
+    throw new Error('policy-native-authority')
+  exactObject(value.siblings, [
+    'candidate-review',
+    'discovery',
+    'predecessor-review',
+    'policy-native-derivation',
+  ])
+  const parseMetadata = (metadata: unknown) => {
+    exactObject(metadata, ['uid', 'device', 'inode', 'links', 'mode', 'size'])
+    for (const key of ['uid', 'device', 'inode', 'links', 'mode'] as const) {
+      if (
+        typeof metadata[key] !== 'string' ||
+        !/^(?:0|[1-9][0-9]*)$/u.test(metadata[key])
+      )
+        throw new Error('policy-native-authority')
+    }
+    if (metadata.size !== 'na') throw new Error('policy-native-authority')
+    return Object.freeze({ ...metadata })
+  }
+  const siblings = {
+    'candidate-review': parseMetadata(value.siblings['candidate-review']),
+    discovery: parseMetadata(value.siblings.discovery),
+    'predecessor-review': parseMetadata(value.siblings['predecessor-review']),
+    'policy-native-derivation': parseMetadata(
+      value.siblings['policy-native-derivation'],
+    ),
+  }
+  if (
+    Object.values(siblings).some(
+      (sibling) =>
+        sibling.size !== 'na' ||
+        sibling.inode === '0' ||
+        sibling.links === '0' ||
+        sibling.mode === '0',
+    ) ||
+    siblings['policy-native-derivation'].mode !== '448' ||
+    siblings['policy-native-derivation'].links !== '2'
+  )
+    throw new Error('policy-native-authority')
+  return Object.freeze({
+    phase: value.phase,
+    siblings: Object.freeze(siblings),
+  })
+}
 async function completeHeldBytes(handle: FileHandle, size: number) {
   const bytes = Buffer.alloc(size)
   const first = await handle.read(bytes, 0, size, 0)
@@ -1594,9 +1652,31 @@ async function reopenBCandidateCheckpoint(
       exact(role, entries)
     )
   }
-  const m45Directory = (entries: readonly string[]) =>
-    canonicalMetadata('m45', 'directory', '448', String(2 + entries.length)) &&
-    exact('m45', entries)
+  const sharedRootEntries = [
+    'candidate-review',
+    'discovery',
+    'predecessor-review',
+    'policy-native-derivation',
+  ] as const
+  const sharedRoot = sharedRootEntries.every((entry) =>
+    (inventories.m45 as readonly string[]).includes(entry),
+  )
+  const m45Directory = (entries: readonly string[]) => {
+    const expected = sharedRoot ? [...sharedRootEntries, ...entries] : entries
+    const childDirectories = sharedRoot
+      ? sharedRootEntries.length +
+        entries.filter((entry) => entry !== '.policy-exclusive-promotion.lock')
+          .length
+      : entries.length
+    return (
+      canonicalMetadata(
+        'm45',
+        'directory',
+        '448',
+        String(2 + childDirectories),
+      ) && exact('m45', expected)
+    )
+  }
   const allAbsent = (...roles: readonly string[]) => roles.every(absent)
   const preflightRoles = paths.slice(4).map(([role]) => role)
   const buildCore =
@@ -2362,6 +2442,7 @@ async function buildAndCleanupA(
   rootNonceSha256: string,
   authority: Readonly<Record<string, unknown>>,
   custody: Awaited<ReturnType<typeof openDerivationLock>>,
+  sharedTerminal: SharedTerminalInput,
 ) {
   const m45Path = join(repositoryRoot, '.local/m45')
   const buildPath = join(m45Path, '.policy-exclusive-promotion-build')
@@ -2548,10 +2629,12 @@ async function buildAndCleanupA(
             throw new Error('policy-native-authority')
           return {
             operation: {
-              kind: 'delete-build-terminal',
+              kind: 'delete-build-terminal-shared',
+              phase: sharedTerminal.phase,
               parent: metadataEvidence(parentBefore),
               buildRoot: metadataEvidence(buildBefore),
               helper: metadataEvidence(helperBefore),
+              siblings: sharedTerminal.siblings,
               commandLockFd: custody.lock.fd,
               parentFd: parent.fd,
               buildRootFd: buildRoot.fd,
@@ -2589,10 +2672,12 @@ export async function runPolicyProvisionalBuildA(
     'repositoryRoot',
     'nativeAuthoritySha256',
     'rootNonceSha256',
+    'sharedTerminal',
   ])
   const repositoryRoot = safeRoot(input.repositoryRoot)
   const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
   const rootNonceSha256 = sha256(input.rootNonceSha256)
+  const sharedTerminal = sharedTerminalInput(input.sharedTerminal)
   const workerSha256 = hash(await readFile(lockWorkerPath))
   await commandLockCapabilityProbe(repositoryRoot, workerSha256)
   const custody = await openDerivationLock(repositoryRoot)
@@ -2608,6 +2693,7 @@ export async function runPolicyProvisionalBuildA(
       rootNonceSha256,
       authority,
       custody,
+      sharedTerminal,
     )
     await validateNamedLock(custody.lock, custody.lockPath, custody.identity)
     return Object.freeze(result)
@@ -2634,6 +2720,7 @@ async function runPolicyProvisionalBuildWorkflow(
           'nativeAuthoritySha256',
           'rootNonceSha256',
           'cleanedStageAPackage',
+          'sharedTerminal',
         ]
       : [
           'repositoryRoot',
@@ -2647,6 +2734,10 @@ async function runPolicyProvisionalBuildWorkflow(
   const repositoryRoot = safeRoot(input.repositoryRoot)
   const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
   const rootNonceSha256 = sha256(input.rootNonceSha256)
+  const sharedTerminal =
+    workflow === 'B-candidate'
+      ? sharedTerminalInput(input.sharedTerminal)
+      : undefined
   const comparison =
     workflow === 'B-candidate'
       ? input.cleanedStageAPackage
@@ -3696,7 +3787,16 @@ async function runPolicyProvisionalBuildWorkflow(
           }
           return {
             operation: {
-              kind: 'delete-build-terminal',
+              kind:
+                workflow === 'B-candidate'
+                  ? 'delete-build-terminal-shared'
+                  : 'delete-build-terminal',
+              ...(workflow === 'B-candidate'
+                ? {
+                    phase: sharedTerminal!.phase,
+                    siblings: sharedTerminal!.siblings,
+                  }
+                : {}),
               parent: metadataEvidence(parentBefore),
               buildRoot: metadataEvidence(buildBefore),
               helper: metadataEvidence(helperBefore),
@@ -4590,5 +4690,7 @@ export async function runPolicyProvisionalBuildB(
 export async function runPolicyProvisionalBuildC(
   input: unknown,
 ): Promise<Readonly<Record<string, unknown>>> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new Error('policy-native-c-disabled')
   return runPolicyProvisionalBuildWorkflow(input, 'C-accepted')
 }

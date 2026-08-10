@@ -1047,6 +1047,23 @@ export type PolicyNativeHelperOperation =
       buildRootFd: number
       helperFd: number
     }>
+  | Readonly<{
+      kind: 'delete-build-terminal-shared'
+      phase: 'shared-a' | 'shared-b'
+      parent: PolicyMetadataEvidence
+      buildRoot: PolicyMetadataEvidence
+      helper: PolicyMetadataEvidence
+      siblings: Readonly<{
+        'candidate-review': PolicyMetadataEvidence
+        discovery: PolicyMetadataEvidence
+        'predecessor-review': PolicyMetadataEvidence
+        'policy-native-derivation': PolicyMetadataEvidence
+      }>
+      commandLockFd: number
+      parentFd: number
+      buildRootFd: number
+      helperFd: number
+    }>
 
 function createHelperArgumentsAndStdio(operation: unknown): Readonly<{
   arguments: readonly string[]
@@ -1346,7 +1363,113 @@ function createHelperArgumentsAndStdio(operation: unknown): Readonly<{
       stdio: ['ignore', 'pipe', 'pipe', ...descriptors],
     }
   }
+  if (kind === 'delete-build-terminal-shared') {
+    exactKeys(operation, [
+      'kind',
+      'phase',
+      'parent',
+      'buildRoot',
+      'helper',
+      'siblings',
+      'commandLockFd',
+      'parentFd',
+      'buildRootFd',
+      'helperFd',
+    ])
+    if (operation.phase !== 'shared-a' && operation.phase !== 'shared-b')
+      throw new PolicyNativeLaunchContractError()
+    exactKeys(operation.siblings, [
+      'candidate-review',
+      'discovery',
+      'predecessor-review',
+      'policy-native-derivation',
+    ])
+    const parent = metadataEvidence(operation.parent)
+    const buildRoot = metadataEvidence(operation.buildRoot)
+    const helper = metadataEvidence(operation.helper)
+    const siblings = {
+      'candidate-review': metadataEvidence(
+        operation.siblings['candidate-review'],
+      ),
+      discovery: metadataEvidence(operation.siblings.discovery),
+      'predecessor-review': metadataEvidence(
+        operation.siblings['predecessor-review'],
+      ),
+      'policy-native-derivation': metadataEvidence(
+        operation.siblings['policy-native-derivation'],
+      ),
+    }
+    if (
+      parent.mode !== '448' ||
+      parent.links !== '7' ||
+      parent.size !== 'na' ||
+      buildRoot.uid !== parent.uid ||
+      buildRoot.device !== parent.device ||
+      buildRoot.mode !== '448' ||
+      buildRoot.links !== '3' ||
+      buildRoot.size !== 'na' ||
+      helper.uid !== parent.uid ||
+      helper.device !== parent.device ||
+      helper.mode !== '320' ||
+      helper.links !== '1' ||
+      helper.size === 'na' ||
+      helper.size === '0' ||
+      Object.values(siblings).some(
+        (sibling) =>
+          sibling.uid !== parent.uid ||
+          sibling.device !== parent.device ||
+          sibling.size !== 'na' ||
+          sibling.inode === parent.inode,
+      ) ||
+      siblings['policy-native-derivation'].mode !== '448' ||
+      siblings['policy-native-derivation'].links !== '2'
+    )
+      throw new PolicyNativeLaunchContractError()
+    const descriptors = [
+      descriptor(operation.commandLockFd, 6),
+      descriptor(operation.parentFd, 6),
+      descriptor(operation.buildRootFd, 6),
+      descriptor(operation.helperFd, 6),
+    ]
+    if (new Set(descriptors).size !== 4)
+      throw new PolicyNativeLaunchContractError()
+    return {
+      arguments: [
+        'delete-build-terminal-shared',
+        operation.phase,
+        ...Object.values(parent),
+        ...Object.values(buildRoot),
+        ...Object.values(helper),
+        ...Object.values(siblings['candidate-review']),
+        ...Object.values(siblings.discovery),
+        ...Object.values(siblings['predecessor-review']),
+        ...Object.values(siblings['policy-native-derivation']),
+      ],
+      stdio: ['ignore', 'pipe', 'pipe', ...descriptors],
+    }
+  }
   throw new PolicyNativeLaunchContractError()
+}
+
+/**
+ * Fixture-only view of the fixed shared-terminal ABI. Production callers can
+ * obtain plans only through a branded helper capability.
+ */
+export function createPolicySharedTerminalPlanForFixture(operation: unknown) {
+  if (process.env.NODE_ENV !== 'test')
+    throw new PolicyNativeLaunchContractError()
+  const plan = createHelperArgumentsAndStdio(operation)
+  if (
+    plan.arguments[0] !== 'delete-build-terminal-shared' ||
+    (plan.arguments[1] !== 'shared-a' && plan.arguments[1] !== 'shared-b') ||
+    plan.arguments.length !== 44 ||
+    plan.stdio.length !== 7
+  )
+    throw new PolicyNativeLaunchContractError()
+  return Object.freeze({
+    arguments: Object.freeze([...plan.arguments]),
+    stdio: Object.freeze([...plan.stdio]),
+  })
 }
 
 export function createPolicyNativeHelperPlan(

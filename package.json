@@ -28,6 +28,7 @@
     "catalogue:release:plan": "tsx scripts/release-anime-catalogue.ts plan",
     "catalogue:release:rehearse": "tsx scripts/release-anime-catalogue.ts rehearse",
     "catalogue:release:apply": "tsx scripts/release-anime-catalogue.ts apply",
+    "catalogue:policy-baseline": "/opt/homebrew/Cellar/node@24/24.18.1/bin/node --import tsx scripts/m45-policy-native-derivation.ts",
     "auth:email:smoke": "node --conditions=react-server --import tsx scripts/smoke-auth-email-delivery.ts",
     "verify:install-script-policy": "node --test scripts/verify-install-script-policy.test.mjs && node scripts/verify-install-script-policy.mjs",
     "test": "vitest run",

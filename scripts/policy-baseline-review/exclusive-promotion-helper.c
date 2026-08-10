@@ -623,6 +623,16 @@ static const char *const m45_preflight_before[] = {
     ".policy-exclusive-promotion-preflight"};
 static const char *const m45_after[] = {
     ".policy-exclusive-promotion.lock"};
+static const char *const shared_terminal_before[] = {
+    "candidate-review", "discovery", "predecessor-review",
+    "policy-native-derivation", ".policy-exclusive-promotion.lock",
+    ".policy-exclusive-promotion-build"};
+static const char *const shared_terminal_after[] = {
+    "candidate-review", "discovery", "predecessor-review",
+    "policy-native-derivation", ".policy-exclusive-promotion.lock"};
+static const char *const shared_control_a[] = {"shared-root-baseline.v1.json"};
+static const char *const shared_control_b[] = {"shared-root-baseline.v1.json",
+                                                "stage-a.v1.json"};
 static const char *const fixture_before[] = {"fixture.bin"};
 static const char *const fixture_and_promotion[] = {"fixture.bin",
                                                     "promotion"};
@@ -1121,6 +1131,118 @@ static int delete_build_terminal_mode(int argc, char *argv[]) {
   return HELPER_SUCCESS;
 }
 
+static bool parse_evidence(char *argv[], int offset,
+                           struct expected_metadata *expected) {
+  uint64_t size;
+  return parse_metadata(argv[offset], argv[offset + 1], argv[offset + 2],
+                        argv[offset + 3], argv[offset + 4], expected) &&
+         ((strcmp(argv[offset + 5], "na") == 0) ||
+          (parse_u64(argv[offset + 5], &size) && size > 0));
+}
+
+static bool exact_shared_sibling(int parent_fd, const char *name,
+                                 const struct expected_metadata *expected) {
+  struct stat observed;
+  return fstatat(parent_fd, name, &observed, AT_SYMLINK_NOFOLLOW) == 0 &&
+         exact_directory(&observed, expected) && empty_extended_acl(parent_fd);
+}
+
+static int delete_build_terminal_shared_mode(int argc, char *argv[]) {
+  struct expected_metadata parent_expected;
+  struct expected_metadata build_expected;
+  struct expected_metadata helper_expected;
+  struct expected_metadata siblings[4];
+  struct stat parent_before;
+  struct stat parent_after;
+  struct stat build_before;
+  struct stat helper_before;
+  struct stat named;
+  const char *const sibling_names[] = {
+      "candidate-review", "discovery", "predecessor-review",
+      "policy-native-derivation"};
+  struct expected_inventory control_inventory;
+  int control_fd = -1;
+  int control_close_status;
+  bool control_inventory_valid;
+  int index;
+
+  if (argc != 45 ||
+      (strcmp(argv[2], "shared-a") != 0 && strcmp(argv[2], "shared-b") != 0) ||
+      !parse_evidence(argv, 3, &parent_expected) ||
+      !parse_evidence(argv, 9, &build_expected) ||
+      !parse_evidence(argv, 15, &helper_expected) || !exact_child_fd_map(6) ||
+      parent_expected.owner != geteuid() || parent_expected.mode != 0700 ||
+      parent_expected.links != 7 ||
+      build_expected.owner != geteuid() || build_expected.mode != 0700 ||
+      build_expected.links != 3 ||
+      helper_expected.owner != geteuid() || helper_expected.mode != 0500 ||
+      helper_expected.links != 1 ||
+      build_expected.device != parent_expected.device ||
+      helper_expected.device != parent_expected.device ||
+      !exact_lock(3, parent_expected.device) || flock(3, LOCK_EX | LOCK_NB) != 0 ||
+      fstat(4, &parent_before) != 0 || fstat(5, &build_before) != 0 ||
+      fstat(6, &helper_before) != 0 ||
+      !exact_directory(&parent_before, &parent_expected) ||
+      !exact_directory(&build_before, &build_expected) ||
+      !S_ISREG(helper_before.st_mode) || helper_before.st_uid != helper_expected.owner ||
+      helper_before.st_dev != helper_expected.device || helper_before.st_ino != helper_expected.inode ||
+      helper_before.st_nlink != helper_expected.links ||
+      (helper_before.st_mode & 07777) != helper_expected.mode ||
+      helper_before.st_size <= 0 ||
+      !empty_extended_acl(4) || !empty_extended_acl(5) ||
+      !empty_extended_acl(6) ||
+      !exact_directory_inventory(4, INVENTORY(shared_terminal_before)) ||
+      !exact_directory_inventory(5, INVENTORY(terminal_helper_only))) {
+    return HELPER_TERMINAL_UNCLASSIFIABLE;
+  }
+  for (index = 0; index < 4; index++) {
+    if (!parse_evidence(argv, 21 + index * 6, &siblings[index]) ||
+        siblings[index].owner != geteuid() ||
+        siblings[index].device != parent_expected.device ||
+        siblings[index].links < 2 ||
+        !exact_shared_sibling(4, sibling_names[index], &siblings[index])) {
+      return HELPER_TERMINAL_UNCLASSIFIABLE;
+    }
+  }
+  control_fd = openat(4, "policy-native-derivation",
+                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  control_inventory = strcmp(argv[2], "shared-a") == 0
+                          ? INVENTORY(shared_control_a)
+                          : INVENTORY(shared_control_b);
+  if (control_fd < 0) {
+    return HELPER_TERMINAL_UNCLASSIFIABLE;
+  }
+  control_inventory_valid =
+      exact_directory_inventory(control_fd, control_inventory);
+  control_close_status = close(control_fd);
+  if (!control_inventory_valid || control_close_status != 0) {
+    return HELPER_TERMINAL_UNCLASSIFIABLE;
+  }
+  if (unlinkat(5, "exclusive-promotion-helper", 0) != 0 ||
+      fstat(6, &helper_before) != 0 || helper_before.st_nlink != 0) {
+    return HELPER_TERMINAL_UNCLASSIFIABLE;
+  }
+  if (unlinkat(4, ".policy-exclusive-promotion-build", AT_REMOVEDIR) != 0) {
+    return HELPER_TERMINAL_HELPER_UNLINKED;
+  }
+  if (fstat(4, &parent_after) != 0 || parent_after.st_uid != parent_before.st_uid ||
+      parent_after.st_dev != parent_before.st_dev || parent_after.st_ino != parent_before.st_ino ||
+      parent_after.st_nlink != 6 ||
+      !exact_directory_inventory(4, INVENTORY(shared_terminal_after)) ||
+      !exact_lock(3, parent_expected.device)) {
+    return HELPER_TERMINAL_ROOT_REMOVED_UNPROVED;
+  }
+  for (index = 0; index < 4; index++) {
+    if (!exact_shared_sibling(4, sibling_names[index], &siblings[index]))
+      return HELPER_TERMINAL_UNCLASSIFIABLE;
+  }
+  errno = 0;
+  if (fstatat(4, ".policy-exclusive-promotion-build", &named,
+              AT_SYMLINK_NOFOLLOW) != -1 || errno != ENOENT)
+    return HELPER_TERMINAL_UNCLASSIFIABLE;
+  return HELPER_SUCCESS;
+}
+
 int main(int argc, char *argv[]) {
   if (argc > 1 && strcmp(argv[1], "metadata-check") == 0) {
     return metadata_mode(argc, argv);
@@ -1136,6 +1258,9 @@ int main(int argc, char *argv[]) {
   }
   if (argc > 1 && strcmp(argv[1], "delete-build-terminal") == 0) {
     return delete_build_terminal_mode(argc, argv);
+  }
+  if (argc > 1 && strcmp(argv[1], "delete-build-terminal-shared") == 0) {
+    return delete_build_terminal_shared_mode(argc, argv);
   }
   if (argc > 1 &&
       (strcmp(argv[1], "capture") == 0 ||
