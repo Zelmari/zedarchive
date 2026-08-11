@@ -1017,12 +1017,16 @@ export function createPolicyCompilerPlan(
       : compilerCapability(input)
   const buildRoot = `${capability.repositoryRoot}/.local/m45/.policy-exclusive-promotion-build`
   const temporaryDirectory = `${buildRoot}/tmp`
+  const sourcePath =
+    operation === 'diagnostic'
+      ? `${capability.repositoryRoot}/scripts/policy-baseline-review/exclusive-promotion-helper.c`
+      : `${buildRoot}/exclusive-promotion-helper.c`
   const suffix = [
     '-isysroot',
     capability.sdkRoot,
     '-o',
     `${buildRoot}/exclusive-promotion-helper`,
-    `${buildRoot}/exclusive-promotion-helper.c`,
+    sourcePath,
   ]
   return {
     executable: capability.compilerPath,

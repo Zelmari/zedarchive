@@ -70,7 +70,7 @@ const diagnosticFrontend = [
   '/fixture/sdk',
   '-o',
   '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
-  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c',
+  '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c',
 ] as const
 const diagnosticLinker = [
   '/fixture/ld',
@@ -1377,6 +1377,17 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'extra-source',
         Buffer.alloc(0),
         diagnosticStderr([...diagnosticFrontend, '/fixture/extra.c']),
+      ],
+      [
+        'staged-source',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(
+            diagnosticFrontend,
+            diagnosticFrontend.at(-1)!,
+            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c',
+          ),
+        ),
       ],
       ...(
         [

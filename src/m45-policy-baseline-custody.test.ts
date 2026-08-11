@@ -1006,6 +1006,14 @@ describe('M45 policy baseline filesystem custody', () => {
       acceptedExitCodes: [0],
     })
     expect(compilerPlan.arguments).toContain('-###')
+    expect(compilerPlan.arguments.at(-1)).toBe(
+      `${repositoryRoot}/scripts/policy-baseline-review/exclusive-promotion-helper.c`,
+    )
+    expect(
+      createPolicyCompilerPlan('build', compilerCapability).arguments.at(-1),
+    ).toBe(
+      `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c`,
+    )
     const resourceResolverCore = {
       schema: 'policy-compiler-resource-resolver.v1',
       version: 1,

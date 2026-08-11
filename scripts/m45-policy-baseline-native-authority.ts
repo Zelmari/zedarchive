@@ -856,7 +856,7 @@ export function parsePolicyClangDiagnosticForFixture(input: unknown) {
       compilerResourceRoot: '/fixture/resource',
       sdkRoot: '/fixture/sdk',
       sourcePath:
-        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c',
+        '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c',
       outputPath:
         '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
       temporaryDirectory:
@@ -1107,7 +1107,10 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     }),
   )
   observe?.('compiler-diagnostic-child')
-  const sourcePath = join(buildRoot, 'exclusive-promotion-helper.c')
+  const sourcePath = join(
+    repositoryRoot,
+    'scripts/policy-baseline-review/exclusive-promotion-helper.c',
+  )
   const outputPath = join(buildRoot, 'exclusive-promotion-helper')
   const temporaryDirectory = join(buildRoot, 'tmp')
   const diagnosticProjection = parseClangDiagnostic(diagnostic, {
@@ -2141,7 +2144,7 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               stopAt('diagnostic-child')
               lifecycle.push('diagnostic-lifecycle')
               const sourcePath =
-                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c'
+                '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c'
               const outputPath =
                 '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper'
               const temporaryObject =
