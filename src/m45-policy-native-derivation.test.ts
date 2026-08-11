@@ -590,7 +590,7 @@ function fixture(
     deriveB: vi.fn(),
     diagnoseA: vi.fn(),
     diagnoseAResidue: vi.fn(),
-    diagnoseAFdMap: vi.fn(),
+    recoverAFdMapScratch: vi.fn(),
   }
   const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
   const run = (
@@ -1238,7 +1238,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     vi.unstubAllEnvs()
   })
 
-  it('admits only the exact v1 FD-map diagnostic grammar and closed projection', async () => {
+  it('admits only the exact v1 FD-map scratch recovery grammar and closed projection', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     const setup = () => {
       const current = fixture({ syntheticLegacy: true })
@@ -1257,63 +1257,114 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       })
       return current
     }
-    for (const fdMapStatus of [
-      'exact',
-      'fd3-invalid',
-      'unexpected-fd',
-      'open-max-invalid',
-      'scan-indeterminate',
-    ] as const) {
-      const accepted = setup()
-      const seam = vi.fn(async () => ({ fdMapStatus }))
+    const accepted = setup()
+    const seam = vi.fn(
+      async (
+        input: Parameters<
+          PolicyNativeDerivationSeams['recoverAFdMapScratch']
+        >[0],
+      ) => {
+        await input.revalidateOuter()
+        return { scratchRecovered: true as const }
+      },
+    )
+    const recoveryResult = await accepted.run(
+      [
+        'recover-a-fd-map-scratch',
+        '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+      ],
+      { ...accepted.seams, recoverAFdMapScratch: seam },
+    )
+    expect(recoveryResult).toEqual({
+      mode: 'recover-a-fd-map-scratch',
+      status: 'a-fd-map-scratch-recovered',
+      commitments: tracked,
+    })
+    expect(seam).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        repositoryRoot: root,
+        nativeAuthoritySha256: tracked.nativeAuthoritySha256,
+        scratchUid: 501,
+        scratchDevice: 16777231,
+        scratchInode: 13940765,
+        scratchMode: 0o700,
+        scratchLinks: 2,
+      }),
+    )
+    expect(Object.keys(seam.mock.calls[0]![0]).sort()).toEqual(
+      [
+        'commandLock',
+        'nativeAuthoritySha256',
+        'repositoryRoot',
+        'revalidateOuter',
+        'rootNonceSha256',
+        'scratchDevice',
+        'scratchInode',
+        'scratchLinks',
+        'scratchMode',
+        'scratchUid',
+      ].sort(),
+    )
+
+    for (const result of [
+      { scratchRecovered: false },
+      { scratchRecovered: true, extra: true },
+      {},
+    ]) {
+      const wrongResult = setup()
       await expect(
-        accepted.run(
+        wrongResult.run(
           [
-            'diagnose-a-fd-map',
-            '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+            'recover-a-fd-map-scratch',
+            '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
           ],
-          { ...accepted.seams, diagnoseAFdMap: seam },
+          {
+            ...wrongResult.seams,
+            recoverAFdMapScratch: vi.fn(async () => result) as never,
+          },
         ),
-      ).resolves.toMatchObject({
-        mode: 'diagnose-a-fd-map',
-        status: 'a-fd-map-diagnosed',
-        fdMapStatus,
-      })
-      expect(seam).toHaveBeenCalledOnce()
-      expect(seam).toHaveBeenCalledWith(
-        expect.objectContaining({
-          probeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
-        }),
-      )
+      ).rejects.toThrow()
     }
-    const sourceDrift = setup()
-    let trackedChecks = 0
-    const sourceDriftSeam = vi.fn(async () => ({
-      fdMapStatus: 'exact' as const,
-    }))
-    await expect(
-      sourceDrift.run(
-        [
-          'diagnose-a-fd-map',
-          '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
-        ],
-        {
-          ...sourceDrift.seams,
-          diagnoseAFdMap: sourceDriftSeam,
-          revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
-            trackedChecks += 1
-            return trackedChecks === 2
-              ? {
-                  ...expected,
-                  fdAdmissionProbeSourceSha256: 'f'.repeat(64),
-                }
-              : expected
-          }),
+
+    for (const driftAt of [1, 2, 3]) {
+      const drift = setup()
+      let trackedChecks = 0
+      const recovery = vi.fn(
+        async (
+          input: Parameters<
+            PolicyNativeDerivationSeams['recoverAFdMapScratch']
+          >[0],
+        ) => {
+          await input.revalidateOuter()
+          return { scratchRecovered: true as const }
         },
-      ),
-    ).rejects.toThrow()
-    expect(sourceDriftSeam).toHaveBeenCalledOnce()
+      )
+      await expect(
+        drift.run(
+          [
+            'recover-a-fd-map-scratch',
+            '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+          ],
+          {
+            ...drift.seams,
+            recoverAFdMapScratch: recovery,
+            revalidateTracked: vi.fn(async (_root, expected) => {
+              trackedChecks += 1
+              return trackedChecks === driftAt
+                ? { ...expected, runnerSha256: 'f'.repeat(64) }
+                : expected
+            }),
+          },
+        ),
+      ).rejects.toThrow()
+      expect(recovery).toHaveBeenCalledTimes(driftAt === 1 ? 0 : 1)
+    }
+
     for (const args of [
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+      ],
       [
         'diagnose-a-fd-map',
         '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
@@ -1327,15 +1378,92 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'diagnose-a-residue',
         '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
       ],
+      [
+        'recover-a-fd-map-scratch',
+        '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v2',
+      ],
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+      ],
     ]) {
       const rejected = setup()
-      const uncalled = vi.fn(async () => ({ fdMapStatus: 'exact' as const }))
+      const uncalled = vi.fn(async () => ({ scratchRecovered: true as const }))
       await expect(
-        rejected.run(args, { ...rejected.seams, diagnoseAFdMap: uncalled }),
+        rejected.run(args, {
+          ...rejected.seams,
+          recoverAFdMapScratch: uncalled,
+        }),
       ).rejects.toThrow()
       expect(uncalled).not.toHaveBeenCalled()
     }
     vi.unstubAllEnvs()
+  })
+
+  it('retires the exact D131 v1 argv before every default or injected boundary', async () => {
+    const argv = [
+      'diagnose-a-fd-map',
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+    ] as const
+    await expect(runPolicyNativeDerivationCommand(argv)).rejects.toThrow(
+      'arguments',
+    )
+    const runner = await readFile(
+      new URL('../scripts/m45-policy-native-derivation.ts', import.meta.url),
+      'utf8',
+    )
+    const grammar = runner.slice(
+      runner.indexOf('function parseArguments'),
+      runner.indexOf('function publicCommitments'),
+    )
+    expect(runner).not.toContain(
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+    )
+    expect(grammar).toContain('fdMapScratchRecoveryConfirmation')
+    expect(runner).toContain(
+      '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+    )
+    const command = runner.slice(
+      runner.indexOf(
+        'async function runPolicyNativeDerivationCommandWithProfile',
+      ),
+      runner.indexOf('export async function runPolicyNativeDerivationCommand'),
+    )
+    expect(command.indexOf('parseArguments(argv)')).toBeLessThan(
+      command.indexOf('filesystem.realpath'),
+    )
+
+    vi.stubEnv('NODE_ENV', 'test')
+    const rejected = fixture({ syntheticLegacy: true })
+    const recovery = vi.fn(async () => ({ scratchRecovered: true as const }))
+    const heldDirectory = vi.spyOn(rejected.filesystem, 'withHeldDirectory')
+    const heldFile = vi.spyOn(rejected.filesystem, 'withHeldFile')
+    const heldMetadataFile = vi.spyOn(
+      rejected.filesystem,
+      'withHeldMetadataFile',
+    )
+    try {
+      await expect(
+        rejected.run(argv, {
+          ...rejected.seams,
+          recoverAFdMapScratch: recovery,
+        }),
+      ).rejects.toThrow('arguments')
+      for (const boundary of [
+        rejected.filesystem.realpath,
+        rejected.filesystem.lstat,
+        rejected.filesystem.readdir,
+        heldDirectory,
+        heldFile,
+        heldMetadataFile,
+        rejected.seams.tracked,
+        rejected.seams.revalidateTracked,
+        recovery,
+      ])
+        expect(boundary).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('binds the exact SDK and compiler-resource direct-header tables', () => {

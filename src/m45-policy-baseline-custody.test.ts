@@ -97,15 +97,20 @@ import {
   createPolicyXcrunPlan,
 } from '@/../scripts/m45-policy-baseline-native-launch-contract'
 import {
+  assertPolicyFdMapRecoveryDirectorySnapshotForFixture,
+  assertPolicyFdMapRecoveryRequestShapeForFixture,
+  assertPolicyFdMapRecoveryScratchIdentityForFixture,
   assertPolicyFdAdmissionProbeFileSnapshotForFixture,
   assertPolicyFdAdmissionProbeScratchSnapshotForFixture,
   finalizePolicyFdAdmissionProbeScratchForFixture,
   inspectPolicyDiagnosticControlStateForFixture,
   inspectPolicyProvisionalABuildResidueForFixture,
+  inspectPolicyProvisionalABuildResidueReadsForFixture,
   policyBCleanupCheckpointIds,
   runPolicyCAcceptedFailureLifecycleForFixture,
   runPolicyBCandidateLifecycleForFixture,
   reopenPolicyBCandidateCheckpointForFixture,
+  recoverPolicyFdMapScratchForFixture,
   runPolicyBCandidateFailureLifecycleForFixture,
   runPolicyNativeChildFdLifecycleForFixture,
   runPolicyNativePositioningForFixture,
@@ -2275,6 +2280,36 @@ describe('M45 policy baseline filesystem custody', () => {
     vi.unstubAllEnvs()
   })
 
+  it('admits exact residue metadata before either bounded held-file read', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const reads: Array<readonly [string, number]> = []
+    try {
+      await expect(
+        inspectPolicyProvisionalABuildResidueReadsForFixture(
+          exactProvisionalABuildResidue(),
+          (role, size) => reads.push([role, size]),
+        ),
+      ).resolves.toBe(true)
+      expect(reads).toEqual([
+        ['source', 50_951],
+        ['helper', 53_736],
+      ])
+
+      const oversized = exactProvisionalABuildResidue()
+      oversized.held.source.size = Number.MAX_SAFE_INTEGER
+      reads.length = 0
+      await expect(
+        inspectPolicyProvisionalABuildResidueReadsForFixture(
+          oversized,
+          (role, size) => reads.push([role, size]),
+        ),
+      ).rejects.toThrow('policy-native-authority')
+      expect(reads).toEqual([])
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it.each(
     (['held', 'named'] as const).flatMap((scope) =>
       (['build', 'source', 'helper', 'tmp'] as const).flatMap((role) =>
@@ -2478,11 +2513,14 @@ describe('M45 policy baseline filesystem custody', () => {
       'runPolicyNativePositioningForFixture',
       'runPolicyBCandidateLifecycleForFixture',
       'runPolicyCAcceptedLifecycleForFixture',
+      'inspectPolicyProvisionalABuildResidueReadsForFixture',
       'reopenPolicyBCandidateCheckpointForFixture',
       'runPolicyProvisionalABuildResidueLifecycleForFixture',
       'finalizePolicyFdAdmissionProbeScratchForFixture',
+      'recoverPolicyFdMapScratchForFixture',
       'runPolicyProvisionalBuildA',
       'diagnosePolicyProvisionalABuildResidue',
+      'recoverPolicyProvisionalAFdMapScratch',
       'diagnosePolicyProvisionalAFdMap',
       'runPolicyProvisionalBuildB',
       'runPolicyProvisionalBuildC',
@@ -2743,7 +2781,7 @@ describe('M45 policy baseline filesystem custody', () => {
       if (path === policyNativeAuthorityPath) continue
       if (
         (await readFile(path, 'utf8')).match(
-          /(?:(?:assert|finalize)PolicyFdAdmissionProbe(?:FileSnapshot|ScratchSnapshot|Scratch)|inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata|SdkProtectedPath)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
+          /(?:(?:assert|finalize)PolicyFdAdmissionProbe(?:FileSnapshot|ScratchSnapshot|Scratch)|assertPolicyFdMapRecovery(?:DirectorySnapshot|RequestShape|ScratchIdentity)|recoverPolicyFdMapScratch|inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata|ProvisionalABuildResidueReads|SdkProtectedPath)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
         )
       )
         testFixtureConsumers.push(path)
@@ -2897,6 +2935,270 @@ describe('M45 policy baseline filesystem custody', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+
+  it('shares the closed FD-map scratch recovery lifecycle with production', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const primary = [
+      'admit',
+      'open-lock',
+      'validate-lock-after-open',
+      'open-parent',
+      'validate-parent-after-open',
+      'open-scratch',
+      'validate-before-first-inventory',
+      'enumerate-first',
+      'validate-first-snapshot',
+      'validate-before-second-inventory',
+      'enumerate-second',
+      'validate-second-snapshot',
+      'validate-immediately-before-close',
+      'close-scratch',
+      'validate-before-removal',
+      'remove-scratch',
+      'assert-absent',
+      'validate-final',
+    ] as const
+    const cleanup = ['close-resources', 'close-lock'] as const
+    const sequence = [...primary, ...cleanup]
+    try {
+      await expect(recoverPolicyFdMapScratchForFixture({})).resolves.toEqual(
+        sequence,
+      )
+      for (const [index, failAt] of sequence.entries()) {
+        const events: string[] = []
+        await expect(
+          recoverPolicyFdMapScratchForFixture({
+            failAt,
+            onEvent: (event) => events.push(event),
+          }),
+        ).rejects.toThrow('fixture-failure')
+        expect(events).toEqual(
+          index < primary.length
+            ? [...primary.slice(0, index + 1), ...cleanup]
+            : sequence,
+        )
+      }
+
+      for (const [entries, expected] of [
+        [
+          { firstEntries: ['entry'] },
+          [
+            ...primary.slice(0, primary.indexOf('validate-first-snapshot') + 1),
+            ...cleanup,
+          ],
+        ],
+        [
+          { secondEntries: ['entry'] },
+          [
+            ...primary.slice(
+              0,
+              primary.indexOf('validate-second-snapshot') + 1,
+            ),
+            ...cleanup,
+          ],
+        ],
+      ] as const) {
+        const events: string[] = []
+        await expect(
+          recoverPolicyFdMapScratchForFixture({
+            ...entries,
+            onEvent: (event) => events.push(event),
+          }),
+        ).rejects.toThrow('policy-native-authority')
+        expect(events).toEqual(expected)
+        expect(events).not.toContain('remove-scratch')
+        expect(events).not.toContain('assert-absent')
+        expect(events).not.toContain('validate-final')
+      }
+
+      const rejectingClose: string[] = []
+      await expect(
+        recoverPolicyFdMapScratchForFixture({
+          failAt: 'close-scratch',
+          onEvent: (event) => rejectingClose.push(event),
+        }),
+      ).rejects.toThrow('fixture-failure')
+      expect(
+        rejectingClose.filter((event) => event === 'close-scratch'),
+      ).toHaveLength(1)
+      expect(rejectingClose).not.toContain('remove-scratch')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('binds every recovery parent and scratch predicate while ignoring directory size', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const parent = {
+      kind: 'directory' as const,
+      dev: 16777231,
+      ino: 13457399,
+      uid: 0,
+      mode: 0o1777,
+      nlink: 8,
+      size: 256,
+    }
+    const scratch = {
+      kind: 'directory' as const,
+      dev: 16777231,
+      ino: 13940765,
+      uid: 501,
+      mode: 0o700,
+      nlink: 2,
+      size: 64,
+    }
+    const snapshot = {
+      parentHeld: parent,
+      parentNamed: { ...parent, size: 288 },
+      scratchHeld: scratch,
+      scratchNamed: { ...scratch, size: 96 },
+      entries: [],
+    }
+    const identity = {
+      scratchUid: 501,
+      scratchDevice: 16777231,
+      scratchInode: 13940765,
+      scratchMode: 0o700,
+      scratchLinks: 2,
+    }
+    const request = {
+      repositoryRoot: '/repo',
+      nativeAuthoritySha256: 'a'.repeat(64),
+      rootNonceSha256: 'b'.repeat(64),
+      commandLock: {},
+      ...identity,
+      revalidateOuter: async () => {},
+    }
+    try {
+      expect(() =>
+        assertPolicyFdMapRecoveryRequestShapeForFixture(request),
+      ).not.toThrow()
+      for (const key of Object.keys(request) as Array<keyof typeof request>) {
+        const omitted = { ...request } as Partial<typeof request>
+        delete omitted[key]
+        expect(() =>
+          assertPolicyFdMapRecoveryRequestShapeForFixture(omitted),
+        ).toThrow('policy-native-authority')
+      }
+      expect(() =>
+        assertPolicyFdMapRecoveryRequestShapeForFixture({
+          ...request,
+          extra: true,
+        }),
+      ).toThrow('policy-native-authority')
+      expect(() =>
+        assertPolicyFdMapRecoveryScratchIdentityForFixture(identity),
+      ).not.toThrow()
+      for (const key of Object.keys(identity) as Array<keyof typeof identity>) {
+        const omitted = { ...identity } as Partial<typeof identity>
+        delete omitted[key]
+        expect(() =>
+          assertPolicyFdMapRecoveryScratchIdentityForFixture(omitted),
+        ).toThrow('policy-native-authority')
+        expect(() =>
+          assertPolicyFdMapRecoveryScratchIdentityForFixture({
+            ...identity,
+            [key]: identity[key] + 1,
+          }),
+        ).toThrow('policy-native-authority')
+      }
+      expect(() =>
+        assertPolicyFdMapRecoveryDirectorySnapshotForFixture(snapshot),
+      ).not.toThrow()
+      for (const changed of [
+        { ...snapshot, parentHeld: { ...parent, kind: 'other' as const } },
+        {
+          ...snapshot,
+          parentNamed: { ...snapshot.parentNamed, kind: 'other' as const },
+        },
+        { ...snapshot, parentHeld: { ...parent, uid: 501 } },
+        { ...snapshot, parentHeld: { ...parent, dev: 7 } },
+        { ...snapshot, parentHeld: { ...parent, mode: 0o777 } },
+        { ...snapshot, parentNamed: { ...parent, uid: 501 } },
+        { ...snapshot, parentNamed: { ...parent, dev: 7 } },
+        { ...snapshot, parentHeld: { ...parent, ino: 1 } },
+        { ...snapshot, parentNamed: { ...parent, ino: 1 } },
+        { ...snapshot, parentNamed: { ...parent, mode: 0o777 } },
+        { ...snapshot, scratchHeld: { ...scratch, kind: 'other' as const } },
+        {
+          ...snapshot,
+          scratchNamed: { ...scratch, kind: 'other' as const },
+        },
+        { ...snapshot, scratchHeld: { ...scratch, uid: 0 } },
+        { ...snapshot, scratchHeld: { ...scratch, dev: 7 } },
+        { ...snapshot, scratchHeld: { ...scratch, mode: 0o755 } },
+        { ...snapshot, scratchNamed: { ...scratch, uid: 0 } },
+        { ...snapshot, scratchNamed: { ...scratch, dev: 7 } },
+        { ...snapshot, scratchHeld: { ...scratch, ino: 1 } },
+        { ...snapshot, scratchNamed: { ...scratch, ino: 1 } },
+        { ...snapshot, scratchNamed: { ...scratch, mode: 0o755 } },
+        { ...snapshot, scratchHeld: { ...scratch, nlink: 3 } },
+        { ...snapshot, scratchNamed: { ...scratch, nlink: 3 } },
+        { ...snapshot, entries: ['unobserved-entry'] },
+      ])
+        expect(() =>
+          assertPolicyFdMapRecoveryDirectorySnapshotForFixture(changed),
+        ).toThrow('policy-native-authority')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('keeps FD-map scratch recovery fixed, zero-child, and cleanup-narrow', async () => {
+    const authority = await readFile(policyNativeAuthorityPath, 'utf8')
+    const recovery = authority.slice(
+      authority.indexOf(
+        'export async function recoverPolicyProvisionalAFdMapScratch',
+      ),
+      authority.indexOf(
+        "/**\n * Decision 131's historical diagnostic remains available",
+      ),
+    )
+    expect(recovery).toContain("const parentPath = '/private/tmp'")
+    expect(recovery).toContain('fdAdmissionProbeScratchRoot')
+    expect(recovery).toContain('assertFdMapRecoveryDirectorySnapshot')
+    expect(recovery).toContain('await recoverFdMapScratch')
+    expect(recovery).toContain('rmdir(fdAdmissionProbeScratchRoot)')
+    expect(recovery.indexOf('scratchHandle = undefined')).toBeLessThan(
+      recovery.indexOf('await activeScratch.close()'),
+    )
+    expect(recovery).toContain('await openDerivationLock')
+    expect(recovery).toContain('await validateNamedLock')
+    expect(recovery).toContain('await closeDerivationLock')
+    const inventory = authority.slice(
+      authority.indexOf('async function readFdMapRecoveryInventory'),
+      authority.indexOf(
+        'export function assertPolicyFdMapRecoveryDirectorySnapshotForFixture',
+      ),
+    )
+    expect(inventory).toContain('await opendir(fdAdmissionProbeScratchRoot)')
+    expect(inventory).toContain('await directory.read()')
+    expect(inventory).not.toContain('readdir(')
+    for (const forbidden of [
+      'broker.',
+      'commandLockCapabilityProbe',
+      'runAcceptedHelper',
+      'runPolicyFdAdmissionProbeToolchainDerivation',
+      'runFdAdmissionProbeCompiler',
+      'runXcrun',
+      'execFile',
+      'spawn',
+      'child_process',
+      'runPolicyProvisionalBuildA',
+      'runPolicyProvisionalBuildB',
+      'runPolicyProvisionalBuildC',
+      'unlink(',
+      'mkdir(',
+      'chmod(',
+      'rename(',
+      'writeFile(',
+      'provider',
+      'database',
+      'uuid',
+      'release',
+    ])
+      expect(recovery).not.toContain(forbidden)
   })
 
   it('binds the FD-admission compiler capability to the exact probe build plan', () => {
