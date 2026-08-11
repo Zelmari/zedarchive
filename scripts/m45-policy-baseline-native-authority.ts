@@ -310,10 +310,8 @@ async function inspectSdkProtectedPath(
   if (!resolverMetadata.isDirectory() && !resolverMetadata.isSymbolicLink())
     throw new SdkProtectedPathStopError('sdk-type')
   if (
-    (resolverMetadata.isSymbolicLink() &&
-      (Number(resolverMetadata.mode) & 0o7777) !== 0o777) ||
-    (resolverMetadata.isDirectory() &&
-      (Number(resolverMetadata.mode) & 0o7022) !== 0)
+    resolverMetadata.isDirectory() &&
+    (Number(resolverMetadata.mode) & 0o7022) !== 0
   )
     throw new SdkProtectedPathStopError('sdk-mode')
 
