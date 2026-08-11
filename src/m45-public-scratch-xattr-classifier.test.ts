@@ -33,9 +33,13 @@ const classifier = (await import(moduleUrl)) as {
 const fixedPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
 const argv = [
   'classify-public-scratch-xattr',
-  '--confirm-m45-public-scratch-xattr-classifier-v2',
+  '--confirm-m45-public-scratch-xattr-classifier-v3',
 ] as const
 const retiredArgv = [
+  [
+    'classify-public-scratch-xattr',
+    '--confirm-m45-public-scratch-xattr-classifier-v2',
+  ],
   [
     'classify-public-scratch-xattr',
     '--confirm-m45-public-scratch-xattr-classifier-v1',
@@ -68,7 +72,12 @@ const stages = [
   'parse-encoding',
   'parse-envelope',
   'parse-base',
-  'parse-xattr-row',
+  'parse-continuation-layout',
+  'parse-xattr-row-delimiter',
+  'parse-xattr-row-name',
+  'parse-xattr-row-size',
+  'parse-xattr-row-duplicate',
+  'parse-acl-shaped-row',
   'parse-marker',
   'budget',
   'close',
@@ -103,12 +112,18 @@ const base = (mode = 'drwx------@', overrides: readonly string[] = []) =>
   ]
     .map((value, index) => overrides[index] ?? value)
     .join(' ')
-const attribute = (name: string, size: string, spaces = ' ') =>
-  `${name}\t${spaces}${size}`
+const attribute = (
+  name: string,
+  size: string,
+  leadingSpaces = ' ',
+  trailing = ' ',
+) => `${name}\t${leadingSpaces}${size}${trailing}`
 const output = (mode: string, rows: readonly string[] = []) =>
   Buffer.from(
     `${base(mode)}\n${rows.map((row) => `\t${row}`).join('\n')}${rows.length === 0 ? '' : '\n'}`,
   )
+const continuationOutput = (mode: string, lines: readonly string[]) =>
+  Buffer.from(`${base(mode)}\n${lines.join('\n')}\n`)
 const validOutputs = [
   [
     output('drwx------@', [attribute('com.apple.provenance', '11')]),
@@ -474,7 +489,7 @@ const runCore = async (
 const runChild = async (current: ReturnType<typeof childFixture>) =>
   classifier.runPublicScratchStageChildForFixture(current.operations)
 
-describe('D137 corrected host profile terminal xattr classifier', () => {
+describe('D138 public scratch continuation-row classifier', () => {
   it('keeps every fixture seam closed outside NODE_ENV=test', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     const core = coreFixture()
@@ -524,20 +539,23 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
     [Buffer.from(base()), 'parse-envelope'],
     [Buffer.from(`${base()}\r\n`), 'parse-envelope'],
     [Buffer.from(`${base()}\0\n`), 'parse-envelope'],
-    [Buffer.from(`${base()}\n\téxample\t 1\n`), 'parse-envelope'],
+    [Buffer.from(`${base()}\n\téxample\t 1 \n`), 'parse-envelope'],
     [Buffer.from(`${base()}\n${'x'.repeat(513)}\n`), 'parse-envelope'],
     [
-      Buffer.from(`${base()}\n${Array(8).fill('\tcom.x\t 1').join('\n')}\n`),
+      Buffer.from(`${base()}\n${Array(8).fill('\tcom.x\t 1 ').join('\n')}\n`),
       'parse-envelope',
     ],
     [Buffer.from(` ${base()}\n`), 'parse-base'],
     [Buffer.from(`${base()} extra\n`), 'parse-base'],
-    [Buffer.from(`${base('drwx------@', ['1'])}\n\tcom.x\t 1\n`), 'parse-base'],
-    [output('drwx------@', ['bad+name\t 1']), 'parse-xattr-row'],
-    [output('drwx------@', [attribute('com.x', '01')]), 'parse-xattr-row'],
+    [
+      Buffer.from(`${base('drwx------@', ['1'])}\n\tcom.x\t 1 \n`),
+      'parse-base',
+    ],
+    [output('drwx------@', ['bad+name\t 1 ']), 'parse-xattr-row-name'],
+    [output('drwx------@', [attribute('com.x', '01')]), 'parse-xattr-row-size'],
     [
       output('drwx------@', [attribute('com.x', '1'), attribute('com.x', '2')]),
-      'parse-xattr-row',
+      'parse-xattr-row-duplicate',
     ],
     [output('drwx------@'), 'parse-marker'],
     [output('drwx------', [attribute('com.x', '1')]), 'parse-marker'],
@@ -559,7 +577,7 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
         classifier.routePublicScratchLsBytesForFixture(bytes, gid).failureStage
       expect(route(Buffer.alloc(4096, 0x20))).toBe('parse-envelope')
       expect(route(Buffer.from(`${base()}\n${'x'.repeat(512)}\n`))).toBe(
-        'parse-xattr-row',
+        'parse-continuation-layout',
       )
       expect(route(Buffer.from(`${base()}\n${'x'.repeat(513)}\n`))).toBe(
         'parse-envelope',
@@ -582,11 +600,16 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
         attribute(`a${'b'.repeat(127)}`, '1'),
         attribute('-leading', '1'),
         attribute('bad+character', '1'),
+      ])
+        expect(route(output('drwx------@', [row]))).toBe('parse-xattr-row-name')
+      for (const row of [
         attribute('valid', '01'),
         attribute('valid', '10000000000'),
-        '0: user:501 allow read',
       ])
-        expect(route(output('drwx------@', [row]))).toBe('parse-xattr-row')
+        expect(route(output('drwx------@', [row]))).toBe('parse-xattr-row-size')
+      expect(
+        route(continuationOutput('drwx------@', ['0: user:501 allow read'])),
+      ).toBe('parse-continuation-layout')
       expect(
         classifier.routePublicScratchLsBytesForFixture(
           output('drwx------@', [attribute('valid', '0')]),
@@ -614,6 +637,195 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
           ),
         ),
       ).toBe('parse-envelope')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it.each([
+    [
+      continuationOutput('drwx------@', ['private-layout-sentinel']),
+      'parse-continuation-layout',
+    ],
+    [
+      output('drwx------@', ['private-no-delimiter']),
+      'parse-xattr-row-delimiter',
+    ],
+    [
+      output('drwx------@', ['private\t 1 \tprivate-extra']),
+      'parse-xattr-row-delimiter',
+    ],
+    [output('drwx------@', ['private\t 1 \t']), 'parse-xattr-row-delimiter'],
+    [output('drwx------@', ['\t 1 ']), 'parse-xattr-row-name'],
+    [output('drwx------@', ['private+name\t 1 ']), 'parse-xattr-row-name'],
+    [
+      output('drwx------@', [`a${'b'.repeat(127)}\t 1 `]),
+      'parse-xattr-row-name',
+    ],
+    [output('drwx------@', ['private-size\t']), 'parse-xattr-row-size'],
+    [output('drwx------@', ['private-size\t 1']), 'parse-xattr-row-size'],
+    [output('drwx------@', ['private-size\t 1  ']), 'parse-xattr-row-size'],
+    [output('drwx------@', ['private-size\t +1 ']), 'parse-xattr-row-size'],
+    [output('drwx------@', ['private-size\t 01 ']), 'parse-xattr-row-size'],
+    [
+      output('drwx------@', ['private-size\t 10000000000 ']),
+      'parse-xattr-row-size',
+    ],
+    [output('drwx------@', ['private-size\t 1X ']), 'parse-xattr-row-size'],
+    [output('drwx------@', ['private-size\t 1 X']), 'parse-xattr-row-size'],
+    [
+      output('drwx------@', [
+        attribute('private-duplicate', '1'),
+        attribute('private-duplicate', '2'),
+      ]),
+      'parse-xattr-row-duplicate',
+    ],
+    [
+      continuationOutput('drwx------@', [' 0: private-acl-sentinel']),
+      'parse-acl-shaped-row',
+    ],
+    [
+      continuationOutput('drwx------@', [' 9999999999: private-acl-sentinel']),
+      'parse-acl-shaped-row',
+    ],
+  ] as const)(
+    'routes ordered continuation case %# to closed stage %s without reflection',
+    (bytes, failureStage) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      try {
+        const result = classifier.routePublicScratchLsBytesForFixture(
+          bytes,
+          gid,
+        )
+        expect(result).toEqual({ failureStage, privateClass: null })
+        expect(Object.keys(result)).toEqual(['failureStage', 'privateClass'])
+        expect(JSON.stringify(result)).not.toMatch(/private-|sentinel/u)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it('accepts only the published xattr size presentation and preserves boundaries', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    try {
+      const route = (row: string) =>
+        classifier.routePublicScratchLsBytesForFixture(
+          output('drwx------@', [row]),
+          gid,
+        )
+      expect(route('com.apple.provenance\t 11 ')).toEqual({
+        failureStage: null,
+        privateClass: 'only-provenance-11',
+      })
+      for (const leadingSpaces of ['', ' ', '  ', ' '.repeat(64)])
+        expect(route(attribute('valid', '0', leadingSpaces))).toEqual({
+          failureStage: null,
+          privateClass: 'other-xattr-set',
+        })
+      expect(route(attribute('valid', '9999999999', ''))).toEqual({
+        failureStage: null,
+        privateClass: 'other-xattr-set',
+      })
+      for (const trailing of ['', '  ', 'X', ' X', '!'])
+        expect(route(attribute('valid', '1', ' ', trailing)).failureStage).toBe(
+          'parse-xattr-row-size',
+        )
+      expect(route(attribute('valid', '1', ' ', ' \t')).failureStage).toBe(
+        'parse-xattr-row-delimiter',
+      )
+      expect(route('valid\t 1\u0001').failureStage).toBe('parse-envelope')
+      expect(route('valid\t 1 é').failureStage).toBe('parse-envelope')
+      expect(
+        classifier.routePublicScratchLsBytesForFixture(
+          continuationOutput('drwx------@', [' 0: private-acl-sentinel\u0001']),
+          gid,
+        ).failureStage,
+      ).toBe('parse-envelope')
+      expect(
+        classifier.routePublicScratchLsBytesForFixture(
+          continuationOutput('drwx------@', [' 0: private-acl-sentinel-é']),
+          gid,
+        ).failureStage,
+      ).toBe('parse-envelope')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it.each([
+    ' 00: private-acl-sentinel',
+    ' +1: private-acl-sentinel',
+    ' -1: private-acl-sentinel',
+    ' 10000000000: private-acl-sentinel',
+    ' 1 private-acl-sentinel',
+    ' 1:private-acl-sentinel',
+    '  1: private-acl-sentinel',
+  ])(
+    'rejects malformed ACL-shaped prefix without suffix inspection: %s',
+    (line) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      try {
+        const result = classifier.routePublicScratchLsBytesForFixture(
+          continuationOutput('drwx------@', [line]),
+          gid,
+        )
+        expect(result).toEqual({
+          failureStage: 'parse-continuation-layout',
+          privateClass: null,
+        })
+        expect(JSON.stringify(result)).not.toContain('private-acl-sentinel')
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it.each(['', 'x', 'private-acl-sentinel', ' !@#$%^&*()[]{}'])(
+    'routes every envelope-valid ACL suffix to one nonreflecting stage: %j',
+    (suffix) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      try {
+        const parsed = classifier.routePublicScratchLsBytesForFixture(
+          continuationOutput('drwx------@', [` 0: ${suffix}`]),
+          gid,
+        )
+        expect(parsed).toEqual({
+          failureStage: 'parse-acl-shaped-row',
+          privateClass: null,
+        })
+        const formatted = classifier.formatPublicScratchStageForFixture(
+          Object.freeze({ stage: parsed.failureStage }),
+        )
+        expect(formatted).toEqual({
+          line: '{"stage":"parse-acl-shaped-row"}\n',
+          exitCode: 0,
+        })
+        if (suffix.includes('sentinel'))
+          expect(JSON.stringify({ parsed, formatted })).not.toContain(suffix)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it('applies continuation order before marker and reports only the first failure', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    try {
+      const route = (bytes: Buffer) =>
+        classifier.routePublicScratchLsBytesForFixture(bytes, gid).failureStage
+      expect(
+        route(output('drwx------@', ['private+name\t bad', 'valid\t 01 '])),
+      ).toBe('parse-xattr-row-name')
+      expect(route(output('drwx------@', ['private\tbad\textra']))).toBe(
+        'parse-xattr-row-delimiter',
+      )
+      expect(
+        route(continuationOutput('drwx------', ['private-layout-sentinel'])),
+      ).toBe('parse-continuation-layout')
+      expect(
+        route(continuationOutput('drwx------@', ['\t 0: private-acl'])),
+      ).toBe('parse-xattr-row-delimiter')
     } finally {
       vi.unstubAllEnvs()
     }
@@ -912,7 +1124,24 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
     [Buffer.from([0xff, 0x0a]), 'parse-encoding'],
     [Buffer.from(base()), 'parse-envelope'],
     [Buffer.from(`${base()} extra\n`), 'parse-base'],
-    [output('drwx------@', ['private+sentinel\t 1']), 'parse-xattr-row'],
+    [
+      continuationOutput('drwx------@', ['private-layout-sentinel']),
+      'parse-continuation-layout',
+    ],
+    [output('drwx------@', ['private-no-tab']), 'parse-xattr-row-delimiter'],
+    [output('drwx------@', ['private+sentinel\t 1 ']), 'parse-xattr-row-name'],
+    [output('drwx------@', ['private-size\t 01 ']), 'parse-xattr-row-size'],
+    [
+      output('drwx------@', [
+        attribute('private-duplicate', '1'),
+        attribute('private-duplicate', '2'),
+      ]),
+      'parse-xattr-row-duplicate',
+    ],
+    [
+      continuationOutput('drwx------@', [' 0: private-acl-sentinel']),
+      'parse-acl-shaped-row',
+    ],
     [output('drwx------@'), 'parse-marker'],
   ] as const)(
     'routes full-pipeline parser boundary %# to %s after child custody',
@@ -1388,11 +1617,19 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
           line: `${JSON.stringify({ class: privateClass })}\n`,
           exitCode: 0,
         })
+      expect(stages).toHaveLength(26)
+      expect(stages.filter((stage) => stage !== 'stopped')).toHaveLength(25)
+      expect(stages.length + privateClasses.length).toBe(29)
+      expect(
+        stages.filter((stage) => stage !== 'stopped').length +
+          privateClasses.length,
+      ).toBe(28)
       for (const malformed of [
         {},
         { stage: 'private-secret' },
         { stage: 'budget' },
         Object.freeze({ stage: 'pipeline-complete' }),
+        Object.freeze({ stage: 'parse-xattr-row' }),
         { stage: 'budget', extra: 'private-secret' },
         Object.freeze({ stage: 'budget', class: 'only-provenance-11' }),
         Object.create({ stage: 'budget' }),
@@ -1490,7 +1727,10 @@ describe('D137 corrected host profile terminal xattr classifier', () => {
       "const operation = 'classify-public-scratch-xattr'",
     )
     expect(source).toContain(
-      "const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v2'",
+      "const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v3'",
+    )
+    expect(source).not.toContain(
+      '--confirm-m45-public-scratch-xattr-classifier-v2',
     )
     expect(source).not.toContain(
       '--confirm-m45-public-scratch-xattr-classifier-v1',

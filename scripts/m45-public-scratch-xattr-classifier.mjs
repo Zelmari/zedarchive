@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { types as utilTypes } from 'node:util'
 
 const operation = 'classify-public-scratch-xattr'
-const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v2'
+const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v3'
 const nodePath = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
@@ -59,7 +59,12 @@ const stages = Object.freeze([
   'parse-encoding',
   'parse-envelope',
   'parse-base',
-  'parse-xattr-row',
+  'parse-continuation-layout',
+  'parse-xattr-row-delimiter',
+  'parse-xattr-row-name',
+  'parse-xattr-row-size',
+  'parse-xattr-row-duplicate',
+  'parse-acl-shaped-row',
   'parse-marker',
   'budget',
   'close',
@@ -237,16 +242,44 @@ function parseLsBytes(bytes, expectedGid) {
 
   const attributes = new Map()
   for (const line of lines.slice(1)) {
-    const match =
-      /^\t([A-Za-z0-9][A-Za-z0-9._-]{0,126})\t( *)(0|[1-9][0-9]{0,9})$/u.exec(
-        line,
-      )
-    if (match === null || attributes.has(match[1]))
+    if (!line.startsWith('\t')) {
       return Object.freeze({
-        failureStage: 'parse-xattr-row',
+        failureStage: /^ (?:0|[1-9][0-9]{0,9}): /u.test(line)
+          ? 'parse-acl-shaped-row'
+          : 'parse-continuation-layout',
         privateClass: null,
       })
-    attributes.set(match[1], match[3])
+    }
+
+    const candidate = line.slice(1)
+    const delimiterIndex = candidate.indexOf('\t')
+    if (delimiterIndex === -1 || delimiterIndex !== candidate.lastIndexOf('\t'))
+      return Object.freeze({
+        failureStage: 'parse-xattr-row-delimiter',
+        privateClass: null,
+      })
+
+    const name = candidate.slice(0, delimiterIndex)
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$/u.test(name))
+      return Object.freeze({
+        failureStage: 'parse-xattr-row-name',
+        privateClass: null,
+      })
+
+    const sizePresentation = candidate.slice(delimiterIndex + 1)
+    const sizeMatch = /^( *)(0|[1-9][0-9]{0,9}) $/u.exec(sizePresentation)
+    if (sizeMatch === null)
+      return Object.freeze({
+        failureStage: 'parse-xattr-row-size',
+        privateClass: null,
+      })
+
+    if (attributes.has(name))
+      return Object.freeze({
+        failureStage: 'parse-xattr-row-duplicate',
+        privateClass: null,
+      })
+    attributes.set(name, sizeMatch[2])
   }
 
   if (
