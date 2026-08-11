@@ -27,7 +27,7 @@ import {
 } from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
-const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v7'
+const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v8'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -85,6 +85,11 @@ export const policyProvisionalAPrebuildBoundaries = [
   'xcrun-sdk-resolution',
   'compiler-resource-resolution',
   'toolchain-input-attestation',
+  'prediagnostic-inputs',
+  'compiler-diagnostic-child',
+  'compiler-diagnostic-semantics',
+  'linker-attestation',
+  'diagnostic-postchecks',
   'compiler-diagnostic',
   'toolchain-authority',
   'derivation-lock-cycle-closed',

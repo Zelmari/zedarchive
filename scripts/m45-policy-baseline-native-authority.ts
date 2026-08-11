@@ -876,6 +876,11 @@ type ProvisionalAPrebuildBoundary =
   | 'xcrun-sdk-resolution'
   | 'compiler-resource-resolution'
   | 'toolchain-input-attestation'
+  | 'prediagnostic-inputs'
+  | 'compiler-diagnostic-child'
+  | 'compiler-diagnostic-semantics'
+  | 'linker-attestation'
+  | 'diagnostic-postchecks'
   | 'compiler-diagnostic'
   | 'toolchain-authority'
 
@@ -1091,6 +1096,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     await runtime.inspectSdkProtectedPath(sdkResolverPath)
   if (!sameSdkResolution(sdkResolutionBefore, sdkResolutionBeforeDiagnostic))
     throw new Error('policy-native-authority')
+  observe?.('prediagnostic-inputs')
   const diagnostic = successfulDiagnostic(
     await runtime.runCompilerDiagnostic({
       repositoryRoot,
@@ -1100,6 +1106,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
       },
     }),
   )
+  observe?.('compiler-diagnostic-child')
   const sourcePath = join(buildRoot, 'exclusive-promotion-helper.c')
   const outputPath = join(buildRoot, 'exclusive-promotion-helper')
   const temporaryDirectory = join(buildRoot, 'tmp')
@@ -1111,9 +1118,11 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     outputPath,
     temporaryDirectory,
   })
+  observe?.('compiler-diagnostic-semantics')
   const linkerPath = diagnosticProjection.linker.executable
   const linkerBefore = await runtime.inspectProtectedPath(linkerPath, 'file')
   const linkerBytes = await runtime.readFile(linkerPath)
+  observe?.('linker-attestation')
   const [
     xcrunAfter,
     xcrunBytesAfter,
@@ -1174,6 +1183,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     hash(linkerBytesAfter) !== hash(linkerBytes)
   )
     throw new Error('policy-native-authority')
+  observe?.('diagnostic-postchecks')
   observe?.('compiler-diagnostic')
   const core = {
     schema: 'policy-toolchain-authority.v1',
@@ -1640,6 +1650,11 @@ const provisionalAPrebuildBoundaries = [
   'xcrun-sdk-resolution',
   'compiler-resource-resolution',
   'toolchain-input-attestation',
+  'prediagnostic-inputs',
+  'compiler-diagnostic-child',
+  'compiler-diagnostic-semantics',
+  'linker-attestation',
+  'diagnostic-postchecks',
   'compiler-diagnostic',
   'toolchain-authority',
   'derivation-lock-cycle-closed',
@@ -1848,6 +1863,9 @@ const provisionalAPrebuildFixtureFaults = [
   'attestation-protected-read',
   'diagnostic-child',
   'diagnostic-lifecycle',
+  'diagnostic-output',
+  'linker-protected-stat',
+  'linker-protected-read',
   'prediagnostic-compiler',
   'prediagnostic-compiler-bytes',
   'prediagnostic-sdk',
@@ -2032,6 +2050,8 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               }
               if (path === linkerPath && count === 2)
                 stopAt('postcheck-linker-bytes')
+              if (path === linkerPath && count === 1)
+                stopAt('linker-protected-read')
               return Buffer.from(`fixture:${path}`)
             }) as typeof readFile,
             inspectProtectedPath: async (path) => {
@@ -2054,6 +2074,8 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
                 stopAt('resource-protected-stat')
               if (path === compilerResourceRoot && count === 2)
                 stopAt('postcheck-resource')
+              if (path === linkerPath && count === 1)
+                stopAt('linker-protected-stat')
               if (path === linkerPath && count === 2) stopAt('postcheck-linker')
               return metadata(path)
             },
@@ -2156,6 +2178,12 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               ]
                 .map(quote)
                 .join(' ')
+              lifecycle.push('diagnostic-output')
+              if (fault === 'diagnostic-output')
+                return {
+                  ...closedChild('', false),
+                  stderr: Buffer.from('malformed\n'),
+                }
               return {
                 ...closedChild('', fault === 'diagnostic-lifecycle'),
                 stderr: Buffer.from(`${frontend}\n${linker}\n`),

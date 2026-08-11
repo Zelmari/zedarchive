@@ -691,6 +691,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -732,7 +738,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -748,7 +754,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -770,7 +776,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -795,7 +801,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -812,7 +818,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -831,7 +837,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'xcrun-sdk-output' as const,
@@ -871,7 +877,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
         ...seams,
         diagnoseA: vi.fn(
           async () => result,
@@ -920,7 +926,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
           ...seams,
           diagnoseA,
         }),
@@ -945,7 +951,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v7'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v8'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -1008,6 +1014,9 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'prediagnostic-sdk',
         'diagnostic-child',
         'diagnostic-lifecycle',
+        'diagnostic-output',
+        'linker-protected-stat',
+        'linker-protected-read',
         'postcheck-xcrun',
         'postcheck-tracked-source',
         'postcheck-compiler',
@@ -1032,6 +1041,11 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'xcrun-sdk-resolution',
         'compiler-resource-resolution',
         'toolchain-input-attestation',
+        'prediagnostic-inputs',
+        'compiler-diagnostic-child',
+        'compiler-diagnostic-semantics',
+        'linker-attestation',
+        'diagnostic-postchecks',
         'compiler-diagnostic',
         'toolchain-authority',
         'derivation-lock-cycle-closed',
@@ -1481,18 +1495,21 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['prediagnostic-compiler', 'toolchain-input-attestation'],
     ['prediagnostic-compiler-bytes', 'toolchain-input-attestation'],
     ['prediagnostic-sdk', 'toolchain-input-attestation'],
-    ['diagnostic-child', 'toolchain-input-attestation'],
-    ['diagnostic-lifecycle', 'toolchain-input-attestation'],
-    ['postcheck-tracked-source', 'toolchain-input-attestation'],
-    ['postcheck-xcrun', 'toolchain-input-attestation'],
-    ['postcheck-compiler', 'toolchain-input-attestation'],
-    ['postcheck-compiler-bytes', 'toolchain-input-attestation'],
-    ['postcheck-sdk', 'toolchain-input-attestation'],
-    ['postcheck-sdk-headers', 'toolchain-input-attestation'],
-    ['postcheck-resource', 'toolchain-input-attestation'],
-    ['postcheck-resource-headers', 'toolchain-input-attestation'],
-    ['postcheck-linker', 'toolchain-input-attestation'],
-    ['postcheck-linker-bytes', 'toolchain-input-attestation'],
+    ['diagnostic-child', 'prediagnostic-inputs'],
+    ['diagnostic-lifecycle', 'prediagnostic-inputs'],
+    ['diagnostic-output', 'compiler-diagnostic-child'],
+    ['linker-protected-stat', 'compiler-diagnostic-semantics'],
+    ['linker-protected-read', 'compiler-diagnostic-semantics'],
+    ['postcheck-tracked-source', 'linker-attestation'],
+    ['postcheck-xcrun', 'linker-attestation'],
+    ['postcheck-compiler', 'linker-attestation'],
+    ['postcheck-compiler-bytes', 'linker-attestation'],
+    ['postcheck-sdk', 'linker-attestation'],
+    ['postcheck-sdk-headers', 'linker-attestation'],
+    ['postcheck-resource', 'linker-attestation'],
+    ['postcheck-resource-headers', 'linker-attestation'],
+    ['postcheck-linker', 'linker-attestation'],
+    ['postcheck-linker-bytes', 'linker-attestation'],
     ['authority-package', 'compiler-diagnostic'],
   ] as const)(
     'reports only the preceding completed boundary for %s',
