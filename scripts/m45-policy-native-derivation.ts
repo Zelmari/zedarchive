@@ -23,7 +23,7 @@ import {
   parsePolicyPromotionPackage,
 } from './m45-policy-baseline'
 import {
-  diagnosePolicyProvisionalAFdMapV2,
+  diagnosePolicyProvisionalAFdMapV3,
   diagnosePolicyProvisionalABuildResidue,
   diagnosePolicyProvisionalBuildAPrebuild,
   policySdkProtectionStops,
@@ -34,7 +34,7 @@ const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v10'
 const residueDiagnosticConfirmation =
   '--confirm-m45-policy-native-a-residue-diagnostic-v2'
 const fdMapDiagnosticConfirmation =
-  '--confirm-m45-policy-native-a-fd-map-diagnostic-v2'
+  '--confirm-m45-policy-native-a-fd-map-diagnostic-v3'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -78,13 +78,15 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'diagnostic-stopped'
     | 'a-build-residue-diagnosed'
     | 'a-fd-map-diagnosed'
+    | 'a-fd-map-boundary-diagnosed'
     | 'a-derived'
     | 'a-residue-preserved'
     | 'b-derived'
     | 'review-ready'
     | 'stopped'
   commitments?: Readonly<Record<string, string>>
-  lastSuccessfulBoundary?: PolicyProvisionalAPrebuildBoundary
+  lastSuccessfulBoundary?:
+    PolicyProvisionalAPrebuildBoundary | PolicyFdMapDiagnosticBoundary
   derivationLockCycleClosed?: true
   sdkProtectionStop?: PolicySdkProtectionStop
   helperExitCode?: number
@@ -95,6 +97,23 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'open-max-invalid'
     | 'scan-indeterminate'
 }>
+
+export const policyFdMapDiagnosticBoundaries = [
+  'entry-custody',
+  'held-contender',
+  'released-contender',
+  'lock-acquired',
+  'scratch-empty',
+  'compiler-resolved',
+  'sdk-resolved',
+  'resource-resolved',
+  'compile-plan-attested',
+  'probe-admitted',
+  'fd-result-classified',
+] as const
+
+export type PolicyFdMapDiagnosticBoundary =
+  (typeof policyFdMapDiagnosticBoundaries)[number]
 
 export const policyProvisionalAPrebuildBoundaries = [
   'entry-custody',
@@ -318,7 +337,9 @@ export type PolicyNativeDerivationSeams = Readonly<{
     commandLock: unknown
     probeSourceSha256: string
     revalidateOuter: () => Promise<void>
-  }) => Promise<Readonly<{ fdMapStatus: string }>>
+  }) => Promise<
+    Readonly<{ fdMapStatus: string } | { lastSuccessfulBoundary: string }>
+  >
 }>
 
 function canonical(value: unknown): string {
@@ -375,6 +396,36 @@ function snapshotArguments(argv: readonly string[]): readonly string[] {
   return Object.freeze(values)
 }
 
+function snapshotStoppedMode(
+  argv: readonly string[],
+): PolicyNativeDerivationMode | 'unknown' {
+  if (
+    !Array.isArray(argv) ||
+    utilTypes.isProxy(argv) ||
+    Object.getPrototypeOf(argv) !== Array.prototype
+  )
+    return 'unknown'
+  const first = Object.getOwnPropertyDescriptor(argv, '0')
+  if (
+    first === undefined ||
+    !('value' in first) ||
+    first.enumerable !== true ||
+    typeof first.value !== 'string'
+  )
+    return 'unknown'
+  return first.value === 'check' ||
+    first.value === 'preflight' ||
+    first.value === 'recover-preflight' ||
+    first.value === 'diagnose-a' ||
+    first.value === 'diagnose-a-residue' ||
+    first.value === 'diagnose-a-fd-map' ||
+    first.value === 'derive-a' ||
+    first.value === 'derive-b' ||
+    first.value === 'review-candidate'
+    ? first.value
+    : 'unknown'
+}
+
 function parseArguments(input: readonly string[]): PolicyNativeDerivationMode {
   const argv = snapshotArguments(input)
   if (argv.length === 1 && argv[0] === 'check') return 'check'
@@ -406,9 +457,11 @@ function parseArguments(input: readonly string[]): PolicyNativeDerivationMode {
   throw new Error('arguments')
 }
 
-function parseFdMapStatusResult(
-  value: unknown,
-): NonNullable<PolicyNativeDerivationResult['fdMapStatus']> {
+function parseFdMapDiagnosticResult(value: unknown):
+  | Readonly<{
+      fdMapStatus: NonNullable<PolicyNativeDerivationResult['fdMapStatus']>
+    }>
+  | Readonly<{ lastSuccessfulBoundary: PolicyFdMapDiagnosticBoundary }> {
   if (
     value === null ||
     typeof value !== 'object' ||
@@ -418,25 +471,41 @@ function parseFdMapStatusResult(
   )
     throw new Error('a-fd-map-diagnostic')
   const keys = Reflect.ownKeys(value)
-  if (keys.length !== 1 || keys[0] !== 'fdMapStatus')
+  if (
+    keys.length !== 1 ||
+    (keys[0] !== 'fdMapStatus' && keys[0] !== 'lastSuccessfulBoundary')
+  )
     throw new Error('a-fd-map-diagnostic')
-  const descriptor = Object.getOwnPropertyDescriptor(value, 'fdMapStatus')
+  const key = keys[0]
+  const descriptor = Object.getOwnPropertyDescriptor(value, key)
   if (
     descriptor === undefined ||
     !('value' in descriptor) ||
     descriptor.enumerable !== true
   )
     throw new Error('a-fd-map-diagnostic')
-  const status = descriptor.value
+  const result = descriptor.value
+  if (key === 'lastSuccessfulBoundary') {
+    if (
+      typeof result !== 'string' ||
+      !policyFdMapDiagnosticBoundaries.includes(
+        result as PolicyFdMapDiagnosticBoundary,
+      )
+    )
+      throw new Error('a-fd-map-diagnostic')
+    return Object.freeze({
+      lastSuccessfulBoundary: result as PolicyFdMapDiagnosticBoundary,
+    })
+  }
   if (
-    status !== 'exact' &&
-    status !== 'fd3-invalid' &&
-    status !== 'unexpected-fd' &&
-    status !== 'open-max-invalid' &&
-    status !== 'scan-indeterminate'
+    result !== 'exact' &&
+    result !== 'fd3-invalid' &&
+    result !== 'unexpected-fd' &&
+    result !== 'open-max-invalid' &&
+    result !== 'scan-indeterminate'
   )
     throw new Error('a-fd-map-diagnostic')
-  return status
+  return Object.freeze({ fdMapStatus: result })
 }
 
 function publicCommitments(
@@ -1445,7 +1514,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     deriveB: derivePolicyProvisionalBuildB,
     diagnoseA: diagnosePolicyProvisionalBuildAPrebuild,
     diagnoseAResidue: diagnosePolicyProvisionalABuildResidue,
-    diagnoseAFdMap: diagnosePolicyProvisionalAFdMapV2,
+    diagnoseAFdMap: diagnosePolicyProvisionalAFdMapV3,
   }
 }
 
@@ -1797,15 +1866,22 @@ async function runPolicyNativeDerivationCommandWithProfile(
             await recovered.revalidate([baselineName], buildResidueRootEntries)
           },
         })
-        const fdMapStatus = parseFdMapStatusResult(result)
+        const diagnostic = parseFdMapDiagnosticResult(result)
         await assertTrackedUnchanged(seams, repositoryRoot, tracked)
         await recovered.revalidate([baselineName], buildResidueRootEntries)
-        return Object.freeze({
-          mode,
-          status: 'a-fd-map-diagnosed',
-          fdMapStatus,
-          commitments,
-        })
+        return 'fdMapStatus' in diagnostic
+          ? Object.freeze({
+              mode,
+              status: 'a-fd-map-diagnosed',
+              fdMapStatus: diagnostic.fdMapStatus,
+              commitments,
+            })
+          : Object.freeze({
+              mode,
+              status: 'a-fd-map-boundary-diagnosed',
+              lastSuccessfulBoundary: diagnostic.lastSuccessfulBoundary,
+              commitments,
+            })
       },
     )
   }
@@ -2209,19 +2285,8 @@ export async function executePolicyNativeDerivationCli(
 ): Promise<number> {
   let stoppedMode: PolicyNativeDerivationMode | 'unknown' = 'unknown'
   try {
+    stoppedMode = snapshotStoppedMode(argv)
     const safeArgv = snapshotArguments(argv)
-    stoppedMode =
-      safeArgv[0] === 'check' ||
-      safeArgv[0] === 'preflight' ||
-      safeArgv[0] === 'recover-preflight' ||
-      safeArgv[0] === 'diagnose-a' ||
-      safeArgv[0] === 'diagnose-a-residue' ||
-      safeArgv[0] === 'diagnose-a-fd-map' ||
-      safeArgv[0] === 'derive-a' ||
-      safeArgv[0] === 'derive-b' ||
-      safeArgv[0] === 'review-candidate'
-        ? safeArgv[0]
-        : 'unknown'
     const result = await runPolicyNativeDerivationCommand(safeArgv)
     process.stdout.write(`${JSON.stringify(result)}\n`)
     return 0

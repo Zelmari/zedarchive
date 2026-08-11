@@ -102,11 +102,14 @@ import {
   assertPolicyFdMapRecoveryScratchIdentityForFixture,
   assertPolicyFdAdmissionProbeFileSnapshotForFixture,
   assertPolicyFdAdmissionProbeScratchSnapshotForFixture,
+  coordinateCommandLockCapabilityStagesForFixture,
+  coordinatePolicyFdMapDiagnosticForFixture,
   finalizePolicyFdAdmissionProbeScratchForFixture,
   inspectPolicyDiagnosticControlStateForFixture,
   inspectPolicyProvisionalABuildResidueForFixture,
   inspectPolicyProvisionalABuildResidueReadsForFixture,
   policyBCleanupCheckpointIds,
+  policyFdMapDiagnosticBoundaries,
   runPolicyCAcceptedFailureLifecycleForFixture,
   runPolicyBCandidateLifecycleForFixture,
   reopenPolicyBCandidateCheckpointForFixture,
@@ -2507,6 +2510,7 @@ describe('M45 policy baseline filesystem custody', () => {
       'inspectPolicySdkProtectedPathForFixture',
       'inspectPolicyDiagnosticControlStateForFixture',
       'runPolicyNativeToolchainDerivation',
+      'coordinateCommandLockCapabilityStagesForFixture',
       'diagnosePolicyProvisionalBuildAPrebuild',
       'runPolicyProvisionalAPrebuildDiagnosticForFixture',
       'runPolicyNativeChildFdLifecycleForFixture',
@@ -2520,8 +2524,9 @@ describe('M45 policy baseline filesystem custody', () => {
       'recoverPolicyFdMapScratchForFixture',
       'runPolicyProvisionalBuildA',
       'diagnosePolicyProvisionalABuildResidue',
+      'coordinatePolicyFdMapDiagnosticForFixture',
       'diagnosePolicyProvisionalAFdMapForFixture',
-      'diagnosePolicyProvisionalAFdMapV2',
+      'diagnosePolicyProvisionalAFdMapV3',
       'runPolicyProvisionalBuildB',
       'runPolicyProvisionalBuildC',
     ])
@@ -2535,6 +2540,9 @@ describe('M45 policy baseline filesystem custody', () => {
       'export async function diagnosePolicyProvisionalAFdMapForFixture',
     )
     expect(nativeAuthority).toContain(
+      'export async function diagnosePolicyProvisionalAFdMapV3',
+    )
+    expect(nativeAuthority).not.toContain(
       'export async function diagnosePolicyProvisionalAFdMapV2',
     )
     expect(nativeAuthority).not.toMatch(
@@ -2558,6 +2566,10 @@ describe('M45 policy baseline filesystem custody', () => {
       nativeAuthority.indexOf('type PositioningFixtureHarness'),
     )
     expect(lockProbe.match(/broker\.runLockContender/gu)).toHaveLength(2)
+    expect(lockProbe).toContain('coordinateCommandLockCapabilityStages')
+    expect(lockProbe).toContain('held = undefined')
+    expect(lockProbe).toContain('PolicyFdMapNonProjectableError')
+    expect(lockProbe).not.toMatch(/catch\s*\{\s*\/\/ The closed/gu)
     for (const forbidden of [
       'buildAndCleanupA',
       'runPolicyProvisionalBuildA',
@@ -2843,6 +2855,7 @@ describe('M45 policy baseline filesystem custody', () => {
       authority.indexOf('/**\n * Decision 111 B'),
     )
     expect(fdMapBridge).toContain('runFdAdmissionProbeWithCustodyChecks')
+    expect(fdMapBridge).toContain('coordinatePolicyFdMapDiagnostic')
     expect(fdMapBridge).toContain('assertExactPolicyProvisionalABuildResidue')
     expect(fdMapBridge).not.toContain('runAcceptedHelper(')
     expect(fdMapBridge).not.toContain("kind: 'metadata-check'")
@@ -2879,6 +2892,45 @@ describe('M45 policy baseline filesystem custody', () => {
     )
     expect(fdMapBridge).toContain("cleanupPhase = 'empty'")
     expect(fdMapBridge).toContain("cleanupPhase = 'probe'")
+    for (const boundary of policyFdMapDiagnosticBoundaries)
+      expect(authority).toContain(`'${boundary}'`)
+    expect(fdMapBridge).not.toContain("advance('probe-compiled')")
+    expect(fdMapBridge).not.toContain("advance('probe-child-closed')")
+    expect(fdMapBridge.indexOf("cleanupPhase = 'empty'")).toBeLessThan(
+      fdMapBridge.indexOf("advance('scratch-empty')"),
+    )
+    expect(fdMapBridge.indexOf("cleanupPhase = 'probe'")).toBeLessThan(
+      fdMapBridge.indexOf("advance('probe-admitted')"),
+    )
+    expect(fdMapBridge).toContain("cleanupPhase === 'none'")
+    expect(fdMapBridge.indexOf("cleanupPhase === 'none'")).toBeLessThan(
+      fdMapBridge.indexOf('if (probeSourceHandle !== undefined)'),
+    )
+    const commonCloseSuffix = fdMapBridge.slice(
+      fdMapBridge.indexOf('if (probeHandle !== undefined)'),
+      fdMapBridge.indexOf('if (failure !== undefined) throw failure'),
+    )
+    expect(
+      commonCloseSuffix.indexOf('if (probeHandle !== undefined)'),
+    ).toBeLessThan(
+      commonCloseSuffix.indexOf('if (probeSourceHandle !== undefined)'),
+    )
+    expect(
+      commonCloseSuffix.indexOf('if (probeSourceHandle !== undefined)'),
+    ).toBeLessThan(
+      commonCloseSuffix.indexOf('if (scratchHandle !== undefined)'),
+    )
+    expect(
+      commonCloseSuffix.indexOf('if (scratchHandle !== undefined)'),
+    ).toBeLessThan(commonCloseSuffix.indexOf('if (heldResidue !== undefined)'))
+    expect(
+      commonCloseSuffix.indexOf('if (parentHandle !== undefined)'),
+    ).toBeLessThan(commonCloseSuffix.indexOf('if (custody !== undefined)'))
+    const finalProof = fdMapBridge.slice(
+      fdMapBridge.indexOf('assertAbsentAndFinal: async () =>'),
+      fdMapBridge.indexOf("if (cleanupPhase === 'none'"),
+    )
+    expect(finalProof).not.toContain('.close()')
     expect(fdMapBridge).toContain('prepareProbeForUnlink: async () =>')
     expect(fdMapBridge).toContain('recheckHandle = await open(')
     expect(fdMapBridge).toContain(
@@ -2898,6 +2950,9 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(
       fdMapBridge.indexOf('await commandLockCapabilityProbe'),
     ).toBeLessThan(fdMapBridge.indexOf('await openDerivationLock'))
+    expect(fdMapBridge).toContain(
+      'await openDerivationLock(\n        repositoryRoot,\n        expectedLock,\n        undefined,\n        true,',
+    )
     expect(fdMapBridge.indexOf('await openDerivationLock')).toBeLessThan(
       fdMapBridge.indexOf('runPolicyFdAdmissionProbeToolchainDerivation'),
     )
@@ -2926,8 +2981,35 @@ describe('M45 policy baseline filesystem custody', () => {
       expect(
         probeToolchain.match(new RegExp(child.replaceAll('.', '\\.'), 'gu')),
       ).toHaveLength(1)
+    expect(probeToolchain.match(/await runChild/gu)).toHaveLength(4)
+    for (const boundary of [
+      'compiler-resolved',
+      'sdk-resolved',
+      'resource-resolved',
+      'compile-plan-attested',
+    ])
+      expect(probeToolchain).toContain(`afterBoundary('${boundary}')`)
+    expect(
+      probeToolchain.indexOf("afterBoundary('compiler-resolved')"),
+    ).toBeGreaterThan(probeToolchain.indexOf('readFile(compilerPath)'))
+    expect(
+      probeToolchain.indexOf("afterBoundary('sdk-resolved')"),
+    ).toBeGreaterThan(
+      probeToolchain.indexOf('inspectSdkProtectedPath(sdkResolverPath)'),
+    )
+    expect(
+      probeToolchain.indexOf("afterBoundary('resource-resolved')"),
+    ).toBeGreaterThan(
+      probeToolchain.indexOf(
+        "inspectProtectedPath(\n    compilerResourceRoot,\n    'directory',",
+      ),
+    )
+    expect(
+      probeToolchain.indexOf("afterBoundary('compile-plan-attested')"),
+    ).toBeGreaterThan(probeToolchain.indexOf('linkerBytesAfter'))
     expect(probeToolchain).not.toContain('exclusive-promotion-helper.c')
     expect(probeToolchain).not.toContain('runPolicyNativeToolchainDerivation')
+    expect(fdMapBridge.match(/await runChild/gu)).toHaveLength(2)
   })
 
   it('shares the fail-closed scratch finalization sequence with production', async () => {
@@ -2992,6 +3074,168 @@ describe('M45 policy baseline filesystem custody', () => {
           ).rejects.toThrow('fixture-failure')
           expect(events).toEqual(sequence.slice(0, index + 1))
         }
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('shares the monotonic FD-map journal and final-result coordinator without real filesystem access', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    try {
+      const completedEvents: string[] = []
+      await expect(
+        coordinatePolicyFdMapDiagnosticForFixture({
+          onEvent: (event) => completedEvents.push(event),
+        }),
+      ).resolves.toEqual({ fdMapStatus: 'exact' })
+      expect(completedEvents).toEqual([
+        ...policyFdMapDiagnosticBoundaries.map(
+          (boundary) => `advance:${boundary}`,
+        ),
+        'finalize:fd-result-classified',
+        'suffix:finalizer',
+        'suffix:final-proof',
+        'suffix:custody',
+        'suffix:close-probe',
+        'suffix:close-probe-source',
+        'suffix:close-scratch',
+        'suffix:close-residue',
+        'suffix:close-parent',
+        'suffix:close-lock',
+        'suffix:result-formation',
+      ])
+
+      for (const boundary of policyFdMapDiagnosticBoundaries) {
+        const events: string[] = []
+        await expect(
+          coordinatePolicyFdMapDiagnosticForFixture({
+            failAfter: boundary,
+            onEvent: (event) => events.push(event),
+          }),
+        ).resolves.toEqual({ lastSuccessfulBoundary: boundary })
+        expect(events).toContain(`finalize:${boundary}`)
+        expect(events.at(-1)).toBe('suffix:result-formation')
+      }
+
+      for (const boundary of policyFdMapDiagnosticBoundaries) {
+        for (const suffix of [
+          'finalizer',
+          'final-proof',
+          'custody',
+          'close-probe',
+          'close-probe-source',
+          'close-scratch',
+          'close-residue',
+          'close-parent',
+          'result-formation',
+        ] as const)
+          await expect(
+            coordinatePolicyFdMapDiagnosticForFixture({
+              failAfter: boundary,
+              failSuffix: suffix,
+            }),
+          ).rejects.toThrow(`fixture-${suffix}`)
+        if (
+          policyFdMapDiagnosticBoundaries.indexOf(boundary) >=
+          policyFdMapDiagnosticBoundaries.indexOf('lock-acquired')
+        )
+          await expect(
+            coordinatePolicyFdMapDiagnosticForFixture({
+              failAfter: boundary,
+              failSuffix: 'close-lock',
+            }),
+          ).rejects.toThrow('fixture-close-lock')
+      }
+      await expect(
+        coordinatePolicyFdMapDiagnosticForFixture({
+          sequence: policyFdMapDiagnosticBoundaries.slice(0, -1),
+        }),
+      ).rejects.toThrow('policy-native-authority')
+      for (const malformedResult of ['unfrozen', 'unknown', 'extra'] as const)
+        await expect(
+          coordinatePolicyFdMapDiagnosticForFixture({ malformedResult }),
+        ).rejects.toThrow('policy-native-authority')
+
+      for (const [
+        index,
+        boundary,
+      ] of policyFdMapDiagnosticBoundaries.entries()) {
+        const events: string[] = []
+        const attempt = coordinatePolicyFdMapDiagnosticForFixture({
+          failBefore: boundary,
+          onEvent: (event) => events.push(event),
+        })
+        if (index === 0)
+          await expect(attempt).rejects.toThrow('fixture-operation')
+        else
+          await expect(attempt).resolves.toEqual({
+            lastSuccessfulBoundary: policyFdMapDiagnosticBoundaries[index - 1],
+          })
+        expect(events).toContain(
+          `finalize:${index === 0 ? 'none' : policyFdMapDiagnosticBoundaries[index - 1]}`,
+        )
+        expect(events.at(-1)).toBe(
+          index === 0 ? 'suffix:close-parent' : 'suffix:result-formation',
+        )
+      }
+
+      for (const boundary of policyFdMapDiagnosticBoundaries) {
+        await expect(
+          coordinatePolicyFdMapDiagnosticForFixture({
+            failAfter: boundary,
+            failFinalize: true,
+          }),
+        ).rejects.toThrow('fixture-finalize')
+        await expect(
+          coordinatePolicyFdMapDiagnosticForFixture({
+            failNonProjectableAfter: boundary,
+          }),
+        ).rejects.toThrow('fixture-non-projectable')
+      }
+      await expect(
+        coordinatePolicyFdMapDiagnosticForFixture({
+          sequence: ['held-contender'],
+        }),
+      ).rejects.toThrow('policy-native-authority')
+      await expect(
+        coordinatePolicyFdMapDiagnosticForFixture({
+          sequence: ['entry-custody', 'entry-custody'],
+        }),
+      ).rejects.toThrow('policy-native-authority')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('shares staged command-lock ordering and suppresses every later stage after failure', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const stages = [
+      'held-child',
+      'held-validation',
+      'held-close',
+      'held-boundary',
+      'released-child',
+      'released-validation',
+      'released-boundary',
+    ] as const
+    try {
+      const completed: string[] = []
+      await expect(
+        coordinateCommandLockCapabilityStagesForFixture({
+          onEvent: (stage) => completed.push(stage),
+        }),
+      ).resolves.toBeUndefined()
+      expect(completed).toEqual(stages)
+      for (const [index, stage] of stages.entries()) {
+        const events: string[] = []
+        await expect(
+          coordinateCommandLockCapabilityStagesForFixture({
+            failAt: stage,
+            onEvent: (event) => events.push(event),
+          }),
+        ).rejects.toThrow(`fixture-${stage}`)
+        expect(events).toEqual(stages.slice(0, index + 1))
       }
     } finally {
       vi.unstubAllEnvs()
@@ -4523,6 +4767,7 @@ describe('M45 policy baseline filesystem custody', () => {
       driftFillerAt?: number
       fillerFds?: readonly number[]
       lockFd?: number
+      nonProjectableFailures?: boolean
     }) => {
       const events: string[] = []
       let fillerOpen = 0
@@ -4567,6 +4812,7 @@ describe('M45 policy baseline filesystem custody', () => {
             events.push('validate:final')
             if (input.failFinalValidation) throw new Error('validate-final')
           },
+          nonProjectableFailures: input.nonProjectableFailures,
         }),
       }
     }
@@ -4637,6 +4883,30 @@ describe('M45 policy baseline filesystem custody', () => {
         'validate:2',
         'close:20',
       ])
+    }
+    const diagnosticPositioningAmbiguity = attempt({
+      failFillerCloseFd: 10,
+      nonProjectableFailures: true,
+    })
+    await expect(diagnosticPositioningAmbiguity.result).rejects.toThrow(
+      'policy-native-lock-finalization-ambiguous',
+    )
+    const diagnosticLockCloseAmbiguity = attempt({
+      failValidationAt: 1,
+      failLockClose: true,
+      nonProjectableFailures: true,
+    })
+    await expect(diagnosticLockCloseAmbiguity.result).rejects.toThrow(
+      'policy-native-lock-finalization-ambiguous',
+    )
+    for (const failValidationAt of [1, 2]) {
+      const diagnosticValidation = attempt({
+        failValidationAt,
+        nonProjectableFailures: true,
+      })
+      await expect(diagnosticValidation.result).rejects.toThrow(
+        'policy-native-lock-finalization-ambiguous',
+      )
     }
     const validationFailure = attempt({ failValidationAt: 1 })
     await expect(validationFailure.result).rejects.toThrow('validate-lock')

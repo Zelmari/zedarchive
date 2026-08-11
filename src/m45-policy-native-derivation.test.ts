@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import {
   createPolicySyntheticNativeDerivationFixture,
   executePolicyNativeDerivationCli,
+  policyFdMapDiagnosticBoundaries,
   runPolicyNativeDerivationCommand,
   type PolicyNativeDerivationSeams,
 } from '@/../scripts/m45-policy-native-derivation'
@@ -1238,7 +1239,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     vi.unstubAllEnvs()
   })
 
-  it('admits only the exact v2 FD-map diagnostic grammar and closed projection', async () => {
+  it('admits only the exact v3 FD-map diagnostic grammar and closed union projection', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     const setup = () => {
       const current = fixture({ syntheticLegacy: true })
@@ -1269,7 +1270,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const diagnosticResult = await accepted.run(
       [
         'diagnose-a-fd-map',
-        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
       ],
       { ...accepted.seams, diagnoseAFdMap: seam },
     )
@@ -1308,7 +1309,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       const result = await current.run(
         [
           'diagnose-a-fd-map',
-          '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+          '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
         ],
         {
           ...current.seams,
@@ -1324,9 +1325,41 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       expect(result.fdMapStatus).toBe(fdMapStatus)
     }
 
+    for (const lastSuccessfulBoundary of policyFdMapDiagnosticBoundaries) {
+      const current = setup()
+      const result = await current.run(
+        [
+          'diagnose-a-fd-map',
+          '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
+        ],
+        {
+          ...current.seams,
+          diagnoseAFdMap: vi.fn(async () =>
+            Object.freeze({ lastSuccessfulBoundary }),
+          ),
+        },
+      )
+      expect(Object.keys(result)).toEqual([
+        'mode',
+        'status',
+        'lastSuccessfulBoundary',
+        'commitments',
+      ])
+      expect(result).toMatchObject({
+        status: 'a-fd-map-boundary-diagnosed',
+        lastSuccessfulBoundary,
+      })
+      expect(Object.isFrozen(result)).toBe(true)
+    }
+
     for (const result of [
       Object.freeze({ fdMapStatus: 'unknown' }),
       Object.freeze({ fdMapStatus: 'exact', extra: true }),
+      Object.freeze({ lastSuccessfulBoundary: 'unknown' }),
+      Object.freeze({
+        fdMapStatus: 'exact',
+        lastSuccessfulBoundary: 'entry-custody',
+      }),
       Object.freeze({}),
       Object.freeze(
         Object.defineProperty({}, 'fdMapStatus', {
@@ -1347,7 +1380,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         wrongResult.run(
           [
             'diagnose-a-fd-map',
-            '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+            '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
           ],
           {
             ...wrongResult.seams,
@@ -1372,7 +1405,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         drift.run(
           [
             'diagnose-a-fd-map',
-            '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+            '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
           ],
           {
             ...drift.seams,
@@ -1393,6 +1426,10 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       [
         'diagnose-a-fd-map',
         '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+      ],
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
       ],
       [
         'diagnose-a-fd-map',
@@ -1471,7 +1508,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const proxiedArgv = new Proxy(
       [
         'diagnose-a-fd-map',
-        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
       ],
       { get: proxyRead },
     )
@@ -1491,8 +1528,11 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
     )
     expect(grammar).toContain('fdMapDiagnosticConfirmation')
-    expect(runner).toContain(
+    expect(runner).not.toContain(
       '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+    )
+    expect(runner).toContain(
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
     )
     expect(runner).not.toContain(
       '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
@@ -2109,6 +2149,17 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       executePolicyNativeDerivationCli([
         'diagnose-a-fd-map',
         '--confirm-m45-policy-native-a-fd-map-diagnostic-rejected',
+      ]),
+    ).resolves.toBe(1)
+    expect(write).toHaveBeenCalledExactlyOnceWith(
+      '{"mode":"diagnose-a-fd-map","status":"stopped"}\n',
+    )
+    write.mockClear()
+    await expect(
+      executePolicyNativeDerivationCli([
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v3',
+        'extra',
       ]),
     ).resolves.toBe(1)
     expect(write).toHaveBeenCalledExactlyOnceWith(
