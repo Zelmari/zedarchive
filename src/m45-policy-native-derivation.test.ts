@@ -69,7 +69,7 @@ const diagnosticFrontend = [
   '-isysroot',
   '/fixture/sdk',
   '-o',
-  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
+  '/fixture/repository/.local/m45/policy-native-derivation/fixture.o',
   '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c',
 ] as const
 const diagnosticLinker = [
@@ -77,8 +77,8 @@ const diagnosticLinker = [
   '-syslibroot',
   '/fixture/sdk',
   '-o',
-  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
-  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
+  '/fixture/repository/.local/m45/policy-native-derivation/.policy-compiler-diagnostic-output',
+  '/fixture/repository/.local/m45/policy-native-derivation/fixture.o',
 ] as const
 const diagnosticLine = (tokens: readonly string[]) =>
   tokens.map((token) => `"${token}"`).join(' ')
@@ -703,6 +703,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -744,7 +750,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -760,7 +766,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -782,7 +788,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -807,7 +813,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -824,7 +830,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -843,7 +849,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'xcrun-sdk-output' as const,
@@ -883,7 +889,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
         ...seams,
         diagnoseA: vi.fn(
           async () => result,
@@ -932,7 +938,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
           ...seams,
           diagnoseA,
         }),
@@ -957,7 +963,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v10'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -1018,9 +1024,11 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'prediagnostic-compiler',
         'prediagnostic-compiler-bytes',
         'prediagnostic-sdk',
+        'diagnostic-control-before',
         'diagnostic-child',
         'diagnostic-lifecycle',
         'diagnostic-output',
+        'diagnostic-control-after',
         'linker-protected-stat',
         'linker-protected-read',
         'postcheck-xcrun',
@@ -1253,9 +1261,35 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         stderr: diagnosticStderr(),
       }),
     ).toEqual({
+      diagnosticSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
       diagnosticSemanticSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
       linkerPath: '/fixture/ld',
     })
+    const alternateTemporary = diagnosticStderr(
+      diagnosticFrontend.map((token) =>
+        token ===
+        '/fixture/repository/.local/m45/policy-native-derivation/fixture.o'
+          ? '/fixture/repository/.local/m45/policy-native-derivation/other.o'
+          : token,
+      ),
+      diagnosticLinker.map((token) =>
+        token ===
+        '/fixture/repository/.local/m45/policy-native-derivation/fixture.o'
+          ? '/fixture/repository/.local/m45/policy-native-derivation/other.o'
+          : token,
+      ),
+    )
+    expect(
+      parsePolicyClangDiagnosticForFixture({
+        stdout: Buffer.alloc(0),
+        stderr: alternateTemporary,
+      }).diagnosticSha256,
+    ).toBe(
+      parsePolicyClangDiagnosticForFixture({
+        stdout: Buffer.alloc(0),
+        stderr: diagnosticStderr(),
+      }).diagnosticSha256,
+    )
 
     const replace = (
       tokens: readonly string[],
@@ -1435,7 +1469,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
           diagnosticFrontend,
           replace(
             diagnosticLinker,
-            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
+            '/fixture/repository/.local/m45/policy-native-derivation/.policy-compiler-diagnostic-output',
             '/fixture/other',
           ),
         ),
@@ -1447,8 +1481,26 @@ describe('Decisions 115–116 native policy derivation runner', () => {
           diagnosticFrontend,
           replace(
             diagnosticLinker,
-            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
-            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/other.o',
+            '/fixture/repository/.local/m45/policy-native-derivation/fixture.o',
+            '/fixture/repository/.local/m45/policy-native-derivation/other.o',
+          ),
+        ),
+      ],
+      [
+        'nested-temporary-object',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          diagnosticFrontend.map((token) =>
+            token ===
+            '/fixture/repository/.local/m45/policy-native-derivation/fixture.o'
+              ? '/fixture/repository/.local/m45/policy-native-derivation/nested/fixture.o'
+              : token,
+          ),
+          diagnosticLinker.map((token) =>
+            token ===
+            '/fixture/repository/.local/m45/policy-native-derivation/fixture.o'
+              ? '/fixture/repository/.local/m45/policy-native-derivation/nested/fixture.o'
+              : token,
           ),
         ),
       ],
@@ -1457,7 +1509,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         Buffer.alloc(0),
         diagnosticStderr(diagnosticFrontend, [
           ...diagnosticLinker,
-          '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/extra.o',
+          '/fixture/repository/.local/m45/policy-native-derivation/extra.o',
         ]),
       ],
     ]
@@ -1512,8 +1564,10 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['prediagnostic-compiler', 'toolchain-input-attestation'],
     ['prediagnostic-compiler-bytes', 'toolchain-input-attestation'],
     ['prediagnostic-sdk', 'toolchain-input-attestation'],
+    ['diagnostic-control-before', 'toolchain-input-attestation'],
     ['diagnostic-child', 'prediagnostic-inputs'],
     ['diagnostic-lifecycle', 'prediagnostic-inputs'],
+    ['diagnostic-control-after', 'compiler-diagnostic-child'],
     ['diagnostic-output', 'compiler-diagnostic-child'],
     ['linker-protected-stat', 'compiler-diagnostic-semantics'],
     ['linker-protected-read', 'compiler-diagnostic-semantics'],

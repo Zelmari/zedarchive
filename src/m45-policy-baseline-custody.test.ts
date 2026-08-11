@@ -89,6 +89,7 @@ import {
   createPolicyXcrunPlan,
 } from '@/../scripts/m45-policy-baseline-native-launch-contract'
 import {
+  inspectPolicyDiagnosticControlStateForFixture,
   policyBCleanupCheckpointIds,
   runPolicyCAcceptedFailureLifecycleForFixture,
   runPolicyBCandidateLifecycleForFixture,
@@ -1001,18 +1002,26 @@ describe('M45 policy baseline filesystem custody', () => {
       executable: compilerPath,
       cwd: repositoryRoot,
       environment: {
-        TMPDIR: `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/tmp`,
+        TMPDIR: `${repositoryRoot}/.local/m45/policy-native-derivation`,
       },
       acceptedExitCodes: [0],
     })
     expect(compilerPlan.arguments).toContain('-###')
+    expect(compilerPlan.arguments).toContain(
+      `${repositoryRoot}/.local/m45/policy-native-derivation/.policy-compiler-diagnostic-output`,
+    )
     expect(compilerPlan.arguments.at(-1)).toBe(
       `${repositoryRoot}/scripts/policy-baseline-review/exclusive-promotion-helper.c`,
     )
-    expect(
-      createPolicyCompilerPlan('build', compilerCapability).arguments.at(-1),
-    ).toBe(
+    const buildPlan = createPolicyCompilerPlan('build', compilerCapability)
+    expect(buildPlan.arguments.at(-1)).toBe(
       `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c`,
+    )
+    expect(buildPlan.environment).toEqual({
+      TMPDIR: `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/tmp`,
+    })
+    expect(buildPlan.arguments).toContain(
+      `${repositoryRoot}/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper`,
     )
     const resourceResolverCore = {
       schema: 'policy-compiler-resource-resolver.v1',
@@ -2118,6 +2127,56 @@ describe('M45 policy baseline filesystem custody', () => {
     ).toThrow('policy-exclusive-promotion-unavailable')
   })
 
+  it('requires the diagnostic control root to remain baseline-only with fixed direct absences', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const repositoryRoot = await mkdtemp(
+      join(tmpdir(), 'm45-policy-diagnostic-control-'),
+    )
+    const controlRoot = join(
+      repositoryRoot,
+      '.local/m45/policy-native-derivation',
+    )
+    const outputPath = join(controlRoot, '.policy-compiler-diagnostic-output')
+    const temporaryObjectPath = join(controlRoot, 'fixture.o')
+    try {
+      await mkdir(controlRoot, { recursive: true, mode: 0o700 })
+      await writeFile(
+        join(controlRoot, 'shared-root-baseline.v1.json'),
+        'fixture',
+      )
+      await expect(
+        inspectPolicyDiagnosticControlStateForFixture({
+          repositoryRoot,
+          absentPaths: [outputPath, temporaryObjectPath],
+        }),
+      ).resolves.toBeUndefined()
+      await expect(
+        inspectPolicyDiagnosticControlStateForFixture({
+          repositoryRoot,
+          absentPaths: [join(repositoryRoot, 'outside.o')],
+        }),
+      ).rejects.toThrow('policy-native-authority')
+      await writeFile(outputPath, 'unexpected')
+      await expect(
+        inspectPolicyDiagnosticControlStateForFixture({
+          repositoryRoot,
+          absentPaths: [outputPath],
+        }),
+      ).rejects.toThrow('policy-native-authority')
+      await unlink(outputPath)
+      await symlink('missing', temporaryObjectPath)
+      await expect(
+        inspectPolicyDiagnosticControlStateForFixture({
+          repositoryRoot,
+          absentPaths: [temporaryObjectPath],
+        }),
+      ).rejects.toThrow('policy-native-authority')
+    } finally {
+      vi.unstubAllEnvs()
+      await rm(repositoryRoot, { recursive: true, force: true })
+    }
+  })
+
   it('keeps child-process authority isolated to the exact native launcher dependency boundary', async () => {
     const repositoryRoot = process.cwd()
     const authorityPath = join(repositoryRoot, 'scripts/m45-policy-baseline.ts')
@@ -2203,6 +2262,7 @@ describe('M45 policy baseline filesystem custody', () => {
     ].map((match) => match[1])
     expect(authorityExports).toEqual([
       'inspectPolicySdkProtectedPathForFixture',
+      'inspectPolicyDiagnosticControlStateForFixture',
       'runPolicyNativeToolchainDerivation',
       'diagnosePolicyProvisionalBuildAPrebuild',
       'runPolicyProvisionalAPrebuildDiagnosticForFixture',

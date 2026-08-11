@@ -1016,18 +1016,18 @@ export function createPolicyCompilerPlan(
       ? compilerDiagnosticCapability(input)
       : compilerCapability(input)
   const buildRoot = `${capability.repositoryRoot}/.local/m45/.policy-exclusive-promotion-build`
-  const temporaryDirectory = `${buildRoot}/tmp`
+  const diagnosticControlRoot = `${capability.repositoryRoot}/.local/m45/policy-native-derivation`
+  const temporaryDirectory =
+    operation === 'diagnostic' ? diagnosticControlRoot : `${buildRoot}/tmp`
   const sourcePath =
     operation === 'diagnostic'
       ? `${capability.repositoryRoot}/scripts/policy-baseline-review/exclusive-promotion-helper.c`
       : `${buildRoot}/exclusive-promotion-helper.c`
-  const suffix = [
-    '-isysroot',
-    capability.sdkRoot,
-    '-o',
-    `${buildRoot}/exclusive-promotion-helper`,
-    sourcePath,
-  ]
+  const outputPath =
+    operation === 'diagnostic'
+      ? `${diagnosticControlRoot}/.policy-compiler-diagnostic-output`
+      : `${buildRoot}/exclusive-promotion-helper`
+  const suffix = ['-isysroot', capability.sdkRoot, '-o', outputPath, sourcePath]
   return {
     executable: capability.compilerPath,
     arguments: [

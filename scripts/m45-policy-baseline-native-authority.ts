@@ -12,7 +12,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initializePolicyNativeOperationBroker } from './m45-policy-baseline-native-launcher'
 
@@ -585,6 +585,12 @@ type ClangDiagnosticProjection = Readonly<{
   }>
 }>
 
+type ClangDiagnosticEvidence = Readonly<{
+  projection: ClangDiagnosticProjection
+  normalizedDiagnosticSha256: string
+  temporaryObjectPath: string
+}>
+
 function parseClangDiagnostic(
   diagnostic: ProvisionalAPrebuildChildResult,
   expected: Readonly<{
@@ -595,7 +601,7 @@ function parseClangDiagnostic(
     outputPath: string
     temporaryDirectory: string
   }>,
-): ClangDiagnosticProjection {
+): ClangDiagnosticEvidence {
   if (diagnostic.stdout.byteLength !== 0)
     throw new Error('policy-native-authority')
   const text = new TextDecoder('utf-8', { fatal: true }).decode(
@@ -674,9 +680,10 @@ function parseClangDiagnostic(
     throw new Error('policy-native-authority')
   const temporaryObjectPath = oneFlag(frontend, '-o')
   if (
-    !temporaryObjectPath.startsWith(`${expected.temporaryDirectory}/`) ||
+    dirname(temporaryObjectPath) !== expected.temporaryDirectory ||
     !temporaryObjectPath.endsWith('.o') ||
-    !safeAbsolutePathPattern.test(temporaryObjectPath)
+    !safeAbsolutePathPattern.test(temporaryObjectPath) ||
+    frontend.filter((token) => token === temporaryObjectPath).length !== 1
   )
     throw new Error('policy-native-authority')
   const linkerPath = safeRoot(linker[0])
@@ -693,7 +700,7 @@ function parseClangDiagnostic(
     )
   )
     throw new Error('policy-native-authority')
-  return Object.freeze({
+  const projection = Object.freeze({
     schema: 'policy-clang-diagnostic-semantic.v1',
     version: 1,
     frontend: Object.freeze({
@@ -718,6 +725,62 @@ function parseClangDiagnostic(
       outputPath: expected.outputPath,
     }),
   })
+  const normalizedDiagnosticSha256 = hashAuthority({
+    schema: 'policy-clang-diagnostic-normalized.v1',
+    version: 1,
+    stdout: diagnostic.stdout.toString('base64'),
+    stderr: Buffer.from(
+      text.split(temporaryObjectPath).join('<temporary-object>'),
+    ).toString('base64'),
+  })
+  return Object.freeze({
+    projection,
+    normalizedDiagnosticSha256,
+    temporaryObjectPath,
+  })
+}
+
+async function inspectDiagnosticControlState(
+  repositoryRoot: string,
+  absentPaths: readonly string[],
+): Promise<void> {
+  const controlRoot = join(
+    repositoryRoot,
+    '.local/m45/policy-native-derivation',
+  )
+  if (
+    canonical((await readdir(controlRoot)).sort()) !==
+    canonical(['shared-root-baseline.v1.json'])
+  )
+    throw new Error('policy-native-authority')
+  for (const path of absentPaths) {
+    if (dirname(path) !== controlRoot)
+      throw new Error('policy-native-authority')
+    try {
+      await lstat(path)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw error
+    }
+    throw new Error('policy-native-authority')
+  }
+}
+
+export async function inspectPolicyDiagnosticControlStateForFixture(
+  input: unknown,
+): Promise<void> {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  exactObject(input, ['repositoryRoot', 'absentPaths'])
+  if (
+    typeof input.repositoryRoot !== 'string' ||
+    !Array.isArray(input.absentPaths) ||
+    !input.absentPaths.every((path) => typeof path === 'string')
+  )
+    throw new Error('test-only')
+  await inspectDiagnosticControlState(
+    safeRoot(input.repositoryRoot),
+    input.absentPaths as string[],
+  )
 }
 
 export function inspectPolicyDirectHeaderTablesForFixture() {
@@ -843,7 +906,7 @@ export function parsePolicyClangDiagnosticForFixture(input: unknown) {
   exactObject(input, ['stdout', 'stderr'])
   if (!Buffer.isBuffer(input.stdout) || !Buffer.isBuffer(input.stderr))
     throw new Error('test-only')
-  const projection = parseClangDiagnostic(
+  const evidence = parseClangDiagnostic(
     {
       code: 0,
       stdout: input.stdout,
@@ -858,14 +921,15 @@ export function parsePolicyClangDiagnosticForFixture(input: unknown) {
       sourcePath:
         '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c',
       outputPath:
-        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
+        '/fixture/repository/.local/m45/policy-native-derivation/.policy-compiler-diagnostic-output',
       temporaryDirectory:
-        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp',
+        '/fixture/repository/.local/m45/policy-native-derivation',
     },
   )
   return Object.freeze({
-    diagnosticSemanticSha256: hashAuthority(projection),
-    linkerPath: projection.linker.executable,
+    diagnosticSha256: evidence.normalizedDiagnosticSha256,
+    diagnosticSemanticSha256: hashAuthority(evidence.projection),
+    linkerPath: evidence.projection.linker.executable,
   })
 }
 
@@ -913,6 +977,10 @@ type ProvisionalAPrebuildToolchainHarness = Readonly<{
   runCompilerDiagnostic: (
     input: Parameters<typeof broker.runCompilerDiagnostic>[0],
   ) => Promise<ProvisionalAPrebuildChildResult>
+  inspectDiagnosticControlState: (
+    repositoryRoot: string,
+    absentPaths: readonly string[],
+  ) => Promise<void>
   beforeAuthority?: () => void
 }>
 
@@ -932,6 +1000,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
       runXcrunSdkPath: broker.runXcrunSdkPath,
       runCompilerResourceDir: broker.runCompilerResourceDir,
       runCompilerDiagnostic: broker.runCompilerDiagnostic,
+      inspectDiagnosticControlState,
     })
   exactObject(input, ['repositoryRoot', 'nativeAuthoritySha256'])
   const repositoryRoot = safeRoot(input.repositoryRoot)
@@ -1096,6 +1165,15 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     await runtime.inspectSdkProtectedPath(sdkResolverPath)
   if (!sameSdkResolution(sdkResolutionBefore, sdkResolutionBeforeDiagnostic))
     throw new Error('policy-native-authority')
+  const diagnosticControlRoot = join(
+    repositoryRoot,
+    '.local/m45/policy-native-derivation',
+  )
+  const outputPath = join(
+    diagnosticControlRoot,
+    '.policy-compiler-diagnostic-output',
+  )
+  await runtime.inspectDiagnosticControlState(repositoryRoot, [outputPath])
   observe?.('prediagnostic-inputs')
   const diagnostic = successfulDiagnostic(
     await runtime.runCompilerDiagnostic({
@@ -1111,9 +1189,8 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     repositoryRoot,
     'scripts/policy-baseline-review/exclusive-promotion-helper.c',
   )
-  const outputPath = join(buildRoot, 'exclusive-promotion-helper')
-  const temporaryDirectory = join(buildRoot, 'tmp')
-  const diagnosticProjection = parseClangDiagnostic(diagnostic, {
+  const temporaryDirectory = diagnosticControlRoot
+  const diagnosticEvidence = parseClangDiagnostic(diagnostic, {
     compilerPath,
     compilerResourceRoot,
     sdkRoot,
@@ -1121,6 +1198,11 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     outputPath,
     temporaryDirectory,
   })
+  const diagnosticProjection = diagnosticEvidence.projection
+  await runtime.inspectDiagnosticControlState(repositoryRoot, [
+    outputPath,
+    diagnosticEvidence.temporaryObjectPath,
+  ])
   observe?.('compiler-diagnostic-semantics')
   const linkerPath = diagnosticProjection.linker.executable
   const linkerBefore = await runtime.inspectProtectedPath(linkerPath, 'file')
@@ -1209,12 +1291,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     compilerResourceDevice: diagnosticCapabilityCore.compilerResourceDevice,
     compilerResourceInode: diagnosticCapabilityCore.compilerResourceInode,
     headerSetSha256: diagnosticCapabilityCore.headerSetSha256,
-    diagnosticSha256: hashAuthority({
-      schema: 'policy-clang-diagnostic-raw.v1',
-      version: 1,
-      stdout: diagnostic.stdout.toString('base64'),
-      stderr: diagnostic.stderr.toString('base64'),
-    }),
+    diagnosticSha256: diagnosticEvidence.normalizedDiagnosticSha256,
     diagnosticSemanticSha256: hashAuthority(diagnosticProjection),
     linkerPath,
     linkerIdentitySha256: hashAuthority({
@@ -1872,6 +1949,8 @@ const provisionalAPrebuildFixtureFaults = [
   'prediagnostic-compiler',
   'prediagnostic-compiler-bytes',
   'prediagnostic-sdk',
+  'diagnostic-control-before',
+  'diagnostic-control-after',
   'postcheck-tracked-source',
   'postcheck-xcrun',
   'postcheck-compiler',
@@ -2139,6 +2218,12 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               lifecycle.push('resource-output')
               return closedChild(output, fault === 'resource-lifecycle')
             },
+            inspectDiagnosticControlState: async () => {
+              const point = lifecycle.includes('diagnostic-lifecycle')
+                ? ('diagnostic-control-after' as const)
+                : ('diagnostic-control-before' as const)
+              stopAt(point)
+            },
             runCompilerDiagnostic: async () => {
               childOrder.push('compiler-diagnostic')
               stopAt('diagnostic-child')
@@ -2146,9 +2231,9 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               const sourcePath =
                 '/fixture/repository/scripts/policy-baseline-review/exclusive-promotion-helper.c'
               const outputPath =
-                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper'
+                '/fixture/repository/.local/m45/policy-native-derivation/.policy-compiler-diagnostic-output'
               const temporaryObject =
-                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o'
+                '/fixture/repository/.local/m45/policy-native-derivation/fixture.o'
               const quote = (value: string) => `"${value}"`
               const frontend = [
                 compilerPath,
