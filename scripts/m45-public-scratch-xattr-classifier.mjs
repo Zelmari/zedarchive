@@ -4,8 +4,8 @@ import { lstat, open } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const operation = 'classify-public-scratch-xattr'
-const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v1'
+const operation = 'diagnose-public-scratch-classifier-stop'
+const confirmation = '--confirm-m45-public-scratch-classifier-stop-v1'
 const nodePath = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
@@ -35,12 +35,88 @@ const expectedScratch = Object.freeze({
   mode: 0o700,
   nlink: 2,
 })
-const classes = Object.freeze([
+const stages = Object.freeze([
+  'host-admission',
+  'directory-flags',
+  'parent-open',
+  'scratch-open',
+  'pre-identity',
+  'child-spawn',
+  'child-timeout',
+  'child-overflow',
+  'child-stderr',
+  'child-stream',
+  'child-exit',
+  'child-group',
+  'post-identity',
+  'parse-encoding',
+  'parse-envelope',
+  'parse-base',
+  'parse-xattr-row',
+  'parse-marker',
+  'budget',
+  'close',
+  'pipeline-complete',
+  'stopped',
+])
+const childStages = Object.freeze([
+  'child-spawn',
+  'child-timeout',
+  'child-overflow',
+  'child-stderr',
+  'child-stream',
+  'child-exit',
+  'child-group',
+])
+const childSignals = Object.freeze([
+  'SIGABRT',
+  'SIGALRM',
+  'SIGBUS',
+  'SIGCHLD',
+  'SIGCONT',
+  'SIGEMT',
+  'SIGFPE',
+  'SIGHUP',
+  'SIGILL',
+  'SIGINFO',
+  'SIGINT',
+  'SIGIO',
+  'SIGKILL',
+  'SIGPROF',
+  'SIGPIPE',
+  'SIGQUIT',
+  'SIGSEGV',
+  'SIGSTOP',
+  'SIGSYS',
+  'SIGTERM',
+  'SIGTHR',
+  'SIGTRAP',
+  'SIGTSTP',
+  'SIGTTIN',
+  'SIGTTOU',
+  'SIGURG',
+  'SIGUSR1',
+  'SIGUSR2',
+  'SIGVTALRM',
+  'SIGWINCH',
+  'SIGXCPU',
+  'SIGXFSZ',
+])
+const privateClasses = Object.freeze([
   'only-provenance-11',
   'no-xattr',
   'other-xattr-set',
-  'stopped',
 ])
+const pipelineAbort = Symbol('pipeline-abort')
+
+function exactProductionArgv(argv) {
+  return (
+    Array.isArray(argv) &&
+    argv.length === 2 &&
+    argv[0] === operation &&
+    argv[1] === confirmation
+  )
+}
 
 function exactKeys(value, expected) {
   if (
@@ -56,7 +132,7 @@ function canonicalDecimal(value) {
   return /^(?:0|[1-9][0-9]*)$/u.test(value)
 }
 
-function classifyLsBytes(bytes, expectedGid) {
+function parseLsBytes(bytes, expectedGid) {
   if (
     !Buffer.isBuffer(bytes) ||
     bytes.byteLength === 0 ||
@@ -64,48 +140,56 @@ function classifyLsBytes(bytes, expectedGid) {
     !Number.isSafeInteger(expectedGid) ||
     expectedGid < 0
   )
-    throw new Error('classifier-stopped')
+    return Object.freeze({ failureStage: 'parse-envelope', privateClass: null })
+
   let text
   try {
     text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch {
-    throw new Error('classifier-stopped')
+    return Object.freeze({ failureStage: 'parse-encoding', privateClass: null })
   }
-  if (!text.endsWith('\n') || text.includes('\0') || text.includes('\r'))
-    throw new Error('classifier-stopped')
-  for (const byte of bytes)
-    if (byte !== 0x09 && byte !== 0x0a && (byte < 0x20 || byte > 0x7e))
-      throw new Error('classifier-stopped')
+
+  if (
+    !text.endsWith('\n') ||
+    text.includes('\0') ||
+    text.includes('\r') ||
+    [...bytes].some(
+      (byte) => (byte < 0x20 && byte !== 0x09 && byte !== 0x0a) || byte > 0x7e,
+    )
+  )
+    return Object.freeze({ failureStage: 'parse-envelope', privateClass: null })
+
   const lines = text.slice(0, -1).split('\n')
   if (
     lines.length === 0 ||
     lines.length > 8 ||
     lines.some((line) => Buffer.byteLength(line) > 512)
   )
-    throw new Error('classifier-stopped')
-  if (/^[ \t]|[ \t]$/u.test(lines[0])) throw new Error('classifier-stopped')
+    return Object.freeze({ failureStage: 'parse-envelope', privateClass: null })
+
+  if (/^[ \t]|[ \t]$/u.test(lines[0]))
+    return Object.freeze({ failureStage: 'parse-base', privateClass: null })
   const fields = lines[0].split(/[ \t]+/u)
-  if (fields.length !== 10) throw new Error('classifier-stopped')
+  if (fields.length !== 10)
+    return Object.freeze({ failureStage: 'parse-base', privateClass: null })
   const [inode, mode, links, uid, gid, size, month, day, time, path] = fields
-  const numericGid = String(expectedGid)
   const parsedDay = Number(day)
-  const validTime = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/u.test(time)
-  const validYear = /^[0-9]{4}$/u.test(time)
   if (
     inode !== String(expectedScratch.ino) ||
     (mode !== 'drwx------@' && mode !== 'drwx------') ||
     links !== String(expectedScratch.nlink) ||
     uid !== String(expectedScratch.uid) ||
-    gid !== numericGid ||
+    gid !== String(expectedGid) ||
     !canonicalDecimal(size) ||
     !/^[A-Z][a-z]{2}$/u.test(month) ||
     !canonicalDecimal(day) ||
     parsedDay < 1 ||
     parsedDay > 31 ||
-    (!validTime && !validYear) ||
+    (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/u.test(time) &&
+      !/^[0-9]{4}$/u.test(time)) ||
     path !== scratchPath
   )
-    throw new Error('classifier-stopped')
+    return Object.freeze({ failureStage: 'parse-base', privateClass: null })
 
   const attributes = new Map()
   for (const line of lines.slice(1)) {
@@ -114,18 +198,27 @@ function classifyLsBytes(bytes, expectedGid) {
         line,
       )
     if (match === null || attributes.has(match[1]))
-      throw new Error('classifier-stopped')
+      return Object.freeze({
+        failureStage: 'parse-xattr-row',
+        privateClass: null,
+      })
     attributes.set(match[1], match[3])
   }
-  if (mode === 'drwx------') {
-    if (attributes.size !== 0) throw new Error('classifier-stopped')
-    return 'no-xattr'
-  }
-  if (attributes.size === 0 || attributes.size > 7)
-    throw new Error('classifier-stopped')
-  if (attributes.size === 1 && attributes.get('com.apple.provenance') === '11')
-    return 'only-provenance-11'
-  return 'other-xattr-set'
+
+  if (
+    (mode === 'drwx------' && attributes.size !== 0) ||
+    (mode === 'drwx------@' && (attributes.size === 0 || attributes.size > 7))
+  )
+    return Object.freeze({ failureStage: 'parse-marker', privateClass: null })
+
+  let privateClass = 'other-xattr-set'
+  if (mode === 'drwx------') privateClass = 'no-xattr'
+  else if (
+    attributes.size === 1 &&
+    attributes.get('com.apple.provenance') === '11'
+  )
+    privateClass = 'only-provenance-11'
+  return Object.freeze({ failureStage: null, privateClass })
 }
 
 function normalizeMetadata(value) {
@@ -197,8 +290,18 @@ function assertHost(host) {
     throw new Error('classifier-stopped')
 }
 
+function checkBudget(start, now) {
+  const elapsed = now() - start
+  if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed > operationBudgetMs)
+    throw new Error('classifier-stopped')
+}
+
 function assertChildResult(result) {
   exactKeys(result, [
+    'failureStage',
+    'spawnFault',
+    'streamFault',
+    'groupFault',
     'stdout',
     'stderr',
     'code',
@@ -209,82 +312,183 @@ function assertChildResult(result) {
     'overflow',
   ])
   if (
+    (result.failureStage !== null &&
+      !childStages.includes(result.failureStage)) ||
     !Buffer.isBuffer(result.stdout) ||
     !Buffer.isBuffer(result.stderr) ||
     result.stdout.byteLength + result.stderr.byteLength > outputCap ||
-    result.stderr.byteLength !== 0 ||
-    result.code !== 0 ||
-    result.signal !== null ||
-    result.streamsClosed !== true ||
-    result.groupAbsent !== true ||
-    result.timedOut !== false ||
-    result.overflow !== false
+    typeof result.streamsClosed !== 'boolean' ||
+    typeof result.groupAbsent !== 'boolean' ||
+    typeof result.timedOut !== 'boolean' ||
+    typeof result.overflow !== 'boolean'
+  )
+    throw new Error('classifier-stopped')
+  if (
+    typeof result.spawnFault !== 'boolean' ||
+    typeof result.streamFault !== 'boolean' ||
+    typeof result.groupFault !== 'boolean'
+  )
+    throw new Error('classifier-stopped')
+  if (
+    !(
+      result.code === null ||
+      (Number.isSafeInteger(result.code) &&
+        result.code >= 0 &&
+        result.code <= 255)
+    ) ||
+    !(result.signal === null || childSignals.includes(result.signal)) ||
+    result.groupFault !== (result.failureStage === 'child-group')
+  )
+    throw new Error('classifier-stopped')
+  if (result.failureStage !== 'child-group' && result.groupAbsent !== true)
+    throw new Error('classifier-stopped')
+  const stageConsistent =
+    (result.failureStage === null &&
+      !result.spawnFault &&
+      !result.streamFault &&
+      !result.groupFault) ||
+    (result.failureStage === 'child-spawn' && result.spawnFault) ||
+    (result.failureStage === 'child-timeout' && result.timedOut) ||
+    (result.failureStage === 'child-overflow' && result.overflow) ||
+    (result.failureStage === 'child-stderr' &&
+      result.stderr.byteLength !== 0) ||
+    (result.failureStage === 'child-stream' && result.streamFault) ||
+    (result.failureStage === 'child-exit' &&
+      (result.code !== 0 || result.signal !== null)) ||
+    (result.failureStage === 'child-group' && result.groupFault)
+  if (!stageConsistent) throw new Error('classifier-stopped')
+  if (
+    result.failureStage === null &&
+    (result.stderr.byteLength !== 0 ||
+      result.code !== 0 ||
+      result.signal !== null ||
+      result.streamsClosed !== true ||
+      result.groupAbsent !== true ||
+      result.timedOut !== false ||
+      result.overflow !== false)
   )
     throw new Error('classifier-stopped')
 }
 
-function checkBudget(start, now) {
-  const elapsed = now() - start
-  if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed > operationBudgetMs)
-    throw new Error('classifier-stopped')
-}
-
 async function runClassifierCore(argv, dependencies) {
-  let resultClass = 'stopped'
+  if (!exactProductionArgv(argv)) return Object.freeze({ stage: 'stopped' })
+
+  let firstFailureStage
+  let childGroupFailure = false
+  let closeFailure = false
+  let ambiguous = false
+  let pipelineValid = false
   let parentHandle
   let scratchHandle
-  let firstFailure
-  const started = dependencies.now()
-  try {
-    if (
-      !Array.isArray(argv) ||
-      argv.length !== 2 ||
-      argv[0] !== operation ||
-      argv[1] !== confirmation
-    )
-      throw new Error('classifier-stopped')
-    checkBudget(started, dependencies.now)
-    assertHost(dependencies.host)
-    checkBudget(started, dependencies.now)
-    const flags = dependencies.directoryFlags()
-    parentHandle = await dependencies.openDirectory(parentPath, flags)
-    checkBudget(started, dependencies.now)
-    scratchHandle = await dependencies.openDirectory(scratchPath, flags)
-    checkBudget(started, dependencies.now)
-    const readIdentity = async () => {
-      const [parentHeld, parentNamed, scratchHeld, scratchNamed] =
-        await Promise.all([
-          parentHandle.stat(),
-          dependencies.lstat(parentPath),
-          scratchHandle.stat(),
-          dependencies.lstat(scratchPath),
-        ])
+  let started
+
+  const setFirst = (stage) => {
+    if (firstFailureStage === undefined) firstFailureStage = stage
+  }
+  const abortAt = (stage) => {
+    setFirst(stage)
+    throw pipelineAbort
+  }
+  const ensureBudget = () => {
+    try {
       checkBudget(started, dependencies.now)
-      const normalizedParentHeld = normalizeMetadata(parentHeld)
-      const normalizedParentNamed = normalizeMetadata(parentNamed)
-      const normalizedScratchHeld = normalizeMetadata(scratchHeld)
-      const normalizedScratchNamed = normalizeMetadata(scratchNamed)
-      assertParent(normalizedParentHeld)
-      assertParent(normalizedParentNamed)
-      if (normalizedScratchHeld.gid !== normalizedScratchNamed.gid)
-        throw new Error('classifier-stopped')
-      assertScratch(normalizedScratchHeld, normalizedScratchHeld.gid)
-      assertScratch(normalizedScratchNamed, normalizedScratchHeld.gid)
+    } catch {
+      abortAt('budget')
+    }
+  }
+
+  try {
+    try {
+      started = dependencies.now()
+      checkBudget(started, dependencies.now)
+    } catch {
+      abortAt('budget')
+    }
+    try {
+      assertHost(dependencies.host)
+    } catch {
+      abortAt('host-admission')
+    }
+    ensureBudget()
+    let flags
+    try {
+      flags = dependencies.directoryFlags()
+    } catch {
+      abortAt('directory-flags')
+    }
+    ensureBudget()
+    try {
+      parentHandle = await dependencies.openDirectory(parentPath, flags)
+    } catch {
+      abortAt('parent-open')
+    }
+    ensureBudget()
+    try {
+      scratchHandle = await dependencies.openDirectory(scratchPath, flags)
+    } catch {
+      abortAt('scratch-open')
+    }
+    ensureBudget()
+
+    const readIdentity = async (stage) => {
+      let normalizedScratchHeld
+      try {
+        const [parentHeld, parentNamed, scratchHeld, scratchNamed] =
+          await Promise.all([
+            parentHandle.stat(),
+            dependencies.lstat(parentPath),
+            scratchHandle.stat(),
+            dependencies.lstat(scratchPath),
+          ])
+        const normalizedParentHeld = normalizeMetadata(parentHeld)
+        const normalizedParentNamed = normalizeMetadata(parentNamed)
+        normalizedScratchHeld = normalizeMetadata(scratchHeld)
+        const normalizedScratchNamed = normalizeMetadata(scratchNamed)
+        assertParent(normalizedParentHeld)
+        assertParent(normalizedParentNamed)
+        if (normalizedScratchHeld.gid !== normalizedScratchNamed.gid)
+          throw new Error('classifier-stopped')
+        assertScratch(normalizedScratchHeld, normalizedScratchHeld.gid)
+        assertScratch(normalizedScratchNamed, normalizedScratchHeld.gid)
+      } catch {
+        abortAt(stage)
+      }
+      ensureBudget()
       return normalizedScratchHeld.gid
     }
-    const expectedGid = await readIdentity()
-    checkBudget(started, dependencies.now)
-    const child = await dependencies.runChild()
-    checkBudget(started, dependencies.now)
-    assertChildResult(child)
-    const afterGid = await readIdentity()
-    if (afterGid !== expectedGid) throw new Error('classifier-stopped')
-    checkBudget(started, dependencies.now)
-    resultClass = classifyLsBytes(child.stdout, expectedGid)
-    checkBudget(started, dependencies.now)
+
+    const expectedGid = await readIdentity('pre-identity')
+    let child
+    try {
+      child = await dependencies.runChild()
+    } catch {
+      abortAt('child-spawn')
+    }
+    try {
+      assertChildResult(child)
+    } catch {
+      ambiguous = true
+      throw pipelineAbort
+    }
+    if (child.failureStage === 'child-group') childGroupFailure = true
+    else if (child.failureStage !== null) setFirst(child.failureStage)
+    ensureBudget()
+    if (child.failureStage !== null) throw pipelineAbort
+
+    const afterGid = await readIdentity('post-identity')
+    if (afterGid !== expectedGid) abortAt('post-identity')
+    const parsed = parseLsBytes(child.stdout, expectedGid)
+    if (parsed.failureStage !== null) abortAt(parsed.failureStage)
+    if (!privateClasses.includes(parsed.privateClass)) {
+      ambiguous = true
+      throw pipelineAbort
+    }
+    ensureBudget()
+    pipelineValid = true
   } catch (error) {
-    firstFailure = error
+    if (error !== pipelineAbort) ambiguous = true
   }
+
   for (const role of ['scratch', 'parent']) {
     const handle = role === 'scratch' ? scratchHandle : parentHandle
     if (role === 'scratch') scratchHandle = undefined
@@ -292,19 +496,29 @@ async function runClassifierCore(argv, dependencies) {
     if (handle === undefined) continue
     try {
       checkBudget(started, dependencies.now)
-    } catch (error) {
-      firstFailure ??= error
+    } catch {
+      closeFailure = true
     }
     try {
       await handle.close()
+    } catch {
+      closeFailure = true
+    }
+    try {
       checkBudget(started, dependencies.now)
-    } catch (error) {
-      firstFailure ??= error
+    } catch {
+      closeFailure = true
     }
   }
-  if (firstFailure !== undefined) resultClass = 'stopped'
-  if (!classes.includes(resultClass)) resultClass = 'stopped'
-  return Object.freeze({ class: resultClass })
+
+  let stage = 'stopped'
+  if (closeFailure) stage = 'close'
+  else if (childGroupFailure) stage = 'child-group'
+  else if (!ambiguous && firstFailureStage !== undefined)
+    stage = firstFailureStage
+  else if (!ambiguous && pipelineValid) stage = 'pipeline-complete'
+  if (!stages.includes(stage)) stage = 'stopped'
+  return Object.freeze({ stage })
 }
 
 function defaultDirectoryFlags() {
@@ -346,6 +560,10 @@ const delay = (milliseconds) =>
 async function runFixedLsChildWithOperations(operations) {
   return new Promise((resolveChild) => {
     let child
+    let stdoutPipe
+    let stderrPipe
+    let pipeAccessFault = false
+    let validatedPid = false
     let stdoutClosed = false
     let stderrClosed = false
     let childClosed = false
@@ -353,7 +571,10 @@ async function runFixedLsChildWithOperations(operations) {
     let signal = null
     let timedOut = false
     let overflow = false
-    let lifecycleFault = false
+    let spawnFault = false
+    let streamFault = false
+    let firstFailureStage
+    let faultStarted = false
     let finalized = false
     let totalBytes = 0
     const stdout = []
@@ -362,30 +583,51 @@ async function runFixedLsChildWithOperations(operations) {
     let completionTimer
     let deadlineCleared = false
     let completionCleared = false
+    const latch = (stage) => {
+      if (firstFailureStage === undefined) firstFailureStage = stage
+    }
     const clearDeadline = () => {
       if (deadlineCleared || deadlineTimer === undefined) return
       deadlineCleared = true
-      operations.clearTimer(deadlineTimer)
+      try {
+        operations.clearTimer(deadlineTimer)
+      } catch {
+        streamFault = true
+        latch('child-stream')
+      }
     }
     const clearCompletion = () => {
       if (completionCleared || completionTimer === undefined) return
       completionCleared = true
-      operations.clearCompletionTimer(completionTimer)
+      try {
+        operations.clearCompletionTimer(completionTimer)
+      } catch {
+        streamFault = true
+        latch('child-stream')
+      }
     }
-    const firstFault = () => {
-      if (lifecycleFault) return
-      lifecycleFault = true
+    const firstFault = (stage) => {
+      if (stage === 'child-spawn') spawnFault = true
+      if (stage === 'child-stream') streamFault = true
+      latch(stage)
+      if (faultStarted) return
+      faultStarted = true
       clearDeadline()
-      if (!childClosed && Number.isSafeInteger(child?.pid) && child.pid > 0) {
+      if (!childClosed && validatedPid)
         try {
           operations.killGroup(child.pid)
         } catch {
-          lifecycleFault = true
+          latch('child-stream')
         }
-      }
-      completionTimer = operations.setCompletionTimer(() => {
+      try {
+        completionTimer = operations.setCompletionTimer(() => {
+          void finalize(true)
+        }, faultCompletionTimeoutMs)
+      } catch {
+        streamFault = true
+        latch('child-stream')
         void finalize(true)
-      }, faultCompletionTimeoutMs)
+      }
     }
     const installLateErrorSink = (emitter) => {
       emitter.removeAllListeners('error')
@@ -397,7 +639,7 @@ async function runFixedLsChildWithOperations(operations) {
         installLateErrorSink(pipe)
         pipe.destroy()
       } catch {
-        lifecycleFault = true
+        latch('child-stream')
       }
     }
     const finalize = async (watchdogExpired = false) => {
@@ -406,14 +648,14 @@ async function runFixedLsChildWithOperations(operations) {
       clearDeadline()
       clearCompletion()
       if (watchdogExpired) {
-        lifecycleFault = true
-        if (child?.stdout !== undefined) {
-          if (stdoutClosed) installLateErrorSink(child.stdout)
-          else disposeOpenPipe(child.stdout)
+        if (firstFailureStage === undefined) latch('child-timeout')
+        if (stdoutPipe !== undefined) {
+          if (stdoutClosed) installLateErrorSink(stdoutPipe)
+          else disposeOpenPipe(stdoutPipe)
         }
-        if (child?.stderr !== undefined) {
-          if (stderrClosed) installLateErrorSink(child.stderr)
-          else disposeOpenPipe(child.stderr)
+        if (stderrPipe !== undefined) {
+          if (stderrClosed) installLateErrorSink(stderrPipe)
+          else disposeOpenPipe(stderrPipe)
         }
         if (child !== undefined)
           try {
@@ -423,36 +665,46 @@ async function runFixedLsChildWithOperations(operations) {
               child.unref()
             }
           } catch {
-            lifecycleFault = true
+            latch('child-stream')
           }
       }
-      let absent = false
-      if (Number.isSafeInteger(child?.pid) && child.pid > 0)
+      let absent = !validatedPid
+      let groupFailure = false
+      if (validatedPid)
         for (let index = 0; index < groupProbeCount; index += 1) {
           let observedAbsent = false
           try {
             observedAbsent = operations.groupAbsent(child.pid)
           } catch {
-            lifecycleFault = true
+            groupFailure = true
+            observedAbsent = false
           }
           if (observedAbsent) {
             absent = true
             break
           }
-          lifecycleFault = true
+          groupFailure = true
           if (index + 1 < groupProbeCount)
             try {
               await operations.delay(groupProbeDelayMs)
             } catch {
-              lifecycleFault = true
+              groupFailure = true
             }
         }
+      const failureStage =
+        validatedPid && (groupFailure || !absent)
+          ? 'child-group'
+          : (firstFailureStage ?? null)
       resolveChild({
+        failureStage,
+        spawnFault,
+        streamFault,
+        groupFault: validatedPid && (groupFailure || !absent),
         stdout: Buffer.concat(stdout),
         stderr: Buffer.concat(stderr),
-        code: lifecycleFault ? null : code,
-        signal: lifecycleFault ? (signal ?? 'SIGKILL') : signal,
-        streamsClosed: stdoutClosed && stderrClosed,
+        code,
+        signal,
+        streamsClosed: stdoutClosed && stderrClosed && childClosed,
         groupAbsent: absent,
         timedOut,
         overflow,
@@ -466,44 +718,92 @@ async function runFixedLsChildWithOperations(operations) {
       const bytes = Buffer.from(chunk)
       if (totalBytes + bytes.byteLength > outputCap) {
         overflow = true
-        firstFault()
+        firstFault('child-overflow')
         return
       }
       totalBytes += bytes.byteLength
       target.push(bytes)
-      if (isError && bytes.byteLength !== 0) firstFault()
+      if (isError && bytes.byteLength !== 0) firstFault('child-stderr')
+    }
+    const capturePipes = () => {
+      if (stdoutPipe === undefined)
+        try {
+          stdoutPipe = child.stdout
+        } catch {
+          pipeAccessFault = true
+          try {
+            stdoutPipe = child.stdio?.[1]
+          } catch {
+            stdoutPipe = undefined
+          }
+        }
+      if (stderrPipe === undefined)
+        try {
+          stderrPipe = child.stderr
+        } catch {
+          pipeAccessFault = true
+          try {
+            stderrPipe = child.stdio?.[2]
+          } catch {
+            stderrPipe = undefined
+          }
+        }
+      return (
+        !pipeAccessFault && stdoutPipe !== undefined && stderrPipe !== undefined
+      )
     }
     try {
       child = operations.spawnChild()
-      child.stdout.on('data', (chunk) => consume(stdout, chunk, false))
-      child.stderr.on('data', (chunk) => consume(stderr, chunk, true))
-      child.stdout.once('error', firstFault)
-      child.stderr.once('error', firstFault)
-      child.stdout.once('close', () => {
-        stdoutClosed = true
-        settle()
-      })
-      child.stderr.once('close', () => {
-        stderrClosed = true
-        settle()
-      })
-      child.once('error', firstFault)
-      child.once('close', (observedCode, observedSignal) => {
-        childClosed = true
-        code = observedCode
-        signal = observedSignal
-        settle()
-      })
-      deadlineTimer = operations.setTimer(() => {
-        timedOut = true
-        firstFault()
-      }, childTimeoutMs)
     } catch {
-      lifecycleFault = true
+      spawnFault = true
+      latch('child-spawn')
       childClosed = true
       stdoutClosed = true
       stderrClosed = true
       void finalize()
+      return
+    }
+    validatedPid = Number.isSafeInteger(child?.pid) && child.pid > 0
+    try {
+      deadlineTimer = operations.setTimer(() => {
+        timedOut = true
+        firstFault('child-timeout')
+      }, childTimeoutMs)
+      if (!validatedPid) firstFault('child-spawn')
+      if (!capturePipes()) throw new Error('classifier-stopped')
+      stdoutPipe.on('data', (chunk) => consume(stdout, chunk, false))
+      stderrPipe.on('data', (chunk) => consume(stderr, chunk, true))
+      stdoutPipe.once('error', () => firstFault('child-stream'))
+      stderrPipe.once('error', () => firstFault('child-stream'))
+      stdoutPipe.once('close', () => {
+        stdoutClosed = true
+        settle()
+      })
+      stderrPipe.once('close', () => {
+        stderrClosed = true
+        settle()
+      })
+      child.once('error', () => firstFault('child-spawn'))
+      child.once('close', (observedCode, observedSignal) => {
+        childClosed = true
+        code = observedCode
+        signal = observedSignal
+        if (observedCode !== 0 || observedSignal !== null)
+          firstFault('child-exit')
+        settle()
+      })
+    } catch {
+      spawnFault = true
+      latch('child-spawn')
+      capturePipes()
+      try {
+        if (stdoutPipe !== undefined) installLateErrorSink(stdoutPipe)
+        if (stderrPipe !== undefined) installLateErrorSink(stderrPipe)
+        if (child !== undefined) installLateErrorSink(child)
+      } catch {
+        streamFault = true
+      }
+      firstFault('child-spawn')
     }
   })
 }
@@ -529,13 +829,23 @@ async function runFixedLsChild() {
   })
 }
 
-function formatClassifierResult(result) {
+function formatStageResult(result) {
   try {
-    exactKeys(result, ['class'])
-    if (!classes.includes(result.class)) throw new Error('classifier-stopped')
-    return `${JSON.stringify({ class: result.class })}\n`
+    exactKeys(result, ['stage'])
+    if (!stages.includes(result.stage)) throw new Error('classifier-stopped')
+    return `${JSON.stringify({ stage: result.stage })}\n`
   } catch {
-    return '{"class":"stopped"}\n'
+    return '{"stage":"stopped"}\n'
+  }
+}
+
+function exitCodeForStageResult(result) {
+  try {
+    exactKeys(result, ['stage'])
+    if (!stages.includes(result.stage)) throw new Error('classifier-stopped')
+    return result.stage === 'stopped' ? 1 : 0
+  } catch {
+    return 1
   }
 }
 
@@ -558,15 +868,16 @@ function defaultDependencies() {
 }
 
 async function executeClassifier(argv = process.argv.slice(2)) {
-  let result = Object.freeze({ class: 'stopped' })
-  try {
-    result = await runClassifierCore(argv, defaultDependencies())
-  } catch {
-    result = Object.freeze({ class: 'stopped' })
-  }
+  let result = Object.freeze({ stage: 'stopped' })
+  if (exactProductionArgv(argv))
+    try {
+      result = await runClassifierCore(argv, defaultDependencies())
+    } catch {
+      result = Object.freeze({ stage: 'stopped' })
+    }
   try {
     await new Promise((resolveWrite, rejectWrite) => {
-      process.stdout.write(formatClassifierResult(result), (error) => {
+      process.stdout.write(formatStageResult(result), (error) => {
         if (error) rejectWrite(new Error('classifier-stopped'))
         else resolveWrite()
       })
@@ -574,30 +885,30 @@ async function executeClassifier(argv = process.argv.slice(2)) {
   } catch {
     return 1
   }
-  return result.class === 'stopped' ? 1 : 0
+  return exitCodeForStageResult(result)
 }
 
-export function classifyPublicScratchLsBytesForFixture(bytes, expectedGid) {
+export function routePublicScratchLsBytesForFixture(bytes, expectedGid) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
-  return classifyLsBytes(bytes, expectedGid)
+  return parseLsBytes(bytes, expectedGid)
 }
 
-export async function runPublicScratchXattrClassifierCoreForFixture(
-  argv,
-  dependencies,
-) {
+export async function runPublicScratchStageCoreForFixture(argv, dependencies) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return runClassifierCore(argv, dependencies)
 }
 
-export async function runPublicScratchXattrChildForFixture(operations) {
+export async function runPublicScratchStageChildForFixture(operations) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return runFixedLsChildWithOperations(operations)
 }
 
-export function formatPublicScratchXattrResultForFixture(result) {
+export function formatPublicScratchStageForFixture(result) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
-  return formatClassifierResult(result)
+  return Object.freeze({
+    line: formatStageResult(result),
+    exitCode: exitCodeForStageResult(result),
+  })
 }
 
 if (
