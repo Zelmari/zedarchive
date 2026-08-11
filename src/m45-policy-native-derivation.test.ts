@@ -14,6 +14,11 @@ import {
   inspectPolicyNativeLaunchSources,
 } from '@/../scripts/m45-policy-baseline'
 import {
+  inspectPolicyDirectHeaderTablesForFixture,
+  inspectPolicyHeaderSetMutationForFixture,
+  inspectPolicyProtectedPathMetadataForFixture,
+  parsePolicyCompilerResourceOutputForFixture,
+  parsePolicyClangDiagnosticForFixture,
   runPolicyProvisionalAPrebuildDiagnosticForFixture,
   runPolicyProvisionalBuildC,
 } from '@/../scripts/m45-policy-baseline-native-authority'
@@ -46,6 +51,51 @@ function canonical(value: unknown): string {
       .join(',')}}`
   return JSON.stringify(value)
 }
+
+const diagnosticFrontend = [
+  '/fixture/clang',
+  '-cc1',
+  '-std=c17',
+  '-Wall',
+  '-Wextra',
+  '-Werror',
+  '-Wpedantic',
+  '-O2',
+  '-resource-dir',
+  '/fixture/resource',
+  '-internal-isystem',
+  '/fixture/resource/include',
+  '-isysroot',
+  '/fixture/sdk',
+  '-o',
+  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
+  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c',
+] as const
+const diagnosticLinker = [
+  '/fixture/ld',
+  '-syslibroot',
+  '/fixture/sdk',
+  '-o',
+  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
+  '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
+] as const
+const diagnosticLine = (tokens: readonly string[]) =>
+  tokens.map((token) => `"${token}"`).join(' ')
+const diagnosticStderr = (
+  frontend: readonly string[] = diagnosticFrontend,
+  linker: readonly string[] = diagnosticLinker,
+) =>
+  Buffer.from(
+    [
+      'Apple clang version 16.0.0',
+      'Target: arm64-apple-macosx15.0.0',
+      'Thread model: posix',
+      'InstalledDir: /fixture',
+      diagnosticLine(frontend),
+      diagnosticLine(linker),
+      '',
+    ].join('\n'),
+  )
 
 function exactEntriesForFixture(
   left: readonly string[],
@@ -85,8 +135,16 @@ function stageAPackage() {
     sdkIdentitySha256: digest,
     sdkDevice: '1',
     sdkInode: '1',
+    compilerResourceIdentitySha256: digest,
+    compilerResourceDevice: '1',
+    compilerResourceInode: '1',
     headerSetSha256: digest,
     diagnosticSha256: digest,
+    diagnosticSemanticSha256: digest,
+    linkerIdentitySha256: digest,
+    linkerSha256: digest,
+    linkerDevice: '1',
+    linkerInode: '1',
     compileContractSha256: digest,
     launchContractSha256: tracked.launchContractSha256,
     launcherSha256: tracked.launcherSha256,
@@ -602,6 +660,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -643,7 +707,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -659,7 +723,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -681,7 +745,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -706,7 +770,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -723,7 +787,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -775,7 +839,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
           ...seams,
           diagnoseA,
         }),
@@ -800,7 +864,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v2'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -815,7 +879,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     }
   })
 
-  it('runs the exact five-child diagnostic bridge in fixed order with closed safe output', async () => {
+  it('runs the exact six-child diagnostic bridge in fixed order with closed safe output', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     const observed = await runPolicyProvisionalAPrebuildDiagnosticForFixture({
       faultAt: null,
@@ -832,6 +896,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'released-lock-contender',
         'xcrun-compiler-resolver',
         'xcrun-sdk-resolver',
+        'compiler-resource-resolver',
         'compiler-diagnostic',
       ],
       lifecycle: [
@@ -846,11 +911,18 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'compiler-child',
         'compiler-lifecycle',
         'compiler-output',
+        'attestation-protected-stat',
+        'attestation-protected-read',
         'sdk-child',
         'sdk-lifecycle',
         'sdk-output',
-        'attestation-protected-stat',
-        'attestation-protected-read',
+        'resource-child',
+        'resource-lifecycle',
+        'resource-output',
+        'resource-protected-stat',
+        'resource-protected-read',
+        'prediagnostic-compiler',
+        'prediagnostic-compiler-bytes',
         'diagnostic-child',
         'diagnostic-lifecycle',
         'postcheck-xcrun',
@@ -858,7 +930,11 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'postcheck-compiler',
         'postcheck-compiler-bytes',
         'postcheck-sdk',
+        'postcheck-resource',
+        'postcheck-linker',
+        'postcheck-linker-bytes',
         'postcheck-sdk-headers',
+        'postcheck-resource-headers',
         'authority-package',
         'lock-final-validation',
         'lock-close',
@@ -869,6 +945,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'derivation-lock-open',
         'xcrun-compiler-resolution',
         'xcrun-sdk-resolution',
+        'compiler-resource-resolution',
         'toolchain-input-attestation',
         'compiler-diagnostic',
         'toolchain-authority',
@@ -882,6 +959,320 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       'lastSuccessfulBoundary',
       'status',
     ])
+    vi.unstubAllEnvs()
+  })
+
+  it('binds the exact SDK and compiler-resource direct-header tables', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const tables = inspectPolicyDirectHeaderTablesForFixture()
+    expect(tables).toEqual({
+      sdk: [
+        'usr/include/sys/types.h',
+        'usr/include/sys/stat.h',
+        'usr/include/sys/attr.h',
+        'usr/include/sys/acl.h',
+        'usr/include/sys/file.h',
+        'usr/include/sys/stdio.h',
+        'usr/include/dirent.h',
+        'usr/include/fcntl.h',
+        'usr/include/errno.h',
+        'usr/include/stdint.h',
+        'usr/include/stdlib.h',
+        'usr/include/unistd.h',
+        'usr/include/string.h',
+      ],
+      compilerResource: ['include/stdbool.h', 'include/stdint.h'],
+    })
+    expect(tables.sdk).not.toContain('usr/include/stdbool.h')
+    expect(tables.sdk).toContain('usr/include/stdint.h')
+    expect(tables.compilerResource).toContain('include/stdint.h')
+    vi.unstubAllEnvs()
+  })
+
+  it('accepts only one canonical compiler-resource resolver path', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(
+      parsePolicyCompilerResourceOutputForFixture(
+        Buffer.from('/fixture/resource\n'),
+      ),
+    ).toBe('/fixture/resource')
+    for (const output of [
+      '',
+      '/fixture/resource',
+      '/fixture/resource\n/fixture/other\n',
+      '/fixture/resource\r\n',
+      '/fixture/resource\0\n',
+      'relative/resource\n',
+      ' /fixture/resource\n',
+      '/fixture/./resource\n',
+      '/fixture/../resource\n',
+      '/fixture/resource path\n',
+    ])
+      expect(() =>
+        parsePolicyCompilerResourceOutputForFixture(Buffer.from(output)),
+      ).toThrow()
+    vi.unstubAllEnvs()
+  })
+
+  it('rejects every protected header metadata and commitment mutation', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const exactFile = {
+      kind: 'file',
+      uid: 0,
+      mode: 0o100444,
+      links: 1,
+      symbolicLink: false,
+      file: true,
+      directory: false,
+    } as const
+    expect(() =>
+      inspectPolicyProtectedPathMetadataForFixture(exactFile),
+    ).not.toThrow()
+    for (const mutation of [
+      { symbolicLink: true },
+      { uid: 1 },
+      { mode: 0o100464 },
+      { links: 0 },
+      { file: false },
+    ])
+      expect(() =>
+        inspectPolicyProtectedPathMetadataForFixture({
+          ...exactFile,
+          ...mutation,
+        }),
+      ).toThrow()
+    for (const mutation of [
+      'missing',
+      'duplicate',
+      'reorder',
+      'namespace',
+      'relativePath',
+      'rootDevice',
+      'rootInode',
+      'uid',
+      'device',
+      'inode',
+      'mode',
+      'links',
+      'byteCount',
+      'sha256',
+    ] as const)
+      expect(inspectPolicyHeaderSetMutationForFixture({ mutation })).toEqual({
+        matches: false,
+      })
+    vi.unstubAllEnvs()
+  })
+
+  it('accepts only the closed semantic Apple Clang diagnostic projection', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(
+      parsePolicyClangDiagnosticForFixture({
+        stdout: Buffer.alloc(0),
+        stderr: diagnosticStderr(),
+      }),
+    ).toEqual({
+      diagnosticSemanticSha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      linkerPath: '/fixture/ld',
+    })
+
+    const replace = (
+      tokens: readonly string[],
+      current: string,
+      next: string,
+    ) => tokens.map((token) => (token === current ? next : token))
+    const remove = (tokens: readonly string[], value: string) =>
+      tokens.filter((token) => token !== value)
+    const mutations: readonly (readonly [string, Buffer, Buffer])[] = [
+      ['stdout', Buffer.from('unexpected'), diagnosticStderr()],
+      ['invalid-utf8', Buffer.alloc(0), Buffer.from([0xc3, 0x28])],
+      [
+        'nul',
+        Buffer.alloc(0),
+        Buffer.concat([diagnosticStderr(), Buffer.from([0])]),
+      ],
+      [
+        'carriage-return',
+        Buffer.alloc(0),
+        Buffer.from(diagnosticStderr().toString().replace('\n', '\r\n')),
+      ],
+      ['missing-final-lf', Buffer.alloc(0), diagnosticStderr().subarray(0, -1)],
+      [
+        'unterminated-quote',
+        Buffer.alloc(0),
+        Buffer.from(diagnosticStderr().toString().replace('"-cc1"', '"-cc1')),
+      ],
+      [
+        'unsupported-escape',
+        Buffer.alloc(0),
+        Buffer.from(diagnosticStderr().toString().replace('"-Wall"', '"-\\n"')),
+      ],
+      [
+        'unquoted-token',
+        Buffer.alloc(0),
+        Buffer.from(diagnosticStderr().toString().replace('"-cc1"', '-cc1')),
+      ],
+      [
+        'extra-command',
+        Buffer.alloc(0),
+        Buffer.concat([
+          diagnosticStderr(),
+          Buffer.from(`${diagnosticLine(['/fixture/extra'])}\n`),
+        ]),
+      ],
+      [
+        'unsafe-installed-directory-banner',
+        Buffer.alloc(0),
+        Buffer.concat([
+          Buffer.from('InstalledDir: /fixture/../other\n'),
+          diagnosticStderr(),
+        ]),
+      ],
+      [
+        'duplicate-compiler',
+        Buffer.alloc(0),
+        diagnosticStderr([...diagnosticFrontend, '/fixture/clang']),
+      ],
+      [
+        'wrong-compiler',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(diagnosticFrontend, '/fixture/clang', '/fixture/other'),
+        ),
+      ],
+      [
+        'missing-resource-dir',
+        Buffer.alloc(0),
+        diagnosticStderr(remove(diagnosticFrontend, '-resource-dir')),
+      ],
+      [
+        'wrong-resource-dir',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(diagnosticFrontend, '/fixture/resource', '/fixture/other'),
+        ),
+      ],
+      [
+        'duplicate-resource-dir',
+        Buffer.alloc(0),
+        diagnosticStderr([
+          ...diagnosticFrontend,
+          '-resource-dir',
+          '/fixture/resource',
+        ]),
+      ],
+      [
+        'equals-form-resource-dir',
+        Buffer.alloc(0),
+        diagnosticStderr([
+          ...diagnosticFrontend,
+          '-resource-dir=/fixture/other',
+        ]),
+      ],
+      [
+        'wrong-resource-include',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(
+            diagnosticFrontend,
+            '/fixture/resource/include',
+            '/fixture/other/include',
+          ),
+        ),
+      ],
+      [
+        'wrong-sdk',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(diagnosticFrontend, '/fixture/sdk', '/fixture/other'),
+        ),
+      ],
+      [
+        'wrong-source',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          replace(
+            diagnosticFrontend,
+            diagnosticFrontend.at(-1)!,
+            '/fixture/wrong.c',
+          ),
+        ),
+      ],
+      [
+        'extra-source',
+        Buffer.alloc(0),
+        diagnosticStderr([...diagnosticFrontend, '/fixture/extra.c']),
+      ],
+      ...(
+        [
+          '-std=c17',
+          '-O2',
+          '-Wall',
+          '-Wextra',
+          '-Werror',
+          '-Wpedantic',
+        ] as const
+      ).map(
+        (flag) =>
+          [
+            `missing-${flag}`,
+            Buffer.alloc(0),
+            diagnosticStderr(remove(diagnosticFrontend, flag)),
+          ] as const,
+      ),
+      [
+        'wrong-linker',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          diagnosticFrontend,
+          replace(diagnosticLinker, '/fixture/ld', 'relative'),
+        ),
+      ],
+      [
+        'wrong-linker-sdk',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          diagnosticFrontend,
+          replace(diagnosticLinker, '/fixture/sdk', '/fixture/other'),
+        ),
+      ],
+      [
+        'wrong-final-output',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          diagnosticFrontend,
+          replace(
+            diagnosticLinker,
+            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
+            '/fixture/other',
+          ),
+        ),
+      ],
+      [
+        'detached-object',
+        Buffer.alloc(0),
+        diagnosticStderr(
+          diagnosticFrontend,
+          replace(
+            diagnosticLinker,
+            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o',
+            '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/other.o',
+          ),
+        ),
+      ],
+      [
+        'extra-temporary-object',
+        Buffer.alloc(0),
+        diagnosticStderr(diagnosticFrontend, [
+          ...diagnosticLinker,
+          '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/extra.o',
+        ]),
+      ],
+    ]
+    for (const [name, stdout, stderr] of mutations)
+      expect(
+        () => parsePolicyClangDiagnosticForFixture({ stdout, stderr }),
+        name,
+      ).toThrow()
     vi.unstubAllEnvs()
   })
 
@@ -906,7 +1297,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     })
     expect(observed.output).toEqual({ status: 'stopped' })
     expect(observed.genericStopped).toBe(true)
-    expect(observed.childOrder.length).toBeLessThanOrEqual(5)
+    expect(observed.childOrder.length).toBeLessThanOrEqual(6)
     vi.unstubAllEnvs()
   })
 
@@ -917,8 +1308,15 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['sdk-child', 'xcrun-compiler-resolution'],
     ['sdk-lifecycle', 'xcrun-compiler-resolution'],
     ['sdk-output', 'xcrun-compiler-resolution'],
-    ['attestation-protected-stat', 'xcrun-sdk-resolution'],
-    ['attestation-protected-read', 'xcrun-sdk-resolution'],
+    ['attestation-protected-stat', 'derivation-lock-open'],
+    ['attestation-protected-read', 'derivation-lock-open'],
+    ['resource-child', 'xcrun-sdk-resolution'],
+    ['resource-lifecycle', 'xcrun-sdk-resolution'],
+    ['resource-output', 'xcrun-sdk-resolution'],
+    ['resource-protected-stat', 'xcrun-sdk-resolution'],
+    ['resource-protected-read', 'compiler-resource-resolution'],
+    ['prediagnostic-compiler', 'toolchain-input-attestation'],
+    ['prediagnostic-compiler-bytes', 'toolchain-input-attestation'],
     ['diagnostic-child', 'toolchain-input-attestation'],
     ['diagnostic-lifecycle', 'toolchain-input-attestation'],
     ['postcheck-tracked-source', 'toolchain-input-attestation'],
@@ -927,6 +1325,10 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['postcheck-compiler-bytes', 'toolchain-input-attestation'],
     ['postcheck-sdk', 'toolchain-input-attestation'],
     ['postcheck-sdk-headers', 'toolchain-input-attestation'],
+    ['postcheck-resource', 'toolchain-input-attestation'],
+    ['postcheck-resource-headers', 'toolchain-input-attestation'],
+    ['postcheck-linker', 'toolchain-input-attestation'],
+    ['postcheck-linker-bytes', 'toolchain-input-attestation'],
     ['authority-package', 'compiler-diagnostic'],
   ] as const)(
     'reports only the preceding completed boundary for %s',
@@ -941,7 +1343,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         derivationLockCycleClosed: true,
       })
       expect(observed.genericStopped).toBe(false)
-      expect(observed.childOrder.length).toBeLessThanOrEqual(5)
+      expect(observed.childOrder.length).toBeLessThanOrEqual(6)
       vi.unstubAllEnvs()
     },
   )

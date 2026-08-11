@@ -54,6 +54,8 @@ import {
   orderedPolicyUrlSequenceSha256,
   openPolicyNativeFillersForFixture,
   parsePolicyBaselineArguments,
+  parsePolicyPromotionPackage,
+  parsePolicyToolchainAuthority,
   policyExclusivePromotionBuildContract,
   policyExclusivePromotionLaunchContract,
   policyExclusivePromotionPendingProvenance,
@@ -78,7 +80,9 @@ import {
 } from '@/../scripts/m45-policy-baseline'
 import {
   createPolicyCompilerCapability,
+  createPolicyCompilerDiagnosticCapability,
   createPolicyCompilerPlan,
+  createPolicyCompilerResourcePlan,
   createPolicyHelperCapability,
   createPolicyLockPreflightPlan,
   createPolicyNativeHelperPlan,
@@ -497,8 +501,19 @@ const syntheticToolchainAuthority = async () => {
     sdkIdentitySha256: '3'.repeat(64),
     sdkDevice: '7',
     sdkInode: '102',
+    compilerResourceRoot:
+      '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/18',
+    compilerResourceIdentitySha256: '4'.repeat(64),
+    compilerResourceDevice: '7',
+    compilerResourceInode: '103',
     headerSetSha256: '4'.repeat(64),
     diagnosticSha256: '5'.repeat(64),
+    diagnosticSemanticSha256: '6'.repeat(64),
+    linkerPath: '/Applications/Xcode.app/Contents/Developer/usr/bin/ld',
+    linkerIdentitySha256: '7'.repeat(64),
+    linkerSha256: '7'.repeat(64),
+    linkerDevice: '7',
+    linkerInode: '104',
     compileContractSha256: '6'.repeat(64),
     launchContractSha256: launch.launchContractSha256,
     launcherSha256: launch.launcherSha256,
@@ -922,11 +937,65 @@ describe('M45 policy baseline filesystem custody', () => {
       repositoryRoot,
       compilerPath: toolchainAuthority.compilerPath,
       sdkRoot: toolchainAuthority.sdkRoot,
+      compilerResourceRoot: toolchainAuthority.compilerResourceRoot,
       authorityPackage: toolchainAuthority,
     })
+    const diagnosticCore = {
+      schema: 'policy-compiler-diagnostic-capability.v1',
+      version: 1,
+      repositoryRoot,
+      compilerPath: toolchainAuthority.compilerPath,
+      sdkRoot: toolchainAuthority.sdkRoot,
+      compilerResourceRoot: toolchainAuthority.compilerResourceRoot,
+      compilerSha256: toolchainAuthority.compilerSha256,
+      compilerDevice: toolchainAuthority.compilerDevice,
+      compilerInode: toolchainAuthority.compilerInode,
+      sdkIdentitySha256: toolchainAuthority.sdkIdentitySha256,
+      sdkDevice: toolchainAuthority.sdkDevice,
+      sdkInode: toolchainAuthority.sdkInode,
+      compilerResourceIdentitySha256:
+        toolchainAuthority.compilerResourceIdentitySha256,
+      compilerResourceDevice: toolchainAuthority.compilerResourceDevice,
+      compilerResourceInode: toolchainAuthority.compilerResourceInode,
+      headerSetSha256: toolchainAuthority.headerSetSha256,
+      compileContractSha256: toolchainAuthority.compileContractSha256,
+      launchContractSha256: toolchainAuthority.launchContractSha256,
+      launcherSha256: toolchainAuthority.launcherSha256,
+      nativeAuthoritySha256: toolchainAuthority.nativeAuthoritySha256,
+      lockPreflightWorkerSha256: toolchainAuthority.lockPreflightWorkerSha256,
+    } as const
+    const diagnosticCapability = createPolicyCompilerDiagnosticCapability({
+      repositoryRoot,
+      diagnosticCapability: {
+        ...diagnosticCore,
+        diagnosticCapabilitySha256: createHash('sha256')
+          .update(canonicalJson(diagnosticCore))
+          .digest('hex'),
+      },
+    })
+    expect(() =>
+      createPolicyCompilerDiagnosticCapability({
+        repositoryRoot,
+        diagnosticCapability: {
+          ...diagnosticCore,
+          diagnosticCapabilitySha256: '0'.repeat(64),
+        },
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyCompilerDiagnosticCapability({
+        repositoryRoot: '/Users/fixture/other',
+        diagnosticCapability: {
+          ...diagnosticCore,
+          diagnosticCapabilitySha256: createHash('sha256')
+            .update(canonicalJson(diagnosticCore))
+            .digest('hex'),
+        },
+      }),
+    ).toThrow('policy-native-launch-contract')
     const compilerPlan = createPolicyCompilerPlan(
       'diagnostic',
-      compilerCapability,
+      diagnosticCapability,
     )
     expect(compilerPlan).toMatchObject({
       executable: compilerPath,
@@ -937,6 +1006,95 @@ describe('M45 policy baseline filesystem custody', () => {
       acceptedExitCodes: [0],
     })
     expect(compilerPlan.arguments).toContain('-###')
+    const resourceResolverCore = {
+      schema: 'policy-compiler-resource-resolver.v1',
+      version: 1,
+      repositoryRoot,
+      compilerPath,
+      compilerSha256: toolchainAuthority.compilerSha256,
+      compilerDevice: toolchainAuthority.compilerDevice,
+      compilerInode: toolchainAuthority.compilerInode,
+    } as const
+    const resourceResolverInput = {
+      ...resourceResolverCore,
+      compilerEvidenceSha256: createHash('sha256')
+        .update(canonicalJson(resourceResolverCore))
+        .digest('hex'),
+    } as const
+    expect(
+      createPolicyCompilerResourcePlan(resourceResolverInput),
+    ).toMatchObject({
+      executable: compilerPath,
+      arguments: ['-print-resource-dir'],
+      cwd: repositoryRoot,
+      environment: {},
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeoutMilliseconds: 30_000,
+      stdoutByteLimit: 64 * 1024,
+      stderrByteLimit: 64 * 1024,
+      combinedOutputByteLimit: 96 * 1024,
+      outputMode: 'diagnostic',
+      acceptedExitCodes: [0],
+    })
+    expect(() =>
+      createPolicyCompilerResourcePlan({
+        ...resourceResolverInput,
+        callerSelectedResourceRoot: '/fixture/forbidden',
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyCompilerResourcePlan({
+        ...resourceResolverInput,
+        compilerEvidenceSha256: '0'.repeat(64),
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyCompilerCapability({
+        repositoryRoot,
+        compilerPath: toolchainAuthority.compilerPath,
+        sdkRoot: toolchainAuthority.sdkRoot,
+        compilerResourceRoot: '/Applications/Xcode.app/forbidden',
+        authorityPackage: toolchainAuthority,
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyCompilerCapability({
+        repositoryRoot,
+        compilerPath: toolchainAuthority.compilerPath,
+        sdkRoot: toolchainAuthority.sdkRoot,
+        compilerResourceRoot: toolchainAuthority.compilerResourceRoot,
+        authorityPackage: {
+          ...toolchainAuthority,
+          diagnosticSemanticSha256: '0'.repeat(64),
+        },
+      }),
+    ).toThrow('policy-native-launch-contract')
+    const currentOnlyAuthorityKeys = new Set([
+      'compilerResourceRoot',
+      'compilerResourceIdentitySha256',
+      'compilerResourceDevice',
+      'compilerResourceInode',
+      'diagnosticSemanticSha256',
+      'linkerPath',
+      'linkerIdentitySha256',
+      'linkerSha256',
+      'linkerDevice',
+      'linkerInode',
+      'authorityPackageSha256',
+    ])
+    const legacyAuthorityCore = Object.fromEntries(
+      Object.entries(toolchainAuthority).filter(
+        ([key]) => !currentOnlyAuthorityKeys.has(key),
+      ),
+    )
+    expect(() =>
+      parsePolicyToolchainAuthority({
+        ...legacyAuthorityCore,
+        authorityPackageSha256: createHash('sha256')
+          .update(canonicalJson(legacyAuthorityCore))
+          .digest('hex'),
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
     expect(() =>
       createPolicyCompilerPlan('build', {
         ...compilerCapability,
@@ -952,6 +1110,51 @@ describe('M45 policy baseline filesystem custody', () => {
       preflightAuthority: await syntheticPreflightAuthority(),
       reviewAuthoritySha256: null,
     })
+    expect(helperPackage.material).toMatchObject({
+      compilerResourceIdentitySha256:
+        toolchainAuthority.compilerResourceIdentitySha256,
+      compilerResourceDevice: toolchainAuthority.compilerResourceDevice,
+      compilerResourceInode: toolchainAuthority.compilerResourceInode,
+      headerSetSha256: toolchainAuthority.headerSetSha256,
+      diagnosticSemanticSha256: toolchainAuthority.diagnosticSemanticSha256,
+      linkerIdentitySha256: toolchainAuthority.linkerIdentitySha256,
+      linkerSha256: toolchainAuthority.linkerSha256,
+      linkerDevice: toolchainAuthority.linkerDevice,
+      linkerInode: toolchainAuthority.linkerInode,
+    })
+    const currentOnlyMaterialKeys = new Set([
+      'compilerResourceIdentitySha256',
+      'compilerResourceDevice',
+      'compilerResourceInode',
+      'diagnosticSemanticSha256',
+      'linkerIdentitySha256',
+      'linkerSha256',
+      'linkerDevice',
+      'linkerInode',
+    ])
+    const legacyMaterial = Object.fromEntries(
+      Object.entries(helperPackage.material).filter(
+        ([key]) => !currentOnlyMaterialKeys.has(key),
+      ),
+    )
+    const legacyPackageCore = {
+      schema: helperPackage.schema,
+      version: helperPackage.version,
+      stage: helperPackage.stage,
+      rootIdentitySha256: helperPackage.rootIdentitySha256,
+      material: legacyMaterial,
+      preflightAuthoritySha256: helperPackage.preflightAuthoritySha256,
+      reviewAuthoritySha256: helperPackage.reviewAuthoritySha256,
+      cleanupProved: helperPackage.cleanupProved,
+    }
+    expect(() =>
+      parsePolicyPromotionPackage({
+        ...legacyPackageCore,
+        packageSha256: createHash('sha256')
+          .update(canonicalJson(legacyPackageCore))
+          .digest('hex'),
+      }),
+    ).toThrow('policy-exclusive-promotion-unavailable')
     const helperCapability = await syntheticHelperCapability(
       repositoryRoot,
       helperBytes,
@@ -2202,7 +2405,7 @@ describe('M45 policy baseline filesystem custody', () => {
       if (path === policyNativeAuthorityPath) continue
       if (
         (await readFile(path, 'utf8')).match(
-          /(?:runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
+          /(?:inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
         )
       )
         testFixtureConsumers.push(path)

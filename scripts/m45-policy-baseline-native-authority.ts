@@ -63,14 +63,19 @@ const sdkHeaderPaths = [
   'usr/include/sys/stat.h',
   'usr/include/sys/attr.h',
   'usr/include/sys/acl.h',
+  'usr/include/sys/file.h',
   'usr/include/sys/stdio.h',
+  'usr/include/dirent.h',
   'usr/include/fcntl.h',
   'usr/include/errno.h',
   'usr/include/stdint.h',
   'usr/include/stdlib.h',
   'usr/include/unistd.h',
   'usr/include/string.h',
-  'usr/include/stdbool.h',
+] as const
+const compilerResourceHeaderPaths = [
+  'include/stdbool.h',
+  'include/stdint.h',
 ] as const
 
 function exactObject(
@@ -133,20 +138,29 @@ async function inspectProtectedPath(path: string, kind: 'file' | 'directory') {
   for (const segment of path.split('/').filter(Boolean)) {
     cursor = join(cursor, segment)
     const metadata = await lstat(cursor)
-    if (
-      metadata.isSymbolicLink() ||
-      metadata.uid !== 0 ||
-      (metadata.mode & 0o7022) !== 0
-    )
-      throw new Error('policy-native-authority')
+    assertProtectedPathMetadata(metadata)
   }
   const metadata = await lstat(path)
+  assertProtectedPathMetadata(metadata, kind)
+  return metadata
+}
+
+function assertProtectedPathMetadata(
+  metadata: Pick<
+    Awaited<ReturnType<typeof lstat>>,
+    'uid' | 'mode' | 'nlink' | 'isSymbolicLink' | 'isFile' | 'isDirectory'
+  >,
+  kind?: 'file' | 'directory',
+): void {
   if (
-    (kind === 'file' ? !metadata.isFile() : !metadata.isDirectory()) ||
-    metadata.nlink < 1
+    metadata.isSymbolicLink() ||
+    Number(metadata.uid) !== 0 ||
+    (Number(metadata.mode) & 0o7022) !== 0 ||
+    (kind === 'file' && !metadata.isFile()) ||
+    (kind === 'directory' && !metadata.isDirectory()) ||
+    (kind !== undefined && Number(metadata.nlink) < 1)
   )
     throw new Error('policy-native-authority')
-  return metadata
 }
 function successfulDiagnostic(result: {
   code: number
@@ -160,9 +174,435 @@ function successfulDiagnostic(result: {
   return result
 }
 
+type ProtectedHeaderRecord = Readonly<{
+  namespace: 'sdk' | 'compiler-resource'
+  relativePath: string
+  rootDevice: string
+  rootInode: string
+  uid: string
+  device: string
+  inode: string
+  mode: string
+  links: string
+  byteCount: number
+  sha256: string
+}>
+
+function hashProtectedHeaderSet(
+  records: readonly ProtectedHeaderRecord[],
+): string {
+  return hashAuthority({
+    schema: 'policy-direct-header-set.v1',
+    version: 1,
+    records,
+  })
+}
+
+async function readProtectedHeaders(
+  runtime: Pick<
+    ProvisionalAPrebuildToolchainHarness,
+    'inspectProtectedPath' | 'readFile'
+  >,
+  namespace: ProtectedHeaderRecord['namespace'],
+  root: string,
+  rootMetadata: Awaited<ReturnType<typeof inspectProtectedPath>>,
+  paths: readonly string[],
+): Promise<readonly ProtectedHeaderRecord[]> {
+  return Promise.all(
+    paths.map(async (relativePath) => {
+      const path = join(root, relativePath)
+      const metadata = await runtime.inspectProtectedPath(path, 'file')
+      const bytes = await runtime.readFile(path)
+      if (metadata.size !== bytes.byteLength)
+        throw new Error('policy-native-authority')
+      return Object.freeze({
+        namespace,
+        relativePath,
+        rootDevice: String(rootMetadata.dev),
+        rootInode: String(rootMetadata.ino),
+        uid: String(metadata.uid),
+        device: String(metadata.dev),
+        inode: String(metadata.ino),
+        mode: String(metadata.mode & 0o7777),
+        links: String(metadata.nlink),
+        byteCount: bytes.byteLength,
+        sha256: hash(bytes),
+      })
+    }),
+  )
+}
+
+function tokenizeClangCommand(line: string): readonly string[] {
+  const tokens: string[] = []
+  let index = 0
+  while (index < line.length) {
+    if (index > 0) {
+      if (line[index] !== ' ') throw new Error('policy-native-authority')
+      while (line[index] === ' ') index += 1
+    }
+    if (line[index] !== '"') throw new Error('policy-native-authority')
+    index += 1
+    let token = ''
+    let closed = false
+    while (index < line.length) {
+      const character = line[index]
+      index += 1
+      if (character === '"') {
+        closed = true
+        break
+      }
+      if (character === '\\') {
+        const escaped = line[index]
+        index += 1
+        if (escaped !== '\\' && escaped !== '"')
+          throw new Error('policy-native-authority')
+        token += escaped
+      } else token += character
+    }
+    if (!closed || token.length === 0)
+      throw new Error('policy-native-authority')
+    tokens.push(token)
+    if (index < line.length && line[index] !== ' ')
+      throw new Error('policy-native-authority')
+  }
+  if (tokens.length === 0) throw new Error('policy-native-authority')
+  return Object.freeze(tokens)
+}
+
+function oneFlag(tokens: readonly string[], flag: string): string {
+  const indexes = tokens.flatMap((token, index) =>
+    token === flag ? [index] : [],
+  )
+  if (indexes.length !== 1 || indexes[0] + 1 >= tokens.length)
+    throw new Error('policy-native-authority')
+  return tokens[indexes[0] + 1]
+}
+
+function flagValues(
+  tokens: readonly string[],
+  flag: string,
+): readonly string[] {
+  const values = tokens.flatMap((token, index) =>
+    token === flag && index + 1 < tokens.length ? [tokens[index + 1]] : [],
+  )
+  if (values.length === 0) throw new Error('policy-native-authority')
+  return values
+}
+
+function oneToken(tokens: readonly string[], token: string): void {
+  if (tokens.filter((value) => value === token).length !== 1)
+    throw new Error('policy-native-authority')
+}
+
+type ClangDiagnosticProjection = Readonly<{
+  schema: 'policy-clang-diagnostic-semantic.v1'
+  version: 1
+  frontend: Readonly<{
+    executable: string
+    resourceRoot: string
+    resourceInclude: string
+    sdkRoot: string
+    sourcePath: string
+    temporaryObjectDirectory: string
+    language: 'c17'
+    optimization: 'O2'
+    warnings: readonly ['Wall', 'Wextra', 'Werror', 'Wpedantic']
+  }>
+  linker: Readonly<{
+    executable: string
+    sdkRoot: string
+    outputPath: string
+  }>
+}>
+
+function parseClangDiagnostic(
+  diagnostic: ProvisionalAPrebuildChildResult,
+  expected: Readonly<{
+    compilerPath: string
+    compilerResourceRoot: string
+    sdkRoot: string
+    sourcePath: string
+    outputPath: string
+    temporaryDirectory: string
+  }>,
+): ClangDiagnosticProjection {
+  if (diagnostic.stdout.byteLength !== 0)
+    throw new Error('policy-native-authority')
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(
+    diagnostic.stderr,
+  )
+  if (text.includes('\0') || text.includes('\r') || !text.endsWith('\n'))
+    throw new Error('policy-native-authority')
+  const commandLines: string[] = []
+  for (const line of text.slice(0, -1).split('\n')) {
+    if (line.startsWith(' "')) commandLines.push(line.slice(1))
+    else if (line.startsWith('"')) commandLines.push(line)
+    else {
+      const installedDirectory = line.startsWith('InstalledDir: ')
+        ? line.slice('InstalledDir: '.length)
+        : null
+      if (
+        !/^(?:Apple clang version [^\r\n]+|Target: [A-Za-z0-9._+-]+|Thread model: [A-Za-z0-9._+-]+|InstalledDir: \/[A-Za-z0-9._+@\/-]+| \(in-process\))$/u.test(
+          line,
+        ) ||
+        (installedDirectory !== null &&
+          safeRoot(installedDirectory) !== installedDirectory)
+      )
+        throw new Error('policy-native-authority')
+    }
+  }
+  if (commandLines.length !== 2) throw new Error('policy-native-authority')
+  const records = commandLines.map(tokenizeClangCommand)
+  const frontend = records.find((tokens) => tokens.includes('-cc1'))
+  const linker = records.find((tokens) => !tokens.includes('-cc1'))
+  if (frontend === undefined || linker === undefined)
+    throw new Error('policy-native-authority')
+  if (frontend[0] !== expected.compilerPath)
+    throw new Error('policy-native-authority')
+  const decisiveFlags = [
+    '-resource-dir',
+    '-internal-isystem',
+    '-isysroot',
+    '-o',
+  ] as const
+  if (
+    [...frontend, ...linker].some((token) =>
+      decisiveFlags.some((flag) => token.startsWith(`${flag}=`)),
+    )
+  )
+    throw new Error('policy-native-authority')
+  if (frontend.filter((token) => token === expected.compilerPath).length !== 1)
+    throw new Error('policy-native-authority')
+  oneToken(frontend, '-cc1')
+  oneToken(frontend, '-std=c17')
+  oneToken(frontend, '-O2')
+  for (const warning of ['-Wall', '-Wextra', '-Werror', '-Wpedantic'])
+    oneToken(frontend, warning)
+  if (
+    oneFlag(frontend, '-resource-dir') !== expected.compilerResourceRoot ||
+    oneFlag(frontend, '-isysroot') !== expected.sdkRoot ||
+    frontend.filter((token) => token === expected.sourcePath).length !== 1 ||
+    frontend.some(
+      (token) =>
+        token !== expected.sourcePath &&
+        safeAbsolutePathPattern.test(token) &&
+        token.endsWith('.c'),
+    )
+  )
+    throw new Error('policy-native-authority')
+  const internalSystemIncludes = flagValues(frontend, '-internal-isystem')
+  const expectedResourceInclude = join(expected.compilerResourceRoot, 'include')
+  if (
+    internalSystemIncludes.filter((path) => path === expectedResourceInclude)
+      .length !== 1 ||
+    internalSystemIncludes.some(
+      (path) =>
+        path !== expectedResourceInclude &&
+        path.startsWith(`${expected.compilerResourceRoot}/`),
+    )
+  )
+    throw new Error('policy-native-authority')
+  const temporaryObjectPath = oneFlag(frontend, '-o')
+  if (
+    !temporaryObjectPath.startsWith(`${expected.temporaryDirectory}/`) ||
+    !temporaryObjectPath.endsWith('.o') ||
+    !safeAbsolutePathPattern.test(temporaryObjectPath)
+  )
+    throw new Error('policy-native-authority')
+  const linkerPath = safeRoot(linker[0])
+  if (
+    oneFlag(linker, '-syslibroot') !== expected.sdkRoot ||
+    oneFlag(linker, '-o') !== expected.outputPath ||
+    linker.filter((token) => token === linkerPath).length !== 1 ||
+    linker.filter((token) => token === temporaryObjectPath).length !== 1 ||
+    linker.some(
+      (token) =>
+        token !== temporaryObjectPath &&
+        token.startsWith(`${expected.temporaryDirectory}/`) &&
+        token.endsWith('.o'),
+    )
+  )
+    throw new Error('policy-native-authority')
+  return Object.freeze({
+    schema: 'policy-clang-diagnostic-semantic.v1',
+    version: 1,
+    frontend: Object.freeze({
+      executable: expected.compilerPath,
+      resourceRoot: expected.compilerResourceRoot,
+      resourceInclude: join(expected.compilerResourceRoot, 'include'),
+      sdkRoot: expected.sdkRoot,
+      sourcePath: expected.sourcePath,
+      temporaryObjectDirectory: expected.temporaryDirectory,
+      language: 'c17',
+      optimization: 'O2',
+      warnings: Object.freeze([
+        'Wall',
+        'Wextra',
+        'Werror',
+        'Wpedantic',
+      ] as const),
+    }),
+    linker: Object.freeze({
+      executable: linkerPath,
+      sdkRoot: expected.sdkRoot,
+      outputPath: expected.outputPath,
+    }),
+  })
+}
+
+export function inspectPolicyDirectHeaderTablesForFixture() {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  return Object.freeze({
+    sdk: Object.freeze([...sdkHeaderPaths]),
+    compilerResource: Object.freeze([...compilerResourceHeaderPaths]),
+  })
+}
+
+export function parsePolicyCompilerResourceOutputForFixture(input: unknown) {
+  if (process.env.NODE_ENV !== 'test' || !Buffer.isBuffer(input))
+    throw new Error('test-only')
+  return parseResolverOutput(input)
+}
+
+export function inspectPolicyProtectedPathMetadataForFixture(input: unknown) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  exactObject(input, [
+    'kind',
+    'uid',
+    'mode',
+    'links',
+    'symbolicLink',
+    'file',
+    'directory',
+  ])
+  if (
+    (input.kind !== 'file' && input.kind !== 'directory') ||
+    !Number.isSafeInteger(input.uid) ||
+    !Number.isSafeInteger(input.mode) ||
+    !Number.isSafeInteger(input.links) ||
+    typeof input.symbolicLink !== 'boolean' ||
+    typeof input.file !== 'boolean' ||
+    typeof input.directory !== 'boolean'
+  )
+    throw new Error('test-only')
+  assertProtectedPathMetadata(
+    {
+      uid: Number(input.uid),
+      mode: Number(input.mode),
+      nlink: Number(input.links),
+      isSymbolicLink: () => Boolean(input.symbolicLink),
+      isFile: () => Boolean(input.file),
+      isDirectory: () => Boolean(input.directory),
+    },
+    input.kind,
+  )
+}
+
+export function inspectPolicyHeaderSetMutationForFixture(input: unknown) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  exactObject(input, ['mutation'])
+  const mutation = input.mutation
+  const fields = [
+    'namespace',
+    'relativePath',
+    'rootDevice',
+    'rootInode',
+    'uid',
+    'device',
+    'inode',
+    'mode',
+    'links',
+    'byteCount',
+    'sha256',
+  ] as const
+  if (
+    mutation !== 'missing' &&
+    mutation !== 'duplicate' &&
+    mutation !== 'reorder' &&
+    !fields.includes(mutation as (typeof fields)[number])
+  )
+    throw new Error('test-only')
+  const records: ProtectedHeaderRecord[] = [
+    {
+      namespace: 'sdk',
+      relativePath: 'usr/include/stdint.h',
+      rootDevice: '1',
+      rootInode: '2',
+      uid: '0',
+      device: '1',
+      inode: '3',
+      mode: '292',
+      links: '1',
+      byteCount: 1,
+      sha256: 'a'.repeat(64),
+    },
+    {
+      namespace: 'compiler-resource',
+      relativePath: 'include/stdint.h',
+      rootDevice: '1',
+      rootInode: '4',
+      uid: '0',
+      device: '1',
+      inode: '5',
+      mode: '292',
+      links: '1',
+      byteCount: 1,
+      sha256: 'b'.repeat(64),
+    },
+  ]
+  const expected = hashProtectedHeaderSet(records)
+  if (mutation === 'missing') records.pop()
+  else if (mutation === 'duplicate') records.push(records[0])
+  else if (mutation === 'reorder') records.reverse()
+  else {
+    const record = { ...records[0] }
+    if (mutation === 'namespace') record.namespace = 'compiler-resource'
+    else if (mutation === 'byteCount') record.byteCount += 1
+    else
+      (record as unknown as Record<string, unknown>)[mutation as string] =
+        mutation === 'sha256' ? 'c'.repeat(64) : '9'
+    records[0] = record
+  }
+  return Object.freeze({
+    matches: hashProtectedHeaderSet(records) === expected,
+  })
+}
+
+export function parsePolicyClangDiagnosticForFixture(input: unknown) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('test-only')
+  exactObject(input, ['stdout', 'stderr'])
+  if (!Buffer.isBuffer(input.stdout) || !Buffer.isBuffer(input.stderr))
+    throw new Error('test-only')
+  const projection = parseClangDiagnostic(
+    {
+      code: 0,
+      stdout: input.stdout,
+      stderr: input.stderr,
+      processGroupAbsent: true,
+      streamsClosed: true,
+    },
+    {
+      compilerPath: '/fixture/clang',
+      compilerResourceRoot: '/fixture/resource',
+      sdkRoot: '/fixture/sdk',
+      sourcePath:
+        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c',
+      outputPath:
+        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper',
+      temporaryDirectory:
+        '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp',
+    },
+  )
+  return Object.freeze({
+    diagnosticSemanticSha256: hashAuthority(projection),
+    linkerPath: projection.linker.executable,
+  })
+}
+
 type ProvisionalAPrebuildBoundary =
   | 'xcrun-compiler-resolution'
   | 'xcrun-sdk-resolution'
+  | 'compiler-resource-resolution'
   | 'toolchain-input-attestation'
   | 'compiler-diagnostic'
   | 'toolchain-authority'
@@ -189,6 +629,9 @@ type ProvisionalAPrebuildToolchainHarness = Readonly<{
   runXcrunSdkPath: (
     input: Parameters<typeof broker.runXcrunSdkPath>[0],
   ) => Promise<ProvisionalAPrebuildChildResult>
+  runCompilerResourceDir: (
+    input: Parameters<typeof broker.runCompilerResourceDir>[0],
+  ) => Promise<ProvisionalAPrebuildChildResult>
   runCompilerDiagnostic: (
     input: Parameters<typeof broker.runCompilerDiagnostic>[0],
   ) => Promise<ProvisionalAPrebuildChildResult>
@@ -208,6 +651,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
       inspectProtectedPath,
       runXcrunCompilerPath: broker.runXcrunCompilerPath,
       runXcrunSdkPath: broker.runXcrunSdkPath,
+      runCompilerResourceDir: broker.runCompilerResourceDir,
       runCompilerDiagnostic: broker.runCompilerDiagnostic,
     })
   exactObject(input, ['repositoryRoot', 'nativeAuthoritySha256'])
@@ -229,6 +673,11 @@ async function runPolicyNativeToolchainDerivationWithObserver(
   if (compilerResolution.stderr.byteLength !== 0)
     throw new Error('policy-native-authority')
   const compilerPath = parseResolverOutput(compilerResolution.stdout)
+  const compilerBefore = await runtime.inspectProtectedPath(
+    compilerPath,
+    'file',
+  )
+  const compilerBytes = await runtime.readFile(compilerPath)
   observe?.('xcrun-compiler-resolution')
   const sdkResolution = successfulDiagnostic(
     await runtime.runXcrunSdkPath({ repositoryRoot }),
@@ -236,28 +685,64 @@ async function runPolicyNativeToolchainDerivationWithObserver(
   if (sdkResolution.stderr.byteLength !== 0)
     throw new Error('policy-native-authority')
   const sdkRoot = parseResolverOutput(sdkResolution.stdout)
+  const sdkBefore = await runtime.inspectProtectedPath(sdkRoot, 'directory')
   observe?.('xcrun-sdk-resolution')
-  const [compilerBefore, sdkBefore] = await Promise.all([
-    runtime.inspectProtectedPath(compilerPath, 'file'),
-    runtime.inspectProtectedPath(sdkRoot, 'directory'),
-  ])
-  const [compilerBytes, headers] = await Promise.all([
-    runtime.readFile(compilerPath),
-    Promise.all(
-      sdkHeaderPaths.map(async (relativePath) => {
-        const path = join(sdkRoot, relativePath)
-        const metadata = await runtime.inspectProtectedPath(path, 'file')
-        const bytes = await runtime.readFile(path)
-        return {
-          relativePath,
-          device: String(metadata.dev),
-          inode: String(metadata.ino),
-          byteCount: bytes.byteLength,
-          sha256: hash(bytes),
-        }
-      }),
+  const compilerEvidenceCore = {
+    schema: 'policy-compiler-resource-resolver.v1',
+    version: 1,
+    repositoryRoot,
+    compilerPath,
+    compilerSha256: hash(compilerBytes),
+    compilerDevice: String(compilerBefore.dev),
+    compilerInode: String(compilerBefore.ino),
+  }
+  const compilerImmediatelyBefore = await runtime.inspectProtectedPath(
+    compilerPath,
+    'file',
+  )
+  const compilerBytesImmediatelyBefore = await runtime.readFile(compilerPath)
+  if (
+    compilerImmediatelyBefore.dev !== compilerBefore.dev ||
+    compilerImmediatelyBefore.ino !== compilerBefore.ino ||
+    hash(compilerBytesImmediatelyBefore) !== compilerEvidenceCore.compilerSha256
+  )
+    throw new Error('policy-native-authority')
+  const resourceResolution = successfulDiagnostic(
+    await runtime.runCompilerResourceDir({
+      ...compilerEvidenceCore,
+      compilerEvidenceSha256: hashAuthority(compilerEvidenceCore),
+    }),
+  )
+  if (resourceResolution.stderr.byteLength !== 0)
+    throw new Error('policy-native-authority')
+  const compilerResourceRoot = parseResolverOutput(resourceResolution.stdout)
+  const [compilerImmediatelyAfter, compilerBytesImmediatelyAfter] =
+    await Promise.all([
+      runtime.inspectProtectedPath(compilerPath, 'file'),
+      runtime.readFile(compilerPath),
+    ])
+  if (
+    compilerImmediatelyAfter.dev !== compilerBefore.dev ||
+    compilerImmediatelyAfter.ino !== compilerBefore.ino ||
+    hash(compilerBytesImmediatelyAfter) !== compilerEvidenceCore.compilerSha256
+  )
+    throw new Error('policy-native-authority')
+  const compilerResourceBefore = await runtime.inspectProtectedPath(
+    compilerResourceRoot,
+    'directory',
+  )
+  observe?.('compiler-resource-resolution')
+  const [sdkHeaders, compilerResourceHeaders] = await Promise.all([
+    readProtectedHeaders(runtime, 'sdk', sdkRoot, sdkBefore, sdkHeaderPaths),
+    readProtectedHeaders(
+      runtime,
+      'compiler-resource',
+      compilerResourceRoot,
+      compilerResourceBefore,
+      compilerResourceHeaderPaths,
     ),
   ])
+  const headers = Object.freeze([...sdkHeaders, ...compilerResourceHeaders])
   const buildRoot = join(
     repositoryRoot,
     '.local/m45/.policy-exclusive-promotion-build',
@@ -280,15 +765,12 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     ],
     environment: { TMPDIR: join(buildRoot, 'tmp') },
   })
-  const preliminary = {
-    schema: 'policy-toolchain-authority.v1',
+  const diagnosticCapabilityCore = {
+    schema: 'policy-compiler-diagnostic-capability.v1',
     version: 1,
+    repositoryRoot,
     compilerPath,
     sdkRoot,
-    xcrunSha256: hash(xcrunBytesBefore),
-    xcrunDevice: String(xcrunBefore.dev),
-    xcrunInode: String(xcrunBefore.ino),
-    sourceSha256: hash(source),
     compilerSha256: hash(compilerBytes),
     compilerDevice: String(compilerBefore.dev),
     compilerInode: String(compilerBefore.ino),
@@ -299,8 +781,15 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     }),
     sdkDevice: String(sdkBefore.dev),
     sdkInode: String(sdkBefore.ino),
-    headerSetSha256: hashAuthority(headers),
-    diagnosticSha256: '0'.repeat(64),
+    compilerResourceRoot,
+    compilerResourceIdentitySha256: hashAuthority({
+      path: compilerResourceRoot,
+      device: String(compilerResourceBefore.dev),
+      inode: String(compilerResourceBefore.ino),
+    }),
+    compilerResourceDevice: String(compilerResourceBefore.dev),
+    compilerResourceInode: String(compilerResourceBefore.ino),
+    headerSetSha256: hashProtectedHeaderSet(headers),
     compileContractSha256,
     launchContractSha256: hash(launchContract),
     launcherSha256: hash(launcher),
@@ -308,17 +797,41 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     lockPreflightWorkerSha256: hash(worker),
   }
   observe?.('toolchain-input-attestation')
+  const [compilerBeforeDiagnostic, compilerBytesBeforeDiagnostic] =
+    await Promise.all([
+      runtime.inspectProtectedPath(compilerPath, 'file'),
+      runtime.readFile(compilerPath),
+    ])
+  if (
+    compilerBeforeDiagnostic.dev !== compilerBefore.dev ||
+    compilerBeforeDiagnostic.ino !== compilerBefore.ino ||
+    hash(compilerBytesBeforeDiagnostic) !==
+      diagnosticCapabilityCore.compilerSha256
+  )
+    throw new Error('policy-native-authority')
   const diagnostic = successfulDiagnostic(
     await runtime.runCompilerDiagnostic({
       repositoryRoot,
-      compilerPath,
-      sdkRoot,
-      authorityPackage: {
-        ...preliminary,
-        authorityPackageSha256: hashAuthority(preliminary),
+      diagnosticCapability: {
+        ...diagnosticCapabilityCore,
+        diagnosticCapabilitySha256: hashAuthority(diagnosticCapabilityCore),
       },
     }),
   )
+  const sourcePath = join(buildRoot, 'exclusive-promotion-helper.c')
+  const outputPath = join(buildRoot, 'exclusive-promotion-helper')
+  const temporaryDirectory = join(buildRoot, 'tmp')
+  const diagnosticProjection = parseClangDiagnostic(diagnostic, {
+    compilerPath,
+    compilerResourceRoot,
+    sdkRoot,
+    sourcePath,
+    outputPath,
+    temporaryDirectory,
+  })
+  const linkerPath = diagnosticProjection.linker.executable
+  const linkerBefore = await runtime.inspectProtectedPath(linkerPath, 'file')
+  const linkerBytes = await runtime.readFile(linkerPath)
   const [
     xcrunAfter,
     xcrunBytesAfter,
@@ -329,7 +842,11 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     compilerAfter,
     compilerBytesAfter,
     sdkAfter,
-    headersAfter,
+    compilerResourceAfter,
+    sdkHeadersAfter,
+    compilerResourceHeadersAfter,
+    linkerAfter,
+    linkerBytesAfter,
   ] = await Promise.all([
     runtime.inspectProtectedPath(xcrunPath, 'file'),
     runtime.readFile(xcrunPath),
@@ -340,44 +857,86 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     runtime.inspectProtectedPath(compilerPath, 'file'),
     runtime.readFile(compilerPath),
     runtime.inspectProtectedPath(sdkRoot, 'directory'),
-    Promise.all(
-      sdkHeaderPaths.map(async (relativePath) => {
-        const path = join(sdkRoot, relativePath)
-        const metadata = await runtime.inspectProtectedPath(path, 'file')
-        const bytes = await runtime.readFile(path)
-        return {
-          relativePath,
-          device: String(metadata.dev),
-          inode: String(metadata.ino),
-          byteCount: bytes.byteLength,
-          sha256: hash(bytes),
-        }
-      }),
+    runtime.inspectProtectedPath(compilerResourceRoot, 'directory'),
+    readProtectedHeaders(runtime, 'sdk', sdkRoot, sdkBefore, sdkHeaderPaths),
+    readProtectedHeaders(
+      runtime,
+      'compiler-resource',
+      compilerResourceRoot,
+      compilerResourceBefore,
+      compilerResourceHeaderPaths,
     ),
+    runtime.inspectProtectedPath(linkerPath, 'file'),
+    runtime.readFile(linkerPath),
   ])
   if (
     xcrunAfter.dev !== xcrunBefore.dev ||
     xcrunAfter.ino !== xcrunBefore.ino ||
-    hash(xcrunBytesAfter) !== preliminary.xcrunSha256 ||
-    hash(sourceAfter) !== preliminary.sourceSha256 ||
-    hash(contractAfter) !== preliminary.launchContractSha256 ||
-    hash(launcherAfter) !== preliminary.launcherSha256 ||
-    hash(workerAfter) !== preliminary.lockPreflightWorkerSha256 ||
+    hash(xcrunBytesAfter) !== hash(xcrunBytesBefore) ||
+    hash(sourceAfter) !== hash(source) ||
+    hash(contractAfter) !== diagnosticCapabilityCore.launchContractSha256 ||
+    hash(launcherAfter) !== diagnosticCapabilityCore.launcherSha256 ||
+    hash(workerAfter) !== diagnosticCapabilityCore.lockPreflightWorkerSha256 ||
     compilerAfter.dev !== compilerBefore.dev ||
     compilerAfter.ino !== compilerBefore.ino ||
-    hash(compilerBytesAfter) !== preliminary.compilerSha256 ||
+    hash(compilerBytesAfter) !== diagnosticCapabilityCore.compilerSha256 ||
     sdkAfter.dev !== sdkBefore.dev ||
     sdkAfter.ino !== sdkBefore.ino ||
-    hashAuthority(headersAfter) !== preliminary.headerSetSha256
+    compilerResourceAfter.dev !== compilerResourceBefore.dev ||
+    compilerResourceAfter.ino !== compilerResourceBefore.ino ||
+    hashProtectedHeaderSet([
+      ...sdkHeadersAfter,
+      ...compilerResourceHeadersAfter,
+    ]) !== diagnosticCapabilityCore.headerSetSha256 ||
+    linkerAfter.dev !== linkerBefore.dev ||
+    linkerAfter.ino !== linkerBefore.ino ||
+    hash(linkerBytesAfter) !== hash(linkerBytes)
   )
     throw new Error('policy-native-authority')
   observe?.('compiler-diagnostic')
   const core = {
-    ...preliminary,
+    schema: 'policy-toolchain-authority.v1',
+    version: 1,
+    compilerPath,
+    sdkRoot,
+    xcrunSha256: hash(xcrunBytesBefore),
+    xcrunDevice: String(xcrunBefore.dev),
+    xcrunInode: String(xcrunBefore.ino),
+    sourceSha256: hash(source),
+    compilerSha256: diagnosticCapabilityCore.compilerSha256,
+    compilerDevice: diagnosticCapabilityCore.compilerDevice,
+    compilerInode: diagnosticCapabilityCore.compilerInode,
+    sdkIdentitySha256: diagnosticCapabilityCore.sdkIdentitySha256,
+    sdkDevice: diagnosticCapabilityCore.sdkDevice,
+    sdkInode: diagnosticCapabilityCore.sdkInode,
+    compilerResourceRoot,
+    compilerResourceIdentitySha256:
+      diagnosticCapabilityCore.compilerResourceIdentitySha256,
+    compilerResourceDevice: diagnosticCapabilityCore.compilerResourceDevice,
+    compilerResourceInode: diagnosticCapabilityCore.compilerResourceInode,
+    headerSetSha256: diagnosticCapabilityCore.headerSetSha256,
     diagnosticSha256: hashAuthority({
+      schema: 'policy-clang-diagnostic-raw.v1',
+      version: 1,
       stdout: diagnostic.stdout.toString('base64'),
       stderr: diagnostic.stderr.toString('base64'),
     }),
+    diagnosticSemanticSha256: hashAuthority(diagnosticProjection),
+    linkerPath,
+    linkerIdentitySha256: hashAuthority({
+      path: linkerPath,
+      device: String(linkerBefore.dev),
+      inode: String(linkerBefore.ino),
+    }),
+    linkerSha256: hash(linkerBytes),
+    linkerDevice: String(linkerBefore.dev),
+    linkerInode: String(linkerBefore.ino),
+    compileContractSha256,
+    launchContractSha256: diagnosticCapabilityCore.launchContractSha256,
+    launcherSha256: diagnosticCapabilityCore.launcherSha256,
+    nativeAuthoritySha256,
+    lockPreflightWorkerSha256:
+      diagnosticCapabilityCore.lockPreflightWorkerSha256,
   }
   const authority = Object.freeze({
     ...core,
@@ -396,6 +955,70 @@ export async function runPolicyNativeToolchainDerivation(
   input: unknown,
 ): Promise<Readonly<Record<string, unknown>>> {
   return runPolicyNativeToolchainDerivationWithObserver(input)
+}
+
+async function revalidatePolicyToolchainAuthority(
+  authority: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  const compilerPath = safeRoot(authority.compilerPath)
+  const sdkRoot = safeRoot(authority.sdkRoot)
+  const compilerResourceRoot = safeRoot(authority.compilerResourceRoot)
+  const linkerPath = safeRoot(authority.linkerPath)
+  const [compiler, compilerBytes, sdk, compilerResource, linker, linkerBytes] =
+    await Promise.all([
+      inspectProtectedPath(compilerPath, 'file'),
+      readFile(compilerPath),
+      inspectProtectedPath(sdkRoot, 'directory'),
+      inspectProtectedPath(compilerResourceRoot, 'directory'),
+      inspectProtectedPath(linkerPath, 'file'),
+      readFile(linkerPath),
+    ])
+  const [sdkHeaders, compilerResourceHeaders] = await Promise.all([
+    readProtectedHeaders(
+      { inspectProtectedPath, readFile },
+      'sdk',
+      sdkRoot,
+      sdk,
+      sdkHeaderPaths,
+    ),
+    readProtectedHeaders(
+      { inspectProtectedPath, readFile },
+      'compiler-resource',
+      compilerResourceRoot,
+      compilerResource,
+      compilerResourceHeaderPaths,
+    ),
+  ])
+  if (
+    String(compiler.dev) !== authority.compilerDevice ||
+    String(compiler.ino) !== authority.compilerInode ||
+    hash(compilerBytes) !== authority.compilerSha256 ||
+    hashAuthority({
+      path: sdkRoot,
+      device: String(sdk.dev),
+      inode: String(sdk.ino),
+    }) !== authority.sdkIdentitySha256 ||
+    String(sdk.dev) !== authority.sdkDevice ||
+    String(sdk.ino) !== authority.sdkInode ||
+    hashAuthority({
+      path: compilerResourceRoot,
+      device: String(compilerResource.dev),
+      inode: String(compilerResource.ino),
+    }) !== authority.compilerResourceIdentitySha256 ||
+    String(compilerResource.dev) !== authority.compilerResourceDevice ||
+    String(compilerResource.ino) !== authority.compilerResourceInode ||
+    hashProtectedHeaderSet([...sdkHeaders, ...compilerResourceHeaders]) !==
+      authority.headerSetSha256 ||
+    hashAuthority({
+      path: linkerPath,
+      device: String(linker.dev),
+      inode: String(linker.ino),
+    }) !== authority.linkerIdentitySha256 ||
+    String(linker.dev) !== authority.linkerDevice ||
+    String(linker.ino) !== authority.linkerInode ||
+    hash(linkerBytes) !== authority.linkerSha256
+  )
+    throw new Error('policy-native-authority')
 }
 // D111 keeps all lower-level build, contender, helper, candidate, and cleanup
 // operations private. The complete A/B/C workflows are added below this trust
@@ -732,6 +1355,7 @@ const provisionalAPrebuildBoundaries = [
   'derivation-lock-open',
   'xcrun-compiler-resolution',
   'xcrun-sdk-resolution',
+  'compiler-resource-resolution',
   'toolchain-input-attestation',
   'compiler-diagnostic',
   'toolchain-authority',
@@ -919,16 +1543,27 @@ const provisionalAPrebuildFixtureFaults = [
   'sdk-child',
   'sdk-lifecycle',
   'sdk-output',
+  'resource-child',
+  'resource-lifecycle',
+  'resource-output',
+  'resource-protected-stat',
+  'resource-protected-read',
   'attestation-protected-stat',
   'attestation-protected-read',
   'diagnostic-child',
   'diagnostic-lifecycle',
+  'prediagnostic-compiler',
+  'prediagnostic-compiler-bytes',
   'postcheck-tracked-source',
   'postcheck-xcrun',
   'postcheck-compiler',
   'postcheck-compiler-bytes',
   'postcheck-sdk',
   'postcheck-sdk-headers',
+  'postcheck-resource',
+  'postcheck-resource-headers',
+  'postcheck-linker',
+  'postcheck-linker-bytes',
   'authority-package',
   'lock-final-validation',
   'lock-close',
@@ -1006,15 +1641,41 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
         ) => {
           const compilerPath = '/fixture/clang'
           const sdkRoot = '/fixture/sdk'
+          const compilerResourceRoot = '/fixture/resource'
+          const linkerPath = '/fixture/ld'
           const readCounts = new Map<string, number>()
           const inspectCounts = new Map<string, number>()
           let attestationReadObserved = false
           let attestationStatObserved = false
           let sdkHeaderPostcheckObserved = false
+          let resourceHeaderPostcheckObserved = false
+          let resourceReadObserved = false
           const metadata = (path: string) =>
             ({
-              dev: path === sdkRoot ? 3 : path === compilerPath ? 2 : 1,
-              ino: path === sdkRoot ? 30 : path === compilerPath ? 20 : 10,
+              uid: 0,
+              dev:
+                path === sdkRoot
+                  ? 3
+                  : path === compilerPath
+                    ? 2
+                    : path === compilerResourceRoot
+                      ? 4
+                      : path === linkerPath
+                        ? 5
+                        : 1,
+              ino:
+                path === sdkRoot
+                  ? 30
+                  : path === compilerPath
+                    ? 20
+                    : path === compilerResourceRoot
+                      ? 40
+                      : path === linkerPath
+                        ? 50
+                        : 10,
+              mode: 0o100444,
+              nlink: 1,
+              size: Buffer.byteLength(`fixture:${path}`),
             }) as Awaited<ReturnType<typeof inspectProtectedPath>>
           const closedChild = (stdout: string, lifecycleFault = false) => ({
             code: 0,
@@ -1037,7 +1698,9 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               if (path === helperSourcePath && count === 2)
                 stopAt('postcheck-tracked-source')
               if (path === xcrunPath && count === 2) stopAt('postcheck-xcrun')
-              if (path === compilerPath && count === 2)
+              if (path === compilerPath && count === 4)
+                stopAt('prediagnostic-compiler-bytes')
+              if (path === compilerPath && count === 5)
                 stopAt('postcheck-compiler-bytes')
               if (
                 path.startsWith(`${sdkRoot}/`) &&
@@ -1047,6 +1710,24 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
                 sdkHeaderPostcheckObserved = true
                 stopAt('postcheck-sdk-headers')
               }
+              if (
+                path.startsWith(`${compilerResourceRoot}/`) &&
+                count === 1 &&
+                !resourceReadObserved
+              ) {
+                resourceReadObserved = true
+                stopAt('resource-protected-read')
+              }
+              if (
+                path.startsWith(`${compilerResourceRoot}/`) &&
+                count === 2 &&
+                !resourceHeaderPostcheckObserved
+              ) {
+                resourceHeaderPostcheckObserved = true
+                stopAt('postcheck-resource-headers')
+              }
+              if (path === linkerPath && count === 2)
+                stopAt('postcheck-linker-bytes')
               return Buffer.from(`fixture:${path}`)
             }) as typeof readFile,
             inspectProtectedPath: async (path) => {
@@ -1060,9 +1741,16 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
                 attestationStatObserved = true
                 stopAt('attestation-protected-stat')
               }
-              if (path === compilerPath && count === 2)
+              if (path === compilerPath && count === 4)
+                stopAt('prediagnostic-compiler')
+              if (path === compilerPath && count === 5)
                 stopAt('postcheck-compiler')
               if (path === sdkRoot && count === 2) stopAt('postcheck-sdk')
+              if (path === compilerResourceRoot && count === 1)
+                stopAt('resource-protected-stat')
+              if (path === compilerResourceRoot && count === 2)
+                stopAt('postcheck-resource')
+              if (path === linkerPath && count === 2) stopAt('postcheck-linker')
               return metadata(path)
             },
             runXcrunCompilerPath: async () => {
@@ -1082,14 +1770,63 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               lifecycle.push('sdk-output')
               return closedChild(output, fault === 'sdk-lifecycle')
             },
+            runCompilerResourceDir: async () => {
+              childOrder.push('compiler-resource-resolver')
+              stopAt('resource-child')
+              lifecycle.push('resource-lifecycle')
+              const output =
+                fault === 'resource-output'
+                  ? compilerResourceRoot
+                  : `${compilerResourceRoot}\n`
+              lifecycle.push('resource-output')
+              return closedChild(output, fault === 'resource-lifecycle')
+            },
             runCompilerDiagnostic: async () => {
               childOrder.push('compiler-diagnostic')
               stopAt('diagnostic-child')
               lifecycle.push('diagnostic-lifecycle')
-              return closedChild(
-                'fixture-plan',
-                fault === 'diagnostic-lifecycle',
-              )
+              const sourcePath =
+                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper.c'
+              const outputPath =
+                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/exclusive-promotion-helper'
+              const temporaryObject =
+                '/fixture/repository/.local/m45/.policy-exclusive-promotion-build/tmp/fixture.o'
+              const quote = (value: string) => `"${value}"`
+              const frontend = [
+                compilerPath,
+                '-cc1',
+                '-std=c17',
+                '-Wall',
+                '-Wextra',
+                '-Werror',
+                '-Wpedantic',
+                '-O2',
+                '-resource-dir',
+                compilerResourceRoot,
+                '-internal-isystem',
+                `${compilerResourceRoot}/include`,
+                '-isysroot',
+                sdkRoot,
+                '-o',
+                temporaryObject,
+                sourcePath,
+              ]
+                .map(quote)
+                .join(' ')
+              const linker = [
+                linkerPath,
+                '-syslibroot',
+                sdkRoot,
+                '-o',
+                outputPath,
+                temporaryObject,
+              ]
+                .map(quote)
+                .join(' ')
+              return {
+                ...closedChild('', fault === 'diagnostic-lifecycle'),
+                stderr: Buffer.from(`${frontend}\n${linker}\n`),
+              }
             },
             beforeAuthority: () => stopAt('authority-package'),
           }
@@ -3062,10 +3799,12 @@ async function buildAndCleanupA(
   await chmod(sourcePath, 0o400)
   const compilerPath = safeRoot(authority.compilerPath)
   const sdkRoot = safeRoot(authority.sdkRoot)
+  await revalidatePolicyToolchainAuthority(authority)
   const buildResult = await broker.runCompilerBuild({
     repositoryRoot,
     compilerPath,
     sdkRoot,
+    compilerResourceRoot: safeRoot(authority.compilerResourceRoot),
     authorityPackage: authority,
   })
   if (
@@ -3134,8 +3873,16 @@ async function buildAndCleanupA(
       sdkIdentitySha256: authority.sdkIdentitySha256,
       sdkDevice: authority.sdkDevice,
       sdkInode: authority.sdkInode,
+      compilerResourceIdentitySha256: authority.compilerResourceIdentitySha256,
+      compilerResourceDevice: authority.compilerResourceDevice,
+      compilerResourceInode: authority.compilerResourceInode,
       headerSetSha256: authority.headerSetSha256,
       diagnosticSha256: authority.diagnosticSha256,
+      diagnosticSemanticSha256: authority.diagnosticSemanticSha256,
+      linkerIdentitySha256: authority.linkerIdentitySha256,
+      linkerSha256: authority.linkerSha256,
+      linkerDevice: authority.linkerDevice,
+      linkerInode: authority.linkerInode,
       compileContractSha256: authority.compileContractSha256,
       launchContractSha256: authority.launchContractSha256,
       launcherSha256: authority.launcherSha256,
@@ -3523,8 +4270,16 @@ async function runPolicyProvisionalBuildWorkflow(
       'sdkIdentitySha256',
       'sdkDevice',
       'sdkInode',
+      'compilerResourceIdentitySha256',
+      'compilerResourceDevice',
+      'compilerResourceInode',
       'headerSetSha256',
       'diagnosticSha256',
+      'diagnosticSemanticSha256',
+      'linkerIdentitySha256',
+      'linkerSha256',
+      'linkerDevice',
+      'linkerInode',
       'compileContractSha256',
       'launchContractSha256',
       'launcherSha256',
@@ -3549,10 +4304,12 @@ async function runPolicyProvisionalBuildWorkflow(
     await writeFile(sourcePath, source, { flag: 'wx', mode: 0o400 })
     await chmod(sourcePath, 0o400)
     checkpoint = 'B3'
+    await revalidatePolicyToolchainAuthority(authority)
     const build = await broker.runCompilerBuild({
       repositoryRoot,
       compilerPath: safeRoot(authority.compilerPath),
       sdkRoot: safeRoot(authority.sdkRoot),
+      compilerResourceRoot: safeRoot(authority.compilerResourceRoot),
       authorityPackage: authority,
     })
     if (build.code !== 0 || !build.processGroupAbsent || !build.streamsClosed)

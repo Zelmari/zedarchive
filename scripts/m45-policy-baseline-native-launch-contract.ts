@@ -61,13 +61,25 @@ export type PolicyCompilerCapability = Readonly<{
   repositoryRoot: string
   compilerPath: string
   sdkRoot: string
+  compilerResourceRoot: string
   compilerSha256: string
   compilerDevice: string
   compilerInode: string
   sdkIdentitySha256: string
   sdkDevice: string
   sdkInode: string
+  compilerResourceIdentitySha256: string
+  compilerResourceDevice: string
+  compilerResourceInode: string
+  headerSetSha256: string
   authorityPackageSha256: string
+}>
+type PolicyCompilerDiagnosticCapability = Readonly<{
+  repositoryRoot: string
+  compilerPath: string
+  sdkRoot: string
+  compilerResourceRoot: string
+  diagnosticCapabilitySha256: string
 }>
 export type PolicyHelperCapability = Readonly<{
   repositoryRoot: string
@@ -103,6 +115,7 @@ type PolicyNativeLaunchPlan = Readonly<{
 }>
 
 const compilerCapabilities = new WeakSet<object>()
+const compilerDiagnosticCapabilities = new WeakSet<object>()
 const helperCapabilities = new WeakSet<object>()
 const bCandidateCapabilities = new WeakSet<object>()
 const bCandidateCleanupCapabilities = new WeakSet<object>()
@@ -162,8 +175,16 @@ const materialKeys = [
   'sdkIdentitySha256',
   'sdkDevice',
   'sdkInode',
+  'compilerResourceIdentitySha256',
+  'compilerResourceDevice',
+  'compilerResourceInode',
   'headerSetSha256',
   'diagnosticSha256',
+  'diagnosticSemanticSha256',
+  'linkerIdentitySha256',
+  'linkerSha256',
+  'linkerDevice',
+  'linkerInode',
   'compileContractSha256',
   'launchContractSha256',
   'launcherSha256',
@@ -176,9 +197,17 @@ function parseHashedMaterial(input: unknown): Record<string, string> {
   return Object.fromEntries(
     materialKeys.map((key) => [
       key,
-      key === 'xcrunDevice' || key === 'compilerDevice' || key === 'sdkDevice'
+      key === 'xcrunDevice' ||
+      key === 'compilerDevice' ||
+      key === 'sdkDevice' ||
+      key === 'compilerResourceDevice' ||
+      key === 'linkerDevice'
         ? decimal(input[key], true)
-        : key === 'xcrunInode' || key === 'compilerInode' || key === 'sdkInode'
+        : key === 'xcrunInode' ||
+            key === 'compilerInode' ||
+            key === 'sdkInode' ||
+            key === 'compilerResourceInode' ||
+            key === 'linkerInode'
           ? decimal(input[key])
           : sha256(input[key]),
     ]),
@@ -557,6 +586,7 @@ export function createPolicyCompilerCapability(
     'repositoryRoot',
     'compilerPath',
     'sdkRoot',
+    'compilerResourceRoot',
     'authorityPackage',
   ])
   exactKeys(input.authorityPackage, [
@@ -564,6 +594,7 @@ export function createPolicyCompilerCapability(
     'version',
     'compilerPath',
     'sdkRoot',
+    'compilerResourceRoot',
     'xcrunSha256',
     'xcrunDevice',
     'xcrunInode',
@@ -574,8 +605,17 @@ export function createPolicyCompilerCapability(
     'sdkIdentitySha256',
     'sdkDevice',
     'sdkInode',
+    'compilerResourceIdentitySha256',
+    'compilerResourceDevice',
+    'compilerResourceInode',
     'headerSetSha256',
     'diagnosticSha256',
+    'diagnosticSemanticSha256',
+    'linkerPath',
+    'linkerIdentitySha256',
+    'linkerSha256',
+    'linkerDevice',
+    'linkerInode',
     'compileContractSha256',
     'launchContractSha256',
     'launcherSha256',
@@ -590,8 +630,12 @@ export function createPolicyCompilerCapability(
     'sourceSha256',
     'compilerSha256',
     'sdkIdentitySha256',
+    'compilerResourceIdentitySha256',
     'headerSetSha256',
     'diagnosticSha256',
+    'diagnosticSemanticSha256',
+    'linkerIdentitySha256',
+    'linkerSha256',
     'compileContractSha256',
     'launchContractSha256',
     'launcherSha256',
@@ -603,11 +647,24 @@ export function createPolicyCompilerCapability(
   decimal(authorityCore.xcrunInode)
   const compilerPath = safeAbsolutePath(authorityCore.compilerPath)
   const sdkRoot = safeAbsolutePath(authorityCore.sdkRoot)
+  const compilerResourceRoot = safeAbsolutePath(
+    authorityCore.compilerResourceRoot,
+  )
+  safeAbsolutePath(authorityCore.linkerPath)
+  decimal(authorityCore.compilerDevice, true)
+  decimal(authorityCore.compilerInode)
+  decimal(authorityCore.sdkDevice, true)
+  decimal(authorityCore.sdkInode)
+  decimal(authorityCore.compilerResourceDevice, true)
+  decimal(authorityCore.compilerResourceInode)
+  decimal(authorityCore.linkerDevice, true)
+  decimal(authorityCore.linkerInode)
   if (
     authorityCore.schema !== 'policy-toolchain-authority.v1' ||
     authorityCore.version !== 1 ||
     compilerPath !== input.compilerPath ||
     sdkRoot !== input.sdkRoot ||
+    compilerResourceRoot !== input.compilerResourceRoot ||
     acceptedAuthorityPackageSha256 !== hashCanonical(authorityCore)
   )
     throw new PolicyNativeLaunchContractError()
@@ -615,15 +672,94 @@ export function createPolicyCompilerCapability(
     repositoryRoot: safeAbsolutePath(input.repositoryRoot),
     compilerPath,
     sdkRoot,
+    compilerResourceRoot,
     compilerSha256: sha256(authorityCore.compilerSha256),
     compilerDevice: decimal(authorityCore.compilerDevice, true),
     compilerInode: decimal(authorityCore.compilerInode),
     sdkIdentitySha256: sha256(authorityCore.sdkIdentitySha256),
     sdkDevice: decimal(authorityCore.sdkDevice, true),
     sdkInode: decimal(authorityCore.sdkInode),
+    compilerResourceIdentitySha256: sha256(
+      authorityCore.compilerResourceIdentitySha256,
+    ),
+    compilerResourceDevice: decimal(authorityCore.compilerResourceDevice, true),
+    compilerResourceInode: decimal(authorityCore.compilerResourceInode),
+    headerSetSha256: sha256(authorityCore.headerSetSha256),
     authorityPackageSha256: acceptedAuthorityPackageSha256,
   })
   compilerCapabilities.add(capability)
+  return capability
+}
+
+export function createPolicyCompilerDiagnosticCapability(
+  input: unknown,
+): PolicyCompilerDiagnosticCapability {
+  exactKeys(input, ['repositoryRoot', 'diagnosticCapability'])
+  exactKeys(input.diagnosticCapability, [
+    'schema',
+    'version',
+    'repositoryRoot',
+    'compilerPath',
+    'sdkRoot',
+    'compilerResourceRoot',
+    'compilerSha256',
+    'compilerDevice',
+    'compilerInode',
+    'sdkIdentitySha256',
+    'sdkDevice',
+    'sdkInode',
+    'compilerResourceIdentitySha256',
+    'compilerResourceDevice',
+    'compilerResourceInode',
+    'headerSetSha256',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+    'diagnosticCapabilitySha256',
+  ])
+  const { diagnosticCapabilitySha256, ...core } = input.diagnosticCapability
+  if (
+    core.schema !== 'policy-compiler-diagnostic-capability.v1' ||
+    core.version !== 1 ||
+    sha256(diagnosticCapabilitySha256) !== hashCanonical(core)
+  )
+    throw new PolicyNativeLaunchContractError()
+  for (const key of [
+    'compilerSha256',
+    'sdkIdentitySha256',
+    'compilerResourceIdentitySha256',
+    'headerSetSha256',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+  ] as const)
+    sha256(core[key])
+  for (const key of [
+    'compilerDevice',
+    'sdkDevice',
+    'compilerResourceDevice',
+  ] as const)
+    decimal(core[key], true)
+  for (const key of [
+    'compilerInode',
+    'sdkInode',
+    'compilerResourceInode',
+  ] as const)
+    decimal(core[key])
+  const capability = Object.freeze({
+    repositoryRoot: safeAbsolutePath(core.repositoryRoot),
+    compilerPath: safeAbsolutePath(core.compilerPath),
+    sdkRoot: safeAbsolutePath(core.sdkRoot),
+    compilerResourceRoot: safeAbsolutePath(core.compilerResourceRoot),
+    diagnosticCapabilitySha256: sha256(diagnosticCapabilitySha256),
+  })
+  if (capability.repositoryRoot !== safeAbsolutePath(input.repositoryRoot))
+    throw new PolicyNativeLaunchContractError()
+  compilerDiagnosticCapabilities.add(capability)
   return capability
 }
 
@@ -708,6 +844,18 @@ function compilerCapability(input: unknown): PolicyCompilerCapability {
   )
     throw new PolicyNativeLaunchContractError()
   return input as PolicyCompilerCapability
+}
+
+function compilerDiagnosticCapability(
+  input: unknown,
+): PolicyCompilerDiagnosticCapability {
+  if (
+    input === null ||
+    typeof input !== 'object' ||
+    !compilerDiagnosticCapabilities.has(input)
+  )
+    throw new PolicyNativeLaunchContractError()
+  return input as PolicyCompilerDiagnosticCapability
 }
 
 function helperCapability(input: unknown): PolicyHelperCapability {
@@ -819,13 +967,54 @@ export function createPolicyXcrunPlan(
   }
 }
 
+export function createPolicyCompilerResourcePlan(
+  input: unknown,
+): PolicyNativeLaunchPlan {
+  exactKeys(input, [
+    'schema',
+    'version',
+    'repositoryRoot',
+    'compilerPath',
+    'compilerSha256',
+    'compilerDevice',
+    'compilerInode',
+    'compilerEvidenceSha256',
+  ])
+  const core = {
+    schema: input.schema,
+    version: input.version,
+    repositoryRoot: safeAbsolutePath(input.repositoryRoot),
+    compilerPath: safeAbsolutePath(input.compilerPath),
+    compilerSha256: sha256(input.compilerSha256),
+    compilerDevice: decimal(input.compilerDevice, true),
+    compilerInode: decimal(input.compilerInode),
+  }
+  if (
+    core.schema !== 'policy-compiler-resource-resolver.v1' ||
+    core.version !== 1 ||
+    sha256(input.compilerEvidenceSha256) !== hashCanonical(core)
+  )
+    throw new PolicyNativeLaunchContractError()
+  return {
+    executable: core.compilerPath,
+    arguments: ['-print-resource-dir'],
+    cwd: core.repositoryRoot,
+    environment: {},
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...compilerLimits,
+  }
+}
+
 export function createPolicyCompilerPlan(
   operation: 'diagnostic' | 'build',
   input: unknown,
 ): PolicyNativeLaunchPlan {
   if (operation !== 'diagnostic' && operation !== 'build')
     throw new PolicyNativeLaunchContractError()
-  const capability = compilerCapability(input)
+  const capability =
+    operation === 'diagnostic'
+      ? compilerDiagnosticCapability(input)
+      : compilerCapability(input)
   const buildRoot = `${capability.repositoryRoot}/.local/m45/.policy-exclusive-promotion-build`
   const temporaryDirectory = `${buildRoot}/tmp`
   const suffix = [

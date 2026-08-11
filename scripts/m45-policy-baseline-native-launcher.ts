@@ -12,7 +12,9 @@ import {
   createPolicyCAcceptedCleanupPlan,
   createPolicyCAcceptedHelperPlan,
   createPolicyCompilerCapability,
+  createPolicyCompilerDiagnosticCapability,
   createPolicyCompilerPlan,
+  createPolicyCompilerResourcePlan,
   createPolicyHelperCapability,
   createPolicyLockPreflightPlan,
   createPolicyNativeHelperPlan,
@@ -233,6 +235,9 @@ type PolicyNativeOperationBroker = Readonly<{
   ) => Promise<PolicyNativeLifecycleResult>
   runXcrunSdkPath: (
     input: PolicyRepositoryCapability,
+  ) => Promise<PolicyNativeLifecycleResult>
+  runCompilerResourceDir: (
+    input: unknown,
   ) => Promise<PolicyNativeLifecycleResult>
   runCompilerDiagnostic: (
     input: unknown,
@@ -1007,11 +1012,13 @@ export function initializePolicyNativeOperationBroker(): PolicyNativeOperationBr
       runClosedPlan(createPolicyXcrunPlan('compiler-path', input)),
     runXcrunSdkPath: (input) =>
       runClosedPlan(createPolicyXcrunPlan('sdk-path', input)),
+    runCompilerResourceDir: (input) =>
+      runClosedPlan(createPolicyCompilerResourcePlan(input)),
     runCompilerDiagnostic: (input) =>
       runClosedPlan(
         createPolicyCompilerPlan(
           'diagnostic',
-          createPolicyCompilerCapability(input),
+          createPolicyCompilerDiagnosticCapability(input),
         ),
       ),
     runCompilerBuild: (input) =>
