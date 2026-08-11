@@ -1904,7 +1904,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     await expect(
       executePolicyNativeDerivationCli([
         'diagnose-a-fd-map',
-        '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-rejected',
       ]),
     ).resolves.toBe(1)
     expect(write).toHaveBeenCalledExactlyOnceWith(
