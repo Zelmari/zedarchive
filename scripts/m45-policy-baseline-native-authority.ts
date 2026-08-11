@@ -601,6 +601,8 @@ export function parsePolicyClangDiagnosticForFixture(input: unknown) {
 
 type ProvisionalAPrebuildBoundary =
   | 'xcrun-compiler-resolution'
+  | 'xcrun-sdk-child'
+  | 'xcrun-sdk-output'
   | 'xcrun-sdk-resolution'
   | 'compiler-resource-resolution'
   | 'toolchain-input-attestation'
@@ -684,7 +686,9 @@ async function runPolicyNativeToolchainDerivationWithObserver(
   )
   if (sdkResolution.stderr.byteLength !== 0)
     throw new Error('policy-native-authority')
+  observe?.('xcrun-sdk-child')
   const sdkRoot = parseResolverOutput(sdkResolution.stdout)
+  observe?.('xcrun-sdk-output')
   const sdkBefore = await runtime.inspectProtectedPath(sdkRoot, 'directory')
   observe?.('xcrun-sdk-resolution')
   const compilerEvidenceCore = {
@@ -1354,6 +1358,8 @@ const provisionalAPrebuildBoundaries = [
   'lock-capability',
   'derivation-lock-open',
   'xcrun-compiler-resolution',
+  'xcrun-sdk-child',
+  'xcrun-sdk-output',
   'xcrun-sdk-resolution',
   'compiler-resource-resolution',
   'toolchain-input-attestation',
@@ -1542,7 +1548,9 @@ const provisionalAPrebuildFixtureFaults = [
   'compiler-output',
   'sdk-child',
   'sdk-lifecycle',
+  'sdk-stderr',
   'sdk-output',
+  'sdk-protected-stat',
   'resource-child',
   'resource-lifecycle',
   'resource-output',
@@ -1677,10 +1685,16 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               nlink: 1,
               size: Buffer.byteLength(`fixture:${path}`),
             }) as Awaited<ReturnType<typeof inspectProtectedPath>>
-          const closedChild = (stdout: string, lifecycleFault = false) => ({
+          const closedChild = (
+            stdout: string,
+            lifecycleFault = false,
+            stderrFault = false,
+          ) => ({
             code: 0,
             stdout: Buffer.from(stdout),
-            stderr: Buffer.alloc(0),
+            stderr: stderrFault
+              ? Buffer.from('fixture-stderr')
+              : Buffer.alloc(0),
             processGroupAbsent: lifecycleFault
               ? (false as const)
               : (true as const),
@@ -1745,6 +1759,7 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
                 stopAt('prediagnostic-compiler')
               if (path === compilerPath && count === 5)
                 stopAt('postcheck-compiler')
+              if (path === sdkRoot && count === 1) stopAt('sdk-protected-stat')
               if (path === sdkRoot && count === 2) stopAt('postcheck-sdk')
               if (path === compilerResourceRoot && count === 1)
                 stopAt('resource-protected-stat')
@@ -1768,7 +1783,11 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               lifecycle.push('sdk-lifecycle')
               const output = fault === 'sdk-output' ? sdkRoot : `${sdkRoot}\n`
               lifecycle.push('sdk-output')
-              return closedChild(output, fault === 'sdk-lifecycle')
+              return closedChild(
+                output,
+                fault === 'sdk-lifecycle',
+                fault === 'sdk-stderr',
+              )
             },
             runCompilerResourceDir: async () => {
               childOrder.push('compiler-resource-resolver')

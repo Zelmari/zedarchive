@@ -666,6 +666,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -707,7 +713,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -723,7 +729,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -745,7 +751,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -770,7 +776,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -787,7 +793,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -839,7 +845,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
           ...seams,
           diagnoseA,
         }),
@@ -864,7 +870,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v3'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -916,6 +922,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'sdk-child',
         'sdk-lifecycle',
         'sdk-output',
+        'sdk-protected-stat',
         'resource-child',
         'resource-lifecycle',
         'resource-output',
@@ -944,6 +951,8 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'lock-capability',
         'derivation-lock-open',
         'xcrun-compiler-resolution',
+        'xcrun-sdk-child',
+        'xcrun-sdk-output',
         'xcrun-sdk-resolution',
         'compiler-resource-resolution',
         'toolchain-input-attestation',
@@ -1307,7 +1316,9 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['compiler-output', 'derivation-lock-open'],
     ['sdk-child', 'xcrun-compiler-resolution'],
     ['sdk-lifecycle', 'xcrun-compiler-resolution'],
-    ['sdk-output', 'xcrun-compiler-resolution'],
+    ['sdk-stderr', 'xcrun-compiler-resolution'],
+    ['sdk-output', 'xcrun-sdk-child'],
+    ['sdk-protected-stat', 'xcrun-sdk-output'],
     ['attestation-protected-stat', 'derivation-lock-open'],
     ['attestation-protected-read', 'derivation-lock-open'],
     ['resource-child', 'xcrun-sdk-resolution'],
