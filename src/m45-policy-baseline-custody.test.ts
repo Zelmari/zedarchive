@@ -2194,6 +2194,7 @@ describe('M45 policy baseline filesystem custody', () => {
       ...nativeAuthority.matchAll(/export async function (\w+)/gu),
     ].map((match) => match[1])
     expect(authorityExports).toEqual([
+      'inspectPolicySdkProtectedPathForFixture',
       'runPolicyNativeToolchainDerivation',
       'diagnosePolicyProvisionalBuildAPrebuild',
       'runPolicyProvisionalAPrebuildDiagnosticForFixture',
@@ -2405,7 +2406,7 @@ describe('M45 policy baseline filesystem custody', () => {
       if (path === policyNativeAuthorityPath) continue
       if (
         (await readFile(path, 'utf8')).match(
-          /(?:inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
+          /(?:inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata|SdkProtectedPath)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
         )
       )
         testFixtureConsumers.push(path)

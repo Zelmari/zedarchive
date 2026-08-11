@@ -145,6 +145,115 @@ async function inspectProtectedPath(path: string, kind: 'file' | 'directory') {
   return metadata
 }
 
+export const policySdkProtectionStops = [
+  'realpath-unavailable',
+  'resolver-alias',
+  'ancestor-symlink',
+  'ancestor-owner',
+  'ancestor-mode',
+  'sdk-symlink',
+  'sdk-owner',
+  'sdk-mode',
+  'sdk-type',
+  'sdk-link-count',
+] as const
+
+type SdkProtectionStop = (typeof policySdkProtectionStops)[number]
+
+class SdkProtectedPathStopError extends Error {
+  constructor(readonly stop: SdkProtectionStop) {
+    super('policy-native-sdk-protection-stop')
+  }
+}
+
+export async function inspectPolicySdkProtectedPathForFixture(input: unknown) {
+  if (
+    process.env.NODE_ENV !== 'test' ||
+    (input !== null &&
+      (typeof input !== 'string' ||
+        !policySdkProtectionStops.includes(input as SdkProtectionStop)))
+  )
+    throw new Error('test-only')
+  const fault = input as SdkProtectionStop | null
+  const sdkPath = '/fixture/sdk'
+  const metadata = (path: string) => {
+    const ancestor = path === '/fixture'
+    const affected =
+      fault !== null &&
+      (ancestor ? fault.startsWith('ancestor-') : fault.startsWith('sdk-'))
+    return {
+      uid:
+        affected && (fault === 'ancestor-owner' || fault === 'sdk-owner')
+          ? 501
+          : 0,
+      mode:
+        affected && (fault === 'ancestor-mode' || fault === 'sdk-mode')
+          ? 0o40777
+          : 0o40555,
+      nlink: fault === 'sdk-link-count' && !ancestor ? 0 : 1,
+      isSymbolicLink: () =>
+        affected && (fault === 'ancestor-symlink' || fault === 'sdk-symlink'),
+      isDirectory: () => !(fault === 'sdk-type' && !ancestor),
+      isFile: () => fault === 'sdk-type' && !ancestor,
+    } as Awaited<ReturnType<typeof lstat>>
+  }
+  try {
+    await inspectSdkProtectedPath(sdkPath, {
+      realpath: (async () => {
+        if (fault === 'realpath-unavailable') throw new Error('fixture')
+        return fault === 'resolver-alias' ? '/fixture/sdk-canonical' : sdkPath
+      }) as unknown as typeof realpath,
+      lstat: (async (path: string) => metadata(path)) as typeof lstat,
+    })
+    return null
+  } catch (error) {
+    if (error instanceof SdkProtectedPathStopError) return error.stop
+    throw error
+  }
+}
+
+async function inspectSdkProtectedPath(
+  path: string,
+  runtime: Readonly<{
+    realpath: typeof realpath
+    lstat: typeof lstat
+  }> = { realpath, lstat },
+) {
+  let canonicalPath: string
+  try {
+    canonicalPath = await runtime.realpath(path)
+  } catch {
+    throw new SdkProtectedPathStopError('realpath-unavailable')
+  }
+  if (canonicalPath !== path)
+    throw new SdkProtectedPathStopError('resolver-alias')
+
+  const segments = path.split('/').filter(Boolean)
+  let cursor = '/'
+  for (const segment of segments.slice(0, -1)) {
+    cursor = join(cursor, segment)
+    const metadata = await runtime.lstat(cursor)
+    if (metadata.isSymbolicLink())
+      throw new SdkProtectedPathStopError('ancestor-symlink')
+    if (Number(metadata.uid) !== 0)
+      throw new SdkProtectedPathStopError('ancestor-owner')
+    if ((Number(metadata.mode) & 0o7022) !== 0)
+      throw new SdkProtectedPathStopError('ancestor-mode')
+  }
+
+  const metadata = await runtime.lstat(path)
+  if (metadata.isSymbolicLink())
+    throw new SdkProtectedPathStopError('sdk-symlink')
+  if (Number(metadata.uid) !== 0)
+    throw new SdkProtectedPathStopError('sdk-owner')
+  if ((Number(metadata.mode) & 0o7022) !== 0)
+    throw new SdkProtectedPathStopError('sdk-mode')
+  if (!metadata.isDirectory()) throw new SdkProtectedPathStopError('sdk-type')
+  if (Number(metadata.nlink) < 1)
+    throw new SdkProtectedPathStopError('sdk-link-count')
+  return metadata
+}
+
 function assertProtectedPathMetadata(
   metadata: Pick<
     Awaited<ReturnType<typeof lstat>>,
@@ -625,6 +734,7 @@ type ProvisionalAPrebuildToolchainHarness = Readonly<{
   realpath: typeof realpath
   readFile: typeof readFile
   inspectProtectedPath: typeof inspectProtectedPath
+  inspectSdkProtectedPath: typeof inspectSdkProtectedPath
   runXcrunCompilerPath: (
     input: Parameters<typeof broker.runXcrunCompilerPath>[0],
   ) => Promise<ProvisionalAPrebuildChildResult>
@@ -651,6 +761,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
       realpath,
       readFile,
       inspectProtectedPath,
+      inspectSdkProtectedPath,
       runXcrunCompilerPath: broker.runXcrunCompilerPath,
       runXcrunSdkPath: broker.runXcrunSdkPath,
       runCompilerResourceDir: broker.runCompilerResourceDir,
@@ -689,7 +800,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
   observe?.('xcrun-sdk-child')
   const sdkRoot = parseResolverOutput(sdkResolution.stdout)
   observe?.('xcrun-sdk-output')
-  const sdkBefore = await runtime.inspectProtectedPath(sdkRoot, 'directory')
+  const sdkBefore = await runtime.inspectSdkProtectedPath(sdkRoot)
   observe?.('xcrun-sdk-resolution')
   const compilerEvidenceCore = {
     schema: 'policy-compiler-resource-resolver.v1',
@@ -1375,6 +1486,7 @@ type ProvisionalAPrebuildDiagnosticResult = Readonly<{
   lastSuccessfulBoundary: ProvisionalAPrebuildJournalBoundary
   derivationLockCycleClosed?: true
   authorityPackageSha256?: string
+  sdkProtectionStop?: SdkProtectionStop
 }>
 
 type ProvisionalAPrebuildDiagnosticOperations = Readonly<{
@@ -1417,6 +1529,7 @@ async function runPolicyProvisionalAPrebuildDiagnosticBridge(
   const result = (
     derivationLockCycleClosed?: true,
     authorityPackageSha256?: string,
+    sdkProtectionStop?: SdkProtectionStop,
   ): ProvisionalAPrebuildDiagnosticResult =>
     Object.freeze({
       lastSuccessfulBoundary: journal.at(-1)!,
@@ -1426,6 +1539,7 @@ async function runPolicyProvisionalAPrebuildDiagnosticBridge(
       ...(authorityPackageSha256 === undefined
         ? {}
         : { authorityPackageSha256 }),
+      ...(sdkProtectionStop === undefined ? {} : { sdkProtectionStop }),
     })
 
   append('entry-custody')
@@ -1440,10 +1554,13 @@ async function runPolicyProvisionalAPrebuildDiagnosticBridge(
   append('derivation-lock-open')
   let authorityPackageSha256: string | undefined
   let diagnosticFailure: unknown
+  let sdkProtectionStop: SdkProtectionStop | undefined
   try {
     authorityPackageSha256 = await operations.deriveToolchain(append)
   } catch (error) {
     diagnosticFailure = error
+    if (error instanceof SdkProtectedPathStopError)
+      sdkProtectionStop = error.stop
   }
 
   // A typed stopped result is safe only once the held named lock has passed its
@@ -1453,6 +1570,11 @@ async function runPolicyProvisionalAPrebuildDiagnosticBridge(
   if (diagnosticFailure !== undefined) {
     if (diagnosticFailure instanceof ProvisionalAPrebuildJournalError)
       throw diagnosticFailure
+    if (
+      sdkProtectionStop !== undefined &&
+      journal.at(-1) === 'xcrun-sdk-output'
+    )
+      return result(true, undefined, sdkProtectionStop)
     return result(true)
   }
   if (
@@ -1766,6 +1888,14 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               if (path === compilerResourceRoot && count === 2)
                 stopAt('postcheck-resource')
               if (path === linkerPath && count === 2) stopAt('postcheck-linker')
+              return metadata(path)
+            },
+            inspectSdkProtectedPath: async (path) => {
+              const count = (inspectCounts.get(path) ?? 0) + 1
+              inspectCounts.set(path, count)
+              lifecycle.push('sdk-protected-stat')
+              if (fault === 'sdk-protected-stat')
+                throw new SdkProtectedPathStopError('sdk-owner')
               return metadata(path)
             },
             runXcrunCompilerPath: async () => {

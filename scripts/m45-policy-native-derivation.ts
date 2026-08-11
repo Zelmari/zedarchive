@@ -21,10 +21,13 @@ import {
   inspectPolicyExclusivePromotionSource,
   parsePolicyPromotionPackage,
 } from './m45-policy-baseline'
-import { diagnosePolicyProvisionalBuildAPrebuild } from './m45-policy-baseline-native-authority'
+import {
+  diagnosePolicyProvisionalBuildAPrebuild,
+  policySdkProtectionStops,
+} from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
-const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v4'
+const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v5'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -69,6 +72,7 @@ export type PolicyNativeDerivationResult = Readonly<{
   commitments?: Readonly<Record<string, string>>
   lastSuccessfulBoundary?: PolicyProvisionalAPrebuildBoundary
   derivationLockCycleClosed?: true
+  sdkProtectionStop?: PolicySdkProtectionStop
 }>
 
 export const policyProvisionalAPrebuildBoundaries = [
@@ -93,7 +97,10 @@ type PolicyProvisionalAPrebuildDiagnostic = Readonly<{
   lastSuccessfulBoundary: PolicyProvisionalAPrebuildBoundary
   derivationLockCycleClosed?: true
   authorityPackageSha256?: string
+  sdkProtectionStop?: PolicySdkProtectionStop
 }>
+
+type PolicySdkProtectionStop = (typeof policySdkProtectionStops)[number]
 
 type Metadata = Readonly<{
   uid: number
@@ -1315,6 +1322,7 @@ function parseProvisionalAPrebuildDiagnostic(
     'authorityPackageSha256',
     'derivationLockCycleClosed',
     'lastSuccessfulBoundary',
+    'sdkProtectionStop',
   ].sort()
   if (
     !keys.includes('lastSuccessfulBoundary') ||
@@ -1336,6 +1344,14 @@ function parseProvisionalAPrebuildDiagnostic(
       !/^[a-f0-9]{64}$/u.test(record.authorityPackageSha256))
   )
     throw new Error('diagnostic')
+  if (
+    record.sdkProtectionStop !== undefined &&
+    (typeof record.sdkProtectionStop !== 'string' ||
+      !policySdkProtectionStops.includes(
+        record.sdkProtectionStop as PolicySdkProtectionStop,
+      ))
+  )
+    throw new Error('diagnostic')
   const complete =
     record.lastSuccessfulBoundary === 'derivation-lock-cycle-closed'
   const lockOpened =
@@ -1345,7 +1361,11 @@ function parseProvisionalAPrebuildDiagnostic(
   if (
     complete !== (record.authorityPackageSha256 !== undefined) ||
     !lockOpened ||
-    record.derivationLockCycleClosed !== true
+    record.derivationLockCycleClosed !== true ||
+    (record.sdkProtectionStop !== undefined &&
+      (complete ||
+        record.lastSuccessfulBoundary !== 'xcrun-sdk-output' ||
+        record.authorityPackageSha256 !== undefined))
   )
     throw new Error('diagnostic')
   return Object.freeze({
@@ -1357,6 +1377,12 @@ function parseProvisionalAPrebuildDiagnostic(
     ...(record.authorityPackageSha256 === undefined
       ? {}
       : { authorityPackageSha256: record.authorityPackageSha256 }),
+    ...(record.sdkProtectionStop === undefined
+      ? {}
+      : {
+          sdkProtectionStop:
+            record.sdkProtectionStop as PolicySdkProtectionStop,
+        }),
   })
 }
 
@@ -1500,6 +1526,9 @@ async function runPolicyNativeDerivationCommandWithProfile(
           ...(diagnostic.derivationLockCycleClosed === true
             ? { derivationLockCycleClosed: true as const }
             : {}),
+          ...(diagnostic.sdkProtectionStop === undefined
+            ? {}
+            : { sdkProtectionStop: diagnostic.sdkProtectionStop }),
           commitments: {
             ...commitments,
             ...(diagnostic.authorityPackageSha256 === undefined

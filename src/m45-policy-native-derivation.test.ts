@@ -17,6 +17,7 @@ import {
   inspectPolicyDirectHeaderTablesForFixture,
   inspectPolicyHeaderSetMutationForFixture,
   inspectPolicyProtectedPathMetadataForFixture,
+  inspectPolicySdkProtectedPathForFixture,
   parsePolicyCompilerResourceOutputForFixture,
   parsePolicyClangDiagnosticForFixture,
   runPolicyProvisionalAPrebuildDiagnosticForFixture,
@@ -672,6 +673,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -713,7 +720,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -729,7 +736,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -751,7 +758,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -776,7 +783,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -793,7 +800,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -801,6 +808,62 @@ describe('Decisions 115–116 native policy derivation runner', () => {
           authorityPackageSha256: digest,
           paths: ['/private/compiler'],
         })),
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('emits only a closed SDK protection stop at the exact SDK output boundary', async () => {
+    const { seams, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+        ...seams,
+        diagnoseA: vi.fn(async () => ({
+          lastSuccessfulBoundary: 'xcrun-sdk-output' as const,
+          derivationLockCycleClosed: true as const,
+          sdkProtectionStop: 'resolver-alias' as const,
+        })),
+      }),
+    ).resolves.toMatchObject({
+      status: 'diagnostic-stopped',
+      lastSuccessfulBoundary: 'xcrun-sdk-output',
+      derivationLockCycleClosed: true,
+      sdkProtectionStop: 'resolver-alias',
+    })
+  })
+
+  it.each([
+    {
+      lastSuccessfulBoundary: 'xcrun-compiler-resolution' as const,
+      derivationLockCycleClosed: true as const,
+      sdkProtectionStop: 'resolver-alias' as const,
+    },
+    {
+      lastSuccessfulBoundary: 'xcrun-sdk-output' as const,
+      derivationLockCycleClosed: true as const,
+      sdkProtectionStop: 'unknown-stop' as const,
+    },
+    {
+      lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
+      derivationLockCycleClosed: true as const,
+      authorityPackageSha256: digest,
+      sdkProtectionStop: 'resolver-alias' as const,
+    },
+  ])('rejects detached SDK protection classification %#', async (result) => {
+    const { seams, run } = fixture({ syntheticLegacy: true })
+    await run(['derive-a', '--confirm-m45-policy-native-derivation-v1'], {
+      ...seams,
+      deriveA: vi.fn(residueFailure),
+    })
+    await expect(
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+        ...seams,
+        diagnoseA: vi.fn(
+          async () => result,
+        ) as unknown as PolicyNativeDerivationSeams['diagnoseA'],
       }),
     ).rejects.toThrow()
   })
@@ -845,7 +908,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
           ...seams,
           diagnoseA,
         }),
@@ -870,7 +933,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v4'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -995,6 +1058,36 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(tables.sdk).not.toContain('usr/include/stdbool.h')
     expect(tables.sdk).toContain('usr/include/stdint.h')
     expect(tables.compilerResource).toContain('include/stdint.h')
+    vi.unstubAllEnvs()
+  })
+
+  it.each([
+    'realpath-unavailable',
+    'resolver-alias',
+    'ancestor-symlink',
+    'ancestor-owner',
+    'ancestor-mode',
+    'sdk-symlink',
+    'sdk-owner',
+    'sdk-mode',
+    'sdk-type',
+    'sdk-link-count',
+  ] as const)(
+    'classifies only the closed SDK protection stop %s',
+    async (stop) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      await expect(inspectPolicySdkProtectedPathForFixture(stop)).resolves.toBe(
+        stop,
+      )
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it('returns no SDK protection stop for an exact protected directory', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    await expect(
+      inspectPolicySdkProtectedPathForFixture(null),
+    ).resolves.toBeNull()
     vi.unstubAllEnvs()
   })
 
@@ -1318,7 +1411,6 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['sdk-lifecycle', 'xcrun-compiler-resolution'],
     ['sdk-stderr', 'xcrun-compiler-resolution'],
     ['sdk-output', 'xcrun-sdk-child'],
-    ['sdk-protected-stat', 'xcrun-sdk-output'],
     ['attestation-protected-stat', 'derivation-lock-open'],
     ['attestation-protected-read', 'derivation-lock-open'],
     ['resource-child', 'xcrun-sdk-resolution'],
@@ -1358,6 +1450,22 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       vi.unstubAllEnvs()
     },
   )
+
+  it('binds an SDK protection stop only to the exact SDK output boundary', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const observed = await runPolicyProvisionalAPrebuildDiagnosticForFixture({
+      faultAt: 'sdk-protected-stat',
+    })
+    expect(observed.output).toEqual({
+      status: 'diagnostic-stopped',
+      lastSuccessfulBoundary: 'xcrun-sdk-output',
+      derivationLockCycleClosed: true,
+      sdkProtectionStop: 'sdk-owner',
+    })
+    expect(observed.genericStopped).toBe(false)
+    expect(observed.childOrder).toHaveLength(4)
+    vi.unstubAllEnvs()
+  })
 
   it('prints one generic safe CLI line for a rejected diagnostic invocation', async () => {
     const write = vi
