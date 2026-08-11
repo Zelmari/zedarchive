@@ -6,6 +6,7 @@ import {
   mkdir,
   open,
   readFile,
+  readlink,
   realpath,
   readdir,
   writeFile,
@@ -151,7 +152,6 @@ export const policySdkProtectionStops = [
   'ancestor-symlink',
   'ancestor-owner',
   'ancestor-mode',
-  'sdk-symlink',
   'sdk-owner',
   'sdk-mode',
   'sdk-type',
@@ -166,46 +166,111 @@ class SdkProtectedPathStopError extends Error {
   }
 }
 
+const sdkAliasFixtureCases = [
+  'protected-alias',
+  'protected-absolute-alias',
+  'alias-owner',
+  'alias-mode',
+  'alias-links',
+  'alias-target-empty',
+  'alias-target-long',
+  'alias-target-control',
+  'alias-target-drift',
+  'alias-identity-drift',
+  'canonical-owner',
+  'canonical-mode',
+  'canonical-type',
+  'canonical-identity-drift',
+] as const
+
+type SdkAliasFixtureCase = (typeof sdkAliasFixtureCases)[number]
+
 export async function inspectPolicySdkProtectedPathForFixture(input: unknown) {
   if (
     process.env.NODE_ENV !== 'test' ||
     (input !== null &&
       (typeof input !== 'string' ||
-        !policySdkProtectionStops.includes(input as SdkProtectionStop)))
+        (!sdkAliasFixtureCases.includes(input as SdkAliasFixtureCase) &&
+          !policySdkProtectionStops.includes(input as SdkProtectionStop))))
   )
     throw new Error('test-only')
-  const fault = input as SdkProtectionStop | null
+  const fault = input as SdkProtectionStop | SdkAliasFixtureCase | null
   const sdkPath = '/fixture/sdk'
+  const canonicalSdkPath = '/fixture/sdk-canonical'
+  const aliasFixture =
+    fault !== null &&
+    sdkAliasFixtureCases.includes(fault as SdkAliasFixtureCase)
+  const resolverSymlink = aliasFixture || fault === 'sdk-link-count'
+  const statReads = new Map<string, number>()
   const metadata = (path: string) => {
+    const statRead = (statReads.get(path) ?? 0) + 1
+    statReads.set(path, statRead)
     const ancestor = path === '/fixture'
+    const resolver = path === sdkPath
+    const canonical = path === canonicalSdkPath
     const affected =
       fault !== null &&
       (ancestor ? fault.startsWith('ancestor-') : fault.startsWith('sdk-'))
     return {
       uid:
-        affected && (fault === 'ancestor-owner' || fault === 'sdk-owner')
+        (affected && (fault === 'ancestor-owner' || fault === 'sdk-owner')) ||
+        (resolver && fault === 'alias-owner') ||
+        (canonical && fault === 'canonical-owner')
           ? 501
           : 0,
+      dev: 1,
+      ino:
+        (resolver && fault === 'alias-identity-drift' && statRead === 2) ||
+        (canonical && fault === 'canonical-identity-drift' && statRead === 2)
+          ? 2
+          : 1,
       mode:
-        affected && (fault === 'ancestor-mode' || fault === 'sdk-mode')
-          ? 0o40777
-          : 0o40555,
-      nlink: fault === 'sdk-link-count' && !ancestor ? 0 : 1,
+        resolverSymlink && resolver
+          ? fault === 'alias-mode'
+            ? 0o120755
+            : 0o120777
+          : (affected && (fault === 'ancestor-mode' || fault === 'sdk-mode')) ||
+              (canonical && fault === 'canonical-mode')
+            ? 0o40777
+            : 0o40555,
+      nlink:
+        (fault === 'sdk-link-count' && !ancestor) ||
+        (resolver && fault === 'alias-links')
+          ? 2
+          : 1,
       isSymbolicLink: () =>
-        affected && (fault === 'ancestor-symlink' || fault === 'sdk-symlink'),
-      isDirectory: () => !(fault === 'sdk-type' && !ancestor),
+        (affected && fault === 'ancestor-symlink') ||
+        (resolverSymlink && resolver),
+      isDirectory: () =>
+        !(fault === 'sdk-type' && !ancestor) &&
+        !(canonical && fault === 'canonical-type') &&
+        !(resolverSymlink && resolver),
       isFile: () => fault === 'sdk-type' && !ancestor,
     } as Awaited<ReturnType<typeof lstat>>
   }
+  let linkReads = 0
   try {
-    await inspectSdkProtectedPath(sdkPath, {
+    const resolution = await inspectSdkProtectedPath(sdkPath, {
       realpath: (async () => {
         if (fault === 'realpath-unavailable') throw new Error('fixture')
-        return fault === 'resolver-alias' ? '/fixture/sdk-canonical' : sdkPath
+        return fault === 'resolver-alias' || resolverSymlink
+          ? canonicalSdkPath
+          : sdkPath
       }) as unknown as typeof realpath,
       lstat: (async (path: string) => metadata(path)) as typeof lstat,
+      readlink: (async () => {
+        linkReads += 1
+        if (fault === 'alias-target-empty') return ''
+        if (fault === 'alias-target-long') return 'x'.repeat(4097)
+        if (fault === 'alias-target-control') return 'sdk\ncanonical'
+        if (fault === 'alias-target-drift' && linkReads === 2)
+          return 'sdk-other'
+        return fault === 'protected-absolute-alias'
+          ? canonicalSdkPath
+          : 'sdk-canonical'
+      }) as unknown as typeof readlink,
     })
-    return null
+    return aliasFixture ? resolution.sdkRoot : null
   } catch (error) {
     if (error instanceof SdkProtectedPathStopError) return error.stop
     throw error
@@ -217,17 +282,9 @@ async function inspectSdkProtectedPath(
   runtime: Readonly<{
     realpath: typeof realpath
     lstat: typeof lstat
-  }> = { realpath, lstat },
+    readlink: typeof readlink
+  }> = { realpath, lstat, readlink },
 ) {
-  let canonicalPath: string
-  try {
-    canonicalPath = await runtime.realpath(path)
-  } catch {
-    throw new SdkProtectedPathStopError('realpath-unavailable')
-  }
-  if (canonicalPath !== path)
-    throw new SdkProtectedPathStopError('resolver-alias')
-
   const segments = path.split('/').filter(Boolean)
   let cursor = '/'
   for (const segment of segments.slice(0, -1)) {
@@ -241,17 +298,123 @@ async function inspectSdkProtectedPath(
       throw new SdkProtectedPathStopError('ancestor-mode')
   }
 
-  const metadata = await runtime.lstat(path)
-  if (metadata.isSymbolicLink())
-    throw new SdkProtectedPathStopError('sdk-symlink')
-  if (Number(metadata.uid) !== 0)
+  const resolverMetadata = await runtime.lstat(path)
+  if (Number(resolverMetadata.uid) !== 0)
     throw new SdkProtectedPathStopError('sdk-owner')
-  if ((Number(metadata.mode) & 0o7022) !== 0)
-    throw new SdkProtectedPathStopError('sdk-mode')
-  if (!metadata.isDirectory()) throw new SdkProtectedPathStopError('sdk-type')
-  if (Number(metadata.nlink) < 1)
+  if (
+    (resolverMetadata.isSymbolicLink() &&
+      Number(resolverMetadata.nlink) !== 1) ||
+    (resolverMetadata.isDirectory() && Number(resolverMetadata.nlink) < 1)
+  )
     throw new SdkProtectedPathStopError('sdk-link-count')
-  return metadata
+  if (!resolverMetadata.isDirectory() && !resolverMetadata.isSymbolicLink())
+    throw new SdkProtectedPathStopError('sdk-type')
+  if (
+    (resolverMetadata.isSymbolicLink() &&
+      (Number(resolverMetadata.mode) & 0o7777) !== 0o777) ||
+    (resolverMetadata.isDirectory() &&
+      (Number(resolverMetadata.mode) & 0o7022) !== 0)
+  )
+    throw new SdkProtectedPathStopError('sdk-mode')
+
+  let resolverLinkSha256: string | null = null
+  let linkBefore: string | undefined
+  if (resolverMetadata.isSymbolicLink()) {
+    linkBefore = await runtime.readlink(path, { encoding: 'utf8' })
+    if (
+      linkBefore.length === 0 ||
+      Buffer.byteLength(linkBefore) > 4096 ||
+      /[\0\r\n]/u.test(linkBefore)
+    )
+      throw new Error('policy-native-authority')
+    resolverLinkSha256 = hash(Buffer.from(linkBefore))
+  }
+
+  let canonicalPath: string
+  try {
+    canonicalPath = safeRoot(await runtime.realpath(path))
+  } catch (error) {
+    if (error instanceof SdkProtectedPathStopError) throw error
+    throw new SdkProtectedPathStopError('realpath-unavailable')
+  }
+  if (!resolverMetadata.isSymbolicLink() && canonicalPath !== path)
+    throw new SdkProtectedPathStopError('resolver-alias')
+  if (resolverMetadata.isSymbolicLink() && canonicalPath === path)
+    throw new Error('policy-native-authority')
+
+  let canonicalCursor = '/'
+  let canonicalMetadataBefore: Awaited<ReturnType<typeof lstat>> | undefined
+  for (const segment of canonicalPath.split('/').filter(Boolean)) {
+    canonicalCursor = join(canonicalCursor, segment)
+    const metadata = await runtime.lstat(canonicalCursor)
+    assertProtectedPathMetadata(
+      metadata,
+      canonicalCursor === canonicalPath ? 'directory' : undefined,
+    )
+    if (canonicalCursor === canonicalPath) canonicalMetadataBefore = metadata
+  }
+  const sdkMetadata = await runtime.lstat(canonicalPath)
+  assertProtectedPathMetadata(sdkMetadata, 'directory')
+  if (
+    canonicalMetadataBefore === undefined ||
+    sdkMetadata.dev !== canonicalMetadataBefore.dev ||
+    sdkMetadata.ino !== canonicalMetadataBefore.ino ||
+    sdkMetadata.uid !== canonicalMetadataBefore.uid ||
+    sdkMetadata.mode !== canonicalMetadataBefore.mode ||
+    sdkMetadata.nlink !== canonicalMetadataBefore.nlink
+  )
+    throw new Error('policy-native-authority')
+
+  if (linkBefore !== undefined) {
+    const linkAfter = await runtime.readlink(path, { encoding: 'utf8' })
+    if (linkAfter !== linkBefore) throw new Error('policy-native-authority')
+  }
+  const resolverAfter = await runtime.lstat(path)
+  if (
+    resolverAfter.dev !== resolverMetadata.dev ||
+    resolverAfter.ino !== resolverMetadata.ino ||
+    resolverAfter.uid !== resolverMetadata.uid ||
+    resolverAfter.mode !== resolverMetadata.mode ||
+    resolverAfter.nlink !== resolverMetadata.nlink ||
+    resolverAfter.isSymbolicLink() !== resolverMetadata.isSymbolicLink() ||
+    resolverAfter.isDirectory() !== resolverMetadata.isDirectory()
+  )
+    throw new Error('policy-native-authority')
+
+  return Object.freeze({
+    resolverPath: path,
+    resolverKind: resolverMetadata.isSymbolicLink()
+      ? ('symlink' as const)
+      : ('directory' as const),
+    resolverDevice: String(resolverMetadata.dev),
+    resolverInode: String(resolverMetadata.ino),
+    resolverMode: String(resolverMetadata.mode),
+    resolverLinks: String(resolverMetadata.nlink),
+    resolverLinkSha256,
+    sdkRoot: canonicalPath,
+    sdkMetadata,
+  })
+}
+
+function sameSdkResolution(
+  left: Awaited<ReturnType<typeof inspectSdkProtectedPath>>,
+  right: Awaited<ReturnType<typeof inspectSdkProtectedPath>>,
+): boolean {
+  return (
+    left.resolverPath === right.resolverPath &&
+    left.resolverKind === right.resolverKind &&
+    left.resolverDevice === right.resolverDevice &&
+    left.resolverInode === right.resolverInode &&
+    left.resolverMode === right.resolverMode &&
+    left.resolverLinks === right.resolverLinks &&
+    left.resolverLinkSha256 === right.resolverLinkSha256 &&
+    left.sdkRoot === right.sdkRoot &&
+    left.sdkMetadata.uid === right.sdkMetadata.uid &&
+    left.sdkMetadata.dev === right.sdkMetadata.dev &&
+    left.sdkMetadata.ino === right.sdkMetadata.ino &&
+    left.sdkMetadata.mode === right.sdkMetadata.mode &&
+    left.sdkMetadata.nlink === right.sdkMetadata.nlink
+  )
 }
 
 function assertProtectedPathMetadata(
@@ -798,9 +961,11 @@ async function runPolicyNativeToolchainDerivationWithObserver(
   if (sdkResolution.stderr.byteLength !== 0)
     throw new Error('policy-native-authority')
   observe?.('xcrun-sdk-child')
-  const sdkRoot = parseResolverOutput(sdkResolution.stdout)
+  const sdkResolverPath = parseResolverOutput(sdkResolution.stdout)
   observe?.('xcrun-sdk-output')
-  const sdkBefore = await runtime.inspectSdkProtectedPath(sdkRoot)
+  const sdkResolutionBefore =
+    await runtime.inspectSdkProtectedPath(sdkResolverPath)
+  const { sdkRoot, sdkMetadata: sdkBefore } = sdkResolutionBefore
   observe?.('xcrun-sdk-resolution')
   const compilerEvidenceCore = {
     schema: 'policy-compiler-resource-resolver.v1',
@@ -924,6 +1089,10 @@ async function runPolicyNativeToolchainDerivationWithObserver(
       diagnosticCapabilityCore.compilerSha256
   )
     throw new Error('policy-native-authority')
+  const sdkResolutionBeforeDiagnostic =
+    await runtime.inspectSdkProtectedPath(sdkResolverPath)
+  if (!sameSdkResolution(sdkResolutionBefore, sdkResolutionBeforeDiagnostic))
+    throw new Error('policy-native-authority')
   const diagnostic = successfulDiagnostic(
     await runtime.runCompilerDiagnostic({
       repositoryRoot,
@@ -956,7 +1125,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     workerAfter,
     compilerAfter,
     compilerBytesAfter,
-    sdkAfter,
+    sdkResolutionAfter,
     compilerResourceAfter,
     sdkHeadersAfter,
     compilerResourceHeadersAfter,
@@ -971,7 +1140,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     runtime.readFile(lockWorkerPath),
     runtime.inspectProtectedPath(compilerPath, 'file'),
     runtime.readFile(compilerPath),
-    runtime.inspectProtectedPath(sdkRoot, 'directory'),
+    runtime.inspectSdkProtectedPath(sdkResolverPath),
     runtime.inspectProtectedPath(compilerResourceRoot, 'directory'),
     readProtectedHeaders(runtime, 'sdk', sdkRoot, sdkBefore, sdkHeaderPaths),
     readProtectedHeaders(
@@ -995,8 +1164,7 @@ async function runPolicyNativeToolchainDerivationWithObserver(
     compilerAfter.dev !== compilerBefore.dev ||
     compilerAfter.ino !== compilerBefore.ino ||
     hash(compilerBytesAfter) !== diagnosticCapabilityCore.compilerSha256 ||
-    sdkAfter.dev !== sdkBefore.dev ||
-    sdkAfter.ino !== sdkBefore.ino ||
+    !sameSdkResolution(sdkResolutionBefore, sdkResolutionAfter) ||
     compilerResourceAfter.dev !== compilerResourceBefore.dev ||
     compilerResourceAfter.ino !== compilerResourceBefore.ino ||
     hashProtectedHeaderSet([
@@ -1684,6 +1852,7 @@ const provisionalAPrebuildFixtureFaults = [
   'diagnostic-lifecycle',
   'prediagnostic-compiler',
   'prediagnostic-compiler-bytes',
+  'prediagnostic-sdk',
   'postcheck-tracked-source',
   'postcheck-xcrun',
   'postcheck-compiler',
@@ -1770,6 +1939,7 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
           observe,
         ) => {
           const compilerPath = '/fixture/clang'
+          const sdkResolverPath = '/fixture/sdk-alias'
           const sdkRoot = '/fixture/sdk'
           const compilerResourceRoot = '/fixture/resource'
           const linkerPath = '/fixture/ld'
@@ -1882,7 +2052,6 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               if (path === compilerPath && count === 5)
                 stopAt('postcheck-compiler')
               if (path === sdkRoot && count === 1) stopAt('sdk-protected-stat')
-              if (path === sdkRoot && count === 2) stopAt('postcheck-sdk')
               if (path === compilerResourceRoot && count === 1)
                 stopAt('resource-protected-stat')
               if (path === compilerResourceRoot && count === 2)
@@ -1893,10 +2062,24 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
             inspectSdkProtectedPath: async (path) => {
               const count = (inspectCounts.get(path) ?? 0) + 1
               inspectCounts.set(path, count)
-              lifecycle.push('sdk-protected-stat')
-              if (fault === 'sdk-protected-stat')
+              if (count === 1) lifecycle.push('sdk-protected-stat')
+              if (fault === 'sdk-protected-stat' && count === 1)
                 throw new SdkProtectedPathStopError('sdk-owner')
-              return metadata(path)
+              if (count === 2) stopAt('prediagnostic-sdk')
+              if (count === 3) stopAt('postcheck-sdk')
+              const resolverMetadata = metadata(path)
+              const sdkMetadata = metadata(sdkRoot)
+              return Object.freeze({
+                resolverPath: path,
+                resolverKind: 'symlink' as const,
+                resolverDevice: String(resolverMetadata.dev),
+                resolverInode: String(resolverMetadata.ino),
+                resolverMode: String(resolverMetadata.mode),
+                resolverLinks: String(resolverMetadata.nlink),
+                resolverLinkSha256: 'f'.repeat(64),
+                sdkRoot,
+                sdkMetadata,
+              })
             },
             runXcrunCompilerPath: async () => {
               childOrder.push('xcrun-compiler-resolver')
@@ -1911,7 +2094,10 @@ export async function runPolicyProvisionalAPrebuildDiagnosticForFixture(
               childOrder.push('xcrun-sdk-resolver')
               stopAt('sdk-child')
               lifecycle.push('sdk-lifecycle')
-              const output = fault === 'sdk-output' ? sdkRoot : `${sdkRoot}\n`
+              const output =
+                fault === 'sdk-output'
+                  ? sdkResolverPath
+                  : `${sdkResolverPath}\n`
               lifecycle.push('sdk-output')
               return closedChild(
                 output,

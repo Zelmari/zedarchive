@@ -679,6 +679,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).rejects.toThrow()
     await expect(
       runPolicyNativeDerivationCommand(
+        ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
         ['preflight', '--confirm-m45-policy-native-derivation-v1', 'extra'],
         seams,
       ),
@@ -720,7 +726,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       derivationLockCycleClosed: true as const,
     }))
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -736,7 +742,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const lockPath = `${m45}/.policy-exclusive-promotion.lock`
     const before = { ...entries.get(lockPath)!.metadata }
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: diagnostic,
       }),
@@ -758,7 +764,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -783,7 +789,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'compiler-diagnostic' as const,
@@ -800,7 +806,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'derivation-lock-cycle-closed' as const,
@@ -819,7 +825,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: vi.fn(async () => ({
           lastSuccessfulBoundary: 'xcrun-sdk-output' as const,
@@ -859,7 +865,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       deriveA: vi.fn(residueFailure),
     })
     await expect(
-      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+      run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
         ...seams,
         diagnoseA: vi.fn(
           async () => result,
@@ -908,7 +914,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       mutate(entries)
       const diagnoseA = vi.fn()
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
           ...seams,
           diagnoseA,
         }),
@@ -933,7 +939,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         }
       })
       await expect(
-        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v5'], {
+        run(['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v6'], {
           ...seams,
           diagnoseA,
           revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
@@ -993,6 +999,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'resource-protected-read',
         'prediagnostic-compiler',
         'prediagnostic-compiler-bytes',
+        'prediagnostic-sdk',
         'diagnostic-child',
         'diagnostic-lifecycle',
         'postcheck-xcrun',
@@ -1031,6 +1038,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       'lastSuccessfulBoundary',
       'status',
     ])
+    expect(JSON.stringify(observed.output)).not.toContain('/fixture')
     vi.unstubAllEnvs()
   })
 
@@ -1067,7 +1075,6 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     'ancestor-symlink',
     'ancestor-owner',
     'ancestor-mode',
-    'sdk-symlink',
     'sdk-owner',
     'sdk-mode',
     'sdk-type',
@@ -1088,6 +1095,50 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     await expect(
       inspectPolicySdkProtectedPathForFixture(null),
     ).resolves.toBeNull()
+    vi.unstubAllEnvs()
+  })
+
+  it.each(['protected-alias', 'protected-absolute-alias'] as const)(
+    'accepts %s only through its canonical SDK target',
+    async (alias) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      await expect(
+        inspectPolicySdkProtectedPathForFixture(alias),
+      ).resolves.toBe('/fixture/sdk-canonical')
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it.each([
+    ['alias-owner', 'sdk-owner'],
+    ['alias-mode', 'sdk-mode'],
+    ['alias-links', 'sdk-link-count'],
+  ] as const)(
+    'classifies protected SDK alias drift %s',
+    async (fault, stop) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      await expect(
+        inspectPolicySdkProtectedPathForFixture(fault),
+      ).resolves.toBe(stop)
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it.each([
+    'alias-target-empty',
+    'alias-target-long',
+    'alias-target-control',
+    'alias-target-drift',
+    'alias-identity-drift',
+    'canonical-owner',
+    'canonical-mode',
+    'canonical-type',
+    'canonical-identity-drift',
+  ] as const)('rejects protected SDK alias drift %s', async (fault) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    await expect(
+      inspectPolicySdkProtectedPathForFixture(fault),
+    ).rejects.toThrow()
     vi.unstubAllEnvs()
   })
 
@@ -1420,6 +1471,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ['resource-protected-read', 'compiler-resource-resolution'],
     ['prediagnostic-compiler', 'toolchain-input-attestation'],
     ['prediagnostic-compiler-bytes', 'toolchain-input-attestation'],
+    ['prediagnostic-sdk', 'toolchain-input-attestation'],
     ['diagnostic-child', 'toolchain-input-attestation'],
     ['diagnostic-lifecycle', 'toolchain-input-attestation'],
     ['postcheck-tracked-source', 'toolchain-input-attestation'],

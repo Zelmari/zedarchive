@@ -27,7 +27,7 @@ import {
 } from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
-const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v5'
+const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v6'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
