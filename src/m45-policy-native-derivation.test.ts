@@ -1108,7 +1108,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         run(
           [
             'diagnose-a-residue',
-            '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+            '--confirm-m45-policy-native-a-residue-diagnostic-v2',
           ],
           { ...seams, diagnoseAResidue },
         ),
@@ -1124,6 +1124,68 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       vi.unstubAllEnvs()
     },
   )
+
+  it('admits only the exact v2 A residue diagnostic grammar', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const setup = () => {
+      const current = fixture({ syntheticLegacy: true })
+      const residue = current.syntheticResidue!
+      const rootEntry = current.entries.get(m45)!
+      rootEntry.entries!.add('.policy-exclusive-promotion.lock')
+      rootEntry.entries!.add('.policy-exclusive-promotion-build')
+      rootEntry.metadata.size = residue.buildResidueRoot.size
+      current.entries.set(`${m45}/.policy-exclusive-promotion.lock`, {
+        metadata: {
+          ...residue.lock,
+          file: true,
+          directory: false,
+          symbolicLink: false,
+        },
+      })
+      return current
+    }
+
+    const accepted = setup()
+    const acceptedSeam = vi.fn(async () => ({ helperExitCode: 0 }))
+    await expect(
+      accepted.run(
+        [
+          'diagnose-a-residue',
+          '--confirm-m45-policy-native-a-residue-diagnostic-v2',
+        ],
+        { ...accepted.seams, diagnoseAResidue: acceptedSeam },
+      ),
+    ).resolves.toMatchObject({ status: 'a-build-residue-diagnosed' })
+    expect(acceptedSeam).toHaveBeenCalledOnce()
+
+    for (const args of [
+      [
+        'diagnose-a-residue',
+        '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+      ],
+      [
+        'diagnose-a-residue',
+        '--confirm-m45-policy-native-a-residue-diagnostic-v2',
+        'extra',
+      ],
+      [
+        'diagnose-a-residue-typo',
+        '--confirm-m45-policy-native-a-residue-diagnostic-v2',
+      ],
+      ['diagnose-a', '--confirm-m45-policy-native-a-residue-diagnostic-v2'],
+    ]) {
+      const rejected = setup()
+      const rejectedSeam = vi.fn(async () => ({ helperExitCode: 0 }))
+      await expect(
+        rejected.run(args, {
+          ...rejected.seams,
+          diagnoseAResidue: rejectedSeam,
+        }),
+      ).rejects.toThrow()
+      expect(rejectedSeam).not.toHaveBeenCalled()
+    }
+    vi.unstubAllEnvs()
+  })
 
   it('rejects A residue diagnosis before the seam on topology or result drift', async () => {
     vi.stubEnv('NODE_ENV', 'test')
@@ -1151,7 +1213,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       wrongTopology.run(
         [
           'diagnose-a-residue',
-          '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+          '--confirm-m45-policy-native-a-residue-diagnostic-v2',
         ],
         { ...wrongTopology.seams, diagnoseAResidue: uncalled },
       ),
@@ -1163,7 +1225,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       wrongResult.run(
         [
           'diagnose-a-residue',
-          '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+          '--confirm-m45-policy-native-a-residue-diagnostic-v2',
         ],
         {
           ...wrongResult.seams,
@@ -3210,6 +3272,46 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(classifierTrackedCheck).not.toMatch(/execFile|\bgit\(/u)
     expect(runner).not.toContain('a-failed-no-authority')
     expect(runner).toContain("| 'a-residue-preserved'")
+    const defaultFilesystemSource = runner.slice(
+      runner.indexOf('function defaultFilesystem'),
+      runner.indexOf('async function defaultTracked'),
+    )
+    expect(defaultFilesystemSource.match(/await open\(/gu)).toHaveLength(5)
+    expect(
+      defaultFilesystemSource.match(/runnerHeldOpenFlags\(/gu),
+    ).toHaveLength(5)
+    for (const family of [
+      'heldDirectory',
+      'withHeldDirectory',
+      'withHeldFile',
+      'withHeldMetadataFile',
+      'chmodHeldDirectory',
+    ]) {
+      const start = defaultFilesystemSource.indexOf(`${family}: async`)
+      expect(start).toBeGreaterThan(-1)
+      const openCall = defaultFilesystemSource.slice(
+        start,
+        defaultFilesystemSource.indexOf('try {', start),
+      )
+      expect(openCall).toContain('runnerHeldOpenFlags(')
+      expect(openCall).not.toContain('fsConstants.O_NOFOLLOW')
+    }
+    const heldFlagBuilder = defaultFilesystemSource.slice(
+      defaultFilesystemSource.indexOf('const runnerHeldOpenFlags'),
+      defaultFilesystemSource.indexOf('const metadata'),
+    )
+    expect(heldFlagBuilder).toContain("process.platform !== 'darwin'")
+    expect(heldFlagBuilder).toContain(
+      'fsConstants.O_NOFOLLOW !== darwinNoFollow',
+    )
+    expect(heldFlagBuilder).toContain('exposedCloseOnExec !== undefined')
+    expect(heldFlagBuilder).toContain(
+      'exposedCloseOnExec !== darwinCloseOnExec',
+    )
+    expect(heldFlagBuilder).toContain(
+      'base | darwinNoFollow | darwinCloseOnExec',
+    )
+    expect(runner).not.toMatch(/export[^\n]*runnerHeldOpenFlags/u)
   })
 
   it('records the staged diagnostic path only as a non-causal hypothesis', async () => {

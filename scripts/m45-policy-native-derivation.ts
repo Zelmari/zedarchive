@@ -30,7 +30,7 @@ import {
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
 const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v10'
 const residueDiagnosticConfirmation =
-  '--confirm-m45-policy-native-a-residue-diagnostic-v1'
+  '--confirm-m45-policy-native-a-residue-diagnostic-v2'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -41,6 +41,8 @@ const candidateName = 'candidate.v1.json'
 const reviewInputName = 'review-input.v1.json'
 const commandLockName = '.policy-exclusive-promotion.lock'
 const buildRootName = '.policy-exclusive-promotion-build'
+const darwinNoFollow = 0x00000100
+const darwinCloseOnExec = 0x01000000
 const preservedSiblings = [
   'candidate-review',
   'discovery',
@@ -999,6 +1001,19 @@ function terminalEvidence(
 }
 
 function defaultFilesystem(): RunnerFilesystem {
+  const runnerHeldOpenFlags = (base: number): number => {
+    const exposedCloseOnExec = (
+      fsConstants as typeof fsConstants & { O_CLOEXEC?: number }
+    ).O_CLOEXEC
+    if (
+      process.platform !== 'darwin' ||
+      fsConstants.O_NOFOLLOW !== darwinNoFollow ||
+      (exposedCloseOnExec !== undefined &&
+        exposedCloseOnExec !== darwinCloseOnExec)
+    )
+      throw new Error('policy-native-file-flags')
+    return base | darwinNoFollow | darwinCloseOnExec
+  }
   const metadata = async (path: string): Promise<Metadata> => {
     const value = await lstat(path)
     return {
@@ -1023,7 +1038,7 @@ function defaultFilesystem(): RunnerFilesystem {
     heldDirectory: async (path) => {
       const handle = await open(
         path,
-        fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
+        runnerHeldOpenFlags(fsConstants.O_RDONLY | fsConstants.O_DIRECTORY),
       )
       try {
         const toMetadata = (
@@ -1050,7 +1065,7 @@ function defaultFilesystem(): RunnerFilesystem {
     withHeldDirectory: async (path, readEntries, postEntries, operation) => {
       const handle = await open(
         path,
-        fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
+        runnerHeldOpenFlags(fsConstants.O_RDONLY | fsConstants.O_DIRECTORY),
       )
       try {
         const toMetadata = (
@@ -1102,10 +1117,7 @@ function defaultFilesystem(): RunnerFilesystem {
       }
     },
     withHeldFile: async (path, expectedSize, operation) => {
-      const handle = await open(
-        path,
-        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
-      )
+      const handle = await open(path, runnerHeldOpenFlags(fsConstants.O_RDONLY))
       try {
         const toMetadata = (
           value: Awaited<ReturnType<typeof handle.stat>>,
@@ -1157,10 +1169,7 @@ function defaultFilesystem(): RunnerFilesystem {
       }
     },
     withHeldMetadataFile: async (path, operation) => {
-      const handle = await open(
-        path,
-        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
-      )
+      const handle = await open(path, runnerHeldOpenFlags(fsConstants.O_RDONLY))
       try {
         const toMetadata = (
           value: Awaited<ReturnType<typeof handle.stat>>,
@@ -1195,7 +1204,7 @@ function defaultFilesystem(): RunnerFilesystem {
     chmodHeldDirectory: async (path, requiredMode, expected) => {
       const handle = await open(
         path,
-        fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
+        runnerHeldOpenFlags(fsConstants.O_RDONLY | fsConstants.O_DIRECTORY),
       )
       try {
         const before = await handle.stat()
