@@ -2520,11 +2520,23 @@ describe('M45 policy baseline filesystem custody', () => {
       'recoverPolicyFdMapScratchForFixture',
       'runPolicyProvisionalBuildA',
       'diagnosePolicyProvisionalABuildResidue',
-      'recoverPolicyProvisionalAFdMapScratch',
-      'diagnosePolicyProvisionalAFdMap',
+      'diagnosePolicyProvisionalAFdMapForFixture',
+      'diagnosePolicyProvisionalAFdMapV2',
       'runPolicyProvisionalBuildB',
       'runPolicyProvisionalBuildC',
     ])
+    expect(nativeAuthority).not.toContain(
+      'export async function recoverPolicyProvisionalAFdMapScratch',
+    )
+    expect(nativeAuthority).toContain(
+      'async function diagnosePolicyProvisionalAFdMapCore',
+    )
+    expect(nativeAuthority).toContain(
+      'export async function diagnosePolicyProvisionalAFdMapForFixture',
+    )
+    expect(nativeAuthority).toContain(
+      'export async function diagnosePolicyProvisionalAFdMapV2',
+    )
     expect(nativeAuthority).not.toMatch(
       /export async function .*?(?:Compiler|Helper|Contender|Cleanup)/u,
     )
@@ -2563,9 +2575,7 @@ describe('M45 policy baseline filesystem custody', () => {
       nativeAuthority.indexOf(
         'export async function diagnosePolicyProvisionalABuildResidue',
       ),
-      nativeAuthority.indexOf(
-        'export async function diagnosePolicyProvisionalAFdMap',
-      ),
+      nativeAuthority.indexOf('type PolicyProvisionalAFdMapResult'),
     )
     expect(residueDiagnosticBridge).toContain(
       'runPolicyNativeToolchainDerivation',
@@ -2829,9 +2839,7 @@ describe('M45 policy baseline filesystem custody', () => {
     const authority = await readFile(policyNativeAuthorityPath, 'utf8')
     const contract = await readFile(policyNativeLaunchContractPath, 'utf8')
     const fdMapBridge = authority.slice(
-      authority.indexOf(
-        'export async function diagnosePolicyProvisionalAFdMap',
-      ),
+      authority.indexOf('async function diagnosePolicyProvisionalAFdMapCore'),
       authority.indexOf('/**\n * Decision 111 B'),
     )
     expect(fdMapBridge).toContain('runFdAdmissionProbeWithCustodyChecks')
@@ -2863,6 +2871,30 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(fdMapBridge).toContain("'probeSourceSha256'")
     expect(fdMapBridge).toContain("'revalidateOuter'")
     expect(fdMapBridge).not.toContain('runPolicyNativeToolchainDerivation')
+    expect(fdMapBridge.indexOf('commandLockCapabilityProbe(')).toBeLessThan(
+      fdMapBridge.indexOf('mkdir(fdAdmissionProbeScratchRoot'),
+    )
+    expect(fdMapBridge.indexOf('openDerivationLock(')).toBeLessThan(
+      fdMapBridge.indexOf('mkdir(fdAdmissionProbeScratchRoot'),
+    )
+    expect(fdMapBridge).toContain("cleanupPhase = 'empty'")
+    expect(fdMapBridge).toContain("cleanupPhase = 'probe'")
+    expect(fdMapBridge).toContain('prepareProbeForUnlink: async () =>')
+    expect(fdMapBridge).toContain('recheckHandle = await open(')
+    expect(fdMapBridge).toContain(
+      'await completeHeldBytes(recheckHandle, probeSize)',
+    )
+    expect(fdMapBridge.indexOf('probeHandle = undefined')).toBeLessThan(
+      fdMapBridge.indexOf('await activeProbeHandle.close()'),
+    )
+    for (const forbiddenMetadataApi of [
+      'getxattr',
+      'listxattr',
+      'removexattr',
+      'ls -@',
+      'ls -e',
+    ])
+      expect(fdMapBridge).not.toContain(forbiddenMetadataApi)
     expect(
       fdMapBridge.indexOf('await commandLockCapabilityProbe'),
     ).toBeLessThan(fdMapBridge.indexOf('await openDerivationLock'))
@@ -2900,37 +2932,66 @@ describe('M45 policy baseline filesystem custody', () => {
 
   it('shares the fail-closed scratch finalization sequence with production', async () => {
     vi.stubEnv('NODE_ENV', 'test')
-    const sequence = [
-      'close-probe',
-      'validate-probe-for-unlink',
+    const probeSequence = [
+      'prepare-probe-for-unlink',
       'unlink-probe',
       'validate-empty-for-removal',
       'close-scratch',
+      'validate-named-empty-for-removal',
+      'remove-scratch',
+      'assert-absent-and-final',
+    ] as const
+    const emptySequence = [
+      'close-probe',
+      'validate-empty-for-removal',
+      'close-scratch',
+      'validate-named-empty-for-removal',
       'remove-scratch',
       'assert-absent-and-final',
     ] as const
     try {
       await expect(
         finalizePolicyFdAdmissionProbeScratchForFixture({
-          cleanupPermitted: true,
+          phase: 'probe',
         }),
-      ).resolves.toEqual(sequence)
+      ).resolves.toEqual(probeSequence)
       await expect(
         finalizePolicyFdAdmissionProbeScratchForFixture({
-          cleanupPermitted: false,
+          phase: 'empty',
+        }),
+      ).resolves.toEqual(emptySequence)
+      await expect(
+        finalizePolicyFdAdmissionProbeScratchForFixture({
+          phase: 'none',
         }),
       ).resolves.toEqual(['close-probe'])
+      const noneFailureEvents: string[] = []
+      await expect(
+        finalizePolicyFdAdmissionProbeScratchForFixture({
+          phase: 'none',
+          failAt: 'close-probe',
+          onEvent: (event) => noneFailureEvents.push(event),
+        }),
+      ).rejects.toThrow('fixture-failure')
+      expect(noneFailureEvents).toEqual(['close-probe'])
+      expect(noneFailureEvents).not.toContain('unlink-probe')
+      expect(noneFailureEvents).not.toContain('remove-scratch')
 
-      for (const [index, failAt] of sequence.entries()) {
-        const events: string[] = []
-        await expect(
-          finalizePolicyFdAdmissionProbeScratchForFixture({
-            cleanupPermitted: true,
-            failAt,
-            onEvent: (event) => events.push(event),
-          }),
-        ).rejects.toThrow('fixture-failure')
-        expect(events).toEqual(sequence.slice(0, index + 1))
+      for (const [phase, sequence] of [
+        ['probe', probeSequence],
+        ['empty', emptySequence],
+      ] as const) {
+        for (const [index, failAt] of sequence.entries()) {
+          const events: string[] = []
+          await expect(
+            finalizePolicyFdAdmissionProbeScratchForFixture({
+              phase,
+              failAt,
+              onEvent: (event) => events.push(event),
+            }),
+          ).rejects.toThrow('fixture-failure')
+          expect(events).toEqual(sequence.slice(0, index + 1))
+        }
       }
     } finally {
       vi.unstubAllEnvs()
@@ -3145,60 +3206,16 @@ describe('M45 policy baseline filesystem custody', () => {
     }
   })
 
-  it('keeps FD-map scratch recovery fixed, zero-child, and cleanup-narrow', async () => {
+  it('removes fixed-path recovery while retaining only injected recovery fixtures', async () => {
     const authority = await readFile(policyNativeAuthorityPath, 'utf8')
-    const recovery = authority.slice(
-      authority.indexOf(
-        'export async function recoverPolicyProvisionalAFdMapScratch',
-      ),
-      authority.indexOf(
-        "/**\n * Decision 131's historical diagnostic remains available",
-      ),
+    expect(authority).not.toContain('recoverPolicyProvisionalAFdMapScratchCore')
+    expect(authority).not.toContain(
+      'export async function recoverPolicyProvisionalAFdMapScratch',
     )
-    expect(recovery).toContain("const parentPath = '/private/tmp'")
-    expect(recovery).toContain('fdAdmissionProbeScratchRoot')
-    expect(recovery).toContain('assertFdMapRecoveryDirectorySnapshot')
-    expect(recovery).toContain('await recoverFdMapScratch')
-    expect(recovery).toContain('rmdir(fdAdmissionProbeScratchRoot)')
-    expect(recovery.indexOf('scratchHandle = undefined')).toBeLessThan(
-      recovery.indexOf('await activeScratch.close()'),
+    expect(authority).toContain(
+      'export async function recoverPolicyFdMapScratchForFixture',
     )
-    expect(recovery).toContain('await openDerivationLock')
-    expect(recovery).toContain('await validateNamedLock')
-    expect(recovery).toContain('await closeDerivationLock')
-    const inventory = authority.slice(
-      authority.indexOf('async function readFdMapRecoveryInventory'),
-      authority.indexOf(
-        'export function assertPolicyFdMapRecoveryDirectorySnapshotForFixture',
-      ),
-    )
-    expect(inventory).toContain('await opendir(fdAdmissionProbeScratchRoot)')
-    expect(inventory).toContain('await directory.read()')
-    expect(inventory).not.toContain('readdir(')
-    for (const forbidden of [
-      'broker.',
-      'commandLockCapabilityProbe',
-      'runAcceptedHelper',
-      'runPolicyFdAdmissionProbeToolchainDerivation',
-      'runFdAdmissionProbeCompiler',
-      'runXcrun',
-      'execFile',
-      'spawn',
-      'child_process',
-      'runPolicyProvisionalBuildA',
-      'runPolicyProvisionalBuildB',
-      'runPolicyProvisionalBuildC',
-      'unlink(',
-      'mkdir(',
-      'chmod(',
-      'rename(',
-      'writeFile(',
-      'provider',
-      'database',
-      'uuid',
-      'release',
-    ])
-      expect(recovery).not.toContain(forbidden)
+    expect(authority).toContain('async function recoverFdMapScratch(')
   })
 
   it('binds the FD-admission compiler capability to the exact probe build plan', () => {

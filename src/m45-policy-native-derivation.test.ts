@@ -590,7 +590,7 @@ function fixture(
     deriveB: vi.fn(),
     diagnoseA: vi.fn(),
     diagnoseAResidue: vi.fn(),
-    recoverAFdMapScratch: vi.fn(),
+    diagnoseAFdMap: vi.fn(),
   }
   const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
   const run = (
@@ -1238,7 +1238,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     vi.unstubAllEnvs()
   })
 
-  it('admits only the exact v1 FD-map scratch recovery grammar and closed projection', async () => {
+  it('admits only the exact v2 FD-map diagnostic grammar and closed projection', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     const setup = () => {
       const current = fixture({ syntheticLegacy: true })
@@ -1260,35 +1260,31 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     const accepted = setup()
     const seam = vi.fn(
       async (
-        input: Parameters<
-          PolicyNativeDerivationSeams['recoverAFdMapScratch']
-        >[0],
+        input: Parameters<PolicyNativeDerivationSeams['diagnoseAFdMap']>[0],
       ) => {
         await input.revalidateOuter()
-        return { scratchRecovered: true as const }
+        return Object.freeze({ fdMapStatus: 'exact' as const })
       },
     )
-    const recoveryResult = await accepted.run(
+    const diagnosticResult = await accepted.run(
       [
-        'recover-a-fd-map-scratch',
-        '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
       ],
-      { ...accepted.seams, recoverAFdMapScratch: seam },
+      { ...accepted.seams, diagnoseAFdMap: seam },
     )
-    expect(recoveryResult).toEqual({
-      mode: 'recover-a-fd-map-scratch',
-      status: 'a-fd-map-scratch-recovered',
+    expect(diagnosticResult).toEqual({
+      mode: 'diagnose-a-fd-map',
+      status: 'a-fd-map-diagnosed',
+      fdMapStatus: 'exact',
       commitments: tracked,
     })
+    expect(Object.isFrozen(diagnosticResult)).toBe(true)
     expect(seam).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         repositoryRoot: root,
         nativeAuthoritySha256: tracked.nativeAuthoritySha256,
-        scratchUid: 501,
-        scratchDevice: 16777231,
-        scratchInode: 13940765,
-        scratchMode: 0o700,
-        scratchLinks: 2,
+        probeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
       }),
     )
     expect(Object.keys(seam.mock.calls[0]![0]).sort()).toEqual(
@@ -1298,29 +1294,64 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         'repositoryRoot',
         'revalidateOuter',
         'rootNonceSha256',
-        'scratchDevice',
-        'scratchInode',
-        'scratchLinks',
-        'scratchMode',
-        'scratchUid',
+        'probeSourceSha256',
       ].sort(),
     )
 
+    for (const fdMapStatus of [
+      'fd3-invalid',
+      'unexpected-fd',
+      'open-max-invalid',
+      'scan-indeterminate',
+    ] as const) {
+      const current = setup()
+      const result = await current.run(
+        [
+          'diagnose-a-fd-map',
+          '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+        ],
+        {
+          ...current.seams,
+          diagnoseAFdMap: vi.fn(async () => Object.freeze({ fdMapStatus })),
+        },
+      )
+      expect(Object.keys(result)).toEqual([
+        'mode',
+        'status',
+        'fdMapStatus',
+        'commitments',
+      ])
+      expect(result.fdMapStatus).toBe(fdMapStatus)
+    }
+
     for (const result of [
-      { scratchRecovered: false },
-      { scratchRecovered: true, extra: true },
-      {},
+      Object.freeze({ fdMapStatus: 'unknown' }),
+      Object.freeze({ fdMapStatus: 'exact', extra: true }),
+      Object.freeze({}),
+      Object.freeze(
+        Object.defineProperty({}, 'fdMapStatus', {
+          value: 'exact',
+          enumerable: false,
+        }),
+      ),
+      Object.freeze({
+        get fdMapStatus() {
+          throw new Error('accessor-read')
+        },
+      }),
+      Object.freeze({ fdMapStatus: 'exact', [Symbol('extra')]: true }),
+      new Proxy(Object.freeze({ fdMapStatus: 'exact' }), {}),
     ]) {
       const wrongResult = setup()
       await expect(
         wrongResult.run(
           [
-            'recover-a-fd-map-scratch',
-            '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+            'diagnose-a-fd-map',
+            '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
           ],
           {
             ...wrongResult.seams,
-            recoverAFdMapScratch: vi.fn(async () => result) as never,
+            diagnoseAFdMap: vi.fn(async () => result) as never,
           },
         ),
       ).rejects.toThrow()
@@ -1329,25 +1360,23 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     for (const driftAt of [1, 2, 3]) {
       const drift = setup()
       let trackedChecks = 0
-      const recovery = vi.fn(
+      const diagnostic = vi.fn(
         async (
-          input: Parameters<
-            PolicyNativeDerivationSeams['recoverAFdMapScratch']
-          >[0],
+          input: Parameters<PolicyNativeDerivationSeams['diagnoseAFdMap']>[0],
         ) => {
           await input.revalidateOuter()
-          return { scratchRecovered: true as const }
+          return Object.freeze({ fdMapStatus: 'exact' as const })
         },
       )
       await expect(
         drift.run(
           [
-            'recover-a-fd-map-scratch',
-            '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+            'diagnose-a-fd-map',
+            '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
           ],
           {
             ...drift.seams,
-            recoverAFdMapScratch: recovery,
+            diagnoseAFdMap: diagnostic,
             revalidateTracked: vi.fn(async (_root, expected) => {
               trackedChecks += 1
               return trackedChecks === driftAt
@@ -1357,17 +1386,13 @@ describe('Decisions 115–116 native policy derivation runner', () => {
           },
         ),
       ).rejects.toThrow()
-      expect(recovery).toHaveBeenCalledTimes(driftAt === 1 ? 0 : 1)
+      expect(diagnostic).toHaveBeenCalledTimes(driftAt === 1 ? 0 : 1)
     }
 
     for (const args of [
       [
         'diagnose-a-fd-map',
         '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
-      ],
-      [
-        'diagnose-a-fd-map',
-        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
       ],
       [
         'diagnose-a-fd-map',
@@ -1388,11 +1413,13 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       ],
     ]) {
       const rejected = setup()
-      const uncalled = vi.fn(async () => ({ scratchRecovered: true as const }))
+      const uncalled = vi.fn(async () =>
+        Object.freeze({ fdMapStatus: 'exact' as const }),
+      )
       await expect(
         rejected.run(args, {
           ...rejected.seams,
-          recoverAFdMapScratch: uncalled,
+          diagnoseAFdMap: uncalled,
         }),
       ).rejects.toThrow()
       expect(uncalled).not.toHaveBeenCalled()
@@ -1400,7 +1427,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     vi.unstubAllEnvs()
   })
 
-  it('retires the exact D131 v1 argv before every default or injected boundary', async () => {
+  it('retires both consumed FD-map literals before every default or injected boundary', async () => {
     const argv = [
       'diagnose-a-fd-map',
       '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
@@ -1408,6 +1435,50 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     await expect(runPolicyNativeDerivationCommand(argv)).rejects.toThrow(
       'arguments',
     )
+    const overrideRead = vi.fn()
+    const guardedOverrides = Object.defineProperty({}, 'tracked', {
+      enumerable: true,
+      get: overrideRead,
+    }) as Partial<PolicyNativeDerivationSeams>
+    await expect(
+      runPolicyNativeDerivationCommand(argv, guardedOverrides),
+    ).rejects.toThrow('arguments')
+    expect(overrideRead).not.toHaveBeenCalled()
+
+    const accessorRead = vi.fn(() => 'diagnose-a-fd-map')
+    const accessorArgv = [
+      'diagnose-a-fd-map',
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+    ]
+    Object.defineProperty(accessorArgv, '0', {
+      enumerable: true,
+      configurable: true,
+      get: accessorRead,
+    })
+    await expect(
+      runPolicyNativeDerivationCommand(accessorArgv),
+    ).rejects.toThrow('arguments')
+    expect(accessorRead).not.toHaveBeenCalled()
+
+    const sparseArgv = new Array<string>(2)
+    sparseArgv[0] = 'diagnose-a-fd-map'
+    await expect(runPolicyNativeDerivationCommand(sparseArgv)).rejects.toThrow(
+      'arguments',
+    )
+    const proxyRead = vi.fn(() => {
+      throw new Error('proxy-read')
+    })
+    const proxiedArgv = new Proxy(
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+      ],
+      { get: proxyRead },
+    )
+    await expect(runPolicyNativeDerivationCommand(proxiedArgv)).rejects.toThrow(
+      'arguments',
+    )
+    expect(proxyRead).not.toHaveBeenCalled()
     const runner = await readFile(
       new URL('../scripts/m45-policy-native-derivation.ts', import.meta.url),
       'utf8',
@@ -1419,8 +1490,11 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(runner).not.toContain(
       '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
     )
-    expect(grammar).toContain('fdMapScratchRecoveryConfirmation')
+    expect(grammar).toContain('fdMapDiagnosticConfirmation')
     expect(runner).toContain(
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+    )
+    expect(runner).not.toContain(
       '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
     )
     const command = runner.slice(
@@ -1435,7 +1509,9 @@ describe('Decisions 115–116 native policy derivation runner', () => {
 
     vi.stubEnv('NODE_ENV', 'test')
     const rejected = fixture({ syntheticLegacy: true })
-    const recovery = vi.fn(async () => ({ scratchRecovered: true as const }))
+    const diagnostic = vi.fn(async () =>
+      Object.freeze({ fdMapStatus: 'exact' as const }),
+    )
     const heldDirectory = vi.spyOn(rejected.filesystem, 'withHeldDirectory')
     const heldFile = vi.spyOn(rejected.filesystem, 'withHeldFile')
     const heldMetadataFile = vi.spyOn(
@@ -1446,7 +1522,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       await expect(
         rejected.run(argv, {
           ...rejected.seams,
-          recoverAFdMapScratch: recovery,
+          diagnoseAFdMap: diagnostic,
         }),
       ).rejects.toThrow('arguments')
       for (const boundary of [
@@ -1458,7 +1534,7 @@ describe('Decisions 115–116 native policy derivation runner', () => {
         heldMetadataFile,
         rejected.seams.tracked,
         rejected.seams.revalidateTracked,
-        recovery,
+        diagnostic,
       ])
         expect(boundary).not.toHaveBeenCalled()
     } finally {
@@ -2037,6 +2113,38 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     ).resolves.toBe(1)
     expect(write).toHaveBeenCalledExactlyOnceWith(
       '{"mode":"diagnose-a-fd-map","status":"stopped"}\n',
+    )
+    write.mockRestore()
+  })
+
+  it('projects consumed recovery and accessor argv without rereading input', async () => {
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    await expect(
+      executePolicyNativeDerivationCli([
+        'recover-a-fd-map-scratch',
+        '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1',
+      ]),
+    ).resolves.toBe(1)
+    expect(write).toHaveBeenLastCalledWith(
+      '{"mode":"unknown","status":"stopped"}\n',
+    )
+
+    const accessorRead = vi.fn(() => 'diagnose-a-fd-map')
+    const argv = [
+      'diagnose-a-fd-map',
+      '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+    ]
+    Object.defineProperty(argv, '0', {
+      enumerable: true,
+      configurable: true,
+      get: accessorRead,
+    })
+    await expect(executePolicyNativeDerivationCli(argv)).resolves.toBe(1)
+    expect(accessorRead).not.toHaveBeenCalled()
+    expect(write).toHaveBeenLastCalledWith(
+      '{"mode":"unknown","status":"stopped"}\n',
     )
     write.mockRestore()
   })

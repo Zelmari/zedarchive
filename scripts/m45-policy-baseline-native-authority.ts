@@ -5,7 +5,6 @@ import {
   lstat,
   mkdir,
   open,
-  opendir,
   readFile,
   readlink,
   realpath,
@@ -4798,13 +4797,16 @@ async function runFdAdmissionProbeWithCustodyChecks(
 
 type FdAdmissionProbeScratchFinalization = Readonly<{
   closeProbe: () => Promise<void>
-  validateProbeForUnlink: () => Promise<void>
+  prepareProbeForUnlink: () => Promise<void>
   unlinkProbe: () => Promise<void>
   validateEmptyForRemoval: () => Promise<void>
   closeScratch: () => Promise<void>
+  validateNamedEmptyForRemoval: () => Promise<void>
   removeScratch: () => Promise<void>
   assertAbsentAndFinal: () => Promise<void>
 }>
+
+type FdAdmissionProbeCleanupPhase = 'none' | 'empty' | 'probe'
 
 type FdAdmissionProbeSnapshotMetadata = Readonly<{
   kind: 'directory' | 'file' | 'other'
@@ -4918,21 +4920,28 @@ export function assertPolicyFdAdmissionProbeFileSnapshotForFixture(
 }
 
 async function finalizeFdAdmissionProbeScratch(
-  cleanupPermitted: boolean,
+  phase: FdAdmissionProbeCleanupPhase,
   operations: FdAdmissionProbeScratchFinalization,
 ): Promise<void> {
-  await operations.closeProbe()
-  if (!cleanupPermitted) return
-  await operations.validateProbeForUnlink()
-  await operations.unlinkProbe()
+  if (phase === 'none') {
+    await operations.closeProbe()
+    return
+  }
+  if (phase === 'probe') {
+    await operations.prepareProbeForUnlink()
+    await operations.unlinkProbe()
+  } else {
+    await operations.closeProbe()
+  }
   await operations.validateEmptyForRemoval()
   await operations.closeScratch()
+  await operations.validateNamedEmptyForRemoval()
   await operations.removeScratch()
   await operations.assertAbsentAndFinal()
 }
 
 export async function finalizePolicyFdAdmissionProbeScratchForFixture(input: {
-  cleanupPermitted: boolean
+  phase: FdAdmissionProbeCleanupPhase
   failAt?: string
   onEvent?: (name: string) => void
 }): Promise<readonly string[]> {
@@ -4944,12 +4953,13 @@ export async function finalizePolicyFdAdmissionProbeScratchForFixture(input: {
     input.onEvent?.(name)
     if (input.failAt === name) throw new Error('fixture-failure')
   }
-  await finalizeFdAdmissionProbeScratch(input.cleanupPermitted, {
+  await finalizeFdAdmissionProbeScratch(input.phase, {
     closeProbe: operation('close-probe'),
-    validateProbeForUnlink: operation('validate-probe-for-unlink'),
+    prepareProbeForUnlink: operation('prepare-probe-for-unlink'),
     unlinkProbe: operation('unlink-probe'),
     validateEmptyForRemoval: operation('validate-empty-for-removal'),
     closeScratch: operation('close-scratch'),
+    validateNamedEmptyForRemoval: operation('validate-named-empty-for-removal'),
     removeScratch: operation('remove-scratch'),
     assertAbsentAndFinal: operation('assert-absent-and-final'),
   })
@@ -5091,15 +5101,6 @@ async function recoverFdMapScratch(
     failure ??= error
   }
   if (failure !== undefined) throw failure
-}
-
-async function readFdMapRecoveryInventory(): Promise<readonly string[]> {
-  const directory = await opendir(fdAdmissionProbeScratchRoot)
-  try {
-    return (await directory.read()) === null ? [] : ['entry-present']
-  } finally {
-    await directory.close()
-  }
 }
 
 export function assertPolicyFdMapRecoveryDirectorySnapshotForFixture(
@@ -5828,311 +5829,19 @@ export async function diagnosePolicyProvisionalABuildResidue(
   }
 }
 
-/** Decision 132 removes only the exact, empty, recorded diagnostic scratch. */
-export async function recoverPolicyProvisionalAFdMapScratch(
+type PolicyProvisionalAFdMapResult = Readonly<{
+  fdMapStatus:
+    | 'exact'
+    | 'fd3-invalid'
+    | 'unexpected-fd'
+    | 'open-max-invalid'
+    | 'scan-indeterminate'
+}>
+
+/** Shared D131/D140 diagnostic mechanics; wrappers own production branding. */
+async function diagnosePolicyProvisionalAFdMapCore(
   input: unknown,
-): Promise<Readonly<{ scratchRecovered: true }>> {
-  exactObject(input, fdMapRecoveryRequestKeys)
-  const repositoryRoot = safeRoot(input.repositoryRoot)
-  const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
-  sha256(input.rootNonceSha256)
-  const expectedLock = reentryLockIdentity(input.commandLock)
-  assertFdMapRecoveryScratchIdentity({
-    scratchUid: input.scratchUid,
-    scratchDevice: input.scratchDevice,
-    scratchInode: input.scratchInode,
-    scratchMode: input.scratchMode,
-    scratchLinks: input.scratchLinks,
-  })
-  if (expectedLock === null || typeof input.revalidateOuter !== 'function')
-    throw new Error('policy-native-authority')
-  const revalidateOuter = input.revalidateOuter as () => Promise<void>
-  if (hash(await readFile(nativeAuthorityPath)) !== nativeAuthoritySha256)
-    throw new Error('policy-native-authority')
-
-  const buildPath = join(
-    repositoryRoot,
-    '.local/m45/.policy-exclusive-promotion-build',
-  )
-  const sourcePath = join(buildPath, 'exclusive-promotion-helper.c')
-  const helperPath = join(buildPath, 'exclusive-promotion-helper')
-  const tmpPath = join(buildPath, 'tmp')
-  const parentPath = '/private/tmp'
-  let residueHandles: readonly FileHandle[] | undefined
-  let parentHandle: FileHandle | undefined
-  let scratchHandle: FileHandle | undefined
-  let custody: Awaited<ReturnType<typeof openDerivationLock>> | undefined
-
-  const validateResidue = async () => {
-    if (residueHandles === undefined) {
-      const opened: FileHandle[] = []
-      try {
-        for (const [path, flags] of [
-          [
-            buildPath,
-            fsConstants.O_RDONLY |
-              fsConstants.O_DIRECTORY |
-              darwinFlags.noFollow |
-              darwinFlags.closeOnExec,
-          ],
-          [
-            sourcePath,
-            fsConstants.O_RDONLY |
-              darwinFlags.noFollow |
-              darwinFlags.closeOnExec,
-          ],
-          [
-            helperPath,
-            fsConstants.O_RDONLY |
-              darwinFlags.noFollow |
-              darwinFlags.closeOnExec,
-          ],
-          [
-            tmpPath,
-            fsConstants.O_RDONLY |
-              fsConstants.O_DIRECTORY |
-              darwinFlags.noFollow |
-              darwinFlags.closeOnExec,
-          ],
-        ] as const)
-          opened.push(await open(path, flags))
-        residueHandles = Object.freeze(opened)
-      } catch (error) {
-        await Promise.allSettled(opened.map((handle) => handle.close()))
-        throw error
-      }
-    }
-    const handles = residueHandles
-    const [
-      build,
-      source,
-      helper,
-      tmp,
-      namedBuild,
-      namedSource,
-      namedHelper,
-      namedTmp,
-      buildEntries,
-      tmpEntries,
-    ] = await Promise.all([
-      handles[0].stat(),
-      handles[1].stat(),
-      handles[2].stat(),
-      handles[3].stat(),
-      lstat(buildPath),
-      lstat(sourcePath),
-      lstat(helperPath),
-      lstat(tmpPath),
-      readdir(buildPath).then((entries) => entries.sort()),
-      readdir(tmpPath).then((entries) => entries.sort()),
-    ])
-    const metadata = {
-      expectedUid: expectedLock.uid,
-      held: {
-        build: provisionalABuildResidueEntry(build),
-        source: provisionalABuildResidueEntry(source),
-        helper: provisionalABuildResidueEntry(helper),
-        tmp: provisionalABuildResidueEntry(tmp),
-      },
-      named: {
-        build: provisionalABuildResidueEntry(namedBuild),
-        source: provisionalABuildResidueEntry(namedSource),
-        helper: provisionalABuildResidueEntry(namedHelper),
-        tmp: provisionalABuildResidueEntry(namedTmp),
-      },
-      buildEntries,
-      tmpEntries,
-    }
-    await assertExactPolicyProvisionalABuildResidueWithReaders(
-      metadata,
-      async (size) => hash(await completeHeldBytes(handles[1], size)),
-      async (size) => hash(await completeHeldBytes(handles[2], size)),
-    )
-  }
-
-  const validateParent = async () => {
-    if (parentHandle === undefined) throw new Error('policy-native-authority')
-    const [held, named] = await Promise.all([
-      parentHandle.stat(),
-      lstat(parentPath),
-    ])
-    for (const metadata of [held, named])
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        metadata.uid !== fdMapRecoveryParent.uid ||
-        metadata.dev !== fdMapRecoveryParent.dev ||
-        metadata.ino !== fdMapRecoveryParent.ino ||
-        (Number(metadata.mode) & 0o7777) !== fdMapRecoveryParent.mode
-      )
-        throw new Error('policy-native-authority')
-  }
-
-  const directoryIdentity = async (): Promise<
-    Omit<FdMapRecoveryDirectorySnapshot, 'entries'>
-  > => {
-    if (parentHandle === undefined || scratchHandle === undefined)
-      throw new Error('policy-native-authority')
-    const [parentHeld, parentNamed, scratchHeld, scratchNamed] =
-      await Promise.all([
-        parentHandle.stat(),
-        lstat(parentPath),
-        scratchHandle.stat(),
-        lstat(fdAdmissionProbeScratchRoot),
-      ])
-    return {
-      parentHeld: fdAdmissionProbeSnapshotMetadata(parentHeld),
-      parentNamed: fdAdmissionProbeSnapshotMetadata(parentNamed),
-      scratchHeld: fdAdmissionProbeSnapshotMetadata(scratchHeld),
-      scratchNamed: fdAdmissionProbeSnapshotMetadata(scratchNamed),
-    }
-  }
-
-  const validateLock = async () => {
-    if (custody === undefined) throw new Error('policy-native-authority')
-    await validateNamedLock(custody.lock, custody.lockPath, custody.identity)
-  }
-
-  const validateCompleteHeldState = async () => {
-    await revalidateOuter()
-    await validateResidue()
-    await validateLock()
-    assertFdMapRecoveryDirectoryIdentity(await directoryIdentity())
-  }
-
-  await recoverFdMapScratch({
-    admit: async () => {
-      await revalidateOuter()
-      await validateResidue()
-      const repository = await lstat(repositoryRoot)
-      if (repository.dev !== fdMapRecoveryParent.dev)
-        throw new Error('policy-native-authority')
-    },
-    openLock: async () => {
-      custody = await openDerivationLock(repositoryRoot, expectedLock)
-    },
-    validateLockAfterOpen: validateLock,
-    openParent: async () => {
-      parentHandle = await open(
-        parentPath,
-        fsConstants.O_RDONLY |
-          fsConstants.O_DIRECTORY |
-          darwinFlags.noFollow |
-          darwinFlags.closeOnExec,
-      )
-    },
-    validateParentAfterOpen: validateParent,
-    openScratch: async () => {
-      scratchHandle = await open(
-        fdAdmissionProbeScratchRoot,
-        fsConstants.O_RDONLY |
-          fsConstants.O_DIRECTORY |
-          darwinFlags.noFollow |
-          darwinFlags.closeOnExec,
-      )
-    },
-    validateBeforeFirstInventory: validateCompleteHeldState,
-    enumerateFirst: readFdMapRecoveryInventory,
-    validateFirstSnapshot: async (entries) => {
-      assertFdMapRecoveryDirectorySnapshot({
-        ...(await directoryIdentity()),
-        entries,
-      })
-    },
-    validateBeforeSecondInventory: validateCompleteHeldState,
-    enumerateSecond: readFdMapRecoveryInventory,
-    validateSecondSnapshot: async (entries) => {
-      assertFdMapRecoveryDirectorySnapshot({
-        ...(await directoryIdentity()),
-        entries,
-      })
-    },
-    validateImmediatelyBeforeClose: validateCompleteHeldState,
-    closeScratch: async () => {
-      const activeScratch = scratchHandle
-      scratchHandle = undefined
-      if (activeScratch === undefined)
-        throw new Error('policy-native-authority')
-      await activeScratch.close()
-    },
-    validateBeforeRemoval: async () => {
-      await revalidateOuter()
-      await validateResidue()
-      await validateLock()
-      await validateParent()
-      const named = fdAdmissionProbeSnapshotMetadata(
-        await lstat(fdAdmissionProbeScratchRoot),
-      )
-      if (
-        named.kind !== 'directory' ||
-        named.uid !== fdMapRecoveryScratch.uid ||
-        named.dev !== fdMapRecoveryScratch.dev ||
-        named.ino !== fdMapRecoveryScratch.ino ||
-        named.mode !== fdMapRecoveryScratch.mode ||
-        named.nlink !== fdMapRecoveryScratch.nlink
-      )
-        throw new Error('policy-native-authority')
-    },
-    removeScratch: async () => rmdir(fdAdmissionProbeScratchRoot),
-    assertAbsent: async () => {
-      try {
-        await lstat(fdAdmissionProbeScratchRoot)
-        throw new Error('policy-native-authority')
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      }
-    },
-    validateFinal: async () => {
-      await revalidateOuter()
-      await validateResidue()
-      await validateLock()
-      await validateParent()
-    },
-    closeResources: async () => {
-      let failure: unknown
-      const handles = [
-        scratchHandle,
-        parentHandle,
-        ...(residueHandles === undefined ? [] : [...residueHandles].reverse()),
-      ]
-      scratchHandle = undefined
-      parentHandle = undefined
-      residueHandles = undefined
-      for (const handle of handles) {
-        if (handle === undefined) continue
-        try {
-          await handle.close()
-        } catch (error) {
-          failure ??= error
-        }
-      }
-      if (failure !== undefined) throw failure
-    },
-    closeLock: async () => {
-      const activeCustody = custody
-      custody = undefined
-      if (activeCustody !== undefined) await closeDerivationLock(activeCustody)
-    },
-  })
-  return Object.freeze({ scratchRecovered: true as const })
-}
-
-/**
- * Decision 131's historical diagnostic remains available only to direct
- * test-gated fixtures; the public runner grammar no longer dispatches here.
- */
-export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
-  Readonly<{
-    fdMapStatus:
-      | 'exact'
-      | 'fd3-invalid'
-      | 'unexpected-fd'
-      | 'open-max-invalid'
-      | 'scan-indeterminate'
-  }>
-> {
-  if (process.env.NODE_ENV !== 'test')
-    throw new Error('policy-native-authority')
+): Promise<PolicyProvisionalAFdMapResult> {
   exactObject(input, [
     'repositoryRoot',
     'nativeAuthoritySha256',
@@ -6253,14 +5962,17 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
   let probeHandle: FileHandle | undefined
   let probeSourceHandle: FileHandle | undefined
   let custody: Awaited<ReturnType<typeof openDerivationLock>> | undefined
-  let created = false
-  let operationFailure: unknown
+  let cleanupPhase: FdAdmissionProbeCleanupPhase = 'none'
   let parentIdentity: Readonly<{ dev: number; ino: number }> | undefined
   let scratchIdentity: Readonly<{ dev: number; ino: number }> | undefined
   let probeIdentity: Readonly<{ dev: number; ino: number }> | undefined
+  let probeSize: number | undefined
+  let admittedProbeSha256: string | undefined
   let revalidateBoundary:
     ((expectedEntries: readonly string[]) => Promise<void>) | undefined
   let revalidateTrackedSource: (() => Promise<void>) | undefined
+  let revalidateHeldParent: (() => Promise<void>) | undefined
+  let revalidateAdmittedProbe: (() => Promise<void>) | undefined
   try {
     // The retained D129 tuple is admitted before this diagnostic creates even
     // its disposable scratch directory.
@@ -6377,19 +6089,40 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
       )
         throw new Error('policy-native-authority')
     }
+    revalidateHeldParent = revalidateParent
     await revalidateParent()
-    try {
-      await lstat(fdAdmissionProbeScratchRoot)
-      throw new Error('policy-native-authority')
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    const assertScratchAbsent = async () => {
+      try {
+        await lstat(fdAdmissionProbeScratchRoot)
+        throw new Error('policy-native-authority')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
     }
-    await revalidateOuter()
-    await validateResidue()
-    await revalidateProbeSource()
-    await revalidateParent()
+    const beforeScratchCreation = async () => {
+      await revalidateOuter()
+      await validateResidue()
+      await revalidateProbeSource()
+      await revalidateParent()
+      await assertScratchAbsent()
+      if (custody !== undefined)
+        await validateNamedLock(
+          custody.lock,
+          custody.lockPath,
+          custody.identity,
+        )
+    }
+    await beforeScratchCreation()
+    await commandLockCapabilityProbe(
+      repositoryRoot,
+      hash(workerBytes),
+      expectedLock,
+      beforeScratchCreation,
+    )
+    custody = await openDerivationLock(repositoryRoot, expectedLock)
+    const activeCustody = custody
+    await beforeScratchCreation()
     await mkdir(fdAdmissionProbeScratchRoot, { mode: 0o700 })
-    created = true
     scratchHandle = await open(
       fdAdmissionProbeScratchRoot,
       fsConstants.O_RDONLY |
@@ -6432,14 +6165,7 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
     if (activeRevalidateBoundary === undefined)
       throw new Error('policy-native-authority')
     await activeRevalidateBoundary([])
-    await commandLockCapabilityProbe(
-      repositoryRoot,
-      hash(workerBytes),
-      expectedLock,
-      beforeEmptyChild,
-    )
-    custody = await openDerivationLock(repositoryRoot, expectedLock)
-    const activeCustody = custody
+    cleanupPhase = 'empty'
     await beforeEmptyChild()
     const authority = await runPolicyFdAdmissionProbeToolchainDerivation({
       repositoryRoot,
@@ -6522,6 +6248,8 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
       await completeHeldBytes(probeHandle, probeBefore.size),
     )
     probeIdentity = { dev: probeBefore.dev, ino: probeBefore.ino }
+    probeSize = probeBefore.size
+    admittedProbeSha256 = probeSha256
     const revalidate = async () => {
       const [sourceAfter, sourceNamedAfter, probeAfter, namedAfter] =
         await Promise.all([
@@ -6553,8 +6281,10 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
         expectedSha256: probeSha256,
       })
     }
+    revalidateAdmittedProbe = revalidate
     await beforeProbeBoundary()
     await revalidate()
+    cleanupPhase = 'probe'
     const result = await runFdAdmissionProbeWithCustodyChecks(
       activeCustody,
       { repositoryRoot, probePath, probeSha256 },
@@ -6584,196 +6314,304 @@ export async function diagnosePolicyProvisionalAFdMap(input: unknown): Promise<
     await revalidate()
     await validateResidue()
     return Object.freeze({ fdMapStatus })
-  } catch (error) {
-    operationFailure = error
-    throw error
   } finally {
     let failure: unknown
     try {
-      await finalizeFdAdmissionProbeScratch(
-        created && operationFailure === undefined,
-        {
-          closeProbe: async () => {
-            if (probeHandle === undefined) return
-            await probeHandle.close()
-            probeHandle = undefined
-          },
-          validateProbeForUnlink: async () => {
-            const activeScratchHandle = scratchHandle
-            if (activeScratchHandle === undefined)
-              throw new Error('policy-native-authority')
-            const finalRevalidateBoundary = revalidateBoundary
-            if (finalRevalidateBoundary === undefined)
-              throw new Error('policy-native-authority')
-            const expectedParentIdentity = parentIdentity
-            const expectedScratchIdentity = scratchIdentity
-            if (
-              expectedParentIdentity === undefined ||
-              expectedScratchIdentity === undefined
-            )
-              throw new Error('policy-native-authority')
-            await finalRevalidateBoundary(['probe'])
-            const [parentAfter, scratchHeld, scratchNamed] = await Promise.all([
-              parentHandle!.stat(),
-              activeScratchHandle.stat(),
-              lstat(fdAdmissionProbeScratchRoot),
-            ])
-            if (
-              parentIdentity === undefined ||
-              parentAfter.dev !== parentIdentity.dev ||
-              parentAfter.ino !== parentIdentity.ino ||
-              scratchIdentity === undefined ||
-              !scratchHeld.isDirectory() ||
-              scratchHeld.uid !== expectedLock.uid ||
-              scratchHeld.dev !== parentAfter.dev ||
-              scratchHeld.ino !== scratchIdentity.ino ||
-              (scratchHeld.mode & 0o7777) !== 0o700 ||
-              scratchHeld.nlink !== 2 ||
-              scratchNamed.dev !== scratchIdentity.dev ||
-              scratchNamed.ino !== scratchIdentity.ino
-            )
-              throw new Error('policy-native-authority')
-            if (
-              (await readdir(fdAdmissionProbeScratchRoot)).sort().join('\0') !==
-              'probe'
-            )
-              throw new Error('policy-native-authority')
-            const probeNamedBeforeUnlink = await lstat(probePath)
-            if (
-              probeNamedBeforeUnlink.dev !== scratchIdentity.dev ||
-              probeIdentity === undefined ||
-              probeNamedBeforeUnlink.ino !== probeIdentity.ino ||
-              probeNamedBeforeUnlink.uid !== expectedLock.uid ||
-              probeNamedBeforeUnlink.nlink !== 1 ||
-              (probeNamedBeforeUnlink.mode & 0o7777) !== 0o500
-            )
-              throw new Error('policy-native-authority')
-          },
-          unlinkProbe: async () => unlink(probePath),
-          validateEmptyForRemoval: async () => {
-            const activeScratchHandle = scratchHandle
-            if (activeScratchHandle === undefined)
-              throw new Error('policy-native-authority')
-            const finalRevalidateBoundary = revalidateBoundary
-            if (finalRevalidateBoundary === undefined)
-              throw new Error('policy-native-authority')
-            const expectedParentIdentity = parentIdentity
-            const expectedScratchIdentity = scratchIdentity
-            if (
-              expectedParentIdentity === undefined ||
-              expectedScratchIdentity === undefined
-            )
-              throw new Error('policy-native-authority')
-            if ((await readdir(fdAdmissionProbeScratchRoot)).length !== 0)
-              throw new Error('policy-native-authority')
-            await finalRevalidateBoundary([])
-            const [
-              parentBeforeRemoval,
-              scratchBeforeRemoval,
-              namedBeforeRemoval,
-            ] = await Promise.all([
-              parentHandle!.stat(),
-              activeScratchHandle.stat(),
-              lstat(fdAdmissionProbeScratchRoot),
-            ])
-            if (
-              parentBeforeRemoval.dev !== expectedParentIdentity.dev ||
-              parentBeforeRemoval.ino !== expectedParentIdentity.ino ||
-              scratchBeforeRemoval.dev !== expectedScratchIdentity.dev ||
-              scratchBeforeRemoval.ino !== expectedScratchIdentity.ino ||
-              scratchBeforeRemoval.nlink !== 2 ||
-              namedBeforeRemoval.dev !== expectedScratchIdentity.dev ||
-              namedBeforeRemoval.ino !== expectedScratchIdentity.ino
-            )
-              throw new Error('policy-native-authority')
-          },
-          closeScratch: async () => {
-            if (scratchHandle === undefined)
-              throw new Error('policy-native-authority')
-            await scratchHandle.close()
-            scratchHandle = undefined
-          },
-          removeScratch: async () => rmdir(fdAdmissionProbeScratchRoot),
-          assertAbsentAndFinal: async () => {
-            for (const path of [probePath, fdAdmissionProbeScratchRoot])
-              try {
-                await lstat(path)
-                throw new Error('policy-native-authority')
-              } catch (error) {
-                if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-                  throw error
-              }
-            if (revalidateTrackedSource === undefined)
-              throw new Error('policy-native-authority')
-            await revalidateOuter()
-            await validateResidue()
-            await revalidateTrackedSource()
-            if (custody === undefined)
-              throw new Error('policy-native-authority')
-            await validateNamedLock(
-              custody.lock,
-              custody.lockPath,
-              custody.identity,
-            )
-            const [parentFinalHeld, parentFinalNamed] = await Promise.all([
-              parentHandle!.stat(),
-              lstat(parentPath),
-            ])
-            if (
-              parentIdentity === undefined ||
-              !parentFinalHeld.isDirectory() ||
-              parentFinalHeld.uid !== 0 ||
-              (parentFinalHeld.mode & 0o7777) !== 0o1777 ||
-              parentFinalHeld.dev !== parentIdentity.dev ||
-              parentFinalHeld.ino !== parentIdentity.ino ||
-              !parentFinalNamed.isDirectory() ||
-              parentFinalNamed.uid !== 0 ||
-              (parentFinalNamed.mode & 0o7777) !== 0o1777 ||
-              parentFinalNamed.dev !== parentIdentity.dev ||
-              parentFinalNamed.ino !== parentIdentity.ino
-            )
-              throw new Error('policy-native-authority')
-            await probeSourceHandle!.close()
-            probeSourceHandle = undefined
-          },
+      await finalizeFdAdmissionProbeScratch(cleanupPhase, {
+        closeProbe: async () => {
+          if (probeHandle === undefined) return
+          const activeProbeHandle = probeHandle
+          probeHandle = undefined
+          await activeProbeHandle.close()
         },
-      )
+        prepareProbeForUnlink: async () => {
+          const activeScratchHandle = scratchHandle
+          const activeProbeHandle = probeHandle
+          if (
+            activeScratchHandle === undefined ||
+            activeProbeHandle === undefined
+          )
+            throw new Error('policy-native-authority')
+          const finalRevalidateBoundary = revalidateBoundary
+          if (finalRevalidateBoundary === undefined)
+            throw new Error('policy-native-authority')
+          const expectedParentIdentity = parentIdentity
+          const expectedScratchIdentity = scratchIdentity
+          if (
+            expectedParentIdentity === undefined ||
+            expectedScratchIdentity === undefined ||
+            probeIdentity === undefined ||
+            probeSize === undefined ||
+            admittedProbeSha256 === undefined
+          )
+            throw new Error('policy-native-authority')
+          await finalRevalidateBoundary(['probe'])
+          if (revalidateAdmittedProbe === undefined)
+            throw new Error('policy-native-authority')
+          await revalidateAdmittedProbe()
+          const [parentAfter, scratchHeld, scratchNamed] = await Promise.all([
+            parentHandle!.stat(),
+            activeScratchHandle.stat(),
+            lstat(fdAdmissionProbeScratchRoot),
+          ])
+          if (
+            parentIdentity === undefined ||
+            parentAfter.dev !== parentIdentity.dev ||
+            parentAfter.ino !== parentIdentity.ino ||
+            scratchIdentity === undefined ||
+            !scratchHeld.isDirectory() ||
+            scratchHeld.uid !== expectedLock.uid ||
+            scratchHeld.dev !== parentAfter.dev ||
+            scratchHeld.ino !== scratchIdentity.ino ||
+            (scratchHeld.mode & 0o7777) !== 0o700 ||
+            scratchHeld.nlink !== 2 ||
+            scratchNamed.dev !== scratchIdentity.dev ||
+            scratchNamed.ino !== scratchIdentity.ino
+          )
+            throw new Error('policy-native-authority')
+          if (
+            (await readdir(fdAdmissionProbeScratchRoot)).sort().join('\0') !==
+            'probe'
+          )
+            throw new Error('policy-native-authority')
+          probeHandle = undefined
+          await activeProbeHandle.close()
+
+          let recheckHandle: FileHandle | undefined
+          try {
+            recheckHandle = await open(
+              probePath,
+              fsConstants.O_RDONLY |
+                darwinFlags.noFollow |
+                darwinFlags.closeOnExec,
+            )
+            const [held, named] = await Promise.all([
+              recheckHandle.stat(),
+              lstat(probePath),
+            ])
+            assertFdAdmissionProbeFileSnapshot({
+              held: fdAdmissionProbeSnapshotMetadata(held),
+              named: fdAdmissionProbeSnapshotMetadata(named),
+              expectedUid: expectedLock.uid,
+              expectedDev: probeIdentity.dev,
+              expectedIno: probeIdentity.ino,
+              expectedSize: probeSize,
+              heldSha256: hash(
+                await completeHeldBytes(recheckHandle, probeSize),
+              ),
+              expectedSha256: admittedProbeSha256,
+            })
+            await finalRevalidateBoundary(['probe'])
+            const handleToClose = recheckHandle
+            recheckHandle = undefined
+            await handleToClose.close()
+          } finally {
+            if (recheckHandle !== undefined) {
+              const handleToClose = recheckHandle
+              recheckHandle = undefined
+              await handleToClose.close()
+            }
+          }
+          await finalRevalidateBoundary(['probe'])
+          const probeNamedBeforeUnlink = await lstat(probePath)
+          if (
+            probeNamedBeforeUnlink.dev !== probeIdentity.dev ||
+            probeNamedBeforeUnlink.ino !== probeIdentity.ino ||
+            probeNamedBeforeUnlink.uid !== expectedLock.uid ||
+            probeNamedBeforeUnlink.nlink !== 1 ||
+            probeNamedBeforeUnlink.size !== probeSize ||
+            (probeNamedBeforeUnlink.mode & 0o7777) !== 0o500
+          )
+            throw new Error('policy-native-authority')
+        },
+        unlinkProbe: async () => unlink(probePath),
+        validateEmptyForRemoval: async () => {
+          const activeScratchHandle = scratchHandle
+          if (activeScratchHandle === undefined)
+            throw new Error('policy-native-authority')
+          const finalRevalidateBoundary = revalidateBoundary
+          if (finalRevalidateBoundary === undefined)
+            throw new Error('policy-native-authority')
+          const expectedParentIdentity = parentIdentity
+          const expectedScratchIdentity = scratchIdentity
+          if (
+            expectedParentIdentity === undefined ||
+            expectedScratchIdentity === undefined
+          )
+            throw new Error('policy-native-authority')
+          if ((await readdir(fdAdmissionProbeScratchRoot)).length !== 0)
+            throw new Error('policy-native-authority')
+          await finalRevalidateBoundary([])
+          const [
+            parentBeforeRemoval,
+            scratchBeforeRemoval,
+            namedBeforeRemoval,
+          ] = await Promise.all([
+            parentHandle!.stat(),
+            activeScratchHandle.stat(),
+            lstat(fdAdmissionProbeScratchRoot),
+          ])
+          if (
+            parentBeforeRemoval.dev !== expectedParentIdentity.dev ||
+            parentBeforeRemoval.ino !== expectedParentIdentity.ino ||
+            scratchBeforeRemoval.dev !== expectedScratchIdentity.dev ||
+            scratchBeforeRemoval.ino !== expectedScratchIdentity.ino ||
+            scratchBeforeRemoval.nlink !== 2 ||
+            namedBeforeRemoval.dev !== expectedScratchIdentity.dev ||
+            namedBeforeRemoval.ino !== expectedScratchIdentity.ino
+          )
+            throw new Error('policy-native-authority')
+        },
+        closeScratch: async () => {
+          if (scratchHandle === undefined)
+            throw new Error('policy-native-authority')
+          const activeScratchHandle = scratchHandle
+          scratchHandle = undefined
+          await activeScratchHandle.close()
+        },
+        validateNamedEmptyForRemoval: async () => {
+          const expectedScratchIdentity = scratchIdentity
+          if (expectedScratchIdentity === undefined || custody === undefined)
+            throw new Error('policy-native-authority')
+          await revalidateOuter()
+          await validateResidue()
+          if (
+            revalidateTrackedSource === undefined ||
+            revalidateHeldParent === undefined
+          )
+            throw new Error('policy-native-authority')
+          await revalidateTrackedSource()
+          await revalidateHeldParent()
+          await validateNamedLock(
+            custody.lock,
+            custody.lockPath,
+            custody.identity,
+          )
+          const [named, entries] = await Promise.all([
+            lstat(fdAdmissionProbeScratchRoot),
+            readdir(fdAdmissionProbeScratchRoot),
+          ])
+          if (
+            !named.isDirectory() ||
+            named.isSymbolicLink() ||
+            named.uid !== expectedLock.uid ||
+            named.dev !== expectedScratchIdentity.dev ||
+            named.ino !== expectedScratchIdentity.ino ||
+            (named.mode & 0o7777) !== 0o700 ||
+            named.nlink !== 2 ||
+            entries.length !== 0
+          )
+            throw new Error('policy-native-authority')
+        },
+        removeScratch: async () => rmdir(fdAdmissionProbeScratchRoot),
+        assertAbsentAndFinal: async () => {
+          for (const path of [probePath, fdAdmissionProbeScratchRoot])
+            try {
+              await lstat(path)
+              throw new Error('policy-native-authority')
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+                throw error
+            }
+          if (revalidateTrackedSource === undefined)
+            throw new Error('policy-native-authority')
+          await revalidateOuter()
+          await validateResidue()
+          await revalidateTrackedSource()
+          if (custody === undefined) throw new Error('policy-native-authority')
+          await validateNamedLock(
+            custody.lock,
+            custody.lockPath,
+            custody.identity,
+          )
+          const [parentFinalHeld, parentFinalNamed] = await Promise.all([
+            parentHandle!.stat(),
+            lstat(parentPath),
+          ])
+          if (
+            parentIdentity === undefined ||
+            !parentFinalHeld.isDirectory() ||
+            parentFinalHeld.uid !== 0 ||
+            (parentFinalHeld.mode & 0o7777) !== 0o1777 ||
+            parentFinalHeld.dev !== parentIdentity.dev ||
+            parentFinalHeld.ino !== parentIdentity.ino ||
+            !parentFinalNamed.isDirectory() ||
+            parentFinalNamed.uid !== 0 ||
+            (parentFinalNamed.mode & 0o7777) !== 0o1777 ||
+            parentFinalNamed.dev !== parentIdentity.dev ||
+            parentFinalNamed.ino !== parentIdentity.ino
+          )
+            throw new Error('policy-native-authority')
+          const activeProbeSourceHandle = probeSourceHandle
+          if (activeProbeSourceHandle === undefined)
+            throw new Error('policy-native-authority')
+          probeSourceHandle = undefined
+          await activeProbeSourceHandle.close()
+        },
+      })
     } catch (error) {
       failure ??= error
     }
     if (probeSourceHandle !== undefined)
       try {
-        await probeSourceHandle.close()
+        const activeProbeSourceHandle = probeSourceHandle
+        probeSourceHandle = undefined
+        await activeProbeSourceHandle.close()
       } catch (error) {
         failure ??= error
       }
     if (scratchHandle !== undefined)
       try {
-        await scratchHandle.close()
+        const activeScratchHandle = scratchHandle
+        scratchHandle = undefined
+        await activeScratchHandle.close()
       } catch (error) {
         failure ??= error
       }
-    if (parentHandle !== undefined)
-      try {
-        await parentHandle.close()
-      } catch (error) {
-        failure ??= error
-      }
-    if (custody !== undefined)
-      try {
-        await closeDerivationLock(custody)
-      } catch (error) {
-        failure ??= error
-      }
-    if (heldResidue !== undefined)
-      for (const handle of [...heldResidue].reverse())
+    if (heldResidue !== undefined) {
+      const activeHeldResidue = heldResidue
+      heldResidue = undefined
+      for (const handle of [...activeHeldResidue].reverse())
         try {
           await handle.close()
         } catch (error) {
           failure ??= error
         }
+    }
+    if (parentHandle !== undefined)
+      try {
+        const activeParentHandle = parentHandle
+        parentHandle = undefined
+        await activeParentHandle.close()
+      } catch (error) {
+        failure ??= error
+      }
+    if (custody !== undefined) {
+      const activeCustody = custody
+      custody = undefined
+      try {
+        await closeDerivationLock(activeCustody)
+      } catch (error) {
+        failure ??= error
+      }
+    }
     if (failure !== undefined) throw failure
   }
+}
+
+export async function diagnosePolicyProvisionalAFdMapForFixture(
+  input: unknown,
+): Promise<PolicyProvisionalAFdMapResult> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new Error('policy-wrapper-isolation')
+  return diagnosePolicyProvisionalAFdMapCore(input)
+}
+
+/** Decision 140's sole production FD-map diagnostic authority. */
+export async function diagnosePolicyProvisionalAFdMapV2(
+  input: unknown,
+): Promise<PolicyProvisionalAFdMapResult> {
+  return diagnosePolicyProvisionalAFdMapCore(input)
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { types as utilTypes } from 'node:util'
 import {
   createPolicyPromotionProvenanceCandidate,
   derivePolicyProvisionalBuildA,
@@ -22,18 +23,18 @@ import {
   parsePolicyPromotionPackage,
 } from './m45-policy-baseline'
 import {
+  diagnosePolicyProvisionalAFdMapV2,
   diagnosePolicyProvisionalABuildResidue,
   diagnosePolicyProvisionalBuildAPrebuild,
   policySdkProtectionStops,
-  recoverPolicyProvisionalAFdMapScratch,
 } from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
 const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v10'
 const residueDiagnosticConfirmation =
   '--confirm-m45-policy-native-a-residue-diagnostic-v2'
-const fdMapScratchRecoveryConfirmation =
-  '--confirm-m45-policy-native-a-fd-map-scratch-recovery-v1'
+const fdMapDiagnosticConfirmation =
+  '--confirm-m45-policy-native-a-fd-map-diagnostic-v2'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -62,7 +63,7 @@ export type PolicyNativeDerivationMode =
   | 'recover-preflight'
   | 'diagnose-a'
   | 'diagnose-a-residue'
-  | 'recover-a-fd-map-scratch'
+  | 'diagnose-a-fd-map'
   | 'derive-a'
   | 'derive-b'
   | 'review-candidate'
@@ -76,7 +77,7 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'diagnostic-complete'
     | 'diagnostic-stopped'
     | 'a-build-residue-diagnosed'
-    | 'a-fd-map-scratch-recovered'
+    | 'a-fd-map-diagnosed'
     | 'a-derived'
     | 'a-residue-preserved'
     | 'b-derived'
@@ -87,6 +88,12 @@ export type PolicyNativeDerivationResult = Readonly<{
   derivationLockCycleClosed?: true
   sdkProtectionStop?: PolicySdkProtectionStop
   helperExitCode?: number
+  fdMapStatus?:
+    | 'exact'
+    | 'fd3-invalid'
+    | 'unexpected-fd'
+    | 'open-max-invalid'
+    | 'scan-indeterminate'
 }>
 
 export const policyProvisionalAPrebuildBoundaries = [
@@ -304,18 +311,14 @@ export type PolicyNativeDerivationSeams = Readonly<{
     rootNonceSha256: string
     commandLock: unknown
   }) => Promise<Readonly<{ helperExitCode: number }>>
-  recoverAFdMapScratch: (input: {
+  diagnoseAFdMap: (input: {
     repositoryRoot: string
     nativeAuthoritySha256: string
     rootNonceSha256: string
     commandLock: unknown
-    scratchUid: number
-    scratchDevice: number
-    scratchInode: number
-    scratchMode: number
-    scratchLinks: number
+    probeSourceSha256: string
     revalidateOuter: () => Promise<void>
-  }) => Promise<Readonly<{ scratchRecovered: true }>>
+  }) => Promise<Readonly<{ fdMapStatus: string }>>
 }>
 
 function canonical(value: unknown): string {
@@ -339,7 +342,41 @@ function exactEntries(
   return canonical([...observed].sort()) === canonical([...expected].sort())
 }
 
-function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
+function snapshotArguments(argv: readonly string[]): readonly string[] {
+  if (
+    !Array.isArray(argv) ||
+    utilTypes.isProxy(argv) ||
+    Object.getPrototypeOf(argv) !== Array.prototype
+  )
+    throw new Error('arguments')
+  const keys = Reflect.ownKeys(argv)
+  const length = Object.getOwnPropertyDescriptor(argv, 'length')
+  if (
+    length === undefined ||
+    !('value' in length) ||
+    (length.value !== 1 && length.value !== 2) ||
+    keys.length !== length.value + 1 ||
+    keys.at(-1) !== 'length'
+  )
+    throw new Error('arguments')
+  const values: string[] = []
+  for (let index = 0; index < length.value; index += 1) {
+    if (keys[index] !== String(index)) throw new Error('arguments')
+    const descriptor = Object.getOwnPropertyDescriptor(argv, String(index))
+    if (
+      descriptor === undefined ||
+      !('value' in descriptor) ||
+      descriptor.enumerable !== true ||
+      typeof descriptor.value !== 'string'
+    )
+      throw new Error('arguments')
+    values.push(descriptor.value)
+  }
+  return Object.freeze(values)
+}
+
+function parseArguments(input: readonly string[]): PolicyNativeDerivationMode {
+  const argv = snapshotArguments(input)
   if (argv.length === 1 && argv[0] === 'check') return 'check'
   if (argv.length !== 2) throw new Error('arguments')
   const [operation, literal] = argv
@@ -353,8 +390,8 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
   )
     return operation
   if (
-    operation === 'recover-a-fd-map-scratch' &&
-    literal === fdMapScratchRecoveryConfirmation
+    operation === 'diagnose-a-fd-map' &&
+    literal === fdMapDiagnosticConfirmation
   )
     return operation
   if (operation === 'diagnose-a' && literal === diagnosticConfirmation)
@@ -367,6 +404,39 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
   if (operation === 'review-candidate' && literal === reviewConfirmation)
     return operation
   throw new Error('arguments')
+}
+
+function parseFdMapStatusResult(
+  value: unknown,
+): NonNullable<PolicyNativeDerivationResult['fdMapStatus']> {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    utilTypes.isProxy(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    !Object.isFrozen(value)
+  )
+    throw new Error('a-fd-map-diagnostic')
+  const keys = Reflect.ownKeys(value)
+  if (keys.length !== 1 || keys[0] !== 'fdMapStatus')
+    throw new Error('a-fd-map-diagnostic')
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'fdMapStatus')
+  if (
+    descriptor === undefined ||
+    !('value' in descriptor) ||
+    descriptor.enumerable !== true
+  )
+    throw new Error('a-fd-map-diagnostic')
+  const status = descriptor.value
+  if (
+    status !== 'exact' &&
+    status !== 'fd3-invalid' &&
+    status !== 'unexpected-fd' &&
+    status !== 'open-max-invalid' &&
+    status !== 'scan-indeterminate'
+  )
+    throw new Error('a-fd-map-diagnostic')
+  return status
 }
 
 function publicCommitments(
@@ -1375,7 +1445,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     deriveB: derivePolicyProvisionalBuildB,
     diagnoseA: diagnosePolicyProvisionalBuildAPrebuild,
     diagnoseAResidue: diagnosePolicyProvisionalABuildResidue,
-    recoverAFdMapScratch: recoverPolicyProvisionalAFdMapScratch,
+    diagnoseAFdMap: diagnosePolicyProvisionalAFdMapV2,
   }
 }
 
@@ -1504,8 +1574,8 @@ async function runPolicyNativeDerivationCommandWithProfile(
   overrides: Partial<PolicyNativeDerivationSeams>,
   profile: ResidueProfile,
 ): Promise<PolicyNativeDerivationResult> {
-  const seams = { ...defaultSeams(), ...overrides }
   const mode = parseArguments(argv)
+  const seams = { ...defaultSeams(), ...overrides }
   const repositoryRoot = await seams.filesystem.realpath(seams.cwd)
   if (
     repositoryRoot !== seams.cwd ||
@@ -1699,7 +1769,7 @@ async function runPolicyNativeDerivationCommandWithProfile(
     )
   }
 
-  if (mode === 'recover-a-fd-map-scratch') {
+  if (mode === 'diagnose-a-fd-map') {
     return withLegacyCustody(
       seams.filesystem,
       m45,
@@ -1716,31 +1786,26 @@ async function runPolicyNativeDerivationCommandWithProfile(
       async (recovered) => {
         await assertTrackedUnchanged(seams, repositoryRoot, tracked)
         await recovered.revalidate([baselineName], buildResidueRootEntries)
-        const result = await seams.recoverAFdMapScratch({
+        const result = await seams.diagnoseAFdMap({
           repositoryRoot,
           nativeAuthoritySha256: tracked.nativeAuthoritySha256,
           rootNonceSha256: seams.nonce(),
           commandLock: terminalEvidence(recovered.commandLock!),
-          scratchUid: 501,
-          scratchDevice: 16777231,
-          scratchInode: 13940765,
-          scratchMode: 0o700,
-          scratchLinks: 2,
+          probeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
           revalidateOuter: async () => {
             await assertTrackedUnchanged(seams, repositoryRoot, tracked)
             await recovered.revalidate([baselineName], buildResidueRootEntries)
           },
         })
-        exactRecordKeys(result, ['scratchRecovered'])
-        if (result.scratchRecovered !== true)
-          throw new Error('a-fd-map-scratch-recovery')
+        const fdMapStatus = parseFdMapStatusResult(result)
         await assertTrackedUnchanged(seams, repositoryRoot, tracked)
         await recovered.revalidate([baselineName], buildResidueRootEntries)
-        return {
+        return Object.freeze({
           mode,
-          status: 'a-fd-map-scratch-recovered',
+          status: 'a-fd-map-diagnosed',
+          fdMapStatus,
           commitments,
-        }
+        })
       },
     )
   }
@@ -2142,25 +2207,28 @@ export function createPolicySyntheticNativeDerivationFixture() {
 export async function executePolicyNativeDerivationCli(
   argv = process.argv.slice(2),
 ): Promise<number> {
+  let stoppedMode: PolicyNativeDerivationMode | 'unknown' = 'unknown'
   try {
-    const result = await runPolicyNativeDerivationCommand(argv)
+    const safeArgv = snapshotArguments(argv)
+    stoppedMode =
+      safeArgv[0] === 'check' ||
+      safeArgv[0] === 'preflight' ||
+      safeArgv[0] === 'recover-preflight' ||
+      safeArgv[0] === 'diagnose-a' ||
+      safeArgv[0] === 'diagnose-a-residue' ||
+      safeArgv[0] === 'diagnose-a-fd-map' ||
+      safeArgv[0] === 'derive-a' ||
+      safeArgv[0] === 'derive-b' ||
+      safeArgv[0] === 'review-candidate'
+        ? safeArgv[0]
+        : 'unknown'
+    const result = await runPolicyNativeDerivationCommand(safeArgv)
     process.stdout.write(`${JSON.stringify(result)}\n`)
     return 0
   } catch {
-    const mode =
-      argv[0] === 'check' ||
-      argv[0] === 'preflight' ||
-      argv[0] === 'recover-preflight' ||
-      argv[0] === 'diagnose-a' ||
-      argv[0] === 'diagnose-a-residue' ||
-      argv[0] === 'diagnose-a-fd-map' ||
-      argv[0] === 'recover-a-fd-map-scratch' ||
-      argv[0] === 'derive-a' ||
-      argv[0] === 'derive-b' ||
-      argv[0] === 'review-candidate'
-        ? argv[0]
-        : 'unknown'
-    process.stdout.write(`${JSON.stringify({ mode, status: 'stopped' })}\n`)
+    process.stdout.write(
+      `${JSON.stringify({ mode: stoppedMode, status: 'stopped' })}\n`,
+    )
     return 1
   }
 }
