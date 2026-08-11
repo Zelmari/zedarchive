@@ -38,6 +38,25 @@ const lockWorkerPath = fileURLToPath(
     import.meta.url,
   ),
 )
+const provisionalABuildResidue = Object.freeze({
+  device: 16777231,
+  build: Object.freeze({ inode: 13734817, mode: 0o700, links: 5, size: 160 }),
+  source: Object.freeze({
+    inode: 13734819,
+    mode: 0o400,
+    links: 1,
+    size: 50_951,
+    sha256: '74b743c5831911de3cc966307aef0aff6cf105678157b5b4ac66f49035110d37',
+  }),
+  helper: Object.freeze({
+    inode: 13734827,
+    mode: 0o500,
+    links: 1,
+    size: 53_736,
+    sha256: '981a19d6b514e20892b4fedda6273d97f32712aac60c6943369de29bdeeaca99',
+  }),
+  tmp: Object.freeze({ inode: 13734818, mode: 0o700, links: 2, size: 64 }),
+})
 const xcrunPath = '/usr/bin/xcrun'
 const darwinFlags = {
   noFollow: 0x00000100,
@@ -2987,6 +3006,115 @@ function metadataEvidence(metadata: Awaited<ReturnType<FileHandle['stat']>>) {
   }
 }
 
+function provisionalABuildResidueEntry(
+  metadata:
+    Awaited<ReturnType<FileHandle['stat']>> | Awaited<ReturnType<typeof lstat>>,
+) {
+  return {
+    kind: metadata.isDirectory()
+      ? ('directory' as const)
+      : metadata.isFile()
+        ? ('file' as const)
+        : ('other' as const),
+    uid: metadata.uid,
+    device: metadata.dev,
+    inode: metadata.ino,
+    mode: Number(metadata.mode) & 0o7777,
+    links: metadata.nlink,
+    size: metadata.size,
+  }
+}
+
+function assertExactPolicyProvisionalABuildResidueMetadata(
+  input: unknown,
+): void {
+  exactObject(input, [
+    'expectedUid',
+    'held',
+    'named',
+    'buildEntries',
+    'tmpEntries',
+  ])
+  if (!Number.isSafeInteger(input.expectedUid))
+    throw new Error('policy-native-authority')
+  exactObject(input.held, ['build', 'source', 'helper', 'tmp'])
+  exactObject(input.named, ['build', 'source', 'helper', 'tmp'])
+  const expectedUid = input.expectedUid as number
+  const expectedEntries = {
+    build: {
+      kind: 'directory',
+      uid: expectedUid,
+      device: provisionalABuildResidue.device,
+      ...provisionalABuildResidue.build,
+    },
+    source: {
+      kind: 'file',
+      uid: expectedUid,
+      device: provisionalABuildResidue.device,
+      inode: provisionalABuildResidue.source.inode,
+      mode: provisionalABuildResidue.source.mode,
+      links: provisionalABuildResidue.source.links,
+      size: provisionalABuildResidue.source.size,
+    },
+    helper: {
+      kind: 'file',
+      uid: expectedUid,
+      device: provisionalABuildResidue.device,
+      inode: provisionalABuildResidue.helper.inode,
+      mode: provisionalABuildResidue.helper.mode,
+      links: provisionalABuildResidue.helper.links,
+      size: provisionalABuildResidue.helper.size,
+    },
+    tmp: {
+      kind: 'directory',
+      uid: expectedUid,
+      device: provisionalABuildResidue.device,
+      ...provisionalABuildResidue.tmp,
+    },
+  }
+  const expected = {
+    expectedUid,
+    held: expectedEntries,
+    named: expectedEntries,
+    buildEntries: [
+      'exclusive-promotion-helper',
+      'exclusive-promotion-helper.c',
+      'tmp',
+    ],
+    tmpEntries: [],
+  }
+  if (canonical(input) !== canonical(expected))
+    throw new Error('policy-native-authority')
+}
+
+function assertExactPolicyProvisionalABuildResidue(input: unknown): void {
+  exactObject(input, [
+    'expectedUid',
+    'held',
+    'named',
+    'buildEntries',
+    'tmpEntries',
+    'sourceSha256',
+    'helperSha256',
+  ])
+  const { sourceSha256, helperSha256, ...metadata } = input
+  assertExactPolicyProvisionalABuildResidueMetadata(metadata)
+  if (
+    sourceSha256 !== provisionalABuildResidue.source.sha256 ||
+    helperSha256 !== provisionalABuildResidue.helper.sha256
+  )
+    throw new Error('policy-native-authority')
+}
+
+export function inspectPolicyProvisionalABuildResidueForFixture(
+  input: unknown,
+): true {
+  if (process.env.NODE_ENV !== 'test')
+    throw new Error('policy-native-authority')
+  assertExactPolicyProvisionalABuildResidue(input)
+  return true
+}
+
 type SharedTerminalInput = Readonly<{
   phase: 'shared-a' | 'shared-b'
   siblings: Readonly<{
@@ -4155,6 +4283,76 @@ function successfulHelper(
   )
     throw new Error('policy-native-authority')
 }
+async function runHelperWithCustodyChecks<T>(
+  precheck: (() => Promise<void>) | undefined,
+  run: () => Promise<T>,
+  postcheck: (() => Promise<void>) | undefined,
+): Promise<T> {
+  await precheck?.()
+  const result = await run()
+  await postcheck?.()
+  return result
+}
+function residueHelperExitCode(
+  result: Awaited<ReturnType<typeof broker.runHelper>>,
+): number {
+  if (
+    ![0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].includes(result.code) ||
+    result.stdoutBytes !== 0 ||
+    result.stderrBytes !== 0 ||
+    !result.processGroupAbsent ||
+    !result.streamsClosed
+  )
+    throw new Error('policy-native-authority')
+  return result.code
+}
+
+export async function runPolicyProvisionalABuildResidueLifecycleForFixture(
+  input: unknown,
+): Promise<
+  Readonly<{
+    status: 'diagnosed' | 'stopped'
+    events: readonly string[]
+    helperExitCode?: number
+  }>
+> {
+  if (process.env.NODE_ENV !== 'test')
+    throw new Error('policy-native-authority')
+  exactObject(input, ['failure', 'result'])
+  const failure = input.failure
+  if (
+    failure !== null &&
+    failure !== 'precheck' &&
+    failure !== 'child' &&
+    failure !== 'postcheck'
+  )
+    throw new Error('policy-native-authority')
+  const events: string[] = []
+  try {
+    const result = await runHelperWithCustodyChecks(
+      async () => {
+        events.push('precheck')
+        if (failure === 'precheck') throw new Error('fixture-precheck')
+      },
+      async () => {
+        events.push('child')
+        if (failure === 'child') throw new Error('fixture-child')
+        return input.result as Awaited<ReturnType<typeof broker.runHelper>>
+      },
+      async () => {
+        events.push('postcheck')
+        if (failure === 'postcheck') throw new Error('fixture-postcheck')
+      },
+    )
+    return Object.freeze({
+      status: 'diagnosed',
+      events: Object.freeze(events),
+      helperExitCode: residueHelperExitCode(result),
+    })
+  } catch {
+    return Object.freeze({ status: 'stopped', events: Object.freeze(events) })
+  }
+}
 async function runAcceptedHelper(
   custody: Awaited<ReturnType<typeof openDerivationLock>>,
   capability: unknown,
@@ -4172,12 +4370,16 @@ async function runAcceptedHelper(
       'postcheck' in prepared
         ? (prepared as {
             operation: unknown
+            precheck?: () => Promise<void>
             postcheck: () => Promise<void>
           })
         : undefined
     const operation = wrapped?.operation ?? prepared
-    const result = await broker.runHelper(capability, operation)
-    await wrapped?.postcheck()
+    const result = await runHelperWithCustodyChecks(
+      wrapped?.precheck,
+      () => broker.runHelper(capability, operation),
+      wrapped?.postcheck,
+    )
     await validateNamedLock(custody.lock, custody.lockPath, custody.identity)
     return result
   })
@@ -4505,6 +4707,304 @@ export async function runPolicyProvisionalBuildA(
     return Object.freeze(result)
   } finally {
     await closeDerivationLock(custody)
+  }
+}
+
+export async function diagnosePolicyProvisionalABuildResidue(
+  input: unknown,
+): Promise<Readonly<{ helperExitCode: number }>> {
+  exactObject(input, [
+    'repositoryRoot',
+    'nativeAuthoritySha256',
+    'rootNonceSha256',
+    'commandLock',
+  ])
+  const repositoryRoot = safeRoot(input.repositoryRoot)
+  const nativeAuthoritySha256 = sha256(input.nativeAuthoritySha256)
+  const rootNonceSha256 = sha256(input.rootNonceSha256)
+  const expectedReentryLock = reentryLockIdentity(input.commandLock)
+  if (expectedReentryLock === null) throw new Error('policy-native-authority')
+  const buildPath = join(
+    repositoryRoot,
+    '.local/m45/.policy-exclusive-promotion-build',
+  )
+  const sourcePath = join(buildPath, 'exclusive-promotion-helper.c')
+  const helperPath = join(buildPath, 'exclusive-promotion-helper')
+  const tmpPath = join(buildPath, 'tmp')
+  let buildHandle: FileHandle | undefined
+  let sourceHandle: FileHandle | undefined
+  let helperHandle: FileHandle | undefined
+  let tmpHandle: FileHandle | undefined
+  let custody: Awaited<ReturnType<typeof openDerivationLock>> | undefined
+  let operationFailure: unknown
+  try {
+    buildHandle = await open(
+      buildPath,
+      fsConstants.O_RDONLY |
+        fsConstants.O_DIRECTORY |
+        darwinFlags.noFollow |
+        darwinFlags.closeOnExec,
+    )
+    sourceHandle = await open(
+      sourcePath,
+      fsConstants.O_RDONLY | darwinFlags.noFollow | darwinFlags.closeOnExec,
+    )
+    helperHandle = await open(
+      helperPath,
+      fsConstants.O_RDONLY | darwinFlags.noFollow | darwinFlags.closeOnExec,
+    )
+    tmpHandle = await open(
+      tmpPath,
+      fsConstants.O_RDONLY |
+        fsConstants.O_DIRECTORY |
+        darwinFlags.noFollow |
+        darwinFlags.closeOnExec,
+    )
+    const [buildStat, sourceStat, helperStat, tmpStat] = await Promise.all([
+      buildHandle.stat(),
+      sourceHandle.stat(),
+      helperHandle.stat(),
+      tmpHandle.stat(),
+    ])
+    const [buildNamed, sourceNamed, helperNamed, tmpNamed] = await Promise.all([
+      lstat(buildPath),
+      lstat(sourcePath),
+      lstat(helperPath),
+      lstat(tmpPath),
+    ])
+    const [buildEntries, tmpEntries] = await Promise.all([
+      readdir(buildPath).then((entries) => entries.sort()),
+      readdir(tmpPath).then((entries) => entries.sort()),
+    ])
+    const initialResidueMetadata = {
+      expectedUid: expectedReentryLock.uid,
+      held: {
+        build: provisionalABuildResidueEntry(buildStat),
+        source: provisionalABuildResidueEntry(sourceStat),
+        helper: provisionalABuildResidueEntry(helperStat),
+        tmp: provisionalABuildResidueEntry(tmpStat),
+      },
+      named: {
+        build: provisionalABuildResidueEntry(buildNamed),
+        source: provisionalABuildResidueEntry(sourceNamed),
+        helper: provisionalABuildResidueEntry(helperNamed),
+        tmp: provisionalABuildResidueEntry(tmpNamed),
+      },
+      buildEntries,
+      tmpEntries,
+    }
+    assertExactPolicyProvisionalABuildResidueMetadata(initialResidueMetadata)
+    const [sourceBytes, helperBytes] = await Promise.all([
+      completeHeldBytes(sourceHandle, provisionalABuildResidue.source.size),
+      completeHeldBytes(helperHandle, provisionalABuildResidue.helper.size),
+    ])
+    assertExactPolicyProvisionalABuildResidue({
+      ...initialResidueMetadata,
+      sourceSha256: hash(sourceBytes),
+      helperSha256: hash(helperBytes),
+    })
+    const heldResidue = Object.freeze({
+      build: buildHandle,
+      source: sourceHandle,
+      helper: helperHandle,
+      tmp: tmpHandle,
+    })
+    const revalidateResidue = async () => {
+      const [
+        buildAfter,
+        sourceAfter,
+        helperAfter,
+        tmpAfter,
+        buildNamedAfter,
+        sourceNamedAfter,
+        helperNamedAfter,
+        tmpNamedAfter,
+      ] = await Promise.all([
+        heldResidue.build.stat(),
+        heldResidue.source.stat(),
+        heldResidue.helper.stat(),
+        heldResidue.tmp.stat(),
+        lstat(buildPath),
+        lstat(sourcePath),
+        lstat(helperPath),
+        lstat(tmpPath),
+      ])
+      const [buildAfterEntries, tmpAfterEntries] = await Promise.all([
+        readdir(buildPath).then((entries) => entries.sort()),
+        readdir(tmpPath).then((entries) => entries.sort()),
+      ])
+      const currentResidueMetadata = {
+        expectedUid: expectedReentryLock.uid,
+        held: {
+          build: provisionalABuildResidueEntry(buildAfter),
+          source: provisionalABuildResidueEntry(sourceAfter),
+          helper: provisionalABuildResidueEntry(helperAfter),
+          tmp: provisionalABuildResidueEntry(tmpAfter),
+        },
+        named: {
+          build: provisionalABuildResidueEntry(buildNamedAfter),
+          source: provisionalABuildResidueEntry(sourceNamedAfter),
+          helper: provisionalABuildResidueEntry(helperNamedAfter),
+          tmp: provisionalABuildResidueEntry(tmpNamedAfter),
+        },
+        buildEntries: buildAfterEntries,
+        tmpEntries: tmpAfterEntries,
+      }
+      assertExactPolicyProvisionalABuildResidueMetadata(currentResidueMetadata)
+      const [sourceAfterBytes, helperAfterBytes] = await Promise.all([
+        completeHeldBytes(
+          heldResidue.source,
+          provisionalABuildResidue.source.size,
+        ),
+        completeHeldBytes(
+          heldResidue.helper,
+          provisionalABuildResidue.helper.size,
+        ),
+      ])
+      assertExactPolicyProvisionalABuildResidue({
+        ...currentResidueMetadata,
+        sourceSha256: hash(sourceAfterBytes),
+        helperSha256: hash(helperAfterBytes),
+      })
+    }
+    const workerSha256 = hash(await readFile(lockWorkerPath))
+    await commandLockCapabilityProbe(
+      repositoryRoot,
+      workerSha256,
+      expectedReentryLock,
+    )
+    custody = await openDerivationLock(repositoryRoot, expectedReentryLock)
+    const activeCustody = custody
+    await validateNamedLock(
+      activeCustody.lock,
+      activeCustody.lockPath,
+      activeCustody.identity,
+    )
+    const authority = await runPolicyNativeToolchainDerivation({
+      repositoryRoot,
+      nativeAuthoritySha256,
+    })
+    await validateNamedLock(
+      activeCustody.lock,
+      activeCustody.lockPath,
+      activeCustody.identity,
+    )
+    if (authority.sourceSha256 !== provisionalABuildResidue.source.sha256)
+      throw new Error('policy-native-authority')
+    await revalidateResidue()
+    const material = {
+      xcrunSha256: authority.xcrunSha256,
+      xcrunDevice: authority.xcrunDevice,
+      xcrunInode: authority.xcrunInode,
+      sourceSha256: authority.sourceSha256,
+      compilerSha256: authority.compilerSha256,
+      compilerDevice: authority.compilerDevice,
+      compilerInode: authority.compilerInode,
+      sdkIdentitySha256: authority.sdkIdentitySha256,
+      sdkDevice: authority.sdkDevice,
+      sdkInode: authority.sdkInode,
+      compilerResourceIdentitySha256: authority.compilerResourceIdentitySha256,
+      compilerResourceDevice: authority.compilerResourceDevice,
+      compilerResourceInode: authority.compilerResourceInode,
+      headerSetSha256: authority.headerSetSha256,
+      diagnosticSha256: authority.diagnosticSha256,
+      diagnosticSemanticSha256: authority.diagnosticSemanticSha256,
+      linkerIdentitySha256: authority.linkerIdentitySha256,
+      linkerSha256: authority.linkerSha256,
+      linkerDevice: authority.linkerDevice,
+      linkerInode: authority.linkerInode,
+      compileContractSha256: authority.compileContractSha256,
+      launchContractSha256: authority.launchContractSha256,
+      launcherSha256: authority.launcherSha256,
+      nativeAuthoritySha256: authority.nativeAuthoritySha256,
+      lockPreflightWorkerSha256: authority.lockPreflightWorkerSha256,
+      helperSha256: provisionalABuildResidue.helper.sha256,
+    }
+    const rootIdentitySha256 = hashAuthority({
+      nonce: rootNonceSha256,
+      device: String(buildStat.dev),
+      inode: String(buildStat.ino),
+    })
+    const packageCore = {
+      schema: 'policy-exclusive-promotion-provenance.v1',
+      version: 1,
+      stage: 'A',
+      rootIdentitySha256,
+      material,
+      preflightAuthoritySha256: null,
+      reviewAuthoritySha256: null,
+      cleanupProved: true,
+    }
+    const provenancePackage = {
+      ...packageCore,
+      packageSha256: hashAuthority(packageCore),
+    }
+    const heldCore = {
+      helperPath,
+      helperSha256: material.helperSha256,
+      device: String(helperStat.dev),
+      inode: String(helperStat.ino),
+      byteCount: helperStat.size,
+    }
+    const capability = {
+      repositoryRoot,
+      helperPath,
+      device: String(helperStat.dev),
+      inode: String(helperStat.ino),
+      byteCount: helperStat.size,
+      provenancePackage,
+      heldEvidenceSha256: hashAuthority(heldCore),
+    }
+    const result = await runAcceptedHelper(
+      activeCustody,
+      capability,
+      3,
+      async () => ({
+        operation: {
+          kind: 'metadata-check',
+          role: 'command-lock',
+          evidence: {
+            uid: String(activeCustody.identity.uid),
+            device: activeCustody.identity.device,
+            inode: activeCustody.identity.inode,
+            links: '1',
+            mode: '384',
+            size: '0',
+          },
+          authorityFd: activeCustody.lock.fd,
+        },
+        precheck: revalidateResidue,
+        postcheck: revalidateResidue,
+      }),
+    )
+    const helperExitCode = residueHelperExitCode(result)
+    await validateNamedLock(
+      activeCustody.lock,
+      activeCustody.lockPath,
+      activeCustody.identity,
+    )
+    return Object.freeze({ helperExitCode })
+  } catch (error) {
+    operationFailure = error
+    throw error
+  } finally {
+    let finalizationFailure: unknown
+    for (const handle of [tmpHandle, helperHandle, sourceHandle, buildHandle]) {
+      if (handle === undefined) continue
+      try {
+        await handle.close()
+      } catch (error) {
+        finalizationFailure ??= error
+      }
+    }
+    if (custody !== undefined)
+      try {
+        await closeDerivationLock(custody)
+      } catch (error) {
+        finalizationFailure ??= error
+      }
+    if (operationFailure === undefined && finalizationFailure !== undefined)
+      throw finalizationFailure
   }
 }
 

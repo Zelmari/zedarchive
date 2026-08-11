@@ -588,6 +588,7 @@ function fixture(
     deriveA: vi.fn(),
     deriveB: vi.fn(),
     diagnoseA: vi.fn(),
+    diagnoseAResidue: vi.fn(),
   }
   const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
   const run = (
@@ -704,6 +705,12 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     await expect(
       runPolicyNativeDerivationCommand(
         ['diagnose-a', '--confirm-m45-policy-native-a-diagnostic-v9'],
+        seams,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      runPolicyNativeDerivationCommand(
+        ['diagnose-a-residue', '--confirm-m45-policy-native-a-diagnostic-v10'],
         seams,
       ),
     ).rejects.toThrow()
@@ -1073,6 +1080,97 @@ describe('Decisions 115–116 native policy derivation runner', () => {
       'status',
     ])
     expect(JSON.stringify(observed.output)).not.toContain('/fixture')
+    vi.unstubAllEnvs()
+  })
+
+  it.each([0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])(
+    'reports only closed helper exit code %s from exact A build residue',
+    async (helperExitCode) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const { entries, seams, run, syntheticResidue, filesystem } = fixture({
+        syntheticLegacy: true,
+      })
+      const residue = syntheticResidue!
+      const rootEntry = entries.get(m45)!
+      rootEntry.entries!.add('.policy-exclusive-promotion.lock')
+      rootEntry.entries!.add('.policy-exclusive-promotion-build')
+      rootEntry.metadata.size = residue.buildResidueRoot.size
+      entries.set(`${m45}/.policy-exclusive-promotion.lock`, {
+        metadata: {
+          ...residue.lock,
+          file: true,
+          directory: false,
+          symbolicLink: false,
+        },
+      })
+      const diagnoseAResidue = vi.fn(async () => ({ helperExitCode }))
+      await expect(
+        run(
+          [
+            'diagnose-a-residue',
+            '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+          ],
+          { ...seams, diagnoseAResidue },
+        ),
+      ).resolves.toEqual({
+        mode: 'diagnose-a-residue',
+        status: 'a-build-residue-diagnosed',
+        helperExitCode,
+        commitments: expect.objectContaining({ commit: tracked.commit }),
+      })
+      expect(diagnoseAResidue).toHaveBeenCalledOnce()
+      expect(filesystem.writeFile).not.toHaveBeenCalled()
+      expect(filesystem.mkdir).not.toHaveBeenCalled()
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it('rejects A residue diagnosis before the seam on topology or result drift', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const setup = () => {
+      const current = fixture({ syntheticLegacy: true })
+      const residue = current.syntheticResidue!
+      const rootEntry = current.entries.get(m45)!
+      rootEntry.entries!.add('.policy-exclusive-promotion.lock')
+      rootEntry.entries!.add('.policy-exclusive-promotion-build')
+      rootEntry.metadata.size = residue.buildResidueRoot.size
+      current.entries.set(`${m45}/.policy-exclusive-promotion.lock`, {
+        metadata: {
+          ...residue.lock,
+          file: true,
+          directory: false,
+          symbolicLink: false,
+        },
+      })
+      return current
+    }
+    const wrongTopology = setup()
+    wrongTopology.entries.get(m45)!.entries!.add('unexpected')
+    const uncalled = vi.fn()
+    await expect(
+      wrongTopology.run(
+        [
+          'diagnose-a-residue',
+          '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+        ],
+        { ...wrongTopology.seams, diagnoseAResidue: uncalled },
+      ),
+    ).rejects.toThrow()
+    expect(uncalled).not.toHaveBeenCalled()
+
+    const wrongResult = setup()
+    await expect(
+      wrongResult.run(
+        [
+          'diagnose-a-residue',
+          '--confirm-m45-policy-native-a-residue-diagnostic-v1',
+        ],
+        {
+          ...wrongResult.seams,
+          diagnoseAResidue: vi.fn(async () => ({ helperExitCode: 9 })),
+        },
+      ),
+    ).rejects.toThrow('a-residue-diagnostic')
     vi.unstubAllEnvs()
   })
 

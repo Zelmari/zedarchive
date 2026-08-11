@@ -90,6 +90,7 @@ import {
 } from '@/../scripts/m45-policy-baseline-native-launch-contract'
 import {
   inspectPolicyDiagnosticControlStateForFixture,
+  inspectPolicyProvisionalABuildResidueForFixture,
   policyBCleanupCheckpointIds,
   runPolicyCAcceptedFailureLifecycleForFixture,
   runPolicyBCandidateLifecycleForFixture,
@@ -97,6 +98,7 @@ import {
   runPolicyBCandidateFailureLifecycleForFixture,
   runPolicyNativeChildFdLifecycleForFixture,
   runPolicyNativePositioningForFixture,
+  runPolicyProvisionalABuildResidueLifecycleForFixture,
 } from '@/../scripts/m45-policy-baseline-native-authority'
 import { canonicalJson } from '@/features/anime/catalogue/wikidata-anime-discovery'
 
@@ -2177,6 +2179,182 @@ describe('M45 policy baseline filesystem custody', () => {
     }
   })
 
+  const exactProvisionalABuildResidue = () => {
+    const entries = {
+      build: {
+        kind: 'directory',
+        uid: 501,
+        device: 16777231,
+        inode: 13734817,
+        mode: 0o700,
+        links: 5,
+        size: 160,
+      },
+      source: {
+        kind: 'file',
+        uid: 501,
+        device: 16777231,
+        inode: 13734819,
+        mode: 0o400,
+        links: 1,
+        size: 50_951,
+      },
+      helper: {
+        kind: 'file',
+        uid: 501,
+        device: 16777231,
+        inode: 13734827,
+        mode: 0o500,
+        links: 1,
+        size: 53_736,
+      },
+      tmp: {
+        kind: 'directory',
+        uid: 501,
+        device: 16777231,
+        inode: 13734818,
+        mode: 0o700,
+        links: 2,
+        size: 64,
+      },
+    }
+    return {
+      expectedUid: 501,
+      held: structuredClone(entries),
+      named: structuredClone(entries),
+      buildEntries: [
+        'exclusive-promotion-helper',
+        'exclusive-promotion-helper.c',
+        'tmp',
+      ],
+      tmpEntries: [],
+      sourceSha256:
+        '74b743c5831911de3cc966307aef0aff6cf105678157b5b4ac66f49035110d37',
+      helperSha256:
+        '981a19d6b514e20892b4fedda6273d97f32712aac60c6943369de29bdeeaca99',
+    }
+  }
+
+  it('accepts only the exact provisional-A build residue projection', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(
+      inspectPolicyProvisionalABuildResidueForFixture(
+        exactProvisionalABuildResidue(),
+      ),
+    ).toBe(true)
+    vi.unstubAllEnvs()
+  })
+
+  it.each(
+    (['held', 'named'] as const).flatMap((scope) =>
+      (['build', 'source', 'helper', 'tmp'] as const).flatMap((role) =>
+        (
+          ['kind', 'uid', 'device', 'inode', 'mode', 'links', 'size'] as const
+        ).map((field) => [scope, role, field] as const),
+      ),
+    ),
+  )('rejects provisional-A residue %s %s %s drift', (scope, role, field) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const residue = exactProvisionalABuildResidue()
+    const entry = residue[scope][role]
+    if (field === 'kind') entry.kind = 'other'
+    else entry[field] += 1
+    expect(() =>
+      inspectPolicyProvisionalABuildResidueForFixture(residue),
+    ).toThrow('policy-native-authority')
+    vi.unstubAllEnvs()
+  })
+
+  it.each([
+    ['buildEntries', ['exclusive-promotion-helper.c', 'tmp']],
+    ['tmpEntries', ['unexpected']],
+    ['sourceSha256', '0'.repeat(64)],
+    ['helperSha256', '0'.repeat(64)],
+  ] as const)('rejects provisional-A residue %s drift', (field, value) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const residue = exactProvisionalABuildResidue()
+    Object.assign(residue, { [field]: value })
+    expect(() =>
+      inspectPolicyProvisionalABuildResidueForFixture(residue),
+    ).toThrow('policy-native-authority')
+    vi.unstubAllEnvs()
+  })
+
+  it.each([0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])(
+    'keeps residue helper exit %s behind exact pre/post custody checks',
+    async (code) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      await expect(
+        runPolicyProvisionalABuildResidueLifecycleForFixture({
+          failure: null,
+          result: {
+            code,
+            stdoutBytes: 0,
+            stderrBytes: 0,
+            processGroupAbsent: true,
+            streamsClosed: true,
+          },
+        }),
+      ).resolves.toEqual({
+        status: 'diagnosed',
+        events: ['precheck', 'child', 'postcheck'],
+        helperExitCode: code,
+      })
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it.each([
+    ['precheck', ['precheck']],
+    ['child', ['precheck', 'child']],
+    ['postcheck', ['precheck', 'child', 'postcheck']],
+  ] as const)(
+    'stops residue helper lifecycle on %s failure without advancing',
+    async (failure, events) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      await expect(
+        runPolicyProvisionalABuildResidueLifecycleForFixture({
+          failure,
+          result: {
+            code: 0,
+            stdoutBytes: 0,
+            stderrBytes: 0,
+            processGroupAbsent: true,
+            streamsClosed: true,
+          },
+        }),
+      ).resolves.toEqual({ status: 'stopped', events })
+      vi.unstubAllEnvs()
+    },
+  )
+
+  it.each([
+    { code: 9 },
+    { stdoutBytes: 1 },
+    { stderrBytes: 1 },
+    { processGroupAbsent: false },
+    { streamsClosed: false },
+  ])('rejects residue helper lifecycle drift %j', async (change) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    await expect(
+      runPolicyProvisionalABuildResidueLifecycleForFixture({
+        failure: null,
+        result: {
+          code: 0,
+          stdoutBytes: 0,
+          stderrBytes: 0,
+          processGroupAbsent: true,
+          streamsClosed: true,
+          ...change,
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'stopped',
+      events: ['precheck', 'child', 'postcheck'],
+    })
+    vi.unstubAllEnvs()
+  })
+
   it('keeps child-process authority isolated to the exact native launcher dependency boundary', async () => {
     const repositoryRoot = process.cwd()
     const authorityPath = join(repositoryRoot, 'scripts/m45-policy-baseline.ts')
@@ -2271,7 +2449,9 @@ describe('M45 policy baseline filesystem custody', () => {
       'runPolicyBCandidateLifecycleForFixture',
       'runPolicyCAcceptedLifecycleForFixture',
       'reopenPolicyBCandidateCheckpointForFixture',
+      'runPolicyProvisionalABuildResidueLifecycleForFixture',
       'runPolicyProvisionalBuildA',
+      'diagnosePolicyProvisionalABuildResidue',
       'runPolicyProvisionalBuildB',
       'runPolicyProvisionalBuildC',
     ])
@@ -2309,6 +2489,59 @@ describe('M45 policy baseline filesystem custody', () => {
       'review-candidate',
     ])
       expect(diagnosticBridge).not.toContain(forbidden)
+    const residueDiagnosticBridge = nativeAuthority.slice(
+      nativeAuthority.indexOf(
+        'export async function diagnosePolicyProvisionalABuildResidue',
+      ),
+      nativeAuthority.indexOf('/**\n * Decision 111 B'),
+    )
+    expect(residueDiagnosticBridge).toContain(
+      'runPolicyNativeToolchainDerivation',
+    )
+    expect(residueDiagnosticBridge).toContain('commandLockCapabilityProbe')
+    expect(residueDiagnosticBridge).toContain('openDerivationLock')
+    expect(residueDiagnosticBridge).toContain("kind: 'metadata-check'")
+    expect(residueDiagnosticBridge).toContain("role: 'command-lock'")
+    expect(residueDiagnosticBridge).toContain(
+      'provisionalABuildResidue.helper.sha256',
+    )
+    expect(
+      residueDiagnosticBridge.indexOf('buildHandle = await open'),
+    ).toBeLessThan(
+      residueDiagnosticBridge.indexOf('commandLockCapabilityProbe'),
+    )
+    expect(
+      residueDiagnosticBridge.indexOf(
+        'assertExactPolicyProvisionalABuildResidueMetadata(initialResidueMetadata)',
+      ),
+    ).toBeLessThan(
+      residueDiagnosticBridge.indexOf('completeHeldBytes(sourceHandle'),
+    )
+    expect(
+      residueDiagnosticBridge.indexOf(
+        'assertExactPolicyProvisionalABuildResidueMetadata(currentResidueMetadata)',
+      ),
+    ).toBeLessThan(
+      residueDiagnosticBridge.indexOf(
+        'completeHeldBytes(\n          heldResidue.source',
+      ),
+    )
+    for (const forbidden of [
+      'buildAndCleanupA',
+      'deleteBuildEntry',
+      'deleteBuildTerminal',
+      'runCompilerBuild',
+      'runPolicyProvisionalBuildA',
+      'runPolicyProvisionalBuildB',
+      'runPolicyProvisionalBuildC',
+      'mkdir(',
+      'chmod(',
+      'writeFile(',
+      'unlink(',
+      'rename(',
+      'register',
+    ])
+      expect(residueDiagnosticBridge).not.toContain(forbidden)
     // Decision 119 retains the two non-overlapping filler lifetimes while
     // requiring every observed parent source FD above its child target.
     expect(nativeAuthority).toContain('positioningFillers')

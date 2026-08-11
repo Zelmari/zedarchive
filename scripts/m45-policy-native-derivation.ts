@@ -22,12 +22,15 @@ import {
   parsePolicyPromotionPackage,
 } from './m45-policy-baseline'
 import {
+  diagnosePolicyProvisionalABuildResidue,
   diagnosePolicyProvisionalBuildAPrebuild,
   policySdkProtectionStops,
 } from './m45-policy-baseline-native-authority'
 
 const confirmation = '--confirm-m45-policy-native-derivation-v1'
 const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v10'
+const residueDiagnosticConfirmation =
+  '--confirm-m45-policy-native-a-residue-diagnostic-v1'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -37,6 +40,7 @@ const stageBName = 'stage-b.v1.json'
 const candidateName = 'candidate.v1.json'
 const reviewInputName = 'review-input.v1.json'
 const commandLockName = '.policy-exclusive-promotion.lock'
+const buildRootName = '.policy-exclusive-promotion-build'
 const preservedSiblings = [
   'candidate-review',
   'discovery',
@@ -52,6 +56,7 @@ export type PolicyNativeDerivationMode =
   | 'preflight'
   | 'recover-preflight'
   | 'diagnose-a'
+  | 'diagnose-a-residue'
   | 'derive-a'
   | 'derive-b'
   | 'review-candidate'
@@ -64,6 +69,7 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'preflight-recovered'
     | 'diagnostic-complete'
     | 'diagnostic-stopped'
+    | 'a-build-residue-diagnosed'
     | 'a-derived'
     | 'a-residue-preserved'
     | 'b-derived'
@@ -73,6 +79,7 @@ export type PolicyNativeDerivationResult = Readonly<{
   lastSuccessfulBoundary?: PolicyProvisionalAPrebuildBoundary
   derivationLockCycleClosed?: true
   sdkProtectionStop?: PolicySdkProtectionStop
+  helperExitCode?: number
 }>
 
 export const policyProvisionalAPrebuildBoundaries = [
@@ -197,6 +204,14 @@ const legacyResidue = Object.freeze({
     nlink: 7,
     size: 224,
   }),
+  buildResidueRoot: Object.freeze({
+    uid: 501,
+    dev: 16777231,
+    ino: 9973053,
+    mode: 0o700,
+    nlink: 8,
+    size: 256,
+  }),
   control: Object.freeze({
     uid: 501,
     dev: 16777231,
@@ -270,6 +285,12 @@ export type PolicyNativeDerivationSeams = Readonly<{
     nativeAuthoritySha256: string
     commandLock: unknown
   }) => Promise<PolicyProvisionalAPrebuildDiagnostic>
+  diagnoseAResidue: (input: {
+    repositoryRoot: string
+    nativeAuthoritySha256: string
+    rootNonceSha256: string
+    commandLock: unknown
+  }) => Promise<Readonly<{ helperExitCode: number }>>
 }>
 
 function canonical(value: unknown): string {
@@ -307,6 +328,11 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
   )
     return operation
   if (operation === 'diagnose-a' && literal === diagnosticConfirmation)
+    return operation
+  if (
+    operation === 'diagnose-a-residue' &&
+    literal === residueDiagnosticConfirmation
+  )
     return operation
   if (operation === 'review-candidate' && literal === reviewConfirmation)
     return operation
@@ -445,9 +471,15 @@ function createPolicySyntheticLegacyResidue() {
     nlink: 7,
     size: root.size + 32,
   })
+  const buildResidueRoot = Object.freeze({
+    ...lockOnlyRoot,
+    nlink: 8,
+    size: lockOnlyRoot.size + 32,
+  })
   return Object.freeze({
     root,
     lockOnlyRoot,
+    buildResidueRoot,
     control: Object.freeze(control),
     siblings,
     baseline,
@@ -694,6 +726,14 @@ type ResidueProfile = Readonly<{
     nlink: number
     size: number
   }>
+  buildResidueRoot: Readonly<{
+    uid: number
+    dev: number
+    ino: number
+    mode: number
+    nlink: number
+    size: number
+  }>
   control: Readonly<{
     uid: number
     dev: number
@@ -737,6 +777,10 @@ type LegacyCustody = Readonly<{
 
 const baseRootEntries = Object.freeze([...preservedSiblings, controlName])
 const lockedRootEntries = Object.freeze([...baseRootEntries, commandLockName])
+const buildResidueRootEntries = Object.freeze([
+  ...lockedRootEntries,
+  buildRootName,
+])
 
 async function withHeldCommandLock<T>(
   filesystem: RunnerFilesystem,
@@ -1268,6 +1312,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     deriveA: derivePolicyProvisionalBuildA,
     deriveB: derivePolicyProvisionalBuildB,
     diagnoseA: diagnosePolicyProvisionalBuildAPrebuild,
+    diagnoseAResidue: diagnosePolicyProvisionalABuildResidue,
   }
 }
 
@@ -1543,6 +1588,49 @@ async function runPolicyNativeDerivationCommandWithProfile(
                     diagnostic.authorityPackageSha256,
                 }),
           },
+        }
+      },
+    )
+  }
+
+  if (mode === 'diagnose-a-residue') {
+    return withLegacyCustody(
+      seams.filesystem,
+      m45,
+      controlRoot,
+      profile,
+      profile.buildResidueRoot,
+      seams.effectiveUid,
+      buildResidueRootEntries,
+      buildResidueRootEntries,
+      [baselineName],
+      [baselineName],
+      true,
+      true,
+      async (recovered) => {
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], buildResidueRootEntries)
+        const result = await seams.diagnoseAResidue({
+          repositoryRoot,
+          nativeAuthoritySha256: tracked.nativeAuthoritySha256,
+          rootNonceSha256: seams.nonce(),
+          commandLock: terminalEvidence(recovered.commandLock!),
+        })
+        exactRecordKeys(result, ['helperExitCode'])
+        if (
+          !Number.isSafeInteger(result.helperExitCode) ||
+          ![0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].includes(
+            result.helperExitCode,
+          )
+        )
+          throw new Error('a-residue-diagnostic')
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], buildResidueRootEntries)
+        return {
+          mode,
+          status: 'a-build-residue-diagnosed',
+          helperExitCode: result.helperExitCode,
+          commitments,
         }
       },
     )
@@ -1955,6 +2043,7 @@ export async function executePolicyNativeDerivationCli(
       argv[0] === 'preflight' ||
       argv[0] === 'recover-preflight' ||
       argv[0] === 'diagnose-a' ||
+      argv[0] === 'diagnose-a-residue' ||
       argv[0] === 'derive-a' ||
       argv[0] === 'derive-b' ||
       argv[0] === 'review-candidate'
