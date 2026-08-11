@@ -17,23 +17,38 @@ const classifier = (await import(moduleUrl)) as {
   runPublicScratchStageCoreForFixture: (
     argv: readonly string[],
     dependencies: Record<string, unknown>,
-  ) => Promise<Readonly<{ stage: string }>>
+  ) => Promise<Readonly<{ stage: string } | { class: string }>>
   runPublicScratchStageChildForFixture: (
     operations: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>
   formatPublicScratchStageForFixture: (
     result: Record<string, unknown>,
   ) => Readonly<{ line: string; exitCode: number }>
+  writePublicScratchResultForFixture: (
+    line: unknown,
+    write: unknown,
+  ) => Promise<number>
 }
 
 const fixedPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
 const argv = [
-  'diagnose-public-scratch-classifier-stop',
-  '--confirm-m45-public-scratch-classifier-stop-v1',
+  'classify-public-scratch-xattr',
+  '--confirm-m45-public-scratch-xattr-classifier-v2',
 ] as const
 const retiredArgv = [
-  'classify-public-scratch-xattr',
-  '--confirm-m45-public-scratch-xattr-classifier-v1',
+  [
+    'classify-public-scratch-xattr',
+    '--confirm-m45-public-scratch-xattr-classifier-v1',
+  ],
+  [
+    'diagnose-public-scratch-classifier-stop',
+    '--confirm-m45-public-scratch-classifier-stop-v1',
+  ],
+  ['diagnose-public-host-admission', '--confirm-m45-public-host-admission-v1'],
+  [
+    'classify-public-host-environment-keyset',
+    '--confirm-m45-public-host-environment-keyset-v1',
+  ],
 ] as const
 const gid = 20
 const stages = [
@@ -57,8 +72,12 @@ const stages = [
   'parse-marker',
   'budget',
   'close',
-  'pipeline-complete',
   'stopped',
+] as const
+const privateClasses = [
+  'only-provenance-11',
+  'no-xattr',
+  'other-xattr-set',
 ] as const
 const childFailureStages = [
   'child-spawn',
@@ -125,13 +144,29 @@ const scratchMetadata = {
   symbolicLink: false,
 }
 const host = {
+  environmentKeys: ['LANG', 'LC_ALL', 'TZ', '__CF_USER_TEXT_ENCODING'],
   platform: 'darwin',
   nodeVersion: '24.18.1',
   execPath: '/opt/homebrew/Cellar/node@24/24.18.1/bin/node',
   cwd: '/',
+  resolvedCwd: '/',
   euid: 501,
-  environment: { LC_ALL: 'C', LANG: 'C', TZ: 'UTC' },
+  lcAll: 'C',
+  lang: 'C',
+  tz: 'UTC',
 }
+const hostReadOrder = [
+  'environment-keyset',
+  'platform',
+  'node-version',
+  'exec-path',
+  'cwd',
+  'cwd-resolution',
+  'euid',
+  'lc-all',
+  'lang',
+  'tz',
+] as const
 const goodChild = (stdout = validOutputs[0][0]) => ({
   failureStage: null,
   spawnFault: false,
@@ -179,6 +214,7 @@ function coreFixture(
     closeError?: 'parent' | 'scratch'
     flagsError?: boolean
     host?: Record<string, unknown>
+    hostReaders?: Record<string, unknown>
     now?: () => number
     drift?: {
       role: 'parent' | 'scratch'
@@ -189,6 +225,7 @@ function coreFixture(
   } = {},
 ) {
   const events: string[] = []
+  const hostEvents: string[] = []
   const counts = {
     parentHeld: 0,
     parentNamed: 0,
@@ -221,8 +258,52 @@ function coreFixture(
     }),
   })
   const handles = { parent: handle('parent'), scratch: handle('scratch') }
+  const hostValues = options.host ?? host
+  const hostReaders = {
+    environmentKeys: vi.fn(() => {
+      hostEvents.push('environment-keyset')
+      return hostValues.environmentKeys
+    }),
+    platform: vi.fn(() => {
+      hostEvents.push('platform')
+      return hostValues.platform
+    }),
+    nodeVersion: vi.fn(() => {
+      hostEvents.push('node-version')
+      return hostValues.nodeVersion
+    }),
+    execPath: vi.fn(() => {
+      hostEvents.push('exec-path')
+      return hostValues.execPath
+    }),
+    cwd: vi.fn(() => {
+      hostEvents.push('cwd')
+      return hostValues.cwd
+    }),
+    resolveCwd: vi.fn(() => {
+      hostEvents.push('cwd-resolution')
+      return hostValues.resolvedCwd
+    }),
+    euid: vi.fn(() => {
+      hostEvents.push('euid')
+      return hostValues.euid
+    }),
+    lcAll: vi.fn(() => {
+      hostEvents.push('lc-all')
+      return hostValues.lcAll
+    }),
+    lang: vi.fn(() => {
+      hostEvents.push('lang')
+      return hostValues.lang
+    }),
+    tz: vi.fn(() => {
+      hostEvents.push('tz')
+      return hostValues.tz
+    }),
+    ...options.hostReaders,
+  }
   const dependencies = {
-    host: options.host ?? host,
+    hostReaders,
     now: vi.fn(options.now ?? (() => 0)),
     directoryFlags: vi.fn(() => {
       if (options.flagsError) throw new Error('private-flags')
@@ -243,7 +324,7 @@ function coreFixture(
       return options.child ?? goodChild()
     }),
   }
-  return { dependencies, events, handles }
+  return { dependencies, events, hostEvents, handles, hostReaders }
 }
 
 function childFixture(
@@ -393,7 +474,7 @@ const runCore = async (
 const runChild = async (current: ReturnType<typeof childFixture>) =>
   classifier.runPublicScratchStageChildForFixture(current.operations)
 
-describe('D134 public scratch classifier stop-stage diagnostic', () => {
+describe('D137 corrected host profile terminal xattr classifier', () => {
   it('keeps every fixture seam closed outside NODE_ENV=test', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     const core = coreFixture()
@@ -405,8 +486,16 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
       await expect(runCore(core)).rejects.toThrow('fixture-only')
       await expect(runChild(child)).rejects.toThrow('fixture-only')
       expect(() =>
-        classifier.formatPublicScratchStageForFixture({ stage: 'stopped' }),
+        classifier.formatPublicScratchStageForFixture(
+          Object.freeze({ stage: 'stopped' }),
+        ),
       ).toThrow('fixture-only')
+      await expect(
+        classifier.writePublicScratchResultForFixture(
+          '{"stage":"stopped"}\n',
+          vi.fn(),
+        ),
+      ).rejects.toThrow('fixture-only')
       expect(core.dependencies.openDirectory).not.toHaveBeenCalled()
       expect(child.operations.spawnChild).not.toHaveBeenCalled()
     } finally {
@@ -531,14 +620,12 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
   })
 
   it.each(validOutputs)(
-    'latches pipeline-complete only after custody closes for valid class %#',
-    async (bytes) => {
+    'releases terminal class only after custody closes for valid class %#',
+    async (bytes, privateClass) => {
       vi.stubEnv('NODE_ENV', 'test')
       const current = coreFixture({ child: goodChild(bytes) })
       try {
-        await expect(runCore(current)).resolves.toEqual({
-          stage: 'pipeline-complete',
-        })
+        await expect(runCore(current)).resolves.toEqual({ class: privateClass })
         expect(current.events).toEqual([
           'open-parent',
           'open-scratch',
@@ -557,24 +644,65 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
           fixedPath,
           0x01100100,
         )
-        expect(
-          JSON.stringify(
-            await runCore(coreFixture({ child: goodChild(bytes) })),
-          ),
-        ).not.toMatch(/xattr|provenance|unknown/u)
+        const result = await runCore(coreFixture({ child: goodChild(bytes) }))
+        expect(result).toEqual({ class: privateClass })
+        expect(Object.isFrozen(result)).toBe(true)
       } finally {
         vi.unstubAllEnvs()
       }
     },
   )
 
-  it.each([
-    { args: [] },
-    { args: [argv[0]] },
-    { args: [argv[0], 'wrong'] },
-    { args: [...argv, 'extra'] },
-    { args: retiredArgv },
-  ])(
+  it.each(validOutputs)(
+    'passes terminal class %# through core, formatter, and one-shot writer',
+    async (bytes, privateClass) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const write = vi.fn(async () => undefined)
+      try {
+        const result = await runCore(coreFixture({ child: goodChild(bytes) }))
+        const formatted = classifier.formatPublicScratchStageForFixture(result)
+        expect(formatted).toEqual({
+          line: `${JSON.stringify({ class: privateClass })}\n`,
+          exitCode: 0,
+        })
+        await expect(
+          classifier.writePublicScratchResultForFixture(formatted.line, write),
+        ).resolves.toBe(0)
+        expect(write).toHaveBeenCalledExactlyOnceWith(formatted.line)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it.each(
+    validOutputs.flatMap(([bytes, privateClass]) =>
+      (['scratch', 'parent'] as const).map(
+        (role) => [privateClass, role, bytes] as const,
+      ),
+    ),
+  )(
+    'suppresses terminal class %s when %s close fails',
+    async (privateClass, role, bytes) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const current = coreFixture({ child: goodChild(bytes), closeError: role })
+      try {
+        const result = await runCore(current)
+        expect(result).toEqual({ stage: 'close' })
+        expect(JSON.stringify(result)).not.toContain(privateClass)
+        expect(current.handles.scratch.close).toHaveBeenCalledOnce()
+        expect(current.handles.parent.close).toHaveBeenCalledOnce()
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it.each(
+    [[], [argv[0]], [argv[0], 'wrong'], [...argv, 'extra'], ...retiredArgv].map(
+      (args) => ({ args }),
+    ),
+  )(
     'rejects retired or malformed grammar before every boundary',
     async ({ args }) => {
       vi.stubEnv('NODE_ENV', 'test')
@@ -584,6 +712,7 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
           stage: 'stopped',
         })
         expect(current.dependencies.now).not.toHaveBeenCalled()
+        expect(current.hostReaders.environmentKeys).not.toHaveBeenCalled()
         expect(current.dependencies.openDirectory).not.toHaveBeenCalled()
         expect(current.dependencies.runChild).not.toHaveBeenCalled()
       } finally {
@@ -592,22 +721,104 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
     },
   )
 
+  it.each(
+    [
+      new Proxy([...argv], {}),
+      (() => {
+        const sparse = new Array<string>(2)
+        sparse[0] = argv[0]
+        return sparse
+      })(),
+      (() => {
+        const accessor = [...argv]
+        Object.defineProperty(accessor, '0', {
+          enumerable: true,
+          get: () => argv[0],
+        })
+        return accessor
+      })(),
+      Object.assign([...argv], { extra: 'private' }),
+      Object.setPrototypeOf([...argv], { 0: argv[0], 1: argv[1] }),
+    ].map((args) => [args] as const),
+  )('rejects noncanonical argv before every boundary', async (args) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const current = coreFixture()
+    try {
+      await expect(runCore(current, args)).resolves.toEqual({
+        stage: 'stopped',
+      })
+      expect(current.hostReaders.environmentKeys).not.toHaveBeenCalled()
+      expect(current.dependencies.now).not.toHaveBeenCalled()
+      expect(current.dependencies.openDirectory).not.toHaveBeenCalled()
+      expect(current.dependencies.runChild).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('reads the exact four-name host profile lazily in fixed order', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const current = coreFixture()
+    try {
+      await expect(runCore(current)).resolves.toEqual({
+        class: 'only-provenance-11',
+      })
+      expect(current.hostEvents).toEqual(hostReadOrder)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it.each([
-    ['platform', 'linux'],
-    ['nodeVersion', '24.18.0'],
-    ['execPath', '/usr/bin/node'],
-    ['cwd', '/tmp'],
-    ['euid', 0],
-    ['environment', { LC_ALL: 'C', LANG: 'C', TZ: 'UTC', EXTRA: '1' }],
+    ['platform', 'linux', 2],
+    ['nodeVersion', '24.18.0', 3],
+    ['execPath', '/usr/bin/node', 4],
+    ['cwd', '/tmp', 5],
+    ['resolvedCwd', '/private', 6],
+    ['euid', 0, 7],
+    ['lcAll', 'POSIX', 8],
+    ['lang', 'en_GB.UTF-8', 9],
+    ['tz', 'Europe/London', 10],
   ] as const)(
-    'routes host %s drift to host-admission',
-    async (field, value) => {
+    'routes host %s drift to host-admission without later reads',
+    async (field, value, reads) => {
       vi.stubEnv('NODE_ENV', 'test')
       const current = coreFixture({ host: { ...host, [field]: value } })
       try {
         await expect(runCore(current)).resolves.toEqual({
           stage: 'host-admission',
         })
+        expect(current.hostEvents).toEqual(hostReadOrder.slice(0, reads))
+        expect(current.dependencies.openDirectory).not.toHaveBeenCalled()
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
+  it.each(
+    [
+      ['LANG', 'LC_ALL', 'TZ'],
+      ['LANG', 'LC_ALL', 'TZ', 'MallocNanoZone'],
+      ['LANG', 'LC_ALL', 'TZ', 'MallocNanoZone', '__CF_USER_TEXT_ENCODING'],
+      ['LANG', 'LC_ALL', 'TZ', '__CF_USER_TEXT_ENCODING', 'UNKNOWN'],
+      ['LANG', '__CF_USER_TEXT_ENCODING'],
+      ['__CF_USER_TEXT_ENCODING'],
+      [],
+      ['TZ', 'LANG', 'LC_ALL', '__CF_USER_TEXT_ENCODING'],
+      ['LANG', 'LANG', 'LC_ALL', 'TZ'],
+    ].map((environmentKeys) => [environmentKeys] as const),
+  )(
+    'rejects every non-exact environment-name profile: %j',
+    async (environmentKeys) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const current = coreFixture({ host: { ...host, environmentKeys } })
+      try {
+        await expect(runCore(current)).resolves.toEqual({
+          stage: 'host-admission',
+        })
+        expect(current.hostEvents).toEqual(['environment-keyset'])
+        expect(current.dependencies.openDirectory).not.toHaveBeenCalled()
       } finally {
         vi.unstubAllEnvs()
       }
@@ -615,28 +826,66 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
   )
 
   it.each([
-    { ...host, extra: 'closed' },
-    { ...host, environment: { LC_ALL: 'C', LANG: 'C' } },
-    { ...host, environment: { LC_ALL: 'C', LANG: 'C', TZ: 'UTC', EXTRA: '1' } },
-    { ...host, environment: { LC_ALL: 'wrong', LANG: 'C', TZ: 'UTC' } },
-    { ...host, environment: { LC_ALL: 'C', LANG: 'wrong', TZ: 'UTC' } },
-    { ...host, environment: { LC_ALL: 'C', LANG: 'C', TZ: 'wrong' } },
-    { ...host, environment: null },
+    null,
+    ['LANG', 1, 'TZ', '__CF_USER_TEXT_ENCODING'],
+    Object.assign([...host.environmentKeys], { extra: 'private' }),
+    Object.setPrototypeOf([...host.environmentKeys], null),
+    new Proxy([...host.environmentKeys], {}),
+    (() => {
+      const sparse = new Array<string>(4)
+      sparse[0] = 'LANG'
+      sparse[3] = '__CF_USER_TEXT_ENCODING'
+      return sparse
+    })(),
+    (() => {
+      const accessor = [...host.environmentKeys]
+      Object.defineProperty(accessor, '1', {
+        enumerable: true,
+        get: () => 'LC_ALL',
+      })
+      return accessor
+    })(),
   ])(
-    'rejects missing or extra host/environment keys exactly',
-    async (driftedHost) => {
+    'maps malformed environment-name snapshots to host-admission',
+    async (environmentKeys) => {
       vi.stubEnv('NODE_ENV', 'test')
-      const current = coreFixture({ host: driftedHost })
+      const current = coreFixture({ host: { ...host, environmentKeys } })
       try {
         await expect(runCore(current)).resolves.toEqual({
           stage: 'host-admission',
         })
+        expect(current.hostEvents).toEqual(['environment-keyset'])
         expect(current.dependencies.openDirectory).not.toHaveBeenCalled()
       } finally {
         vi.unstubAllEnvs()
       }
     },
   )
+
+  it('enumerates the CF name without reading its value or forwarding it', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const valueRead = vi.fn(() => {
+      throw new Error('private-cf-value')
+    })
+    const environment = Object.defineProperty(
+      { LANG: 'C', LC_ALL: 'C', TZ: 'UTC' },
+      '__CF_USER_TEXT_ENCODING',
+      { enumerable: true, get: valueRead },
+    )
+    const current = coreFixture({
+      hostReaders: {
+        environmentKeys: vi.fn(() => Object.keys(environment).sort()),
+      },
+    })
+    try {
+      const result = await runCore(current)
+      expect(result).toEqual({ class: 'only-provenance-11' })
+      expect(valueRead).not.toHaveBeenCalled()
+      expect(JSON.stringify(result)).not.toContain('private-cf-value')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
 
   it.each(childFailureStages)(
     'copies outer child stage %s before the later budget boundary',
@@ -763,7 +1012,7 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
       })
       try {
         await expect(runCore(current)).resolves.toEqual({
-          stage: 'pipeline-complete',
+          class: 'only-provenance-11',
         })
       } finally {
         vi.unstubAllEnvs()
@@ -1118,20 +1367,42 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
     }
   })
 
-  it('formats every closed stage with its exact exit and reflects nothing else', () => {
+  it('formats only the exact frozen stage/class union with exact exits', () => {
     vi.stubEnv('NODE_ENV', 'test')
     try {
       for (const stage of stages)
         expect(
-          classifier.formatPublicScratchStageForFixture({ stage }),
+          classifier.formatPublicScratchStageForFixture(
+            Object.freeze({ stage }),
+          ),
         ).toEqual({
           line: `${JSON.stringify({ stage })}\n`,
           exitCode: stage === 'stopped' ? 1 : 0,
         })
+      for (const privateClass of privateClasses)
+        expect(
+          classifier.formatPublicScratchStageForFixture(
+            Object.freeze({ class: privateClass }),
+          ),
+        ).toEqual({
+          line: `${JSON.stringify({ class: privateClass })}\n`,
+          exitCode: 0,
+        })
       for (const malformed of [
         {},
         { stage: 'private-secret' },
+        { stage: 'budget' },
+        Object.freeze({ stage: 'pipeline-complete' }),
         { stage: 'budget', extra: 'private-secret' },
+        Object.freeze({ stage: 'budget', class: 'only-provenance-11' }),
+        Object.create({ stage: 'budget' }),
+        new Proxy(Object.freeze({ stage: 'budget' }), {}),
+        Object.freeze(
+          Object.defineProperty({}, 'stage', {
+            enumerable: true,
+            get: () => 'budget',
+          }),
+        ),
       ]) {
         const result = classifier.formatPublicScratchStageForFixture(malformed)
         expect(result).toEqual({ line: '{"stage":"stopped"}\n', exitCode: 1 })
@@ -1142,6 +1413,71 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
     }
   })
 
+  it.each([
+    ...stages.map(
+      (stage) =>
+        [
+          `${JSON.stringify({ stage })}\n`,
+          stage === 'stopped' ? 1 : 0,
+        ] as const,
+    ),
+    ...privateClasses.map(
+      (privateClass) =>
+        [`${JSON.stringify({ class: privateClass })}\n`, 0] as const,
+    ),
+  ])('writes closed terminal line %s exactly once', async (line, exitCode) => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const write = vi.fn(async () => undefined)
+    try {
+      await expect(
+        classifier.writePublicScratchResultForFixture(line, write),
+      ).resolves.toBe(exitCode)
+      expect(write).toHaveBeenCalledExactlyOnceWith(line)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('maps writer failure to exit 1 with one attempt and no retry', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const write = vi.fn(async () => {
+      throw new Error('private-write')
+    })
+    try {
+      await expect(
+        classifier.writePublicScratchResultForFixture(
+          '{"class":"only-provenance-11"}\n',
+          write,
+        ),
+      ).resolves.toBe(1)
+      expect(write).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it.each([
+    null,
+    '',
+    '{"stage":"pipeline-complete"}\n',
+    '{"stage":"budget","class":"only-provenance-11"}\n',
+    '{ "stage": "budget" }\n',
+  ])(
+    'rejects malformed writer input without an output attempt',
+    async (line) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      const write = vi.fn()
+      try {
+        await expect(
+          classifier.writePublicScratchResultForFixture(line, write),
+        ).resolves.toBe(1)
+        expect(write).not.toHaveBeenCalled()
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
   it('keeps the production module isolated, fixed, and privacy-closed', async () => {
     const source = await readFile(
       new URL(
@@ -1151,13 +1487,16 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
       'utf8',
     )
     expect(source).toContain(
-      "const operation = 'diagnose-public-scratch-classifier-stop'",
+      "const operation = 'classify-public-scratch-xattr'",
     )
     expect(source).toContain(
-      "const confirmation = '--confirm-m45-public-scratch-classifier-stop-v1'",
+      "const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v2'",
     )
     expect(source).not.toContain(
       '--confirm-m45-public-scratch-xattr-classifier-v1',
+    )
+    expect(source).not.toContain(
+      '--confirm-m45-public-scratch-classifier-stop-v1',
     )
     const executeSource = source.slice(
       source.indexOf('async function executeClassifier'),
@@ -1171,6 +1510,19 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
     expect(source).toContain('detached: true')
     expect(source).toContain("cwd: '/'")
     expect(source).toContain('env: fixedEnvironment')
+    expect(source).toContain(
+      "const fixedEnvironment = Object.freeze({ LC_ALL: 'C', LANG: 'C', TZ: 'UTC' })",
+    )
+    expect(source).toContain(
+      'environmentKeys: () => Object.keys(process.env).sort()',
+    )
+    expect(source).toContain('lcAll: () => process.env.LC_ALL')
+    expect(source).toContain('lang: () => process.env.LANG')
+    expect(source).toContain('tz: () => process.env.TZ')
+    expect(source).not.toContain('...process.env')
+    expect(source).not.toContain('Object.entries(process.env)')
+    expect(source).not.toContain('process.env.__CF_USER_TEXT_ENCODING')
+    expect(source).not.toContain('process.env[')
     expect(source).toContain('shell: false')
     expect(source).toContain("stdio: ['ignore', 'pipe', 'pipe']")
     expect(source).toContain('const outputCap = 4096')
@@ -1229,7 +1581,7 @@ describe('D134 public scratch classifier stop-stage diagnostic', () => {
       expect(consumer, path).not.toContain(
         'm45-public-scratch-xattr-classifier.mjs',
       )
-      expect(consumer, path).not.toMatch(/PublicScratch(?:Ls|Stage)/u)
+      expect(consumer, path).not.toMatch(/PublicScratch(?:Ls|Stage|Result)/u)
     }
   })
 })

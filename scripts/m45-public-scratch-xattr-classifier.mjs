@@ -3,9 +3,10 @@ import { constants as fsConstants } from 'node:fs'
 import { lstat, open } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { types as utilTypes } from 'node:util'
 
-const operation = 'diagnose-public-scratch-classifier-stop'
-const confirmation = '--confirm-m45-public-scratch-classifier-stop-v1'
+const operation = 'classify-public-scratch-xattr'
+const confirmation = '--confirm-m45-public-scratch-xattr-classifier-v2'
 const nodePath = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
@@ -35,6 +36,12 @@ const expectedScratch = Object.freeze({
   mode: 0o700,
   nlink: 2,
 })
+const expectedEnvironmentKeys = Object.freeze([
+  'LANG',
+  'LC_ALL',
+  'TZ',
+  '__CF_USER_TEXT_ENCODING',
+])
 const stages = Object.freeze([
   'host-admission',
   'directory-flags',
@@ -56,7 +63,6 @@ const stages = Object.freeze([
   'parse-marker',
   'budget',
   'close',
-  'pipeline-complete',
   'stopped',
 ])
 const childStages = Object.freeze([
@@ -110,12 +116,50 @@ const privateClasses = Object.freeze([
 const pipelineAbort = Symbol('pipeline-abort')
 
 function exactProductionArgv(argv) {
-  return (
-    Array.isArray(argv) &&
-    argv.length === 2 &&
-    argv[0] === operation &&
-    argv[1] === confirmation
+  try {
+    return (
+      exactStringArray(argv) &&
+      argv.length === 2 &&
+      argv[0] === operation &&
+      argv[1] === confirmation
+    )
+  } catch {
+    return false
+  }
+}
+
+function exactStringArray(value, requireSorted = false) {
+  if (!Array.isArray(value) || utilTypes.isProxy(value)) return false
+  if (Object.getPrototypeOf(value) !== Array.prototype) return false
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
+  if (
+    lengthDescriptor === undefined ||
+    !('value' in lengthDescriptor) ||
+    lengthDescriptor.writable !== true ||
+    lengthDescriptor.enumerable !== false ||
+    lengthDescriptor.configurable !== false ||
+    !Number.isSafeInteger(lengthDescriptor.value) ||
+    lengthDescriptor.value < 0
   )
+    return false
+  const ownKeys = Reflect.ownKeys(value)
+  if (ownKeys.length !== lengthDescriptor.value + 1) return false
+  for (let index = 0; index < lengthDescriptor.value; index += 1) {
+    if (ownKeys[index] !== String(index)) return false
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
+    if (
+      descriptor === undefined ||
+      descriptor.enumerable !== true ||
+      descriptor.writable !== true ||
+      descriptor.configurable !== true ||
+      !('value' in descriptor) ||
+      typeof descriptor.value !== 'string'
+    )
+      return false
+    if (requireSorted && index > 0 && value[index - 1] >= descriptor.value)
+      return false
+  }
+  return ownKeys[lengthDescriptor.value] === 'length'
 }
 
 function exactKeys(value, expected) {
@@ -266,28 +310,58 @@ function assertScratch(metadata, expectedGid) {
     throw new Error('classifier-stopped')
 }
 
-function assertHost(host) {
-  exactKeys(host, [
+function assertHost(readers) {
+  const readerNames = [
+    'environmentKeys',
     'platform',
     'nodeVersion',
     'execPath',
     'cwd',
+    'resolveCwd',
     'euid',
-    'environment',
-  ])
-  exactKeys(host.environment, ['LC_ALL', 'LANG', 'TZ'])
+    'lcAll',
+    'lang',
+    'tz',
+  ]
+  exactKeys(readers, readerNames)
+  if (utilTypes.isProxy(readers)) throw new Error('classifier-stopped')
+  for (const name of readerNames) {
+    const descriptor = Object.getOwnPropertyDescriptor(readers, name)
+    if (
+      descriptor === undefined ||
+      descriptor.enumerable !== true ||
+      !('value' in descriptor) ||
+      typeof descriptor.value !== 'function'
+    )
+      throw new Error('classifier-stopped')
+  }
+
+  const environmentKeys = readers.environmentKeys()
   if (
-    host.platform !== 'darwin' ||
-    host.nodeVersion !== '24.18.1' ||
-    host.execPath !== nodePath ||
-    host.cwd !== '/' ||
-    resolve(host.cwd) !== '/' ||
-    host.euid !== expectedScratch.uid ||
-    host.environment.LC_ALL !== 'C' ||
-    host.environment.LANG !== 'C' ||
-    host.environment.TZ !== 'UTC'
+    !exactStringArray(environmentKeys, true) ||
+    environmentKeys.length !== expectedEnvironmentKeys.length ||
+    environmentKeys.some((key, index) => key !== expectedEnvironmentKeys[index])
   )
     throw new Error('classifier-stopped')
+
+  const platform = readers.platform()
+  if (platform !== 'darwin') throw new Error('classifier-stopped')
+  const nodeVersion = readers.nodeVersion()
+  if (nodeVersion !== '24.18.1') throw new Error('classifier-stopped')
+  const execPath = readers.execPath()
+  if (execPath !== nodePath) throw new Error('classifier-stopped')
+  const cwd = readers.cwd()
+  if (cwd !== '/') throw new Error('classifier-stopped')
+  const resolvedCwd = readers.resolveCwd(cwd)
+  if (resolvedCwd !== '/') throw new Error('classifier-stopped')
+  const euid = readers.euid()
+  if (euid !== expectedScratch.uid) throw new Error('classifier-stopped')
+  const lcAll = readers.lcAll()
+  if (lcAll !== 'C') throw new Error('classifier-stopped')
+  const lang = readers.lang()
+  if (lang !== 'C') throw new Error('classifier-stopped')
+  const timezone = readers.tz()
+  if (timezone !== 'UTC') throw new Error('classifier-stopped')
 }
 
 function checkBudget(start, now) {
@@ -370,14 +444,28 @@ function assertChildResult(result) {
     throw new Error('classifier-stopped')
 }
 
+function stageResult(stage) {
+  if (!stages.includes(stage)) return stoppedResult()
+  return Object.freeze({ stage })
+}
+
+function classResult(privateClass) {
+  if (!privateClasses.includes(privateClass)) return stoppedResult()
+  return Object.freeze({ class: privateClass })
+}
+
+function stoppedResult() {
+  return Object.freeze({ stage: 'stopped' })
+}
+
 async function runClassifierCore(argv, dependencies) {
-  if (!exactProductionArgv(argv)) return Object.freeze({ stage: 'stopped' })
+  if (!exactProductionArgv(argv)) return stoppedResult()
 
   let firstFailureStage
   let childGroupFailure = false
   let closeFailure = false
   let ambiguous = false
-  let pipelineValid = false
+  let successfulClass
   let parentHandle
   let scratchHandle
   let started
@@ -405,7 +493,7 @@ async function runClassifierCore(argv, dependencies) {
       abortAt('budget')
     }
     try {
-      assertHost(dependencies.host)
+      assertHost(dependencies.hostReaders)
     } catch {
       abortAt('host-admission')
     }
@@ -484,7 +572,7 @@ async function runClassifierCore(argv, dependencies) {
       throw pipelineAbort
     }
     ensureBudget()
-    pipelineValid = true
+    successfulClass = parsed.privateClass
   } catch (error) {
     if (error !== pipelineAbort) ambiguous = true
   }
@@ -511,14 +599,13 @@ async function runClassifierCore(argv, dependencies) {
     }
   }
 
-  let stage = 'stopped'
-  if (closeFailure) stage = 'close'
-  else if (childGroupFailure) stage = 'child-group'
-  else if (!ambiguous && firstFailureStage !== undefined)
-    stage = firstFailureStage
-  else if (!ambiguous && pipelineValid) stage = 'pipeline-complete'
-  if (!stages.includes(stage)) stage = 'stopped'
-  return Object.freeze({ stage })
+  if (closeFailure) return stageResult('close')
+  if (childGroupFailure) return stageResult('child-group')
+  if (!ambiguous && firstFailureStage !== undefined)
+    return stageResult(firstFailureStage)
+  if (!ambiguous && privateClasses.includes(successfulClass))
+    return classResult(successfulClass)
+  return stoppedResult()
 }
 
 function defaultDirectoryFlags() {
@@ -829,36 +916,92 @@ async function runFixedLsChild() {
   })
 }
 
-function formatStageResult(result) {
+function canonicalTerminalResult(result) {
   try {
-    exactKeys(result, ['stage'])
-    if (!stages.includes(result.stage)) throw new Error('classifier-stopped')
-    return `${JSON.stringify({ stage: result.stage })}\n`
+    if (
+      result === null ||
+      typeof result !== 'object' ||
+      Array.isArray(result) ||
+      utilTypes.isProxy(result) ||
+      Object.getPrototypeOf(result) !== Object.prototype ||
+      !Object.isFrozen(result)
+    )
+      return null
+    const keys = Reflect.ownKeys(result)
+    if (keys.length !== 1 || (keys[0] !== 'stage' && keys[0] !== 'class'))
+      return null
+    const key = keys[0]
+    const descriptor = Object.getOwnPropertyDescriptor(result, key)
+    if (
+      descriptor === undefined ||
+      descriptor.enumerable !== true ||
+      descriptor.writable !== false ||
+      descriptor.configurable !== false ||
+      !('value' in descriptor) ||
+      typeof descriptor.value !== 'string'
+    )
+      return null
+    if (key === 'stage' && stages.includes(descriptor.value))
+      return Object.freeze({ key, value: descriptor.value })
+    if (key === 'class' && privateClasses.includes(descriptor.value))
+      return Object.freeze({ key, value: descriptor.value })
+    return null
   } catch {
-    return '{"stage":"stopped"}\n'
+    return null
   }
 }
 
-function exitCodeForStageResult(result) {
+function formatTerminalResult(result) {
+  const canonical = canonicalTerminalResult(result)
+  if (canonical === null)
+    return Object.freeze({ line: '{"stage":"stopped"}\n', exitCode: 1 })
+  return Object.freeze({
+    line: `${JSON.stringify({ [canonical.key]: canonical.value })}\n`,
+    exitCode:
+      canonical.key === 'stage' && canonical.value === 'stopped' ? 1 : 0,
+  })
+}
+
+function closedFormattedLine(line) {
+  if (typeof line !== 'string') return null
+  for (const stage of stages)
+    if (line === `${JSON.stringify({ stage })}\n`)
+      return Object.freeze({ line, exitCode: stage === 'stopped' ? 1 : 0 })
+  for (const privateClass of privateClasses)
+    if (line === `${JSON.stringify({ class: privateClass })}\n`)
+      return Object.freeze({ line, exitCode: 0 })
+  return null
+}
+
+async function writeTerminalResultOnce(line, write) {
+  const formatted = closedFormattedLine(line)
+  if (formatted === null || typeof write !== 'function') return 1
   try {
-    exactKeys(result, ['stage'])
-    if (!stages.includes(result.stage)) throw new Error('classifier-stopped')
-    return result.stage === 'stopped' ? 1 : 0
+    await write(formatted.line)
+    return formatted.exitCode
   } catch {
     return 1
   }
 }
 
+function productionHostReaders() {
+  return Object.freeze({
+    environmentKeys: () => Object.keys(process.env).sort(),
+    platform: () => process.platform,
+    nodeVersion: () => process.versions.node,
+    execPath: () => process.execPath,
+    cwd: () => process.cwd(),
+    resolveCwd: (cwd) => resolve(cwd),
+    euid: () => process.geteuid?.() ?? -1,
+    lcAll: () => process.env.LC_ALL,
+    lang: () => process.env.LANG,
+    tz: () => process.env.TZ,
+  })
+}
+
 function defaultDependencies() {
   return Object.freeze({
-    host: Object.freeze({
-      platform: process.platform,
-      nodeVersion: process.versions.node,
-      execPath: process.execPath,
-      cwd: process.cwd(),
-      euid: process.geteuid?.() ?? -1,
-      environment: Object.freeze({ ...process.env }),
-    }),
+    hostReaders: productionHostReaders(),
     now: () => performance.now(),
     directoryFlags: defaultDirectoryFlags,
     openDirectory: (path, flags) => open(path, flags),
@@ -867,25 +1010,25 @@ function defaultDependencies() {
   })
 }
 
+function stdoutWrite(line) {
+  return new Promise((resolveWrite, rejectWrite) => {
+    process.stdout.write(line, (error) => {
+      if (error) rejectWrite(new Error('classifier-stopped'))
+      else resolveWrite()
+    })
+  })
+}
+
 async function executeClassifier(argv = process.argv.slice(2)) {
-  let result = Object.freeze({ stage: 'stopped' })
+  let result = stoppedResult()
   if (exactProductionArgv(argv))
     try {
       result = await runClassifierCore(argv, defaultDependencies())
     } catch {
-      result = Object.freeze({ stage: 'stopped' })
+      result = stoppedResult()
     }
-  try {
-    await new Promise((resolveWrite, rejectWrite) => {
-      process.stdout.write(formatStageResult(result), (error) => {
-        if (error) rejectWrite(new Error('classifier-stopped'))
-        else resolveWrite()
-      })
-    })
-  } catch {
-    return 1
-  }
-  return exitCodeForStageResult(result)
+  const formatted = formatTerminalResult(result)
+  return writeTerminalResultOnce(formatted.line, stdoutWrite)
 }
 
 export function routePublicScratchLsBytesForFixture(bytes, expectedGid) {
@@ -905,10 +1048,12 @@ export async function runPublicScratchStageChildForFixture(operations) {
 
 export function formatPublicScratchStageForFixture(result) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
-  return Object.freeze({
-    line: formatStageResult(result),
-    exitCode: exitCodeForStageResult(result),
-  })
+  return formatTerminalResult(result)
+}
+
+export async function writePublicScratchResultForFixture(line, write) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
+  return writeTerminalResultOnce(line, write)
 }
 
 if (
