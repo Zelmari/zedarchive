@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import {
   chmod,
@@ -17,7 +18,10 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { describe, expect, it, vi } from 'vitest'
+
+const execFileAsync = promisify(execFile)
 import {
   PolicyBaselineError,
   type PolicyFilesystem,
@@ -81,6 +85,10 @@ import {
 import {
   createPolicyCompilerCapability,
   createPolicyCompilerDiagnosticCapability,
+  createPolicyFdAdmissionProbeCapability,
+  createPolicyFdAdmissionProbeCompilerCapability,
+  createPolicyFdAdmissionProbeCompilerPlan,
+  createPolicyFdAdmissionProbePlan,
   createPolicyCompilerPlan,
   createPolicyCompilerResourcePlan,
   createPolicyHelperCapability,
@@ -89,6 +97,9 @@ import {
   createPolicyXcrunPlan,
 } from '@/../scripts/m45-policy-baseline-native-launch-contract'
 import {
+  assertPolicyFdAdmissionProbeFileSnapshotForFixture,
+  assertPolicyFdAdmissionProbeScratchSnapshotForFixture,
+  finalizePolicyFdAdmissionProbeScratchForFixture,
   inspectPolicyDiagnosticControlStateForFixture,
   inspectPolicyProvisionalABuildResidueForFixture,
   policyBCleanupCheckpointIds,
@@ -1200,6 +1211,25 @@ describe('M45 policy baseline filesystem custody', () => {
       stdio: ['ignore', 'pipe', 'pipe', 9],
       acceptedExitCodes: [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     })
+    const fdProbeCapability = createPolicyFdAdmissionProbeCapability({
+      repositoryRoot,
+      probePath: '/private/tmp/zedarchive-m45-fd-admission-probe/probe',
+      probeSha256: 'a'.repeat(64),
+    })
+    expect(createPolicyFdAdmissionProbePlan(fdProbeCapability, 9)).toEqual(
+      expect.objectContaining({
+        executable: '/private/tmp/zedarchive-m45-fd-admission-probe/probe',
+        arguments: [],
+        cwd: repositoryRoot,
+        environment: {},
+        stdio: ['ignore', 'pipe', 'pipe', 9],
+        outputMode: 'zero',
+        acceptedExitCodes: [0, 21, 23, 24, 25],
+      }),
+    )
+    expect(() =>
+      createPolicyFdAdmissionProbePlan(fdProbeCapability, 3),
+    ).toThrow('policy-native-launch-contract')
     expect(
       createPolicyNativeHelperPlan(helperCapability, {
         kind: 'acl-fixture',
@@ -2450,8 +2480,10 @@ describe('M45 policy baseline filesystem custody', () => {
       'runPolicyCAcceptedLifecycleForFixture',
       'reopenPolicyBCandidateCheckpointForFixture',
       'runPolicyProvisionalABuildResidueLifecycleForFixture',
+      'finalizePolicyFdAdmissionProbeScratchForFixture',
       'runPolicyProvisionalBuildA',
       'diagnosePolicyProvisionalABuildResidue',
+      'diagnosePolicyProvisionalAFdMap',
       'runPolicyProvisionalBuildB',
       'runPolicyProvisionalBuildC',
     ])
@@ -2493,7 +2525,9 @@ describe('M45 policy baseline filesystem custody', () => {
       nativeAuthority.indexOf(
         'export async function diagnosePolicyProvisionalABuildResidue',
       ),
-      nativeAuthority.indexOf('/**\n * Decision 111 B'),
+      nativeAuthority.indexOf(
+        'export async function diagnosePolicyProvisionalAFdMap',
+      ),
     )
     expect(residueDiagnosticBridge).toContain(
       'runPolicyNativeToolchainDerivation',
@@ -2505,6 +2539,8 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(residueDiagnosticBridge).toContain(
       'provisionalABuildResidue.helper.sha256',
     )
+    expect(residueDiagnosticBridge).toContain("'commandLock',\n  ])")
+    expect(residueDiagnosticBridge).not.toContain("'probeSourceSha256'")
     expect(
       residueDiagnosticBridge.indexOf('buildHandle = await open'),
     ).toBeLessThan(
@@ -2707,7 +2743,7 @@ describe('M45 policy baseline filesystem custody', () => {
       if (path === policyNativeAuthorityPath) continue
       if (
         (await readFile(path, 'utf8')).match(
-          /(?:inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata|SdkProtectedPath)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
+          /(?:(?:assert|finalize)PolicyFdAdmissionProbe(?:FileSnapshot|ScratchSnapshot|Scratch)|inspectPolicy(?:DirectHeaderTables|HeaderSetMutation|ProtectedPathMetadata|SdkProtectedPath)|parsePolicy(?:ClangDiagnostic|CompilerResourceOutput)|runPolicyNative(?:ChildFdLifecycle|Positioning)|runPolicyBCandidateLifecycle|reopenPolicyBCandidateCheckpoint)ForFixture/u,
         )
       )
         testFixtureConsumers.push(path)
@@ -2716,6 +2752,445 @@ describe('M45 policy baseline filesystem custody', () => {
     expect(nativeAuthority).toContain(
       "if (process.env.NODE_ENV !== 'test')\n    throw new Error('policy-wrapper-isolation')",
     )
+  })
+
+  it('keeps the FD-admission probe closed, silent, and distinct from the retained helper', async () => {
+    const probe = await readFile(
+      new URL(
+        '../scripts/policy-baseline-review/fd-admission-probe.c',
+        import.meta.url,
+      ),
+      'utf8',
+    )
+    for (const required of [
+      'PROBE_EXACT = 0',
+      'PROBE_FD3_INVALID = 21',
+      'PROBE_UNEXPECTED_FD = 23',
+      'PROBE_OPEN_MAX_INVALID = 24',
+      'PROBE_SCAN_INDETERMINATE = 25',
+      'sysconf(_SC_OPEN_MAX)',
+      'fcntl(fd, F_GETFD)',
+      'read_flags(3, &observed_errno)',
+      'observed_errno == EBADF',
+      'for (fd = 4; fd < open_max; fd++)',
+    ])
+      expect(probe).toContain(required)
+    for (const forbidden of ['printf(', 'puts(', 'write(', 'open(', 'stat('])
+      expect(probe).not.toContain(forbidden)
+    const harness = await readFile(
+      new URL(
+        '../scripts/policy-baseline-review/fd-admission-probe-test-harness.c',
+        import.meta.url,
+      ),
+      'utf8',
+    )
+    for (const mode of ['"exact"', '"missing"', '"extra"'])
+      expect(harness).toContain(mode)
+    expect(harness).toContain('for (fd = 3; fd < 1024; fd++)')
+    expect(harness).toContain('execl(probe, probe, (char *)NULL)')
+    const authority = await readFile(policyNativeAuthorityPath, 'utf8')
+    const contract = await readFile(policyNativeLaunchContractPath, 'utf8')
+    const fdMapBridge = authority.slice(
+      authority.indexOf(
+        'export async function diagnosePolicyProvisionalAFdMap',
+      ),
+      authority.indexOf('/**\n * Decision 111 B'),
+    )
+    expect(fdMapBridge).toContain('runFdAdmissionProbeWithCustodyChecks')
+    expect(fdMapBridge).toContain('assertExactPolicyProvisionalABuildResidue')
+    expect(fdMapBridge).not.toContain('runAcceptedHelper(')
+    expect(fdMapBridge).not.toContain("kind: 'metadata-check'")
+    expect(fdMapBridge).toContain('fdAdmissionProbeScratchRoot')
+    expect(fdMapBridge).toContain(
+      'runPolicyFdAdmissionProbeToolchainDerivation',
+    )
+    expect(fdMapBridge).not.toContain('runPolicyNativeToolchainDerivation')
+    for (const forbiddenAuthority of [
+      'runAcceptedHelper(',
+      'deleteBuildEntry(',
+      'deleteBuildTerminal(',
+      'buildAndCleanupA(',
+      'runPolicyProvisionalBuildA(',
+      'runPolicyProvisionalBuildB(',
+      'runPolicyProvisionalBuildC(',
+      'createPolicyPromotionPackage(',
+      'registerPolicy',
+      'provider',
+      'database',
+      'uuid',
+      'release',
+    ])
+      expect(fdMapBridge).not.toContain(forbiddenAuthority)
+    expect(fdMapBridge).toContain('expectedProbeSourceSha256')
+    expect(fdMapBridge).toContain("'probeSourceSha256'")
+    expect(fdMapBridge).toContain("'revalidateOuter'")
+    expect(fdMapBridge).not.toContain('runPolicyNativeToolchainDerivation')
+    expect(
+      fdMapBridge.indexOf('await commandLockCapabilityProbe'),
+    ).toBeLessThan(fdMapBridge.indexOf('await openDerivationLock'))
+    expect(fdMapBridge.indexOf('await openDerivationLock')).toBeLessThan(
+      fdMapBridge.indexOf('runPolicyFdAdmissionProbeToolchainDerivation'),
+    )
+    expect(
+      fdMapBridge.indexOf('runPolicyFdAdmissionProbeToolchainDerivation'),
+    ).toBeLessThan(fdMapBridge.indexOf('runFdAdmissionProbeCompiler'))
+    expect(fdMapBridge.indexOf('runFdAdmissionProbeCompiler')).toBeLessThan(
+      fdMapBridge.indexOf('runFdAdmissionProbeWithCustodyChecks'),
+    )
+    expect(contract).toContain('PolicyFdAdmissionProbeCompilerCapability')
+    expect(contract).toContain('probeSourceSha256')
+    const probeToolchain = authority.slice(
+      authority.indexOf(
+        'async function runPolicyFdAdmissionProbeToolchainDerivation',
+      ),
+      authority.indexOf(
+        'export async function runPolicyNativeToolchainDerivation',
+      ),
+    )
+    for (const child of [
+      'broker.runXcrunCompilerPath',
+      'broker.runXcrunSdkPath',
+      'broker.runCompilerResourceDir',
+      'broker.runFdAdmissionProbeCompilerDiagnostic',
+    ])
+      expect(
+        probeToolchain.match(new RegExp(child.replaceAll('.', '\\.'), 'gu')),
+      ).toHaveLength(1)
+    expect(probeToolchain).not.toContain('exclusive-promotion-helper.c')
+    expect(probeToolchain).not.toContain('runPolicyNativeToolchainDerivation')
+  })
+
+  it('shares the fail-closed scratch finalization sequence with production', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const sequence = [
+      'close-probe',
+      'validate-probe-for-unlink',
+      'unlink-probe',
+      'validate-empty-for-removal',
+      'close-scratch',
+      'remove-scratch',
+      'assert-absent-and-final',
+    ] as const
+    try {
+      await expect(
+        finalizePolicyFdAdmissionProbeScratchForFixture({
+          cleanupPermitted: true,
+        }),
+      ).resolves.toEqual(sequence)
+      await expect(
+        finalizePolicyFdAdmissionProbeScratchForFixture({
+          cleanupPermitted: false,
+        }),
+      ).resolves.toEqual(['close-probe'])
+
+      for (const [index, failAt] of sequence.entries()) {
+        const events: string[] = []
+        await expect(
+          finalizePolicyFdAdmissionProbeScratchForFixture({
+            cleanupPermitted: true,
+            failAt,
+            onEvent: (event) => events.push(event),
+          }),
+        ).rejects.toThrow('fixture-failure')
+        expect(events).toEqual(sequence.slice(0, index + 1))
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('binds the FD-admission compiler capability to the exact probe build plan', () => {
+    const repositoryRoot = '/fixture/repository'
+    const sdkRoot = '/fixture/sdk'
+    const scratchRoot = '/private/tmp/zedarchive-m45-fd-admission-probe'
+    const probeSourceSha256 = '1'.repeat(64)
+    const compileContractSha256 = createHash('sha256')
+      .update(
+        canonicalJson({
+          arguments: [
+            '-std=c17',
+            '-Wall',
+            '-Wextra',
+            '-Werror',
+            '-Wpedantic',
+            '-O2',
+            '-isysroot',
+            sdkRoot,
+            '-o',
+            `${scratchRoot}/probe`,
+            `${repositoryRoot}/scripts/policy-baseline-review/fd-admission-probe.c`,
+          ],
+          environment: { TMPDIR: scratchRoot },
+        }),
+      )
+      .digest('hex')
+    const authorityCore = {
+      schema: 'policy-fd-admission-probe-toolchain-authority.v1',
+      version: 1,
+      compilerPath: '/fixture/clang',
+      sdkRoot,
+      xcrunSha256: '2'.repeat(64),
+      xcrunDevice: '7',
+      xcrunInode: '100',
+      probeSourceSha256,
+      compilerSha256: '3'.repeat(64),
+      compilerDevice: '7',
+      compilerInode: '101',
+      sdkIdentitySha256: '4'.repeat(64),
+      sdkDevice: '7',
+      sdkInode: '102',
+      compilerResourceRoot: '/fixture/compiler-resource',
+      compilerResourceIdentitySha256: '5'.repeat(64),
+      compilerResourceDevice: '7',
+      compilerResourceInode: '103',
+      headerSetSha256: '6'.repeat(64),
+      diagnosticSha256: '7'.repeat(64),
+      diagnosticSemanticSha256: '8'.repeat(64),
+      linkerPath: '/fixture/ld',
+      linkerIdentitySha256: '9'.repeat(64),
+      linkerSha256: 'a'.repeat(64),
+      linkerDevice: '7',
+      linkerInode: '104',
+      compileContractSha256,
+      launchContractSha256: 'b'.repeat(64),
+      launcherSha256: 'c'.repeat(64),
+      nativeAuthoritySha256: 'd'.repeat(64),
+      lockPreflightWorkerSha256: 'e'.repeat(64),
+    } as const
+    const authorityPackage = {
+      ...authorityCore,
+      authorityPackageSha256: createHash('sha256')
+        .update(canonicalJson(authorityCore))
+        .digest('hex'),
+    }
+    const capabilityInput = {
+      repositoryRoot,
+      compilerPath: authorityCore.compilerPath,
+      sdkRoot,
+      compilerResourceRoot: authorityCore.compilerResourceRoot,
+      authorityPackage,
+    }
+    const capability =
+      createPolicyFdAdmissionProbeCompilerCapability(capabilityInput)
+    const planInput = { repositoryRoot, scratchRoot, probeSourceSha256 }
+    expect(
+      createPolicyFdAdmissionProbeCompilerPlan(capability, planInput),
+    ).toMatchObject({
+      cwd: repositoryRoot,
+      environment: { TMPDIR: scratchRoot },
+      arguments: expect.arrayContaining([
+        `${scratchRoot}/probe`,
+        `${repositoryRoot}/scripts/policy-baseline-review/fd-admission-probe.c`,
+      ]),
+    })
+    for (const changed of [
+      { ...planInput, probeSourceSha256: 'f'.repeat(64) },
+      { ...planInput, repositoryRoot: '/fixture/other' },
+      { ...planInput, scratchRoot: '/private/tmp/other' },
+    ])
+      expect(() =>
+        createPolicyFdAdmissionProbeCompilerPlan(capability, changed),
+      ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyFdAdmissionProbeCompilerCapability({
+        ...capabilityInput,
+        repositoryRoot: '/fixture/other',
+      }),
+    ).toThrow('policy-native-launch-contract')
+    expect(() =>
+      createPolicyFdAdmissionProbeCompilerCapability({
+        ...capabilityInput,
+        authorityPackage: {
+          ...authorityPackage,
+          probeSourceSha256: 'f'.repeat(64),
+        },
+      }),
+    ).toThrow('policy-native-launch-contract')
+  })
+
+  it('rejects every FD-admission scratch and probe snapshot drift field', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const scratchMetadata = {
+      kind: 'directory' as const,
+      dev: 7,
+      ino: 8,
+      uid: 501,
+      mode: 0o700,
+      nlink: 2,
+      size: 64,
+    }
+    const scratch = {
+      held: scratchMetadata,
+      named: scratchMetadata,
+      expectedUid: 501,
+      expectedDev: 7,
+      expectedIno: 8,
+      entries: ['probe'],
+      expectedEntries: ['probe'],
+    }
+    const probeMetadata = {
+      kind: 'file' as const,
+      dev: 7,
+      ino: 9,
+      uid: 501,
+      mode: 0o500,
+      nlink: 1,
+      size: 4096,
+    }
+    const probe = {
+      held: probeMetadata,
+      named: probeMetadata,
+      expectedUid: 501,
+      expectedDev: 7,
+      expectedIno: 9,
+      expectedSize: 4096,
+      heldSha256: 'a'.repeat(64),
+      expectedSha256: 'a'.repeat(64),
+    }
+    try {
+      expect(() =>
+        assertPolicyFdAdmissionProbeScratchSnapshotForFixture(scratch),
+      ).not.toThrow()
+      for (const changed of [
+        { ...scratch, held: { ...scratch.held, kind: 'other' as const } },
+        { ...scratch, named: { ...scratch.named, kind: 'other' as const } },
+        { ...scratch, held: { ...scratch.held, dev: 70 } },
+        { ...scratch, named: { ...scratch.named, ino: 80 } },
+        { ...scratch, held: { ...scratch.held, uid: 502 } },
+        { ...scratch, named: { ...scratch.named, mode: 0o755 } },
+        { ...scratch, held: { ...scratch.held, nlink: 3 } },
+        { ...scratch, named: { ...scratch.named, size: 65 } },
+        { ...scratch, entries: ['probe', 'unexpected'] },
+      ])
+        expect(() =>
+          assertPolicyFdAdmissionProbeScratchSnapshotForFixture(changed),
+        ).toThrow('policy-native-authority')
+
+      expect(() =>
+        assertPolicyFdAdmissionProbeFileSnapshotForFixture(probe),
+      ).not.toThrow()
+      for (const changed of [
+        { ...probe, held: { ...probe.held, kind: 'other' as const } },
+        { ...probe, named: { ...probe.named, kind: 'other' as const } },
+        { ...probe, held: { ...probe.held, dev: 70 } },
+        { ...probe, named: { ...probe.named, dev: 70 } },
+        { ...probe, held: { ...probe.held, ino: 90 } },
+        { ...probe, named: { ...probe.named, ino: 90 } },
+        { ...probe, held: { ...probe.held, uid: 502 } },
+        { ...probe, named: { ...probe.named, uid: 502 } },
+        { ...probe, held: { ...probe.held, mode: 0o700 } },
+        { ...probe, named: { ...probe.named, mode: 0o700 } },
+        { ...probe, held: { ...probe.held, nlink: 2 } },
+        { ...probe, named: { ...probe.named, nlink: 2 } },
+        { ...probe, held: { ...probe.held, size: 4097 } },
+        { ...probe, named: { ...probe.named, size: 4097 } },
+        { ...probe, heldSha256: 'b'.repeat(64) },
+      ])
+        expect(() =>
+          assertPolicyFdAdmissionProbeFileSnapshotForFixture(changed),
+        ).toThrow('policy-native-authority')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('runs the native FD-admission probe only in a disposable fixture root', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'd131-fd-probe-'))
+    const probe = join(fixtureRoot, 'probe')
+    const harness = join(fixtureRoot, 'harness')
+    const probeSource = resolve(
+      process.cwd(),
+      'scripts/policy-baseline-review/fd-admission-probe.c',
+    )
+    const harnessSource = resolve(
+      process.cwd(),
+      'scripts/policy-baseline-review/fd-admission-probe-test-harness.c',
+    )
+    try {
+      const compilerArguments = [
+        '-std=c17',
+        '-Wall',
+        '-Wextra',
+        '-Werror',
+        '-Wpedantic',
+        '-O2',
+      ]
+      await execFileAsync('cc', [
+        ...compilerArguments,
+        '-o',
+        probe,
+        probeSource,
+      ])
+      await execFileAsync('cc', [
+        ...compilerArguments,
+        '-DFD_ADMISSION_PROBE_TEST',
+        '-o',
+        harness,
+        probeSource,
+        harnessSource,
+      ])
+      const run = async (mode: 'exact' | 'missing' | 'extra') => {
+        try {
+          const result = await execFileAsync(harness, [mode, probe])
+          return { code: 0, stdout: result.stdout, stderr: result.stderr }
+        } catch (error) {
+          const failure = error as NodeJS.ErrnoException & {
+            code?: number
+            stdout?: string
+            stderr?: string
+          }
+          return {
+            code: failure.code,
+            stdout: failure.stdout ?? '',
+            stderr: failure.stderr ?? '',
+          }
+        }
+      }
+      const exact = await run('exact')
+      expect(exact).toEqual({ code: 0, stdout: '', stderr: '' })
+      for (const [mode, expected] of [
+        ['missing', 21],
+        ['extra', 23],
+      ] as const) {
+        expect(await run(mode)).toEqual({
+          code: expected,
+          stdout: '',
+          stderr: '',
+        })
+      }
+      const classify = async (mode: string) => {
+        try {
+          const result = await execFileAsync(harness, [mode])
+          return { code: 0, stdout: result.stdout, stderr: result.stderr }
+        } catch (error) {
+          const failure = error as NodeJS.ErrnoException & {
+            code?: number
+            stdout?: string
+            stderr?: string
+          }
+          return {
+            code: failure.code,
+            stdout: failure.stdout ?? '',
+            stderr: failure.stderr ?? '',
+          }
+        }
+      }
+      for (const [mode, expected] of [
+        ['fixture-exact', 0],
+        ['open-max-negative', 24],
+        ['open-max-large', 24],
+        ['fd3-cloexec', 21],
+        ['fd3-eintr', 25],
+        ['scan-eintr', 25],
+      ] as const)
+        expect(await classify(mode)).toEqual({
+          code: expected,
+          stdout: '',
+          stderr: '',
+        })
+    } finally {
+      await rm(fixtureRoot, { recursive: true, force: true })
+    }
   })
 
   it('exhausts the Decision-113 B cleanup checkpoint and launched-state matrix', () => {

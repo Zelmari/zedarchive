@@ -15,6 +15,12 @@ import {
   createPolicyCompilerDiagnosticCapability,
   createPolicyCompilerPlan,
   createPolicyCompilerResourcePlan,
+  createPolicyFdAdmissionProbeCapability,
+  createPolicyFdAdmissionProbeCompilerCapability,
+  createPolicyFdAdmissionProbeCompilerDiagnosticCapability,
+  createPolicyFdAdmissionProbeCompilerDiagnosticPlan,
+  createPolicyFdAdmissionProbeCompilerPlan,
+  createPolicyFdAdmissionProbePlan,
   createPolicyHelperCapability,
   createPolicyLockPreflightPlan,
   createPolicyNativeHelperPlan,
@@ -246,6 +252,17 @@ type PolicyNativeOperationBroker = Readonly<{
   runHelper: (
     capability: unknown,
     operation: unknown,
+  ) => Promise<PolicyNativeLifecycleResult>
+  runFdAdmissionProbe: (
+    capability: unknown,
+    commandLockFd: unknown,
+  ) => Promise<PolicyNativeLifecycleResult>
+  runFdAdmissionProbeCompiler: (
+    capability: unknown,
+    input: unknown,
+  ) => Promise<PolicyNativeLifecycleResult>
+  runFdAdmissionProbeCompilerDiagnostic: (
+    capability: unknown,
   ) => Promise<PolicyNativeLifecycleResult>
 }>
 
@@ -1033,6 +1050,26 @@ export function initializePolicyNativeOperationBroker(): PolicyNativeOperationBr
         createPolicyNativeHelperPlan(
           createPolicyHelperCapability(capability),
           operation,
+        ),
+      ),
+    runFdAdmissionProbe: (capability, commandLockFd) =>
+      runClosedPlan(
+        createPolicyFdAdmissionProbePlan(
+          createPolicyFdAdmissionProbeCapability(capability),
+          commandLockFd,
+        ),
+      ),
+    runFdAdmissionProbeCompiler: (capability, input) =>
+      runClosedPlan(
+        createPolicyFdAdmissionProbeCompilerPlan(
+          createPolicyFdAdmissionProbeCompilerCapability(capability),
+          input,
+        ),
+      ),
+    runFdAdmissionProbeCompilerDiagnostic: (capability) =>
+      runClosedPlan(
+        createPolicyFdAdmissionProbeCompilerDiagnosticPlan(
+          createPolicyFdAdmissionProbeCompilerDiagnosticCapability(capability),
         ),
       ),
   })

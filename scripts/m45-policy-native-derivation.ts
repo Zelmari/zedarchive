@@ -23,6 +23,7 @@ import {
 } from './m45-policy-baseline'
 import {
   diagnosePolicyProvisionalABuildResidue,
+  diagnosePolicyProvisionalAFdMap,
   diagnosePolicyProvisionalBuildAPrebuild,
   policySdkProtectionStops,
 } from './m45-policy-baseline-native-authority'
@@ -31,6 +32,8 @@ const confirmation = '--confirm-m45-policy-native-derivation-v1'
 const diagnosticConfirmation = '--confirm-m45-policy-native-a-diagnostic-v10'
 const residueDiagnosticConfirmation =
   '--confirm-m45-policy-native-a-residue-diagnostic-v2'
+const fdMapDiagnosticConfirmation =
+  '--confirm-m45-policy-native-a-fd-map-diagnostic-v1'
 const reviewConfirmation = '--confirm-m45-policy-native-review-v1'
 const recoveryConfirmation = '--confirm-m45-policy-native-recovery-v1'
 const controlName = 'policy-native-derivation'
@@ -59,6 +62,7 @@ export type PolicyNativeDerivationMode =
   | 'recover-preflight'
   | 'diagnose-a'
   | 'diagnose-a-residue'
+  | 'diagnose-a-fd-map'
   | 'derive-a'
   | 'derive-b'
   | 'review-candidate'
@@ -72,6 +76,7 @@ export type PolicyNativeDerivationResult = Readonly<{
     | 'diagnostic-complete'
     | 'diagnostic-stopped'
     | 'a-build-residue-diagnosed'
+    | 'a-fd-map-diagnosed'
     | 'a-derived'
     | 'a-residue-preserved'
     | 'b-derived'
@@ -82,6 +87,12 @@ export type PolicyNativeDerivationResult = Readonly<{
   derivationLockCycleClosed?: true
   sdkProtectionStop?: PolicySdkProtectionStop
   helperExitCode?: number
+  fdMapStatus?:
+    | 'exact'
+    | 'fd3-invalid'
+    | 'unexpected-fd'
+    | 'open-max-invalid'
+    | 'scan-indeterminate'
 }>
 
 export const policyProvisionalAPrebuildBoundaries = [
@@ -187,7 +198,13 @@ type TrackedCommitments = Readonly<{
   launcherSha256: string
   nativeAuthoritySha256: string
   lockPreflightWorkerSha256: string
+  fdAdmissionProbeSourceSha256: string
 }>
+
+type HistoricalTrackedCommitments = Omit<
+  TrackedCommitments,
+  'fdAdmissionProbeSourceSha256'
+>
 
 const legacyResidue = Object.freeze({
   root: Object.freeze({
@@ -293,6 +310,14 @@ export type PolicyNativeDerivationSeams = Readonly<{
     rootNonceSha256: string
     commandLock: unknown
   }) => Promise<Readonly<{ helperExitCode: number }>>
+  diagnoseAFdMap: (input: {
+    repositoryRoot: string
+    nativeAuthoritySha256: string
+    rootNonceSha256: string
+    commandLock: unknown
+    probeSourceSha256: string
+    revalidateOuter: () => Promise<void>
+  }) => Promise<Readonly<{ fdMapStatus: string }>>
 }>
 
 function canonical(value: unknown): string {
@@ -329,6 +354,11 @@ function parseArguments(argv: readonly string[]): PolicyNativeDerivationMode {
     literal === confirmation
   )
     return operation
+  if (
+    operation === 'diagnose-a-fd-map' &&
+    literal === fdMapDiagnosticConfirmation
+  )
+    return operation
   if (operation === 'diagnose-a' && literal === diagnosticConfirmation)
     return operation
   if (
@@ -352,6 +382,7 @@ function publicCommitments(
     launcherSha256: tracked.launcherSha256,
     nativeAuthoritySha256: tracked.nativeAuthoritySha256,
     lockPreflightWorkerSha256: tracked.lockPreflightWorkerSha256,
+    fdAdmissionProbeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
   })
 }
 
@@ -415,6 +446,16 @@ const syntheticTracked = Object.freeze({
   launcherSha256: '4'.repeat(64),
   nativeAuthoritySha256: '5'.repeat(64),
   lockPreflightWorkerSha256: '6'.repeat(64),
+  fdAdmissionProbeSourceSha256: '7'.repeat(64),
+})
+const syntheticHistoricalTracked = Object.freeze({
+  commit: syntheticTracked.commit,
+  runnerSha256: syntheticTracked.runnerSha256,
+  sourceSha256: syntheticTracked.sourceSha256,
+  launchContractSha256: syntheticTracked.launchContractSha256,
+  launcherSha256: syntheticTracked.launcherSha256,
+  nativeAuthoritySha256: syntheticTracked.nativeAuthoritySha256,
+  lockPreflightWorkerSha256: syntheticTracked.lockPreflightWorkerSha256,
 })
 
 function createPolicySyntheticLegacyResidue() {
@@ -445,7 +486,7 @@ function createPolicySyntheticLegacyResidue() {
       sharedRootSecured: root,
       preservedSiblings: siblings,
       controlRoot: controlCreated,
-      tracked: syntheticTracked,
+      tracked: syntheticHistoricalTracked,
     }),
   )
   const baseline = Object.freeze({
@@ -487,7 +528,7 @@ function createPolicySyntheticLegacyResidue() {
     baseline,
     lock,
     baselineBytes: Buffer.from(bytes),
-    tracked: syntheticTracked,
+    tracked: syntheticHistoricalTracked,
   })
 }
 
@@ -761,7 +802,7 @@ type ResidueProfile = Readonly<{
     nlink: number
     size: number
   }>
-  tracked: TrackedCommitments
+  tracked: HistoricalTrackedCommitments
 }>
 
 type LegacyCustody = Readonly<{
@@ -1265,11 +1306,17 @@ async function defaultTracked(
   if (status !== '') throw new Error('tracked')
   const commit = (await git(['rev-parse', 'HEAD'], repositoryRoot)).trim()
   if (!/^[a-f0-9]{40}$/u.test(commit)) throw new Error('tracked')
-  const [source, launches, worker, runner] = await Promise.all([
+  const [source, launches, worker, runner, probeSource] = await Promise.all([
     inspectPolicyExclusivePromotionSource(),
     inspectPolicyNativeLaunchSources(),
     inspectPolicyLockPreflightWorker(),
     readFile(fileURLToPath(import.meta.url)),
+    readFile(
+      join(
+        repositoryRoot,
+        'scripts/policy-baseline-review/fd-admission-probe.c',
+      ),
+    ),
   ])
   return {
     commit,
@@ -1279,6 +1326,7 @@ async function defaultTracked(
     launcherSha256: launches.launcherSha256,
     nativeAuthoritySha256: launches.nativeAuthoritySha256,
     lockPreflightWorkerSha256: worker.sha256,
+    fdAdmissionProbeSourceSha256: sha256(probeSource),
   }
 }
 
@@ -1289,11 +1337,17 @@ async function defaultRevalidateTracked(
   // The pre-seam clean-HEAD gate owns commit identity. Failure classification
   // launches no child and grants no authority, so it rehashes only the
   // security-critical source graph while retaining that already-gated commit.
-  const [source, launches, worker, runner] = await Promise.all([
+  const [source, launches, worker, runner, probeSource] = await Promise.all([
     inspectPolicyExclusivePromotionSource(),
     inspectPolicyNativeLaunchSources(),
     inspectPolicyLockPreflightWorker(),
     readFile(fileURLToPath(import.meta.url)),
+    readFile(
+      join(
+        _repositoryRoot,
+        'scripts/policy-baseline-review/fd-admission-probe.c',
+      ),
+    ),
   ])
   return {
     commit: expected.commit,
@@ -1303,6 +1357,7 @@ async function defaultRevalidateTracked(
     launcherSha256: launches.launcherSha256,
     nativeAuthoritySha256: launches.nativeAuthoritySha256,
     lockPreflightWorkerSha256: worker.sha256,
+    fdAdmissionProbeSourceSha256: sha256(probeSource),
   }
 }
 
@@ -1322,6 +1377,7 @@ function defaultSeams(): PolicyNativeDerivationSeams {
     deriveB: derivePolicyProvisionalBuildB,
     diagnoseA: diagnosePolicyProvisionalBuildAPrebuild,
     diagnoseAResidue: diagnosePolicyProvisionalABuildResidue,
+    diagnoseAFdMap: diagnosePolicyProvisionalAFdMap,
   }
 }
 
@@ -1639,6 +1695,55 @@ async function runPolicyNativeDerivationCommandWithProfile(
           mode,
           status: 'a-build-residue-diagnosed',
           helperExitCode: result.helperExitCode,
+          commitments,
+        }
+      },
+    )
+  }
+
+  if (mode === 'diagnose-a-fd-map') {
+    return withLegacyCustody(
+      seams.filesystem,
+      m45,
+      controlRoot,
+      profile,
+      profile.buildResidueRoot,
+      seams.effectiveUid,
+      buildResidueRootEntries,
+      buildResidueRootEntries,
+      [baselineName],
+      [baselineName],
+      true,
+      true,
+      async (recovered) => {
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], buildResidueRootEntries)
+        const result = await seams.diagnoseAFdMap({
+          repositoryRoot,
+          nativeAuthoritySha256: tracked.nativeAuthoritySha256,
+          rootNonceSha256: seams.nonce(),
+          commandLock: terminalEvidence(recovered.commandLock!),
+          probeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
+          revalidateOuter: async () => {
+            await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+            await recovered.revalidate([baselineName], buildResidueRootEntries)
+          },
+        })
+        exactRecordKeys(result, ['fdMapStatus'])
+        if (
+          result.fdMapStatus !== 'exact' &&
+          result.fdMapStatus !== 'fd3-invalid' &&
+          result.fdMapStatus !== 'unexpected-fd' &&
+          result.fdMapStatus !== 'open-max-invalid' &&
+          result.fdMapStatus !== 'scan-indeterminate'
+        )
+          throw new Error('a-fd-map-diagnostic')
+        await assertTrackedUnchanged(seams, repositoryRoot, tracked)
+        await recovered.revalidate([baselineName], buildResidueRootEntries)
+        return {
+          mode,
+          status: 'a-fd-map-diagnosed',
+          fdMapStatus: result.fdMapStatus,
           commitments,
         }
       },
@@ -2053,6 +2158,7 @@ export async function executePolicyNativeDerivationCli(
       argv[0] === 'recover-preflight' ||
       argv[0] === 'diagnose-a' ||
       argv[0] === 'diagnose-a-residue' ||
+      argv[0] === 'diagnose-a-fd-map' ||
       argv[0] === 'derive-a' ||
       argv[0] === 'derive-b' ||
       argv[0] === 'review-candidate'

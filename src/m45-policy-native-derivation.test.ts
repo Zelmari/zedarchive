@@ -37,6 +37,7 @@ const tracked = {
   launcherSha256: digest,
   nativeAuthoritySha256: digest,
   lockPreflightWorkerSha256: digest,
+  fdAdmissionProbeSourceSha256: digest,
 }
 
 async function residueFailure(): Promise<never> {
@@ -589,6 +590,7 @@ function fixture(
     deriveB: vi.fn(),
     diagnoseA: vi.fn(),
     diagnoseAResidue: vi.fn(),
+    diagnoseAFdMap: vi.fn(),
   }
   const baseRun = syntheticFixture?.run ?? runPolicyNativeDerivationCommand
   const run = (
@@ -1236,6 +1238,106 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     vi.unstubAllEnvs()
   })
 
+  it('admits only the exact v1 FD-map diagnostic grammar and closed projection', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    const setup = () => {
+      const current = fixture({ syntheticLegacy: true })
+      const residue = current.syntheticResidue!
+      const rootEntry = current.entries.get(m45)!
+      rootEntry.entries!.add('.policy-exclusive-promotion.lock')
+      rootEntry.entries!.add('.policy-exclusive-promotion-build')
+      rootEntry.metadata.size = residue.buildResidueRoot.size
+      current.entries.set(`${m45}/.policy-exclusive-promotion.lock`, {
+        metadata: {
+          ...residue.lock,
+          file: true,
+          directory: false,
+          symbolicLink: false,
+        },
+      })
+      return current
+    }
+    for (const fdMapStatus of [
+      'exact',
+      'fd3-invalid',
+      'unexpected-fd',
+      'open-max-invalid',
+      'scan-indeterminate',
+    ] as const) {
+      const accepted = setup()
+      const seam = vi.fn(async () => ({ fdMapStatus }))
+      await expect(
+        accepted.run(
+          [
+            'diagnose-a-fd-map',
+            '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+          ],
+          { ...accepted.seams, diagnoseAFdMap: seam },
+        ),
+      ).resolves.toMatchObject({
+        mode: 'diagnose-a-fd-map',
+        status: 'a-fd-map-diagnosed',
+        fdMapStatus,
+      })
+      expect(seam).toHaveBeenCalledOnce()
+      expect(seam).toHaveBeenCalledWith(
+        expect.objectContaining({
+          probeSourceSha256: tracked.fdAdmissionProbeSourceSha256,
+        }),
+      )
+    }
+    const sourceDrift = setup()
+    let trackedChecks = 0
+    const sourceDriftSeam = vi.fn(async () => ({
+      fdMapStatus: 'exact' as const,
+    }))
+    await expect(
+      sourceDrift.run(
+        [
+          'diagnose-a-fd-map',
+          '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+        ],
+        {
+          ...sourceDrift.seams,
+          diagnoseAFdMap: sourceDriftSeam,
+          revalidateTracked: vi.fn(async (_repositoryRoot, expected) => {
+            trackedChecks += 1
+            return trackedChecks === 2
+              ? {
+                  ...expected,
+                  fdAdmissionProbeSourceSha256: 'f'.repeat(64),
+                }
+              : expected
+          }),
+        },
+      ),
+    ).rejects.toThrow()
+    expect(sourceDriftSeam).toHaveBeenCalledOnce()
+    for (const args of [
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v2',
+      ],
+      [
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+        'extra',
+      ],
+      [
+        'diagnose-a-residue',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+      ],
+    ]) {
+      const rejected = setup()
+      const uncalled = vi.fn(async () => ({ fdMapStatus: 'exact' as const }))
+      await expect(
+        rejected.run(args, { ...rejected.seams, diagnoseAFdMap: uncalled }),
+      ).rejects.toThrow()
+      expect(uncalled).not.toHaveBeenCalled()
+    }
+    vi.unstubAllEnvs()
+  })
+
   it('binds the exact SDK and compiler-resource direct-header tables', () => {
     vi.stubEnv('NODE_ENV', 'test')
     const tables = inspectPolicyDirectHeaderTablesForFixture()
@@ -1791,6 +1893,22 @@ describe('Decisions 115–116 native policy derivation runner', () => {
     expect(line).toBe('{"mode":"diagnose-a","status":"stopped"}\n')
     expect(line).not.toMatch(
       /path|stderr|stdout|error|cause|stack|environment|fd|pid/iu,
+    )
+    write.mockRestore()
+  })
+
+  it('prints the exact FD-map mode in its single stopped CLI line', async () => {
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    await expect(
+      executePolicyNativeDerivationCli([
+        'diagnose-a-fd-map',
+        '--confirm-m45-policy-native-a-fd-map-diagnostic-v1',
+      ]),
+    ).resolves.toBe(1)
+    expect(write).toHaveBeenCalledExactlyOnceWith(
+      '{"mode":"diagnose-a-fd-map","status":"stopped"}\n',
     )
     write.mockRestore()
   })

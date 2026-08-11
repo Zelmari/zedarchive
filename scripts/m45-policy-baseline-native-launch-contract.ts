@@ -74,6 +74,21 @@ export type PolicyCompilerCapability = Readonly<{
   headerSetSha256: string
   authorityPackageSha256: string
 }>
+export type PolicyFdAdmissionProbeCompilerCapability = Readonly<{
+  repositoryRoot: string
+  compilerPath: string
+  sdkRoot: string
+  compilerResourceRoot: string
+  probeSourceSha256: string
+  authorityPackageSha256: string
+}>
+type PolicyFdAdmissionProbeCompilerDiagnosticCapability = Readonly<{
+  repositoryRoot: string
+  compilerPath: string
+  sdkRoot: string
+  compilerResourceRoot: string
+  diagnosticCapabilitySha256: string
+}>
 type PolicyCompilerDiagnosticCapability = Readonly<{
   repositoryRoot: string
   compilerPath: string
@@ -90,6 +105,11 @@ export type PolicyHelperCapability = Readonly<{
   byteCount: number
   provenancePackageSha256: string
   heldEvidenceSha256: string
+}>
+export type PolicyFdAdmissionProbeCapability = Readonly<{
+  repositoryRoot: string
+  probePath: string
+  probeSha256: string
 }>
 export type PolicyMetadataEvidence = Readonly<{
   uid: string
@@ -115,8 +135,11 @@ type PolicyNativeLaunchPlan = Readonly<{
 }>
 
 const compilerCapabilities = new WeakSet<object>()
+const fdAdmissionProbeCompilerCapabilities = new WeakSet<object>()
+const fdAdmissionProbeCompilerDiagnosticCapabilities = new WeakSet<object>()
 const compilerDiagnosticCapabilities = new WeakSet<object>()
 const helperCapabilities = new WeakSet<object>()
+const fdAdmissionProbeCapabilities = new WeakSet<object>()
 const bCandidateCapabilities = new WeakSet<object>()
 const bCandidateCleanupCapabilities = new WeakSet<object>()
 const cAcceptedCapabilities = new WeakSet<object>()
@@ -132,6 +155,24 @@ function canonical(value: unknown): string {
 }
 function hashCanonical(value: unknown): string {
   return createHash('sha256').update(canonical(value)).digest('hex')
+}
+
+function fdAdmissionProbeCompileContractSha256(
+  repositoryRoot: string,
+  sdkRoot: string,
+): string {
+  const scratchRoot = '/private/tmp/zedarchive-m45-fd-admission-probe'
+  return hashCanonical({
+    arguments: [
+      ...compilerArguments,
+      '-isysroot',
+      sdkRoot,
+      '-o',
+      `${scratchRoot}/probe`,
+      `${repositoryRoot}/scripts/policy-baseline-review/fd-admission-probe.c`,
+    ],
+    environment: { TMPDIR: scratchRoot },
+  })
 }
 
 const compilerArguments = [
@@ -691,6 +732,118 @@ export function createPolicyCompilerCapability(
   return capability
 }
 
+export function createPolicyFdAdmissionProbeCompilerCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCompilerCapability {
+  exactKeys(input, [
+    'repositoryRoot',
+    'compilerPath',
+    'sdkRoot',
+    'compilerResourceRoot',
+    'authorityPackage',
+  ])
+  exactKeys(input.authorityPackage, [
+    'schema',
+    'version',
+    'compilerPath',
+    'sdkRoot',
+    'xcrunSha256',
+    'xcrunDevice',
+    'xcrunInode',
+    'probeSourceSha256',
+    'compilerSha256',
+    'compilerDevice',
+    'compilerInode',
+    'sdkIdentitySha256',
+    'sdkDevice',
+    'sdkInode',
+    'compilerResourceRoot',
+    'compilerResourceIdentitySha256',
+    'compilerResourceDevice',
+    'compilerResourceInode',
+    'headerSetSha256',
+    'diagnosticSha256',
+    'diagnosticSemanticSha256',
+    'linkerPath',
+    'linkerIdentitySha256',
+    'linkerSha256',
+    'linkerDevice',
+    'linkerInode',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+    'authorityPackageSha256',
+  ])
+  const { authorityPackageSha256, ...core } = input.authorityPackage
+  if (
+    core.schema !== 'policy-fd-admission-probe-toolchain-authority.v1' ||
+    core.version !== 1 ||
+    sha256(authorityPackageSha256) !== hashCanonical(core)
+  )
+    throw new PolicyNativeLaunchContractError()
+  for (const key of [
+    'xcrunSha256',
+    'probeSourceSha256',
+    'compilerSha256',
+    'sdkIdentitySha256',
+    'compilerResourceIdentitySha256',
+    'headerSetSha256',
+    'diagnosticSha256',
+    'diagnosticSemanticSha256',
+    'linkerIdentitySha256',
+    'linkerSha256',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+  ] as const)
+    sha256(core[key])
+  for (const key of [
+    'xcrunDevice',
+    'compilerDevice',
+    'sdkDevice',
+    'compilerResourceDevice',
+    'linkerDevice',
+  ] as const)
+    decimal(core[key], true)
+  for (const key of [
+    'xcrunInode',
+    'compilerInode',
+    'sdkInode',
+    'compilerResourceInode',
+    'linkerInode',
+  ] as const)
+    decimal(core[key])
+  const repositoryRoot = safeAbsolutePath(input.repositoryRoot)
+  const compilerPath = safeAbsolutePath(core.compilerPath)
+  const sdkRoot = safeAbsolutePath(core.sdkRoot)
+  const compilerResourceRoot = safeAbsolutePath(core.compilerResourceRoot)
+  if (
+    compilerPath !== input.compilerPath ||
+    sdkRoot !== input.sdkRoot ||
+    compilerResourceRoot !== input.compilerResourceRoot
+  )
+    throw new PolicyNativeLaunchContractError()
+  if (
+    core.compileContractSha256 !==
+    fdAdmissionProbeCompileContractSha256(repositoryRoot, sdkRoot)
+  )
+    throw new PolicyNativeLaunchContractError()
+  const capability = Object.freeze({
+    repositoryRoot,
+    compilerPath,
+    sdkRoot,
+    compilerResourceRoot,
+    probeSourceSha256: sha256(core.probeSourceSha256),
+    authorityPackageSha256: sha256(authorityPackageSha256),
+  })
+  fdAdmissionProbeCompilerCapabilities.add(capability)
+  return capability
+}
+
 export function createPolicyCompilerDiagnosticCapability(
   input: unknown,
 ): PolicyCompilerDiagnosticCapability {
@@ -836,6 +989,23 @@ export function createPolicyHelperCapability(
   return capability
 }
 
+export function createPolicyFdAdmissionProbeCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCapability {
+  exactKeys(input, ['repositoryRoot', 'probePath', 'probeSha256'])
+  const repositoryRoot = safeAbsolutePath(input.repositoryRoot)
+  const probePath = safeAbsolutePath(input.probePath)
+  if (probePath !== '/private/tmp/zedarchive-m45-fd-admission-probe/probe')
+    throw new PolicyNativeLaunchContractError()
+  const capability = Object.freeze({
+    repositoryRoot,
+    probePath,
+    probeSha256: sha256(input.probeSha256),
+  })
+  fdAdmissionProbeCapabilities.add(capability)
+  return capability
+}
+
 function compilerCapability(input: unknown): PolicyCompilerCapability {
   if (
     input === null ||
@@ -844,6 +1014,113 @@ function compilerCapability(input: unknown): PolicyCompilerCapability {
   )
     throw new PolicyNativeLaunchContractError()
   return input as PolicyCompilerCapability
+}
+
+function fdAdmissionProbeCompilerCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCompilerCapability {
+  if (
+    input === null ||
+    typeof input !== 'object' ||
+    !fdAdmissionProbeCompilerCapabilities.has(input)
+  )
+    throw new PolicyNativeLaunchContractError()
+  return input as PolicyFdAdmissionProbeCompilerCapability
+}
+
+export function createPolicyFdAdmissionProbeCompilerDiagnosticCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCompilerDiagnosticCapability {
+  exactKeys(input, ['repositoryRoot', 'diagnosticCapability'])
+  exactKeys(input.diagnosticCapability, [
+    'schema',
+    'version',
+    'repositoryRoot',
+    'compilerPath',
+    'sdkRoot',
+    'compilerResourceRoot',
+    'compilerSha256',
+    'compilerDevice',
+    'compilerInode',
+    'sdkIdentitySha256',
+    'sdkDevice',
+    'sdkInode',
+    'compilerResourceIdentitySha256',
+    'compilerResourceDevice',
+    'compilerResourceInode',
+    'headerSetSha256',
+    'probeSourceSha256',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+    'diagnosticCapabilitySha256',
+  ])
+  const { diagnosticCapabilitySha256, ...core } = input.diagnosticCapability
+  if (
+    core.schema !==
+      'policy-fd-admission-probe-compiler-diagnostic-capability.v1' ||
+    core.version !== 1 ||
+    sha256(diagnosticCapabilitySha256) !== hashCanonical(core)
+  )
+    throw new PolicyNativeLaunchContractError()
+  for (const key of [
+    'compilerSha256',
+    'sdkIdentitySha256',
+    'compilerResourceIdentitySha256',
+    'headerSetSha256',
+    'probeSourceSha256',
+    'compileContractSha256',
+    'launchContractSha256',
+    'launcherSha256',
+    'nativeAuthoritySha256',
+    'lockPreflightWorkerSha256',
+  ] as const)
+    sha256(core[key])
+  for (const key of [
+    'compilerDevice',
+    'sdkDevice',
+    'compilerResourceDevice',
+  ] as const)
+    decimal(core[key], true)
+  for (const key of [
+    'compilerInode',
+    'sdkInode',
+    'compilerResourceInode',
+  ] as const)
+    decimal(core[key])
+  const capability = Object.freeze({
+    repositoryRoot: safeAbsolutePath(core.repositoryRoot),
+    compilerPath: safeAbsolutePath(core.compilerPath),
+    sdkRoot: safeAbsolutePath(core.sdkRoot),
+    compilerResourceRoot: safeAbsolutePath(core.compilerResourceRoot),
+    diagnosticCapabilitySha256: sha256(diagnosticCapabilitySha256),
+  })
+  if (capability.repositoryRoot !== safeAbsolutePath(input.repositoryRoot))
+    throw new PolicyNativeLaunchContractError()
+  if (
+    core.compileContractSha256 !==
+    fdAdmissionProbeCompileContractSha256(
+      capability.repositoryRoot,
+      capability.sdkRoot,
+    )
+  )
+    throw new PolicyNativeLaunchContractError()
+  fdAdmissionProbeCompilerDiagnosticCapabilities.add(capability)
+  return capability
+}
+
+function fdAdmissionProbeCompilerDiagnosticCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCompilerDiagnosticCapability {
+  if (
+    input === null ||
+    typeof input !== 'object' ||
+    !fdAdmissionProbeCompilerDiagnosticCapabilities.has(input)
+  )
+    throw new PolicyNativeLaunchContractError()
+  return input as PolicyFdAdmissionProbeCompilerDiagnosticCapability
 }
 
 function compilerDiagnosticCapability(
@@ -866,6 +1143,18 @@ function helperCapability(input: unknown): PolicyHelperCapability {
   )
     throw new PolicyNativeLaunchContractError()
   return input as PolicyHelperCapability
+}
+
+function fdAdmissionProbeCapability(
+  input: unknown,
+): PolicyFdAdmissionProbeCapability {
+  if (
+    input === null ||
+    typeof input !== 'object' ||
+    !fdAdmissionProbeCapabilities.has(input)
+  )
+    throw new PolicyNativeLaunchContractError()
+  return input as PolicyFdAdmissionProbeCapability
 }
 
 function bCandidateCapability(input: unknown): PolicyBCandidateCapability {
@@ -1037,6 +1326,62 @@ export function createPolicyCompilerPlan(
     ],
     cwd: capability.repositoryRoot,
     environment: { TMPDIR: temporaryDirectory },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...compilerLimits,
+  }
+}
+
+export function createPolicyFdAdmissionProbeCompilerPlan(
+  capabilityInput: unknown,
+  input: unknown,
+): PolicyNativeLaunchPlan {
+  const capability = fdAdmissionProbeCompilerCapability(capabilityInput)
+  exactKeys(input, ['repositoryRoot', 'scratchRoot', 'probeSourceSha256'])
+  const repositoryRoot = safeAbsolutePath(input.repositoryRoot)
+  const scratchRoot = safeAbsolutePath(input.scratchRoot)
+  if (sha256(input.probeSourceSha256) !== capability.probeSourceSha256)
+    throw new PolicyNativeLaunchContractError()
+  if (
+    repositoryRoot !== capability.repositoryRoot ||
+    scratchRoot !== '/private/tmp/zedarchive-m45-fd-admission-probe'
+  )
+    throw new PolicyNativeLaunchContractError()
+  return {
+    executable: capability.compilerPath,
+    arguments: [
+      ...compilerArguments,
+      '-isysroot',
+      capability.sdkRoot,
+      '-o',
+      `${scratchRoot}/probe`,
+      `${repositoryRoot}/scripts/policy-baseline-review/fd-admission-probe.c`,
+    ],
+    cwd: repositoryRoot,
+    environment: { TMPDIR: scratchRoot },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...compilerLimits,
+  }
+}
+
+export function createPolicyFdAdmissionProbeCompilerDiagnosticPlan(
+  capabilityInput: unknown,
+): PolicyNativeLaunchPlan {
+  const capability =
+    fdAdmissionProbeCompilerDiagnosticCapability(capabilityInput)
+  const scratchRoot = '/private/tmp/zedarchive-m45-fd-admission-probe'
+  return {
+    executable: capability.compilerPath,
+    arguments: [
+      ...compilerArguments,
+      '-###',
+      '-isysroot',
+      capability.sdkRoot,
+      '-o',
+      `${scratchRoot}/probe`,
+      `${capability.repositoryRoot}/scripts/policy-baseline-review/fd-admission-probe.c`,
+    ],
+    cwd: capability.repositoryRoot,
+    environment: { TMPDIR: scratchRoot },
     stdio: ['ignore', 'pipe', 'pipe'],
     ...compilerLimits,
   }
@@ -1681,6 +2026,23 @@ export function createPolicyNativeHelperPlan(
     stdio: closed.stdio,
     ...helperLimits,
     acceptedExitCodes: [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+  }
+}
+
+export function createPolicyFdAdmissionProbePlan(
+  capabilityInput: unknown,
+  commandLockFd: unknown,
+): PolicyNativeLaunchPlan {
+  const capability = fdAdmissionProbeCapability(capabilityInput)
+  const fd = descriptor(commandLockFd, 3)
+  return {
+    executable: capability.probePath,
+    arguments: [],
+    cwd: capability.repositoryRoot,
+    environment: {},
+    stdio: ['ignore', 'pipe', 'pipe', fd],
+    ...helperLimits,
+    acceptedExitCodes: [0, 21, 23, 24, 25],
   }
 }
 
