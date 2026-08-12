@@ -1,0 +1,63 @@
+WIKIMEDIA POLICY SEMANTIC-REVIEW REVIEWER EXECUTION SPECIFICATION
+=================================================================
+
+Authority: Decision 147 fresh M45-07 execution path, superseding Decision 103's
+reviewer-launch and mechanical-isolation provisions. This document is bound
+into the wikimedia-policy-reviewer-contract.v1 commitment (executionSpecSha256)
+and into the role-input manifest of every prepare-review invocation.
+
+1. Reviewer scope
+
+The reviewer receives exactly two inputs: the fixed reviewer prompt
+(scripts/policy-baseline-review/reviewer-prompt.txt) and the five complete
+decoded public policy bodies from the role-input bundle
+(.local/m45/policy-baseline-review/role-input/body-01.bin through body-05.bin)
+with their manifest commitments. No candidate, predecessor, identity, user,
+environment, capture, or other data is provided.
+
+The reviewer performs NO retrieval of its own. All policy retrieval is
+performed by the prepare-review command, whose matching retrieval must equal
+the bootstrap capture exactly (ordered hashes, byte counts, total, and the
+ordered URL-sequence commitment) before the role input is promoted. The
+reviewer never fetches, never opens any URL, and never inspects any file other
+than the role input it is assigned.
+
+2. Role output
+
+The reviewer returns exactly one closed role-output object matching
+scripts/policy-baseline-review/role-output.schema.json: schema, version,
+captureSha256, semanticReviewRetrievalSha256, reviewerContractSha256, and one
+closed outcome (no-material-change or exactly one of the seven material-change
+categories). No prose, no body content, no extra fields, no justification.
+The reviewer never computes or claims a SHA-256; the commitments are provided
+in the framing and are copied unchanged into the role output.
+
+3. Delivery
+
+The reviewer does not write any file. The orchestrator writes the returned
+output to the preassigned vacant path
+.local/m45/policy-baseline-review/role-result/role-output.json with create-new
+semantics, mode 0600, at most 4 KiB, and only canonical schema-valid JSON is
+accepted.
+
+4. Finalization
+
+The trusted finalize command re-reads the capture and role-input bundles,
+requires the preassigned role-output.json to exist, revalidates every capture,
+retrieval, role-input, and role-output commitment, constructs the
+wikimedia-policy-semantic-review-role-result.v1 authority, removes the entire
+temporary review root whole-file, proves the root and every staging sibling
+absent, and only then, provided the closed outcome is exactly
+no-material-change, emits the wikimedia-policy-semantic-review.v1 and the
+tracked wikimedia-policy-baseline.v1 authorities. Authority emission always
+follows body removal and absence proof. Any invalid, raced, or unexpected
+state stops without deletion.
+
+5. Isolation
+
+The reviewer assignment forbids reading .local/ custody, other repository
+private state, database configuration, or environment values. The reviewer
+receives only the public policy bodies and the fixed contract, emits only the
+closed role output, and has no filesystem or retrieval capability over the
+custody path. The finalizer revalidates all commitments before any authority
+is emitted.
