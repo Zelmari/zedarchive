@@ -31,7 +31,10 @@ const argv = [
   'classify-a-fd-map-residue-first-failure',
   '--confirm-m45-public-a-fd-map-residue-first-failure-classifier-v1',
 ] as const
-const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+// The fixture tests the fixed Darwin host contract, while static scans must use
+// the checkout that is actually running the test (including Linux CI).
+const classifierRepositoryRoot = '/Users/zelmari/projects/zedarchive'
+const checkoutRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
 const probePath = `${scratchPath}/probe`
@@ -257,7 +260,7 @@ function fixture(
     platform: 'darwin',
     nodeVersion: '24.18.1',
     execPath: '/opt/homebrew/Cellar/node@24/24.18.1/bin/node',
-    cwd: repositoryRoot,
+    cwd: classifierRepositoryRoot,
     euid: 501,
     flags: {
       directory: 0x00100000,
@@ -283,7 +286,7 @@ function fixture(
     },
     realpath: vi.fn(async () => {
       if (record('realpath')) throw new Error('fixture-realpath')
-      return repositoryRoot
+      return classifierRepositoryRoot
     }),
     openParent: vi.fn(async (path: string, flags: number) => {
       if (record('open-parent')) throw new Error('fixture-open')
@@ -1369,8 +1372,8 @@ describe('Decision 144 residue first-failure classifier', () => {
       NODE_ENV: 'test',
     }
     const gitPrefix = [
-      `--git-dir=${repositoryRoot}/.git`,
-      `--work-tree=${repositoryRoot}`,
+      `--git-dir=${checkoutRoot}/.git`,
+      `--work-tree=${checkoutRoot}`,
       '-c',
       'core.fsmonitor=false',
       '-c',
@@ -1381,7 +1384,7 @@ describe('Decision 144 residue first-failure classifier', () => {
     const deletedPathsAbsent = await Promise.all(
       [...retiredPaths].map(async (relativePath) => {
         try {
-          await lstat(`${repositoryRoot}/${relativePath}`)
+          await lstat(`${checkoutRoot}/${relativePath}`)
           return false
         } catch (error) {
           return (
