@@ -25,7 +25,7 @@ export default defineConfig({
       ACCOUNT_PURGE_ENABLED: 'false',
       BETTER_AUTH_URL: baseURL,
     },
-    url: `${baseURL}/icon.svg`,
+    url: `${baseURL}/zedarchivelogo.png`,
     reuseExistingServer: false,
     timeout: 120_000,
   },

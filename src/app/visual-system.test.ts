@@ -1,9 +1,27 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const globalsPath = fileURLToPath(new URL('./globals.css', import.meta.url))
-const iconPath = fileURLToPath(new URL('./icon.svg', import.meta.url))
+const iconPath = fileURLToPath(
+  new URL('../../public/zedarchivelogo.png', import.meta.url),
+)
+const sourceLogoPath = fileURLToPath(
+  new URL('../../zedarchivelogo.png', import.meta.url),
+)
+
+function pngDimensions(bytes: Buffer) {
+  if (
+    !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) {
+    throw new Error('Expected a PNG signature.')
+  }
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+  }
+}
 
 const requiredColors = {
   canvas: '#f7f5f0',
@@ -348,13 +366,17 @@ describe('visual system contract', () => {
   })
 
   it('contains only a local, static owned favicon', async () => {
-    const icon = await readFile(iconPath, 'utf8')
+    const icon = await readFile(iconPath)
+    const sourceLogo = await readFile(sourceLogoPath)
 
-    expect(icon).toMatch(/^<svg\b/)
-    expect(icon).toContain('viewBox="0 0 64 64"')
-    expect(icon).toContain('aria-label="zedarchive"')
-    expect(icon).not.toMatch(
-      /<script\b|\bon\w+\s*=|<image\b|<use\b|<foreignObject\b|https?:\/\/(?!www\.w3\.org\/2000\/svg)|data:|@font-face|<style\b/i,
+    expect(createHash('sha256').update(sourceLogo).digest('hex')).toBe(
+      '234c9a96684ebae4e0d21982709675bb86fde47f770f71ddc02c5cc753aff48b',
+    )
+    expect(pngDimensions(sourceLogo)).toEqual({ width: 1536, height: 1024 })
+    expect(pngDimensions(icon)).toEqual({ width: 288, height: 192 })
+    expect(icon.length).toBe(30108)
+    expect(createHash('sha256').update(icon).digest('hex')).toBe(
+      'eded25d84d02f5ebe9b9ea806e8cd8a6d20e9a3d026112c7806ba3de75db4d7a',
     )
   })
 })

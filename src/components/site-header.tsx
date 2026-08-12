@@ -32,7 +32,16 @@ export async function SiteHeader() {
           className="za-wordmark za-link za-site-header__brand"
           href="/"
         >
-          {productName}
+          {/* eslint-disable-next-line @next/next/no-img-element -- the pre-sized shared 30 KB derivative must bypass the disabled global optimizer. */}
+          <img
+            alt=""
+            aria-hidden="true"
+            className="za-wordmark__mark"
+            height={48}
+            src="/zedarchivelogo.png"
+            width={72}
+          />
+          <span className="za-wordmark__text">{productName}</span>
         </CurrentPageLink>
         {signedInUsername ? (
           <nav aria-label="Primary" className="za-site-header__nav">

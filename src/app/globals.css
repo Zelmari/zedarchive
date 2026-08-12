@@ -236,11 +236,26 @@
   }
 
   .za-wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--za-space-2);
     color: var(--za-color-text);
     font-size: var(--za-text-heading-sm);
     font-weight: var(--za-weight-heading);
     letter-spacing: -0.025em;
     text-decoration: none;
+  }
+
+  .za-wordmark__mark {
+    display: block;
+    flex: 0 0 auto;
+    inline-size: 3.75rem;
+    block-size: 2.5rem;
+    object-fit: contain;
+  }
+
+  .za-wordmark__text {
+    display: block;
   }
 
   .za-link {
@@ -629,6 +644,11 @@
       align-items: center;
       justify-content: space-between;
       padding-block: var(--za-space-6);
+    }
+
+    .za-wordmark__mark {
+      inline-size: 4.5rem;
+      block-size: 3rem;
     }
   }
 

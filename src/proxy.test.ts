@@ -43,7 +43,7 @@ describe('security policy proxy', () => {
       request('/_next/static'),
       request('/_next/static/chunks/app.js'),
       request('/_next/image'),
-      request('/icon.svg'),
+      request('/zedarchivelogo.png'),
       request('/anime', { 'next-router-prefetch': '1' }),
       request('/anime', { purpose: 'prefetch' }),
     ]) {
@@ -63,7 +63,7 @@ describe('security policy proxy', () => {
     for (const candidate of [
       request('/_next/staticity'),
       request('/_next/image-other'),
-      request('/icon.svg/other'),
+      request('/zedarchivelogo.png/other'),
     ]) {
       expect(shouldApplyDynamicSecurityPolicy(candidate)).toBe(true)
       expect(proxy(candidate).headers.has('Content-Security-Policy')).toBe(true)
@@ -73,7 +73,8 @@ describe('security policy proxy', () => {
   it('declares an exact matcher aligned with the static and prefetch exclusions', () => {
     expect(config.matcher).toEqual([proxyMatcher])
     expect(proxyMatcher).toEqual({
-      source: '/((?!_next/static(?:/|$)|_next/image(?:/|$)|icon\\.svg$).*)',
+      source:
+        '/((?!_next/static(?:/|$)|_next/image(?:/|$)|zedarchivelogo\\.png$).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },
@@ -86,14 +87,14 @@ describe('security policy proxy', () => {
       '/_next/static/chunks/app.js',
       '/_next/image',
       '/_next/image/asset',
-      '/icon.svg',
+      '/zedarchivelogo.png',
     ]) {
       expect(matcher.test(pathname)).toBe(false)
     }
     for (const pathname of [
       '/_next/staticity',
       '/_next/image-other',
-      '/icon.svg/other',
+      '/zedarchivelogo.png/other',
     ]) {
       expect(matcher.test(pathname)).toBe(true)
     }

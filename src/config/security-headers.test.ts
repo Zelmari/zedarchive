@@ -135,7 +135,7 @@ describe('security header policy', () => {
       '/_next/static/chunks/app.js',
       '/_next/image',
       '/_next/image/asset',
-      '/icon.svg',
+      '/zedarchivelogo.png',
     ]) {
       expect(isStaticSecurityPath(pathname)).toBe(true)
     }
@@ -145,7 +145,7 @@ describe('security header policy', () => {
       '/api/account/archive-backup',
       '/_next/staticity',
       '/_next/image-other',
-      '/icon.svg/other',
+      '/zedarchivelogo.png/other',
       '/images/cover.png',
     ]) {
       expect(isStaticSecurityPath(pathname)).toBe(false)

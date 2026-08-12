@@ -7,6 +7,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: productName,
   description: 'Track the things you watch and read.',
+  icons: {
+    icon: '/zedarchivelogo.png',
+  },
 }
 
 // The session-aware header reads request headers on every route, so the whole

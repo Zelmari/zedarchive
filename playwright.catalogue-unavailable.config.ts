@@ -36,7 +36,7 @@ export default defineConfig({
       DATABASE_MIGRATION_URL: unavailableDatabaseUrl,
       DATABASE_URL: unavailableDatabaseUrl,
     },
-    url: `${baseURL}/icon.svg`,
+    url: `${baseURL}/zedarchivelogo.png`,
     reuseExistingServer: false,
     timeout: 120_000,
   },

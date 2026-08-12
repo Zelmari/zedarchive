@@ -98,6 +98,11 @@ describe('SiteHeader', () => {
     expect(markup).toContain(
       'class="za-wordmark za-link za-site-header__brand za-current-page"',
     )
+    expect(markup).toContain('src="/zedarchivelogo.png"')
+    expect(markup).toContain('alt="" aria-hidden="true"')
+    expect(markup).toContain(
+      '<span class="za-wordmark__text">zedarchive</span>',
+    )
     expect(markup).toContain('href="/"')
     expect(markup).toContain('class="za-link" href="/sign-in"')
     expect(markup).toContain('class="za-link" href="/register"')
@@ -163,10 +168,10 @@ describe('SiteHeader', () => {
 
       const markup = renderToStaticMarkup(await SiteHeader())
       const currentLink = markup.match(
-        /<a aria-current="page" class="[^"]+" href="[^"]+">([^<]+)<\/a>/,
+        /<a aria-current="page" class="[^"]+" href="[^"]+">(?:<img[^>]*>)?(?:<span class="za-wordmark__text">([^<]+)<\/span>|([^<]+))<\/a>/,
       )
 
-      expect(currentLink?.[1]).toBe(label)
+      expect(currentLink?.[1] ?? currentLink?.[2]).toBe(label)
       expect(markup.match(/aria-current="page"/g)).toHaveLength(1)
     },
   )

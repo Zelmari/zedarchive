@@ -17,17 +17,19 @@ const nextConfig: NextConfig = {
           value,
         })),
       },
-      ...['/_next/static/:path*', '/_next/image/:path*', '/icon.svg'].map(
-        (source) => ({
-          source,
-          headers: [
-            {
-              key: 'Content-Security-Policy',
-              value: staticContentSecurityPolicy,
-            },
-          ],
-        }),
-      ),
+      ...[
+        '/_next/static/:path*',
+        '/_next/image/:path*',
+        '/zedarchivelogo.png',
+      ].map((source) => ({
+        source,
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: staticContentSecurityPolicy,
+          },
+        ],
+      })),
       {
         source: '/api/account/archive-backup',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],

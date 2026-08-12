@@ -8,7 +8,8 @@ import {
 } from '@/config/security-headers'
 
 export const proxyMatcher = {
-  source: '/((?!_next/static(?:/|$)|_next/image(?:/|$)|icon\\.svg$).*)',
+  source:
+    '/((?!_next/static(?:/|$)|_next/image(?:/|$)|zedarchivelogo\\.png$).*)',
   missing: [
     { type: 'header', key: 'next-router-prefetch' },
     { type: 'header', key: 'purpose', value: 'prefetch' },
@@ -20,7 +21,8 @@ export const config = {
   // a literal even though the focused contract also exposes proxyMatcher.
   matcher: [
     {
-      source: '/((?!_next/static(?:/|$)|_next/image(?:/|$)|icon\\.svg$).*)',
+      source:
+        '/((?!_next/static(?:/|$)|_next/image(?:/|$)|zedarchivelogo\\.png$).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

@@ -255,7 +255,7 @@ export async function assertImageOptimizerIsUnreachable(
   page: Page,
 ): Promise<void> {
   const response = await page.request.get(
-    '/_next/image?url=%2Ficon.svg&w=640&q=75',
+    '/_next/image?url=%2Fzedarchivelogo.png&w=640&q=75',
   )
   expect(response.status()).toBe(404)
   expect(await responseHeaderValue(response, 'content-type')).not.toMatch(

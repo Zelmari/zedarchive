@@ -695,6 +695,15 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
     await page.setViewportSize(viewport)
     const browseResponse = await page.goto('/')
     expect(browseResponse?.status()).toBe(200)
+    const brand = page.getByRole('link', { name: 'zedarchive', exact: true })
+    await expect(brand).toBeVisible()
+    await expect(brand.locator('img')).toHaveAttribute(
+      'src',
+      '/zedarchivelogo.png',
+    )
+    await expect(brand.locator('img')).toHaveAttribute('alt', '')
+    await expect(brand.locator('img')).toHaveAttribute('aria-hidden', 'true')
+    await expect(brand).toContainText('zedarchive')
     await expect(
       page.getByRole('heading', { name: 'Anime catalogue' }),
     ).toBeVisible()
@@ -749,12 +758,14 @@ test('preserves public shell, metadata, favicon, and keyboard evidence at every 
   const [iconHref] = icons
   expect(iconHref).toBeDefined()
   expect(new URL(iconHref).origin).toBe(applicationOrigin)
+  expect(new URL(iconHref).pathname).toBe('/zedarchivelogo.png')
   const iconResponse = await page.request.get(iconHref)
   expect(iconResponse.ok()).toBe(true)
-  expect(iconResponse.headers()['content-type']).toContain('image/svg+xml')
-  const iconMarkup = await iconResponse.text()
-  expect(iconMarkup).not.toMatch(/<script|\son[a-z]+=/iu)
-  expect(iconMarkup).not.toMatch(/\b(?:href|src)\s*=\s*["'](?:https?:|data:)/iu)
+  expect(iconResponse.headers()['content-type']).toContain('image/png')
+  const iconBytes = await iconResponse.body()
+  expect(iconBytes.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  )
 
   await page.goto('/sign-in')
   await applyRootTextScale(page)

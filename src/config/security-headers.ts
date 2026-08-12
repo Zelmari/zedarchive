@@ -156,7 +156,7 @@ export function hasExpectedDynamicContentSecurityPolicyShape(
 
 export function isStaticSecurityPath(pathname: string): boolean {
   return (
-    pathname === '/icon.svg' ||
+    pathname === '/zedarchivelogo.png' ||
     pathname === '/_next/static' ||
     pathname === '/_next/image' ||
     pathname.startsWith('/_next/static/') ||
