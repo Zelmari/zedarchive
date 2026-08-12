@@ -938,6 +938,52 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
     })
   }, 15_000)
 
+  it('regression: primary-review authority validation uses the frozen on-disk key order', () => {
+    const { receipt, authority } = authorityFixture(7_958, true)
+    const derived = derivePrimaryCandidateReviewFromAuthority(
+      receipt,
+      receiptHash,
+      authority,
+    )
+    const rawOrder = JSON.parse(JSON.stringify(derived))
+    const rawKeys = Object.keys(rawOrder)
+    expect(rawKeys.indexOf('records')).toBeLessThan(
+      rawKeys.indexOf('candidateReceiptSha256'),
+    )
+    const schemaOrder = [
+      'schema',
+      'version',
+      'candidateReceiptSha256',
+      'records',
+      'orderedPrimaryApprovedQids',
+      'orderedPrimaryApprovedQidsSha256',
+    ]
+    const reordered = Object.fromEntries(
+      schemaOrder.map((key) => [key, rawOrder[key]]),
+    )
+    expect(Object.keys(reordered).indexOf('records')).toBeGreaterThan(
+      Object.keys(reordered).indexOf('candidateReceiptSha256'),
+    )
+    expect(() =>
+      validatePrimaryCandidateReviewAuthorityForFixture(
+        reordered,
+        receipt,
+        receiptHash,
+        authority,
+        defaultFixturePredecessorAuthority,
+      ),
+    ).toThrow('derived from locked acquisition authority')
+    expect(() =>
+      validatePrimaryCandidateReviewAuthorityForFixture(
+        rawOrder,
+        receipt,
+        receiptHash,
+        authority,
+        defaultFixturePredecessorAuthority,
+      ),
+    ).not.toThrow()
+  }, 15_000)
+
   it('enforces 499 retained predecessor collisions across the complete 160-manifest scale', () => {
     const predecessorAuthority =
       deriveCandidatePredecessorExclusionAuthorityForFixture([

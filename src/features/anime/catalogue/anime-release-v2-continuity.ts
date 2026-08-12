@@ -181,7 +181,7 @@ export function parsePrimaryCandidateReviewResult(
     predecessorReviewResult,
   )
   validatePrimaryCandidateReviewAuthorityForFixture(
-    result,
+    input,
     receipt,
     acceptedDiscoveryCandidateReceiptSha256,
     candidateAcquisitionReviewAuthority,
