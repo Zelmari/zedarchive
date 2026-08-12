@@ -3,15 +3,17 @@ import { lstat, open, opendir, realpath } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { types as utilTypes } from 'node:util'
 
-const operation = 'classify-a-fd-map-residue'
-const confirmation = '--confirm-m45-public-a-fd-map-residue-classifier-v1'
+const operation = 'classify-a-fd-map-residue-shape'
+const confirmation = '--confirm-m45-public-a-fd-map-residue-shape-classifier-v1'
 const nodePath = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
 const repositoryRoot = '/Users/zelmari/projects/zedarchive'
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
+const probePath = `${scratchPath}/probe`
 const darwinNoFollow = 0x00000100
 const darwinDirectory = 0x00100000
 const darwinCloseOnExec = 0x01000000
+const maxFdAdmissionProbeBytes = 16 * 1024 * 1024
 const expectedEnvironmentKeys = Object.freeze([
   'LANG',
   'LC_ALL',
@@ -25,11 +27,17 @@ const suppliedEnvironment = Object.freeze({
   TMPDIR: '/private/tmp',
   TZ: 'UTC',
 })
-const scratchStates = Object.freeze([
+const residueStates = Object.freeze([
   'absent',
   'observed-empty-candidate',
-  'present-unclassified',
+  'sole-normalized-probe-candidate',
+  'other-present',
 ])
+const occupancyOptions = Object.freeze({
+  encoding: 'utf8',
+  bufferSize: 1,
+  recursive: false,
+})
 
 function exactStringArray(value, requiredLength) {
   if (
@@ -90,13 +98,13 @@ function exactObject(value, keys) {
     utilTypes.isProxy(value) ||
     Object.getPrototypeOf(value) !== Object.prototype
   )
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   const observed = Reflect.ownKeys(value)
   if (
     observed.length !== keys.length ||
     observed.some((key, index) => key !== keys[index])
   )
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   for (const key of keys) {
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
     if (
@@ -104,7 +112,7 @@ function exactObject(value, keys) {
       !('value' in descriptor) ||
       descriptor.enumerable !== true
     )
-      throw new Error('classifier-stopped')
+      throw new Error('shape-classifier-stopped')
   }
 }
 
@@ -122,7 +130,7 @@ function assertReaders(readers) {
   exactObject(readers, names)
   for (const name of names)
     if (typeof readers[name] !== 'function')
-      throw new Error('classifier-stopped')
+      throw new Error('shape-classifier-stopped')
 }
 
 function assertScalarHost(readers) {
@@ -132,10 +140,10 @@ function assertScalarHost(readers) {
     keys === null ||
     keys.some((key, index) => key !== expectedEnvironmentKeys[index])
   )
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   for (const [key, expected] of Object.entries(suppliedEnvironment))
     if (readers.environmentValue(key) !== expected)
-      throw new Error('classifier-stopped')
+      throw new Error('shape-classifier-stopped')
   if (
     readers.platform() !== 'darwin' ||
     readers.nodeVersion() !== '24.18.1' ||
@@ -143,7 +151,7 @@ function assertScalarHost(readers) {
     readers.cwd() !== repositoryRoot ||
     readers.euid() !== 501
   )
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   const flags = readers.flagValues()
   exactObject(flags, ['directory', 'noFollow', 'closeOnExec'])
   if (
@@ -151,7 +159,7 @@ function assertScalarHost(readers) {
     flags.noFollow !== darwinNoFollow ||
     (flags.closeOnExec !== undefined && flags.closeOnExec !== darwinCloseOnExec)
   )
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   return Object.freeze({
     cwd: repositoryRoot,
     directoryFlags:
@@ -159,6 +167,7 @@ function assertScalarHost(readers) {
       flags.directory |
       flags.noFollow |
       darwinCloseOnExec,
+    probeFlags: fsConstants.O_RDONLY | flags.noFollow | darwinCloseOnExec,
   })
 }
 
@@ -179,6 +188,8 @@ function metadata(value) {
       typeof value.isSymbolicLink === 'function'
         ? value.isSymbolicLink()
         : value.symbolicLink,
+    regular:
+      typeof value.isFile === 'function' ? value.isFile() : value.regular,
   })
 }
 
@@ -192,7 +203,8 @@ function sameMetadata(left, right) {
     left.nlink === right.nlink &&
     left.size === right.size &&
     left.directory === right.directory &&
-    left.symbolicLink === right.symbolicLink
+    left.symbolicLink === right.symbolicLink &&
+    left.regular === right.regular
   )
 }
 
@@ -200,6 +212,7 @@ function admittedParent(value) {
   return (
     value.directory === true &&
     value.symbolicLink === false &&
+    value.regular === false &&
     value.uid === 0 &&
     value.gid === 0 &&
     value.mode === 0o1777
@@ -210,6 +223,7 @@ function admittedScratch(value, parent) {
   return (
     value.directory === true &&
     value.symbolicLink === false &&
+    value.regular === false &&
     value.uid === 501 &&
     value.dev === parent.dev &&
     value.mode === 0o700 &&
@@ -217,38 +231,56 @@ function admittedScratch(value, parent) {
   )
 }
 
-function stateResult(scratchState) {
-  if (!scratchStates.includes(scratchState))
-    throw new Error('classifier-stopped')
-  return Object.freeze({ scratchState })
+function normalizedProbe(value, parent) {
+  return (
+    value.regular === true &&
+    value.directory === false &&
+    value.symbolicLink === false &&
+    value.uid === 501 &&
+    value.dev === parent.dev &&
+    value.mode === 0o500 &&
+    value.nlink === 1 &&
+    value.size >= 1 &&
+    value.size <= maxFdAdmissionProbeBytes
+  )
 }
 
-async function lookupScratch(lstatPath) {
-  let observed
+function stateResult(residueState) {
+  if (!residueStates.includes(residueState))
+    throw new Error('shape-classifier-stopped')
+  return Object.freeze({ residueState })
+}
+
+async function lookupFixed(lstatPath, path, allowAbsent) {
   try {
-    observed = await lstatPath(scratchPath)
+    return Object.freeze({
+      absent: false,
+      value: metadata(await lstatPath(path)),
+    })
   } catch (error) {
-    if (error !== null && typeof error === 'object' && error.code === 'ENOENT')
+    if (
+      allowAbsent &&
+      error !== null &&
+      typeof error === 'object' &&
+      error.code === 'ENOENT'
+    )
       return Object.freeze({ absent: true, value: null })
     throw error
   }
-  return Object.freeze({
-    absent: false,
-    value: metadata(observed),
-  })
 }
 
-async function readOccupancy(openOccupancy) {
+async function readInventoryPass(openOccupancy) {
   let directory
   let failed = false
-  let occupied
+  let pass = 'other'
   try {
-    directory = await openOccupancy(scratchPath, {
-      encoding: 'utf8',
-      bufferSize: 1,
-      recursive: false,
-    })
-    occupied = (await directory.read()) !== null
+    directory = await openOccupancy(scratchPath, occupancyOptions)
+    const first = await directory.read()
+    if (first === null) pass = 'empty'
+    else if (first.name === 'probe') {
+      const second = await directory.read()
+      if (second === null) pass = 'candidate'
+    }
   } catch {
     failed = true
   }
@@ -261,26 +293,29 @@ async function readOccupancy(openOccupancy) {
       failed = true
     }
   }
-  if (failed || typeof occupied !== 'boolean')
-    throw new Error('classifier-stopped')
-  return occupied
+  if (failed || !['empty', 'candidate', 'other'].includes(pass))
+    throw new Error('shape-classifier-stopped')
+  return pass
 }
 
-async function classifyWithCustody(dependencies, directoryFlags) {
+async function classifyWithCustody(dependencies, flags) {
   let parentHandle
   let scratchHandle
+  let probeHandle
   let parentIdentity
-  let scratchState
+  let scratchSnapshot
+  let probeSnapshot
+  let residueState
   let failed = false
 
   const validateParent = async () => {
-    if (parentHandle === undefined) throw new Error('classifier-stopped')
+    if (parentHandle === undefined) throw new Error('shape-classifier-stopped')
     const [held, named] = await Promise.all([
       parentHandle.stat().then(metadata),
       dependencies.lstat(parentPath).then(metadata),
     ])
     if (!admittedParent(held) || !admittedParent(named))
-      throw new Error('classifier-stopped')
+      throw new Error('shape-classifier-stopped')
     if (parentIdentity === undefined) parentIdentity = held
     if (
       held.dev !== parentIdentity.dev ||
@@ -288,58 +323,148 @@ async function classifyWithCustody(dependencies, directoryFlags) {
       named.dev !== parentIdentity.dev ||
       named.ino !== parentIdentity.ino
     )
-      throw new Error('classifier-stopped')
+      throw new Error('shape-classifier-stopped')
     return parentIdentity
   }
 
+  const validateScratch = async () => {
+    if (scratchHandle === undefined || scratchSnapshot === undefined)
+      throw new Error('shape-classifier-stopped')
+    const [held, named] = await Promise.all([
+      scratchHandle.stat().then(metadata),
+      dependencies.lstat(scratchPath).then(metadata),
+    ])
+    if (
+      !admittedScratch(held, parentIdentity) ||
+      !sameMetadata(held, named) ||
+      !sameMetadata(held, scratchSnapshot)
+    )
+      throw new Error('shape-classifier-stopped')
+    return held
+  }
+
+  const validateProbe = async () => {
+    if (probeHandle === undefined || probeSnapshot === undefined)
+      throw new Error('shape-classifier-stopped')
+    const [held, named] = await Promise.all([
+      probeHandle.stat().then(metadata),
+      dependencies.lstat(probePath).then(metadata),
+    ])
+    if (
+      !normalizedProbe(held, parentIdentity) ||
+      !sameMetadata(held, named) ||
+      !sameMetadata(held, probeSnapshot)
+    )
+      throw new Error('shape-classifier-stopped')
+    return held
+  }
+
   try {
-    parentHandle = await dependencies.openDirectory(parentPath, directoryFlags)
+    parentHandle = await dependencies.openParent(
+      parentPath,
+      flags.directoryFlags,
+    )
     const parent = await validateParent()
-    const first = await lookupScratch(dependencies.lstat)
+    const first = await lookupFixed(dependencies.lstat, scratchPath, true)
     await validateParent()
-    const second = await lookupScratch(dependencies.lstat)
+    const second = await lookupFixed(dependencies.lstat, scratchPath, true)
     await validateParent()
 
     if (first.absent || second.absent) {
-      if (!first.absent || !second.absent) throw new Error('classifier-stopped')
-      scratchState = 'absent'
+      if (!first.absent || !second.absent)
+        throw new Error('shape-classifier-stopped')
+      residueState = 'absent'
+      await validateParent()
     } else {
       if (!sameMetadata(first.value, second.value))
-        throw new Error('classifier-stopped')
+        throw new Error('shape-classifier-stopped')
       if (!admittedScratch(first.value, parent)) {
-        scratchState = 'present-unclassified'
+        residueState = 'other-present'
+        await validateParent()
       } else {
-        scratchHandle = await dependencies.openDirectory(
+        scratchSnapshot = first.value
+        scratchHandle = await dependencies.openScratch(
           scratchPath,
-          directoryFlags,
+          flags.directoryFlags,
         )
-        const validateScratch = async () => {
-          if (scratchHandle === undefined) throw new Error('classifier-stopped')
-          const [held, named] = await Promise.all([
-            scratchHandle.stat().then(metadata),
-            dependencies.lstat(scratchPath).then(metadata),
-          ])
-          if (
-            !admittedScratch(held, parent) ||
-            !sameMetadata(held, named) ||
-            !sameMetadata(held, first.value)
-          )
-            throw new Error('classifier-stopped')
-        }
         await validateScratch()
         await validateParent()
-        const firstOccupied = await readOccupancy(dependencies.openOccupancy)
-        await validateScratch()
+        const firstPass = await readInventoryPass(dependencies.openOccupancy)
         await validateParent()
-        if (firstOccupied) {
-          scratchState = 'present-unclassified'
-        } else {
-          const secondOccupied = await readOccupancy(dependencies.openOccupancy)
-          await validateScratch()
+        await validateScratch()
+
+        if (firstPass === 'empty' || firstPass === 'other') {
+          const secondPass = await readInventoryPass(dependencies.openOccupancy)
           await validateParent()
-          scratchState = secondOccupied
-            ? 'present-unclassified'
-            : 'observed-empty-candidate'
+          await validateScratch()
+          if (firstPass === 'empty' && secondPass === 'empty')
+            residueState = 'observed-empty-candidate'
+          else if (firstPass === 'other' && secondPass === 'other')
+            residueState = 'other-present'
+          else throw new Error('shape-classifier-stopped')
+        } else {
+          const firstProbe = await lookupFixed(
+            dependencies.lstat,
+            probePath,
+            false,
+          )
+          if (!firstProbe.absent && normalizedProbe(firstProbe.value, parent)) {
+            probeSnapshot = firstProbe.value
+            probeHandle = await dependencies.openProbe(
+              probePath,
+              flags.probeFlags,
+            )
+            await validateProbe()
+            await validateParent()
+            await validateScratch()
+            const secondPass = await readInventoryPass(
+              dependencies.openOccupancy,
+            )
+            await validateParent()
+            await validateScratch()
+            await validateProbe()
+            if (secondPass !== 'candidate')
+              throw new Error('shape-classifier-stopped')
+            const secondProbe = await lookupFixed(
+              dependencies.lstat,
+              probePath,
+              false,
+            )
+            if (
+              secondProbe.absent ||
+              !normalizedProbe(secondProbe.value, parent) ||
+              !sameMetadata(secondProbe.value, probeSnapshot)
+            )
+              throw new Error('shape-classifier-stopped')
+            await validateParent()
+            await validateScratch()
+            await validateProbe()
+            residueState = 'sole-normalized-probe-candidate'
+          } else {
+            await validateParent()
+            await validateScratch()
+            const secondPass = await readInventoryPass(
+              dependencies.openOccupancy,
+            )
+            await validateParent()
+            await validateScratch()
+            if (secondPass !== 'candidate')
+              throw new Error('shape-classifier-stopped')
+            const secondProbe = await lookupFixed(
+              dependencies.lstat,
+              probePath,
+              false,
+            )
+            if (
+              secondProbe.absent ||
+              normalizedProbe(secondProbe.value, parent) ||
+              !sameMetadata(secondProbe.value, firstProbe.value)
+            )
+              throw new Error('shape-classifier-stopped')
+            residueState = 'other-present'
+            await validateParent()
+            await validateScratch()
+          }
         }
       }
     }
@@ -347,6 +472,15 @@ async function classifyWithCustody(dependencies, directoryFlags) {
     failed = true
   }
 
+  if (probeHandle !== undefined) {
+    const active = probeHandle
+    probeHandle = undefined
+    try {
+      await active.close()
+    } catch {
+      failed = true
+    }
+  }
   if (scratchHandle !== undefined) {
     const active = scratchHandle
     scratchHandle = undefined
@@ -365,30 +499,33 @@ async function classifyWithCustody(dependencies, directoryFlags) {
       failed = true
     }
   }
-  if (failed || !scratchStates.includes(scratchState))
-    throw new Error('classifier-stopped')
-  return dependencies.formResult(scratchState)
+  if (failed || !residueStates.includes(residueState))
+    throw new Error('shape-classifier-stopped')
+  return dependencies.formResult(residueState)
 }
 
 async function runClassifierCore(argv, dependencies) {
-  if (!exactProductionArgv(argv)) throw new Error('classifier-stopped')
+  if (!exactProductionArgv(argv)) throw new Error('shape-classifier-stopped')
   try {
     exactObject(dependencies, [
       'hostReaders',
       'realpath',
-      'openDirectory',
+      'openParent',
+      'openScratch',
+      'openProbe',
       'lstat',
       'openOccupancy',
       'formResult',
     ])
     const host = assertScalarHost(dependencies.hostReaders)
     if ((await dependencies.realpath(host.cwd)) !== host.cwd)
-      throw new Error('classifier-stopped')
-    const result = await classifyWithCustody(dependencies, host.directoryFlags)
-    if (canonicalResult(result) === null) throw new Error('classifier-stopped')
-    return result
+      throw new Error('shape-classifier-stopped')
+    const result = await classifyWithCustody(dependencies, host)
+    const canonical = canonicalResult(result)
+    if (canonical === null) throw new Error('shape-classifier-stopped')
+    return canonical
   } catch {
-    throw new Error('classifier-stopped')
+    throw new Error('shape-classifier-stopped')
   }
 }
 
@@ -404,24 +541,19 @@ function canonicalResult(result) {
     )
       return null
     const keys = Reflect.ownKeys(result)
-    if (keys.length !== 1) return null
-    const key = keys[0]
-    const descriptor = Object.getOwnPropertyDescriptor(result, key)
+    if (keys.length !== 1 || keys[0] !== 'residueState') return null
+    const descriptor = Object.getOwnPropertyDescriptor(result, keys[0])
     if (
       descriptor === undefined ||
       !('value' in descriptor) ||
       descriptor.enumerable !== true ||
       descriptor.writable !== false ||
-      descriptor.configurable !== false
+      descriptor.configurable !== false ||
+      typeof descriptor.value !== 'string' ||
+      !residueStates.includes(descriptor.value)
     )
       return null
-    if (
-      key === 'scratchState' &&
-      typeof descriptor.value === 'string' &&
-      scratchStates.includes(descriptor.value)
-    )
-      return Object.freeze({ scratchState: descriptor.value })
-    return null
+    return Object.freeze({ residueState: descriptor.value })
   } catch {
     return null
   }
@@ -431,24 +563,25 @@ function formatResult(result) {
   const canonical = canonicalResult(result)
   if (canonical === null)
     return Object.freeze({
-      line: '{"mode":"classify-a-fd-map-residue","status":"stopped"}\n',
+      line: '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n',
       exitCode: 1,
     })
   return Object.freeze({
     line: `${JSON.stringify({
-      mode: 'classify-a-fd-map-residue',
-      status: 'a-fd-map-residue-classified',
-      scratchState: canonical.scratchState,
+      mode: operation,
+      status: 'a-fd-map-residue-shape-classified',
+      residueState: canonical.residueState,
     })}\n`,
     exitCode: 0,
   })
 }
 
 function closedLine(line) {
-  const stopped = '{"mode":"classify-a-fd-map-residue","status":"stopped"}\n'
+  const stopped =
+    '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n'
   if (line === stopped) return Object.freeze({ line: stopped, exitCode: 1 })
-  for (const result of scratchStates.map(stateResult)) {
-    const formatted = formatResult(result)
+  for (const state of residueStates) {
+    const formatted = formatResult(stateResult(state))
     if (line === formatted.line) return formatted
   }
   return null
@@ -487,7 +620,9 @@ function defaultDependencies() {
   return Object.freeze({
     hostReaders: productionHostReaders(),
     realpath,
-    openDirectory: (path, flags) => open(path, flags),
+    openParent: (path, flags) => open(path, flags),
+    openScratch: (path, flags) => open(path, flags),
+    openProbe: (path, flags) => open(path, flags),
     lstat,
     openOccupancy: (path, options) => opendir(path, options),
     formResult: stateResult,
@@ -497,7 +632,7 @@ function defaultDependencies() {
 function stdoutWrite(line) {
   return new Promise((resolveWrite, rejectWrite) => {
     process.stdout.write(line, (error) => {
-      if (error) rejectWrite(new Error('classifier-stopped'))
+      if (error) rejectWrite(new Error('shape-classifier-stopped'))
       else resolveWrite()
     })
   })
@@ -510,7 +645,7 @@ async function executeClassifier(
 ) {
   let result
   try {
-    if (!exactProductionArgv(argv)) throw new Error('classifier-stopped')
+    if (!exactProductionArgv(argv)) throw new Error('shape-classifier-stopped')
     result = await runClassifierCore(argv, dependencyFactory())
   } catch {
     result = undefined
@@ -519,7 +654,7 @@ async function executeClassifier(
   return writeResultOnce(formatted.line, write)
 }
 
-export async function runPublicFdResidueClassifierForFixture(
+export async function runPublicFdResidueShapeClassifierForFixture(
   argv,
   dependencies,
 ) {
@@ -527,17 +662,17 @@ export async function runPublicFdResidueClassifierForFixture(
   return runClassifierCore(argv, dependencies)
 }
 
-export function formatPublicFdResidueResultForFixture(result) {
+export function formatPublicFdResidueShapeResultForFixture(result) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return formatResult(result)
 }
 
-export async function writePublicFdResidueResultForFixture(line, write) {
+export function writePublicFdResidueShapeResultForFixture(line, write) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return writeResultOnce(line, write)
 }
 
-export async function executePublicFdResidueClassifierForFixture(
+export function executePublicFdResidueShapeClassifierForFixture(
   argv,
   dependencies,
   write,
