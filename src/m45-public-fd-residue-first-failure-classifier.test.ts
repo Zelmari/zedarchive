@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { lstat, readFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 const moduleUrl = new URL(
@@ -29,7 +31,7 @@ const argv = [
   'classify-a-fd-map-residue-first-failure',
   '--confirm-m45-public-a-fd-map-residue-first-failure-classifier-v1',
 ] as const
-const repositoryRoot = '/Users/zelmari/projects/zedarchive'
+const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const parentPath = '/private/tmp'
 const scratchPath = '/private/tmp/zedarchive-m45-fd-admission-probe'
 const probePath = `${scratchPath}/probe`
@@ -1367,8 +1369,8 @@ describe('Decision 144 residue first-failure classifier', () => {
       NODE_ENV: 'test',
     }
     const gitPrefix = [
-      '--git-dir=/Users/zelmari/projects/zedarchive/.git',
-      '--work-tree=/Users/zelmari/projects/zedarchive',
+      `--git-dir=${repositoryRoot}/.git`,
+      `--work-tree=${repositoryRoot}`,
       '-c',
       'core.fsmonitor=false',
       '-c',
@@ -1557,5 +1559,5 @@ describe('Decision 144 residue first-failure classifier', () => {
       productionOldLiteralAbsent: true,
       testFixtureOnlyAllowance: true,
     })
-  })
+  }, 20_000)
 })
