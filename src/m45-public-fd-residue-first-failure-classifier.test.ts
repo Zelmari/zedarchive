@@ -3,22 +3,22 @@ import { lstat, readFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
 
 const moduleUrl = new URL(
-  '../scripts/m45-public-fd-residue-shape-classifier.mjs',
+  '../scripts/m45-public-fd-residue-first-failure-classifier.mjs',
   import.meta.url,
 ).href
 const classifier = (await import(moduleUrl)) as {
-  runPublicFdResidueShapeClassifierForFixture: (
+  runPublicFdResidueFirstFailureClassifierForFixture: (
     argv: readonly string[],
     dependencies: Record<string, unknown>,
   ) => Promise<Readonly<{ residueState: string }>>
-  formatPublicFdResidueShapeResultForFixture: (
+  formatPublicFdResidueFirstFailureResultForFixture: (
     result: unknown,
   ) => Readonly<{ line: string; exitCode: number }>
-  writePublicFdResidueShapeResultForFixture: (
+  writePublicFdResidueFirstFailureResultForFixture: (
     line: unknown,
     write: unknown,
   ) => Promise<number>
-  executePublicFdResidueShapeClassifierForFixture: (
+  executePublicFdResidueFirstFailureClassifierForFixture: (
     argv: readonly string[],
     dependencies: Record<string, unknown>,
     write: (line: string) => Promise<void>,
@@ -26,8 +26,8 @@ const classifier = (await import(moduleUrl)) as {
 }
 
 const argv = [
-  'classify-a-fd-map-residue-shape',
-  '--confirm-m45-public-a-fd-map-residue-shape-classifier-v1',
+  'classify-a-fd-map-residue-first-failure',
+  '--confirm-m45-public-a-fd-map-residue-first-failure-classifier-v1',
 ] as const
 const repositoryRoot = '/Users/zelmari/projects/zedarchive'
 const parentPath = '/private/tmp'
@@ -73,6 +73,7 @@ const probe = {
 type Role = 'parent' | 'scratch' | 'probe'
 type Scope = 'held' | 'named'
 type Pass = readonly ('empty' | 'probe' | 'other')[]
+type ProbeGidAccessor = { reads: number; throws?: boolean }
 
 const driftFields = [
   'uid',
@@ -99,7 +100,19 @@ const driftCases = (['parent', 'scratch', 'probe'] as const).flatMap((role) =>
           'symbolicLink',
           'regular',
         ] as const)
-      : driftFields
+      : role === 'probe'
+        ? ([
+            'uid',
+            'dev',
+            'ino',
+            'mode',
+            'nlink',
+            'size',
+            'directory',
+            'symbolicLink',
+            'regular',
+          ] as const)
+        : driftFields
     ).map(
       (field) =>
         [
@@ -117,13 +130,27 @@ const driftCases = (['parent', 'scratch', 'probe'] as const).flatMap((role) =>
   ),
 )
 
-function statValue(value: typeof parent | typeof scratch | typeof probe) {
-  return {
+function statValue(
+  value: typeof parent | typeof scratch | typeof probe,
+  probeGidAccessor?: ProbeGidAccessor,
+) {
+  const result = {
     ...value,
     isDirectory: () => value.directory,
     isSymbolicLink: () => value.symbolicLink,
     isFile: () => value.regular,
   }
+  if (probeGidAccessor)
+    Object.defineProperty(result, 'gid', {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        probeGidAccessor.reads += 1
+        if (probeGidAccessor.throws) throw new Error('probe-gid-read')
+        return value.gid
+      },
+    })
+  return result
 }
 
 function fixture(
@@ -132,6 +159,8 @@ function fixture(
     passes?: readonly Pass[]
     rejectedScratch?: Partial<typeof scratch>
     rejectedProbe?: Partial<typeof probe>
+    rejectedProbeByOccurrence?: readonly Partial<typeof probe>[]
+    probeGidAccessors?: { held: ProbeGidAccessor; named: ProbeGidAccessor }
     fail?: string
     failAt?: { event: string; occurrence: number }
     result?: unknown
@@ -167,15 +196,21 @@ function fixture(
     )
   }
   const valueFor = (role: Role, scope: Scope) => {
+    const key = `${role}-${scope}`
+    const occurrence = lookupOccurrences.get(key) ?? 0
+    lookupOccurrences.set(key, occurrence + 1)
     const source =
       role === 'parent'
         ? parent
         : role === 'scratch'
           ? { ...scratch, ...options.rejectedScratch }
-          : { ...probe, ...options.rejectedProbe }
-    const key = `${role}-${scope}`
-    const occurrence = lookupOccurrences.get(key) ?? 0
-    lookupOccurrences.set(key, occurrence + 1)
+          : {
+              ...probe,
+              ...options.rejectedProbe,
+              ...(scope === 'named'
+                ? options.rejectedProbeByOccurrence?.[occurrence]
+                : undefined),
+            }
     if (
       options.drift?.role === role &&
       options.drift.scope === scope &&
@@ -195,7 +230,10 @@ function fixture(
   const makeHandle = (role: Role) => ({
     stat: vi.fn(async () => {
       if (record(`stat-${role}`)) throw new Error('fixture-stat')
-      return statValue(valueFor(role, 'held') as typeof parent)
+      return statValue(
+        valueFor(role, 'held') as typeof parent,
+        role === 'probe' ? options.probeGidAccessors?.held : undefined,
+      )
     }),
     close: vi.fn(async () => {
       if (record(`close-${role}`)) throw new Error('fixture-close')
@@ -279,7 +317,10 @@ function fixture(
           throw error
         }
       }
-      return statValue(valueFor(role, 'named') as typeof parent)
+      return statValue(
+        valueFor(role, 'named') as typeof parent,
+        role === 'probe' ? options.probeGidAccessors?.named : undefined,
+      )
     }),
     openOccupancy: vi.fn(async (path: string, settings: unknown) => {
       if (record(`open-occupancy-${occupancyPass + 1}`))
@@ -366,28 +407,28 @@ const run = async (
   current: ReturnType<typeof fixture>,
   args: readonly string[] = argv,
 ) =>
-  classifier.runPublicFdResidueShapeClassifierForFixture(
+  classifier.runPublicFdResidueFirstFailureClassifierForFixture(
     args,
     current.dependencies,
   )
 
-describe('Decision 143 fixed-probe residue shape classifier', () => {
+describe('Decision 144 residue first-failure classifier', () => {
   it('keeps every fixture seam test-only', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     const current = fixture()
     try {
       await expect(run(current)).rejects.toThrow('fixture-only')
       expect(() =>
-        classifier.formatPublicFdResidueShapeResultForFixture({}),
+        classifier.formatPublicFdResidueFirstFailureResultForFixture({}),
       ).toThrow('fixture-only')
       expect(() =>
-        classifier.writePublicFdResidueShapeResultForFixture(
+        classifier.writePublicFdResidueFirstFailureResultForFixture(
           'private\n',
           vi.fn(),
         ),
       ).toThrow('fixture-only')
       expect(() =>
-        classifier.executePublicFdResidueShapeClassifierForFixture(
+        classifier.executePublicFdResidueFirstFailureClassifierForFixture(
           argv,
           current.dependencies,
           vi.fn(async () => {}),
@@ -403,11 +444,11 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
     [{ presence: ['absent', 'absent'] }, 'absent'],
     [{ passes: [[], []] }, 'observed-empty-candidate'],
     [{ passes: [['probe'], ['probe']] }, 'sole-normalized-probe-candidate'],
-    [{ passes: [['other'], ['other']] }, 'other-present'],
-    [{ rejectedScratch: { mode: 0o755 } }, 'other-present'],
+    [{ passes: [['other'], ['other']] }, 'inventory-not-sole-probe'],
+    [{ rejectedScratch: { mode: 0o755 } }, 'root-shape-rejected'],
     [
       { passes: [['probe'], ['probe']], rejectedProbe: { mode: 0o644 } },
-      'other-present',
+      'probe-shape-rejected',
     ],
   ] as const)('classifies state %# as %s', async (options, state) => {
     vi.stubEnv('NODE_ENV', 'test')
@@ -429,7 +470,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
     [[['probe'], ['other']], 'stopped'],
     [[['other'], []], 'stopped'],
     [[['other'], ['probe']], 'stopped'],
-    [[['other'], ['other']], 'other-present'],
+    [[['other'], ['other']], 'inventory-not-sole-probe'],
   ] as const)('maps pass pairing %# to %s', async (passes, expected) => {
     vi.stubEnv('NODE_ENV', 'test')
     try {
@@ -508,7 +549,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
 
       const rejected = fixture({ rejectedScratch: { mode: 0o755 } })
       await expect(run(rejected)).resolves.toEqual({
-        residueState: 'other-present',
+        residueState: 'root-shape-rejected',
       })
       expect(rejected.dependencies.openScratch).not.toHaveBeenCalled()
       expect(rejected.dependencies.openOccupancy).not.toHaveBeenCalled()
@@ -524,6 +565,31 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
     }
   })
 
+  it.each([
+    ['kind', { directory: false, regular: true }],
+    ['symlink', { symbolicLink: true }],
+    ['uid', { uid: 500 }],
+    ['device', { dev: 16777232 }],
+    ['mode', { mode: 0o755 }],
+    ['link-count', { nlink: 1 }],
+  ] as const)(
+    'classifies stable root first failure %s',
+    async (_, rejectedScratch) => {
+      vi.stubEnv('NODE_ENV', 'test')
+      try {
+        const current = fixture({ rejectedScratch })
+        await expect(run(current)).resolves.toEqual({
+          residueState: 'root-shape-rejected',
+        })
+        expect(current.dependencies.openScratch).not.toHaveBeenCalled()
+        expect(current.dependencies.openOccupancy).not.toHaveBeenCalled()
+        expect(current.dependencies.openProbe).not.toHaveBeenCalled()
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    },
+  )
+
   it('stops at the second non-null entry without reading its name or a third entry', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     try {
@@ -534,7 +600,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
         ],
       })
       await expect(run(current)).resolves.toEqual({
-        residueState: 'other-present',
+        residueState: 'inventory-not-sole-probe',
       })
       expect(
         current.events.filter((event) => event.startsWith('read-occupancy')),
@@ -624,7 +690,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
         rejectedProbe: { mode: 0o644 },
       })
       await expect(run(stableRejected)).resolves.toEqual({
-        residueState: 'other-present',
+        residueState: 'probe-shape-rejected',
       })
       expect(stableRejected.dependencies.openProbe).not.toHaveBeenCalled()
       for (const passes of [
@@ -644,23 +710,47 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
     }
   })
 
+  it('requires exact rejected probe tuple equality and stable first failure', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    try {
+      const differingTuple = fixture({
+        passes: [['probe'], ['probe']],
+        rejectedProbeByOccurrence: [{ uid: 500 }, { uid: 502 }],
+      })
+      await expect(run(differingTuple)).rejects.toThrow(
+        'shape-classifier-stopped',
+      )
+
+      const eligibleThenRejected = fixture({
+        passes: [['probe'], ['probe']],
+        rejectedProbeByOccurrence: [{}, {}, { mode: 0o644 }],
+      })
+      await expect(run(eligibleThenRejected)).rejects.toThrow(
+        'shape-classifier-stopped',
+      )
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it.each([
     ['kind', { regular: false, directory: true }],
     ['symlink', { symbolicLink: true }],
     ['uid', { uid: 500 }],
     ['device', { dev: 16777232 }],
     ['mode', { mode: 0o501 }],
+    ['special-mode-bit', { mode: 0o2500 }],
     ['link-count', { nlink: 2 }],
     ['size-zero', { size: 0 }],
     ['size-over-bound', { size: 16_777_217 }],
   ] as const)(
-    'maps rejected probe predicate %s to other-present',
+    'maps rejected probe predicate %s to probe-shape-rejected',
     async (_, rejectedProbe) => {
       vi.stubEnv('NODE_ENV', 'test')
       try {
         await expect(
           run(fixture({ passes: [['probe'], ['probe']], rejectedProbe })),
-        ).resolves.toEqual({ residueState: 'other-present' })
+        ).resolves.toEqual({ residueState: 'probe-shape-rejected' })
       } finally {
         vi.unstubAllEnvs()
       }
@@ -681,6 +771,44 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
         residueState: 'sole-normalized-probe-candidate',
       })
       expect(current.dependencies.openProbe).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('does not read or compare probe gid', async () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    try {
+      const normalizedHeldGid = { reads: 0, throws: true }
+      const normalizedNamedGid = { reads: 0, throws: true }
+      const gidGetter = fixture({
+        passes: [['probe'], ['probe']],
+        probeGidAccessors: {
+          held: normalizedHeldGid,
+          named: normalizedNamedGid,
+        },
+      })
+      await expect(run(gidGetter)).resolves.toEqual({
+        residueState: 'sole-normalized-probe-candidate',
+      })
+      expect(normalizedHeldGid.reads).toBe(0)
+      expect(normalizedNamedGid.reads).toBe(0)
+
+      const rejectedHeldGid = { reads: 0, throws: true }
+      const rejectedNamedGid = { reads: 0, throws: true }
+      const gidDrift = fixture({
+        passes: [['probe'], ['probe']],
+        rejectedProbe: { mode: 0o644 },
+        probeGidAccessors: {
+          held: rejectedHeldGid,
+          named: rejectedNamedGid,
+        },
+      })
+      await expect(run(gidDrift)).resolves.toEqual({
+        residueState: 'probe-shape-rejected',
+      })
+      expect(rejectedHeldGid.reads).toBe(0)
+      expect(rejectedNamedGid.reads).toBe(0)
     } finally {
       vi.unstubAllEnvs()
     }
@@ -712,7 +840,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
   it('rejects old grammar and malformed host before filesystem access', async () => {
     vi.stubEnv('NODE_ENV', 'test')
     try {
-      // BEGIN RETIRED D142 REJECTED-INPUT FIXTURES
+      // BEGIN RETIRED D143 REJECTED-INPUT FIXTURES
       for (const args of [
         [],
         ['classify-a-fd-map-residue-shape'],
@@ -754,7 +882,7 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
         expect(current.dependencies.realpath).not.toHaveBeenCalled()
         expect(current.dependencies.openParent).not.toHaveBeenCalled()
       }
-      // END RETIRED D142 REJECTED-INPUT FIXTURES
+      // END RETIRED D143 REJECTED-INPUT FIXTURES
       for (const host of [
         {
           environmentKeys: [
@@ -1045,23 +1173,28 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
       for (const residueState of [
         'absent',
         'observed-empty-candidate',
+        'root-shape-rejected',
+        'inventory-not-sole-probe',
+        'probe-shape-rejected',
         'sole-normalized-probe-candidate',
-        'other-present',
       ]) {
-        const line = `{"mode":"classify-a-fd-map-residue-shape","status":"a-fd-map-residue-shape-classified","residueState":"${residueState}"}\n`
+        const line = `{"mode":"classify-a-fd-map-residue-first-failure","status":"a-fd-map-residue-first-failure-classified","residueState":"${residueState}"}\n`
         expect(
-          classifier.formatPublicFdResidueShapeResultForFixture(
+          classifier.formatPublicFdResidueFirstFailureResultForFixture(
             Object.freeze({ residueState }),
           ),
         ).toEqual({ line, exitCode: 0 })
         const write = vi.fn(async () => {})
         await expect(
-          classifier.writePublicFdResidueShapeResultForFixture(line, write),
+          classifier.writePublicFdResidueFirstFailureResultForFixture(
+            line,
+            write,
+          ),
         ).resolves.toBe(0)
         expect(write).toHaveBeenCalledExactlyOnceWith(line)
       }
       const stopped =
-        '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n'
+        '{"mode":"classify-a-fd-map-residue-first-failure","status":"stopped"}\n'
       for (const malformed of [
         undefined,
         {},
@@ -1070,16 +1203,18 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
         new Proxy(Object.freeze({ residueState: 'absent' }), {}),
       ])
         expect(
-          classifier.formatPublicFdResidueShapeResultForFixture(malformed),
+          classifier.formatPublicFdResidueFirstFailureResultForFixture(
+            malformed,
+          ),
         ).toEqual({ line: stopped, exitCode: 1 })
       await expect(
-        classifier.writePublicFdResidueShapeResultForFixture(
+        classifier.writePublicFdResidueFirstFailureResultForFixture(
           'private\n',
           vi.fn(),
         ),
       ).resolves.toBe(1)
       await expect(
-        classifier.writePublicFdResidueShapeResultForFixture(
+        classifier.writePublicFdResidueFirstFailureResultForFixture(
           stopped,
           vi.fn(async () => {
             throw new Error('fixture-write')
@@ -1131,38 +1266,38 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
       const current = fixture({ presence: ['absent', 'absent'] })
       const write = vi.fn(async () => {})
       await expect(
-        classifier.executePublicFdResidueShapeClassifierForFixture(
+        classifier.executePublicFdResidueFirstFailureClassifierForFixture(
           argv,
           current.dependencies,
           write,
         ),
       ).resolves.toBe(0)
       expect(write).toHaveBeenCalledExactlyOnceWith(
-        '{"mode":"classify-a-fd-map-residue-shape","status":"a-fd-map-residue-shape-classified","residueState":"absent"}\n',
+        '{"mode":"classify-a-fd-map-residue-first-failure","status":"a-fd-map-residue-first-failure-classified","residueState":"absent"}\n',
       )
       const stopped = fixture({ fail: 'realpath' })
       const stoppedWrite = vi.fn(async () => {})
       await expect(
-        classifier.executePublicFdResidueShapeClassifierForFixture(
+        classifier.executePublicFdResidueFirstFailureClassifierForFixture(
           argv,
           stopped.dependencies,
           stoppedWrite,
         ),
       ).resolves.toBe(1)
       expect(stoppedWrite).toHaveBeenCalledExactlyOnceWith(
-        '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n',
+        '{"mode":"classify-a-fd-map-residue-first-failure","status":"stopped"}\n',
       )
       const resultFailure = fixture({ fail: 'form-result' })
       const resultFailureWrite = vi.fn(async () => {})
       await expect(
-        classifier.executePublicFdResidueShapeClassifierForFixture(
+        classifier.executePublicFdResidueFirstFailureClassifierForFixture(
           argv,
           resultFailure.dependencies,
           resultFailureWrite,
         ),
       ).resolves.toBe(1)
       expect(resultFailureWrite).toHaveBeenCalledExactlyOnceWith(
-        '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n',
+        '{"mode":"classify-a-fd-map-residue-first-failure","status":"stopped"}\n',
       )
     } finally {
       vi.unstubAllEnvs()
@@ -1172,14 +1307,14 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
   it('statically closes production privacy and retirement surfaces', async () => {
     const source = await readFile(
       new URL(
-        '../scripts/m45-public-fd-residue-shape-classifier.mjs',
+        '../scripts/m45-public-fd-residue-first-failure-classifier.mjs',
         import.meta.url,
       ),
       'utf8',
     )
     const focusedTestSource = await readFile(
       new URL(
-        './m45-public-fd-residue-shape-classifier.test.ts',
+        './m45-public-fd-residue-first-failure-classifier.test.ts',
         import.meta.url,
       ),
       'utf8',
@@ -1202,46 +1337,129 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
     await expect(
       lstat(
         new URL(
-          '../scripts/m45-public-fd-residue-classifier.mjs',
+          '../scripts/m45-public-fd-residue-shape-classifier.mjs',
           import.meta.url,
         ),
       ),
     ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(
       lstat(
-        new URL('./m45-public-fd-residue-classifier.test.ts', import.meta.url),
+        new URL(
+          './m45-public-fd-residue-shape-classifier.test.ts',
+          import.meta.url,
+        ),
       ),
     ).rejects.toMatchObject({ code: 'ENOENT' })
 
+    const retiredPaths = new Set([
+      'scripts/m45-public-fd-residue-shape-classifier.mjs',
+      'src/m45-public-fd-residue-shape-classifier.test.ts',
+    ])
+    const scanEnv: NodeJS.ProcessEnv = {
+      PATH: '/usr/bin:/bin',
+      LC_ALL: 'C',
+      LANG: 'C',
+      TZ: 'UTC',
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_OPTIONAL_LOCKS: '0',
+      NODE_ENV: 'test',
+    }
+    const gitPrefix = [
+      '--git-dir=/Users/zelmari/projects/zedarchive/.git',
+      '--work-tree=/Users/zelmari/projects/zedarchive',
+      '-c',
+      'core.fsmonitor=false',
+      '-c',
+      'status.submoduleSummary=false',
+      '-c',
+      'submodule.recurse=false',
+    ]
+    const deletedPathsAbsent = await Promise.all(
+      [...retiredPaths].map(async (relativePath) => {
+        try {
+          await lstat(`${repositoryRoot}/${relativePath}`)
+          return false
+        } catch (error) {
+          return (
+            error !== null &&
+            typeof error === 'object' &&
+            'code' in error &&
+            error.code === 'ENOENT'
+          )
+        }
+      }),
+    ).then((values) => values.every(Boolean))
     const trackedBytes = execFileSync(
       '/usr/bin/git',
-      ['-C', repositoryRoot, 'ls-files', '-z', '--', 'scripts', 'src'],
-      {
-        cwd: '/',
-        encoding: 'buffer',
-        env: {
-          PATH: '/usr/bin:/bin',
-          LC_ALL: 'C',
-          LANG: 'C',
-          TZ: 'UTC',
-          NODE_ENV: 'test',
-        },
-      },
+      [
+        ...gitPrefix,
+        'ls-tree',
+        '-r',
+        '-z',
+        '--full-tree',
+        'HEAD',
+        '--',
+        'scripts',
+        'src',
+      ],
+      { cwd: '/', encoding: 'buffer', env: scanEnv },
     )
-    const trackedPaths = trackedBytes
+    const trackedEntries = trackedBytes
       .toString('utf8')
       .split('\0')
       .filter(Boolean)
-      .sort((left, right) => Buffer.from(left).compare(Buffer.from(right)))
-    const retiredPaths = new Set([
-      'scripts/m45-public-fd-residue-classifier.mjs',
-      'src/m45-public-fd-residue-classifier.test.ts',
-    ])
+      .map((record) => {
+        const separator = record.indexOf('\t')
+        const [mode, type, object] = record.slice(0, separator).split(' ')
+        return { mode, type, object, path: record.slice(separator + 1) }
+      })
+      .sort((left, right) =>
+        Buffer.from(left.path).compare(Buffer.from(right.path)),
+      )
+    const scanEntries = trackedEntries.filter(
+      (entry) => !(deletedPathsAbsent && retiredPaths.has(entry.path)),
+    )
+    const blobSources = new Map<string, string>()
+    for (const entry of scanEntries) {
+      if (entry.type !== 'blob') continue
+      blobSources.set(
+        entry.path,
+        execFileSync(
+          '/usr/bin/git',
+          [...gitPrefix, 'cat-file', 'blob', entry.object],
+          { cwd: '/', encoding: 'utf8', env: scanEnv },
+        ),
+      )
+    }
+    if (
+      !blobSources.has(
+        'scripts/m45-public-fd-residue-first-failure-classifier.mjs',
+      )
+    )
+      blobSources.set(
+        'scripts/m45-public-fd-residue-first-failure-classifier.mjs',
+        source,
+      )
+    if (
+      !blobSources.has(
+        'src/m45-public-fd-residue-first-failure-classifier.test.ts',
+      )
+    )
+      blobSources.set(
+        'src/m45-public-fd-residue-first-failure-classifier.test.ts',
+        focusedTestSource,
+      )
+    const regularFileKindPolicy = scanEntries.every(
+      ({ mode, type }) =>
+        type === 'blob' && (mode === '100644' || mode === '100755'),
+    )
     const fixtureStart = focusedTestSource.indexOf(
-      '// BEGIN RETIRED D142 REJECTED-INPUT FIXTURES',
+      '// BEGIN RETIRED D143 REJECTED-INPUT FIXTURES',
     )
     const fixtureEnd = focusedTestSource.indexOf(
-      '// END RETIRED D142 REJECTED-INPUT FIXTURES',
+      '// END RETIRED D143 REJECTED-INPUT FIXTURES',
     )
     const fixtureRegion =
       fixtureStart >= 0 && fixtureEnd > fixtureStart
@@ -1287,72 +1505,56 @@ describe('Decision 143 fixed-probe residue shape classifier', () => {
       retiredOperation === undefined
         ? undefined
         : `${retiredOperation.replace(/^classify-/u, '')}-classified`
-    let regularFileKindPolicy = true
-    const productionSources: string[] = [source]
-    for (const relativePath of trackedPaths) {
-      let stat
-      try {
-        stat = await lstat(`${repositoryRoot}/${relativePath}`)
-      } catch {
-        if (retiredPaths.has(relativePath)) continue
-        regularFileKindPolicy = false
-        continue
-      }
-      if (!stat.isFile()) {
-        regularFileKindPolicy = false
-        continue
-      }
-      if (
-        relativePath.startsWith('scripts/') &&
-        !relativePath.endsWith('.test.mjs') &&
-        !relativePath.endsWith('.test.ts')
+    const sourceEntries = [...blobSources.entries()]
+    const oldPathReachabilityAbsent = [...retiredPaths].every((path) => {
+      const escaped = path.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+      const reachability = new RegExp(
+        `(?:\\bimport\\s*(?:\\(|['"])|\\bfrom\\s+['"]|\\b(?:resolve|load|invoke|dispatch)\\s*\\()[\\s\\S]{0,200}${escaped}`,
+        'u',
       )
-        productionSources.push(
-          await readFile(`${repositoryRoot}/${relativePath}`, 'utf8'),
+      return sourceEntries.every(
+        ([, currentSource]) => !reachability.test(currentSource),
+      )
+    })
+    const oldLiteralOutsideFixture = [
+      retiredOperation,
+      ...retiredConfirmations,
+      retiredStatus,
+    ].filter((literal): literal is string => literal !== undefined)
+    const productionOldLiteralAbsent = sourceEntries
+      .filter(([relativePath]) => !relativePath.endsWith('.test.ts'))
+      .every(([, currentSource]) =>
+        oldLiteralOutsideFixture.every(
+          (literal) => !currentSource.includes(literal),
+        ),
+      )
+    const testFixtureOnlyAllowance =
+      fixtureOnlyAllowance &&
+      sourceEntries.every(([relativePath, currentSource]) => {
+        if (
+          relativePath !==
+          'src/m45-public-fd-residue-first-failure-classifier.test.ts'
         )
-      if (relativePath.startsWith('src/') && !relativePath.endsWith('.test.ts'))
-        productionSources.push(
-          await readFile(`${repositoryRoot}/${relativePath}`, 'utf8'),
-        )
-    }
-    const deletedPathsAbsent = await Promise.all(
-      [...retiredPaths].map(async (relativePath) => {
-        try {
-          await lstat(`${repositoryRoot}/${relativePath}`)
-          return false
-        } catch (error) {
-          return (
-            error !== null &&
-            typeof error === 'object' &&
-            'code' in error &&
-            error.code === 'ENOENT'
+          return oldLiteralOutsideFixture.every(
+            (literal) => !currentSource.includes(literal),
           )
-        }
-      }),
-    ).then((values) => values.every(Boolean))
-    const productionRetirementScan = productionSources.every(
-      (currentSource) =>
-        !currentSource.includes('m45-public-fd-residue-classifier.mjs') &&
-        !currentSource.includes(
-          'src/m45-public-fd-residue-classifier.test.ts',
-        ) &&
-        (retiredOperation === undefined ||
-          (!currentSource.includes(`'${retiredOperation}'`) &&
-            !currentSource.includes(`"${retiredOperation}"`))) &&
-        retiredConfirmations.every(
-          (confirmation) => !currentSource.includes(confirmation),
-        ) &&
-        (retiredStatus === undefined || !currentSource.includes(retiredStatus)),
-    )
+        const before = currentSource.slice(0, fixtureStart)
+        const after = currentSource.slice(fixtureEnd)
+        return oldLiteralOutsideFixture.every(
+          (literal) => !before.includes(literal) && !after.includes(literal),
+        )
+      })
     expect({
       deletedPathsAbsent,
       regularFileKindPolicy,
-      productionRetirementScan,
-      testFixtureOnlyAllowance: fixtureOnlyAllowance,
+      oldPathReachabilityAbsent,
+      productionOldLiteralAbsent,
+      testFixtureOnlyAllowance,
     }).toEqual({
       deletedPathsAbsent: true,
       regularFileKindPolicy: true,
-      productionRetirementScan: true,
+      oldPathReachabilityAbsent: true,
+      productionOldLiteralAbsent: true,
       testFixtureOnlyAllowance: true,
     })
   })

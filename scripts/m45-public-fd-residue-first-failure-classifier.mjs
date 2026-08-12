@@ -3,8 +3,9 @@ import { lstat, open, opendir, realpath } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { types as utilTypes } from 'node:util'
 
-const operation = 'classify-a-fd-map-residue-shape'
-const confirmation = '--confirm-m45-public-a-fd-map-residue-shape-classifier-v1'
+const operation = 'classify-a-fd-map-residue-first-failure'
+const confirmation =
+  '--confirm-m45-public-a-fd-map-residue-first-failure-classifier-v1'
 const nodePath = '/opt/homebrew/Cellar/node@24/24.18.1/bin/node'
 const repositoryRoot = '/Users/zelmari/projects/zedarchive'
 const parentPath = '/private/tmp'
@@ -30,8 +31,10 @@ const suppliedEnvironment = Object.freeze({
 const residueStates = Object.freeze([
   'absent',
   'observed-empty-candidate',
+  'root-shape-rejected',
+  'inventory-not-sole-probe',
+  'probe-shape-rejected',
   'sole-normalized-probe-candidate',
-  'other-present',
 ])
 const occupancyOptions = Object.freeze({
   encoding: 'utf8',
@@ -171,10 +174,9 @@ function assertScalarHost(readers) {
   })
 }
 
-function metadata(value) {
-  return Object.freeze({
+function metadata(value, includeGid = true) {
+  const projected = {
     uid: Number(value.uid),
-    gid: Number(value.gid),
     dev: Number(value.dev),
     ino: Number(value.ino),
     mode: Number(value.mode) & 0o7777,
@@ -190,7 +192,13 @@ function metadata(value) {
         : value.symbolicLink,
     regular:
       typeof value.isFile === 'function' ? value.isFile() : value.regular,
-  })
+  }
+  if (includeGid) projected.gid = Number(value.gid)
+  return Object.freeze(projected)
+}
+
+function probeMetadata(value) {
+  return metadata(value, false)
 }
 
 function sameMetadata(left, right) {
@@ -232,16 +240,49 @@ function admittedScratch(value, parent) {
 }
 
 function normalizedProbe(value, parent) {
+  return firstProbeFailure(value, parent) === null
+}
+
+function firstRootFailure(value, parent) {
+  if (
+    value.directory !== true ||
+    value.symbolicLink !== false ||
+    value.regular !== false
+  )
+    return 'kind'
+  if (value.uid !== 501) return 'uid'
+  if (value.dev !== parent.dev) return 'device'
+  if (value.mode !== 0o700) return 'mode'
+  if (value.nlink !== 2) return 'link-count'
+  return null
+}
+
+function firstProbeFailure(value, parent) {
+  if (
+    value.regular !== true ||
+    value.directory !== false ||
+    value.symbolicLink !== false
+  )
+    return 'kind'
+  if (value.uid !== 501) return 'uid'
+  if (value.dev !== parent.dev) return 'device'
+  if (value.mode !== 0o500) return 'mode'
+  if (value.nlink !== 1) return 'link-count'
+  if (value.size < 1 || value.size > maxFdAdmissionProbeBytes) return 'size'
+  return null
+}
+
+function sameProbeTuple(left, right) {
   return (
-    value.regular === true &&
-    value.directory === false &&
-    value.symbolicLink === false &&
-    value.uid === 501 &&
-    value.dev === parent.dev &&
-    value.mode === 0o500 &&
-    value.nlink === 1 &&
-    value.size >= 1 &&
-    value.size <= maxFdAdmissionProbeBytes
+    left.directory === right.directory &&
+    left.symbolicLink === right.symbolicLink &&
+    left.regular === right.regular &&
+    left.uid === right.uid &&
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.mode === right.mode &&
+    left.nlink === right.nlink &&
+    left.size === right.size
   )
 }
 
@@ -251,11 +292,11 @@ function stateResult(residueState) {
   return Object.freeze({ residueState })
 }
 
-async function lookupFixed(lstatPath, path, allowAbsent) {
+async function lookupFixed(lstatPath, path, allowAbsent, project = metadata) {
   try {
     return Object.freeze({
       absent: false,
-      value: metadata(await lstatPath(path)),
+      value: project(await lstatPath(path)),
     })
   } catch (error) {
     if (
@@ -347,13 +388,13 @@ async function classifyWithCustody(dependencies, flags) {
     if (probeHandle === undefined || probeSnapshot === undefined)
       throw new Error('shape-classifier-stopped')
     const [held, named] = await Promise.all([
-      probeHandle.stat().then(metadata),
-      dependencies.lstat(probePath).then(metadata),
+      probeHandle.stat().then(probeMetadata),
+      dependencies.lstat(probePath).then(probeMetadata),
     ])
     if (
       !normalizedProbe(held, parentIdentity) ||
-      !sameMetadata(held, named) ||
-      !sameMetadata(held, probeSnapshot)
+      !sameProbeTuple(held, named) ||
+      !sameProbeTuple(held, probeSnapshot)
     )
       throw new Error('shape-classifier-stopped')
     return held
@@ -378,8 +419,11 @@ async function classifyWithCustody(dependencies, flags) {
     } else {
       if (!sameMetadata(first.value, second.value))
         throw new Error('shape-classifier-stopped')
-      if (!admittedScratch(first.value, parent)) {
-        residueState = 'other-present'
+      const rootFailure = firstRootFailure(first.value, parent)
+      if (rootFailure !== null) {
+        if (rootFailure !== firstRootFailure(second.value, parent))
+          throw new Error('shape-classifier-stopped')
+        residueState = 'root-shape-rejected'
         await validateParent()
       } else {
         scratchSnapshot = first.value
@@ -400,13 +444,14 @@ async function classifyWithCustody(dependencies, flags) {
           if (firstPass === 'empty' && secondPass === 'empty')
             residueState = 'observed-empty-candidate'
           else if (firstPass === 'other' && secondPass === 'other')
-            residueState = 'other-present'
+            residueState = 'inventory-not-sole-probe'
           else throw new Error('shape-classifier-stopped')
         } else {
           const firstProbe = await lookupFixed(
             dependencies.lstat,
             probePath,
             false,
+            probeMetadata,
           )
           if (!firstProbe.absent && normalizedProbe(firstProbe.value, parent)) {
             probeSnapshot = firstProbe.value
@@ -429,11 +474,12 @@ async function classifyWithCustody(dependencies, flags) {
               dependencies.lstat,
               probePath,
               false,
+              probeMetadata,
             )
             if (
               secondProbe.absent ||
               !normalizedProbe(secondProbe.value, parent) ||
-              !sameMetadata(secondProbe.value, probeSnapshot)
+              !sameProbeTuple(secondProbe.value, probeSnapshot)
             )
               throw new Error('shape-classifier-stopped')
             await validateParent()
@@ -454,14 +500,19 @@ async function classifyWithCustody(dependencies, flags) {
               dependencies.lstat,
               probePath,
               false,
+              probeMetadata,
             )
+            const firstFailure = firstProbeFailure(firstProbe.value, parent)
+            const secondFailure = firstProbeFailure(secondProbe.value, parent)
             if (
               secondProbe.absent ||
-              normalizedProbe(secondProbe.value, parent) ||
-              !sameMetadata(secondProbe.value, firstProbe.value)
+              secondFailure === null ||
+              firstFailure === null ||
+              secondFailure !== firstFailure ||
+              !sameProbeTuple(secondProbe.value, firstProbe.value)
             )
               throw new Error('shape-classifier-stopped')
-            residueState = 'other-present'
+            residueState = 'probe-shape-rejected'
             await validateParent()
             await validateScratch()
           }
@@ -563,13 +614,13 @@ function formatResult(result) {
   const canonical = canonicalResult(result)
   if (canonical === null)
     return Object.freeze({
-      line: '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n',
+      line: '{"mode":"classify-a-fd-map-residue-first-failure","status":"stopped"}\n',
       exitCode: 1,
     })
   return Object.freeze({
     line: `${JSON.stringify({
       mode: operation,
-      status: 'a-fd-map-residue-shape-classified',
+      status: 'a-fd-map-residue-first-failure-classified',
       residueState: canonical.residueState,
     })}\n`,
     exitCode: 0,
@@ -578,7 +629,7 @@ function formatResult(result) {
 
 function closedLine(line) {
   const stopped =
-    '{"mode":"classify-a-fd-map-residue-shape","status":"stopped"}\n'
+    '{"mode":"classify-a-fd-map-residue-first-failure","status":"stopped"}\n'
   if (line === stopped) return Object.freeze({ line: stopped, exitCode: 1 })
   for (const state of residueStates) {
     const formatted = formatResult(stateResult(state))
@@ -654,7 +705,7 @@ async function executeClassifier(
   return writeResultOnce(formatted.line, write)
 }
 
-export async function runPublicFdResidueShapeClassifierForFixture(
+export async function runPublicFdResidueFirstFailureClassifierForFixture(
   argv,
   dependencies,
 ) {
@@ -662,17 +713,17 @@ export async function runPublicFdResidueShapeClassifierForFixture(
   return runClassifierCore(argv, dependencies)
 }
 
-export function formatPublicFdResidueShapeResultForFixture(result) {
+export function formatPublicFdResidueFirstFailureResultForFixture(result) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return formatResult(result)
 }
 
-export function writePublicFdResidueShapeResultForFixture(line, write) {
+export function writePublicFdResidueFirstFailureResultForFixture(line, write) {
   if (process.env.NODE_ENV !== 'test') throw new Error('fixture-only')
   return writeResultOnce(line, write)
 }
 
-export function executePublicFdResidueShapeClassifierForFixture(
+export function executePublicFdResidueFirstFailureClassifierForFixture(
   argv,
   dependencies,
   write,

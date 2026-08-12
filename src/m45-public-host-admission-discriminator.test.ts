@@ -653,8 +653,8 @@ describe('Decision 135 public host admission discriminator', () => {
           path !== 'src/m45-public-host-admission-discriminator.test.ts' &&
           path !== 'scripts/m45-public-scratch-xattr-classifier.mjs' &&
           path !== 'src/m45-public-scratch-xattr-classifier.test.ts' &&
-          path !== 'scripts/m45-public-fd-residue-classifier.mjs' &&
-          path !== 'src/m45-public-fd-residue-classifier.test.ts',
+          path !== 'scripts/m45-public-fd-residue-shape-classifier.mjs' &&
+          path !== 'src/m45-public-fd-residue-shape-classifier.test.ts',
       )
     const forbidden = [
       'm45-public-host-admission-discriminator',
