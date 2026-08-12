@@ -1,1 +1,113 @@
-{"schema":"wikimedia-policy-baseline.v1","version":1,"capture":{"schema":"wikimedia-policy-baseline-capture.v1","version":1,"retrievedAt":"2026-08-12T22:23:39.462Z","orderedUrlSequenceSha256":"558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884","decodedBodySha256":["496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f","61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd","86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30","de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71","d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"],"decodedBodyBytes":[65039,85546,100047,27946,26769],"totalDecodedBytes":305347,"requests":5,"successes":5,"outcome":"complete","captureSha256":"bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3"},"retrieval":{"schema":"wikimedia-policy-semantic-review-retrieval.v1","version":1,"retrievedAt":"2026-08-12T22:23:47.792Z","orderedUrlSequenceSha256":"558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884","decodedBodySha256":["496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f","61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd","86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30","de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71","d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"],"decodedBodyBytes":[65039,85546,100047,27946,26769],"totalDecodedBytes":305347,"requests":5,"successes":5,"outcome":"complete","semanticReviewRetrievalSha256":"085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff"},"semanticReview":{"schema":"wikimedia-policy-semantic-review.v1","version":1,"capture":{"schema":"wikimedia-policy-baseline-capture.v1","version":1,"retrievedAt":"2026-08-12T22:23:39.462Z","orderedUrlSequenceSha256":"558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884","decodedBodySha256":["496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f","61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd","86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30","de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71","d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"],"decodedBodyBytes":[65039,85546,100047,27946,26769],"totalDecodedBytes":305347,"requests":5,"successes":5,"outcome":"complete","captureSha256":"bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3"},"retrieval":{"schema":"wikimedia-policy-semantic-review-retrieval.v1","version":1,"retrievedAt":"2026-08-12T22:23:47.792Z","orderedUrlSequenceSha256":"558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884","decodedBodySha256":["496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f","61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd","86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30","de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71","d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"],"decodedBodyBytes":[65039,85546,100047,27946,26769],"totalDecodedBytes":305347,"requests":5,"successes":5,"outcome":"complete","semanticReviewRetrievalSha256":"085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff"},"roleResult":{"schema":"wikimedia-policy-semantic-review-role-result.v1","version":1,"roleOutput":{"schema":"wikimedia-policy-semantic-review-role-output.v1","version":1,"captureSha256":"bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3","semanticReviewRetrievalSha256":"085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff","reviewerContractSha256":"33761c81728e17b86e04605679c6dc6f2f0a7bcc3022c2b332021f059be43cee","outcome":"no-material-change"},"roleOutputSha256":"27e61684cf78365954200bfef9c9637ceaa7189525ad6c8d428559b34e51ec90","roleResultSha256":"59a3c50289596624c0a7019f2e663fec103a9dca4cf481658afde15cae68e3ff"},"outcome":"no-material-change","semanticReviewSha256":"8ec7c1f7b2e85982b1c06bb245103ed3c040e88d13a885987f330dd2cf0d4e28"},"orderedUrlSequenceSha256":"558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884","decodedBodySha256":["496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f","61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd","86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30","de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71","d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"],"decodedBodyBytes":[65039,85546,100047,27946,26769],"totalDecodedBytes":305347,"outcome":"no-material-change","reviewedAt":"2026-08-12T22:23:47.792Z","baselineSha256":"2da9757513458806b05ef200917f8db7c29592283aa5b377f1b410c7f77f171e"}
+{
+  "schema": "wikimedia-policy-baseline.v1",
+  "version": 1,
+  "capture": {
+    "schema": "wikimedia-policy-baseline-capture.v1",
+    "version": 1,
+    "retrievedAt": "2026-08-12T22:23:39.462Z",
+    "orderedUrlSequenceSha256": "558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884",
+    "decodedBodySha256": [
+      "496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f",
+      "61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd",
+      "86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30",
+      "de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71",
+      "d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"
+    ],
+    "decodedBodyBytes": [65039, 85546, 100047, 27946, 26769],
+    "totalDecodedBytes": 305347,
+    "requests": 5,
+    "successes": 5,
+    "outcome": "complete",
+    "captureSha256": "bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3"
+  },
+  "retrieval": {
+    "schema": "wikimedia-policy-semantic-review-retrieval.v1",
+    "version": 1,
+    "retrievedAt": "2026-08-12T22:23:47.792Z",
+    "orderedUrlSequenceSha256": "558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884",
+    "decodedBodySha256": [
+      "496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f",
+      "61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd",
+      "86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30",
+      "de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71",
+      "d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"
+    ],
+    "decodedBodyBytes": [65039, 85546, 100047, 27946, 26769],
+    "totalDecodedBytes": 305347,
+    "requests": 5,
+    "successes": 5,
+    "outcome": "complete",
+    "semanticReviewRetrievalSha256": "085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff"
+  },
+  "semanticReview": {
+    "schema": "wikimedia-policy-semantic-review.v1",
+    "version": 1,
+    "capture": {
+      "schema": "wikimedia-policy-baseline-capture.v1",
+      "version": 1,
+      "retrievedAt": "2026-08-12T22:23:39.462Z",
+      "orderedUrlSequenceSha256": "558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884",
+      "decodedBodySha256": [
+        "496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f",
+        "61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd",
+        "86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30",
+        "de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71",
+        "d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"
+      ],
+      "decodedBodyBytes": [65039, 85546, 100047, 27946, 26769],
+      "totalDecodedBytes": 305347,
+      "requests": 5,
+      "successes": 5,
+      "outcome": "complete",
+      "captureSha256": "bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3"
+    },
+    "retrieval": {
+      "schema": "wikimedia-policy-semantic-review-retrieval.v1",
+      "version": 1,
+      "retrievedAt": "2026-08-12T22:23:47.792Z",
+      "orderedUrlSequenceSha256": "558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884",
+      "decodedBodySha256": [
+        "496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f",
+        "61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd",
+        "86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30",
+        "de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71",
+        "d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"
+      ],
+      "decodedBodyBytes": [65039, 85546, 100047, 27946, 26769],
+      "totalDecodedBytes": 305347,
+      "requests": 5,
+      "successes": 5,
+      "outcome": "complete",
+      "semanticReviewRetrievalSha256": "085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff"
+    },
+    "roleResult": {
+      "schema": "wikimedia-policy-semantic-review-role-result.v1",
+      "version": 1,
+      "roleOutput": {
+        "schema": "wikimedia-policy-semantic-review-role-output.v1",
+        "version": 1,
+        "captureSha256": "bda08bf2a004d062c26557211b1974d9ecc6654e06d099ba1bf88c981aa072a3",
+        "semanticReviewRetrievalSha256": "085ab32310dafb97060e097012515775fbd4645523465af13ddbba0a9f26acff",
+        "reviewerContractSha256": "33761c81728e17b86e04605679c6dc6f2f0a7bcc3022c2b332021f059be43cee",
+        "outcome": "no-material-change"
+      },
+      "roleOutputSha256": "27e61684cf78365954200bfef9c9637ceaa7189525ad6c8d428559b34e51ec90",
+      "roleResultSha256": "59a3c50289596624c0a7019f2e663fec103a9dca4cf481658afde15cae68e3ff"
+    },
+    "outcome": "no-material-change",
+    "semanticReviewSha256": "8ec7c1f7b2e85982b1c06bb245103ed3c040e88d13a885987f330dd2cf0d4e28"
+  },
+  "orderedUrlSequenceSha256": "558e4012e338148b3e7d9805ec47b9e5c317cf45fc45b94fdda61f3bb1427884",
+  "decodedBodySha256": [
+    "496c1ba00845ef18f193e30b12368101b0a2e3d6f22235ca24bcb869b26cdf1f",
+    "61eed687cd6a25f6e8ba71b6ad4b508af831224969561be4004c8b3cc754e0bd",
+    "86e273cf515ff67f49850d3ab1433aa897921ab0141ac1df5a6a922408001b30",
+    "de2a7958f406616431ced22f4472ea38b08ece06e08c8c9ad855da2d464b9d71",
+    "d3e6a686e78934e42510876cf1d56c3f5d08f7a0a7697108494902926eb2dfde"
+  ],
+  "decodedBodyBytes": [65039, 85546, 100047, 27946, 26769],
+  "totalDecodedBytes": 305347,
+  "outcome": "no-material-change",
+  "reviewedAt": "2026-08-12T22:23:47.792Z",
+  "baselineSha256": "2da9757513458806b05ef200917f8db7c29592283aa5b377f1b410c7f77f171e"
+}
