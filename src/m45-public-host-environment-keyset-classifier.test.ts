@@ -540,7 +540,10 @@ describe('Decision 136 public host environment key-set classifier', () => {
         (path) =>
           path !==
             'scripts/m45-public-host-environment-keyset-classifier.mjs' &&
-          path !== 'src/m45-public-host-environment-keyset-classifier.test.ts',
+          path !==
+            'src/m45-public-host-environment-keyset-classifier.test.ts' &&
+          path !== 'scripts/m45-public-scratch-xattr-classifier.mjs' &&
+          path !== 'src/m45-public-scratch-xattr-classifier.test.ts',
       )
     const forbidden = [
       'm45-public-host-environment-keyset-classifier',
