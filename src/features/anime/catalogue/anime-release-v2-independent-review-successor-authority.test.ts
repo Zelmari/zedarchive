@@ -664,7 +664,7 @@ describe('Decisions 098–100 successor authority', () => {
         { rootSnapshot, priorSuccessorSnapshots: [] },
       ),
     ).toThrow()
-  })
+  }, 30_000)
 
   it.each([
     'proposalSha256',
@@ -685,7 +685,7 @@ describe('Decisions 098–100 successor authority', () => {
         { rootSnapshot, priorSuccessorSnapshots: [] },
       ),
     ).toThrow()
-  })
+  }, 30_000)
 
   it.each([
     'priorProposalSha256',

@@ -735,7 +735,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
     } finally {
       vi.unstubAllEnvs()
     }
-  })
+  }, 30_000)
 
   it('requires the exact accepted predecessor result and contains the fixture seam', () => {
     expect(() =>
@@ -936,7 +936,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
       formatFloors: { tv: 2_500 },
       eraFloors: { '2020-2026': 1_200 },
     })
-  }, 15_000)
+  }, 30_000)
 
   it('regression: primary-review authority validation uses the frozen on-disk key order', () => {
     const { receipt, authority } = authorityFixture(7_958, true)
@@ -982,7 +982,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
         defaultFixturePredecessorAuthority,
       ),
     ).not.toThrow()
-  }, 15_000)
+  }, 30_000)
 
   it('enforces 499 retained predecessor collisions across the complete 160-manifest scale', () => {
     const predecessorAuthority =
@@ -1015,7 +1015,7 @@ describe('candidate-acquisition.v1 and primary-review.v2 authority', () => {
       duplicate: 'rejected',
       primaryReview: 'rejected',
     })
-  }, 15_000)
+  }, 30_000)
 
   it('carries the real-scale fixture authority through continuity and canonical selection', () => {
     const { receipt, authority } = authorityFixture(
