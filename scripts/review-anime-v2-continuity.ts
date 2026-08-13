@@ -451,6 +451,7 @@ class ContinuityReviewRequester {
   private successfulResponseGroups = 0
   private maximumConcurrency = 0
   private retainedBytes = 0
+  private groupBytes = 0
   constructor(
     private readonly request: typeof fetch,
     private readonly clock: ContinuityReviewClock,
@@ -543,13 +544,20 @@ class ContinuityReviewRequester {
         const bytes = await readContinuityBodyBytes(response, controller)
         this.assertWithinWallTime()
         if (
+          this.groupBytes + bytes.byteLength >
+            continuityEnvelope.maximumBytesPerGroup ||
           this.retainedBytes + bytes.byteLength >
-          continuityEnvelope.maximumTotalBytes
+            continuityEnvelope.maximumTotalBytes
         ) {
           controller.abort()
           throw safeError('acquire', 'body-limit')
         }
-        if ([429, 500, 502, 503, 504].includes(response.status)) {
+        const retryableStatus = [429, 500, 502, 503, 504].includes(
+          response.status,
+        )
+        const maxlag = detectContinuityMaxlag(response, bytes)
+        if (retryableStatus || maxlag) {
+          this.groupBytes += bytes.byteLength
           if (retry === continuityEnvelope.maximumAttemptsPerGroup - 1)
             throw safeError('acquire', 'retry-exhausted')
           await this.delayWithinWallTime(
@@ -561,6 +569,7 @@ class ContinuityReviewRequester {
           continue
         }
         if (!response.ok) throw safeError('acquire', 'http-status')
+        this.groupBytes += bytes.byteLength
         this.retainedBytes += bytes.byteLength
         this.completeResponseGroup(attemptOrdinal)
         return { status: response.status, bytes, attemptOrdinal }
@@ -577,24 +586,43 @@ class ContinuityReviewRequester {
     }
     throw safeError('acquire', 'retry-exhausted')
   }
+  /** Resets the per-group cumulative byte accounting before a new group. */
+  resetGroupBytes(): void {
+    this.groupBytes = 0
+  }
+}
+
+function detectContinuityMaxlag(
+  response: Response,
+  bytes: Uint8Array,
+): boolean {
+  if (response.status !== 200 || response.ok === false) return false
+  if (!(response.headers.get('content-type') ?? '').includes('json'))
+    return false
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+  } catch {
+    return false
+  }
+  if (parsed === null || typeof parsed !== 'object') return false
+  const error = (parsed as Readonly<Record<string, unknown>>).error
+  if (error === null || typeof error !== 'object') return false
+  return (error as Readonly<Record<string, unknown>>).code === 'maxlag'
 }
 
 function continuityRetryAfter(
   value: string | null,
   now: number,
 ): number | undefined {
-  if (value === null) return undefined
+  if (value === null || value.trim() === '') return undefined
   const seconds = Number(value)
   const milliseconds = Number.isFinite(seconds)
     ? seconds * 1_000
     : Date.parse(value) - now
-  if (
-    !Number.isFinite(milliseconds) ||
-    milliseconds < 0 ||
-    milliseconds > 30_000
-  )
+  if (!Number.isFinite(milliseconds) || milliseconds < 0)
     throw safeError('acquire', 'retry-after')
-  return milliseconds
+  return Math.min(milliseconds, 30_000)
 }
 
 async function readContinuityBodyBytes(
@@ -627,6 +655,47 @@ async function readContinuityBodyBytes(
     offset += chunk.byteLength
   }
   return bytes
+}
+
+async function assertContinuityCustodyVacant(
+  filesystem: ContinuityReviewFilesystem,
+): Promise<void> {
+  const continuityRoots = [
+    '.local/m45/continuity-review',
+    '.local/m45/identity-allocation',
+    '.local/m45/independent-review',
+    '.local/m45/policy-baseline-review',
+  ]
+  for (const path of continuityRoots) {
+    try {
+      await filesystem.lstat(join(repositoryRoot, path))
+      throw safeError('acquire', 'custody')
+    } catch (error) {
+      if (error instanceof ContinuityReviewCommandError) throw error
+    }
+  }
+  try {
+    await filesystem.lstat(
+      join(repositoryRoot, continuityReviewRoot, continuityAcquiredBundleName),
+    )
+    throw safeError('acquire', 'no-resume')
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+  }
+  const stagingSiblings = [
+    '.local/m45/.continuity-review.staging',
+    '.local/m45/.identity-allocation.staging',
+    '.local/m45/.independent-review.staging',
+    '.local/m45/.policy-baseline-review.staging',
+  ]
+  for (const path of stagingSiblings) {
+    try {
+      await filesystem.lstat(join(repositoryRoot, path))
+      throw safeError('acquire', 'custody')
+    } catch (error) {
+      if (error instanceof ContinuityReviewCommandError) throw error
+    }
+  }
 }
 
 async function deriveContinuityAnchorsFromInputs(
@@ -787,6 +856,7 @@ export async function runContinuityReviewAcquire(
   const anchors =
     seams.anchorQidsOverride ??
     (await deriveContinuityAnchorsFromInputs(filesystem))
+  await assertContinuityCustodyVacant(filesystem)
   const trackedBaselinePath = join(
     repositoryRoot,
     seams.trackedBaselinePath ?? trackedPolicyBaselinePath,
@@ -824,6 +894,7 @@ export async function runContinuityReviewAcquire(
   const requester = new ContinuityReviewRequester(networkFetch, clock)
   const entities: WikidataEntity[] = []
   for (let group = 0; group < continuityEnvelope.groups; group += 1) {
+    requester.resetGroupBytes()
     const groupQids = anchors.slice(
       group * continuityEnvelope.groupSize,
       (group + 1) * continuityEnvelope.groupSize,

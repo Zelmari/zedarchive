@@ -123,7 +123,14 @@ async function createSeamsWithBaseline(
       clock: ContinuityReviewClock
     }>
   > = {},
-): Promise<Readonly<{ seams: ContinuityReviewSeams; baselineSha256: string }>> {
+): Promise<
+  Readonly<{
+    seams: ContinuityReviewSeams
+    baselineSha256: string
+    markPresent: (path: string) => void
+    files: Map<string, Buffer>
+  }>
+> {
   const policyBodies = overrides.policyBodies ?? policyUrlFetchBodies()
   const baselineBodies = overrides.baselineBodies ?? policyBodies
   const now = () => new Date('2026-08-13T00:00:00.000Z')
@@ -167,6 +174,7 @@ async function createSeamsWithBaseline(
   })
   const entities = anchorEntities()
   const apiCalls: string[] = []
+  const lstatOverrides = new Map<string, boolean>()
   const files = new Map<string, Buffer>([
     [
       `${repositoryRoot}/scripts/policy-baseline-review/wikimedia-policy-baseline.v1.json`,
@@ -179,7 +187,21 @@ async function createSeamsWithBaseline(
       if (value === undefined) throw safeError('test', 'unknown-path')
       return value
     },
-    lstat: async () => {
+    lstat: async (path) => {
+      if (lstatOverrides.get(path) === true) {
+        const stat = {
+          isDirectory: () => true,
+          isFile: () => false,
+          isSymbolicLink: () => false,
+          uid: 501,
+          ino: 1,
+          nlink: 2,
+          dev: 9,
+          mode: 0o700,
+          size: 64,
+        }
+        return stat
+      }
       const error = new Error('ENOENT') as NodeJS.ErrnoException
       error.code = 'ENOENT'
       throw error
@@ -247,6 +269,10 @@ async function createSeamsWithBaseline(
       anchorQidsOverride: anchorQids,
     },
     baselineSha256: baseline.baselineSha256,
+    markPresent: (path: string) => {
+      lstatOverrides.set(path, true)
+    },
+    files,
   }
 }
 
@@ -427,5 +453,103 @@ describe('M45-07 continuity acquisition runner', () => {
     expect(parsed.preflightEquality).toBe(true)
     expect(parsed.preflightAgeWithinWindow).toBe(true)
     expect(JSON.stringify(parsed)).not.toContain('Q')
+  })
+
+  it('retries a maxlag error body like a retryable status', async () => {
+    const entities = anchorEntities()
+    let calls = 0
+    const { seams } = await createSeamsWithBaseline({
+      apiHandler: async (url: URL) => {
+        calls += 1
+        const ids = url.searchParams.get('ids')!.split('|')
+        if (calls === 1)
+          return new Response(JSON.stringify({ error: { code: 'maxlag' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        return apiResponse(ids, entities)
+      },
+    })
+    const result = await runContinuityReviewAcquire(seams)
+    expect(result.status).toBe('complete')
+    expect(calls).toBe(11)
+  })
+
+  it('stops before any network activity when a custody root is present', async () => {
+    const entities = anchorEntities()
+    let apiRequests = 0
+    const { seams, markPresent } = await createSeamsWithBaseline({
+      apiHandler: async (url: URL) => {
+        apiRequests += 1
+        return apiResponse(url.searchParams.get('ids')!.split('|'), entities)
+      },
+    })
+    markPresent(`${repositoryRoot}/.local/m45/identity-allocation`)
+    await expect(runContinuityReviewAcquire(seams)).rejects.toThrow(/custody/)
+    expect(apiRequests).toBe(0)
+  })
+
+  it('stops before any network activity when the acquired bundle exists', async () => {
+    const entities = anchorEntities()
+    let apiRequests = 0
+    const { seams, markPresent } = await createSeamsWithBaseline({
+      apiHandler: async (url: URL) => {
+        apiRequests += 1
+        return apiResponse(url.searchParams.get('ids')!.split('|'), entities)
+      },
+    })
+    markPresent(`${root}/${continuityAcquiredBundleName}`)
+    await expect(runContinuityReviewAcquire(seams)).rejects.toThrow(/no-resume/)
+    expect(apiRequests).toBe(0)
+  })
+
+  it('enforces the per-group 4 MiB cumulative cap across retry attempts', async () => {
+    let calls = 0
+    const { seams } = await createSeamsWithBaseline({
+      apiHandler: async () => {
+        calls += 1
+        const payload =
+          calls === 1
+            ? 'x'.repeat(Math.round(2.5 * 1024 * 1024))
+            : 'y'.repeat(Math.round(2.5 * 1024 * 1024))
+        return new Response(payload, {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'retry-after': '0',
+          },
+        })
+      },
+    })
+    await expect(runContinuityReviewAcquire(seams)).rejects.toThrow(
+      /body-limit/,
+    )
+    expect(calls).toBe(2)
+  })
+
+  it('caps a valid Retry-After above 30 seconds at 30 seconds', async () => {
+    const entities = anchorEntities()
+    let calls = 0
+    const delays: number[] = []
+    const { seams } = await createSeamsWithBaseline({
+      apiHandler: async (url: URL) => {
+        calls += 1
+        const ids = url.searchParams.get('ids')!.split('|')
+        if (calls === 1)
+          return apiResponse(ids, entities, 429, { 'retry-after': '60' })
+        return apiResponse(ids, entities)
+      },
+      clock: {
+        now: () => 1_800_000_000_000,
+        delay: async (milliseconds) => {
+          delays.push(milliseconds)
+        },
+        setTimeout: (() => 0) as unknown as typeof setTimeout,
+        clearTimeout: () => undefined,
+      },
+    })
+    const result = await runContinuityReviewAcquire(seams)
+    expect(result.status).toBe('complete')
+    expect(Math.max(...delays)).toBe(30_000)
   })
 })
