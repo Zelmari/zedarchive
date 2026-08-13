@@ -656,36 +656,44 @@ describe('Decisions 098–100 successor authority', () => {
     'reviewSeriesSha256',
     'priorAuthoritySnapshotSha256',
     'authoritySnapshotSha256',
-  ])('rejects a successor snapshot commitment mutation: %s', (field) => {
-    const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
-    expect(() =>
-      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
-        { ...firstSnapshot, [field]: digest(`mutated-${field}`) },
-        { rootSnapshot, priorSuccessorSnapshots: [] },
-      ),
-    ).toThrow()
-  }, 30_000)
+  ])(
+    'rejects a successor snapshot commitment mutation: %s',
+    (field) => {
+      const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
+      expect(() =>
+        parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+          { ...firstSnapshot, [field]: digest(`mutated-${field}`) },
+          { rootSnapshot, priorSuccessorSnapshots: [] },
+        ),
+      ).toThrow()
+    },
+    30_000,
+  )
 
   it.each([
     'proposalSha256',
     'orderedProposedPublishedQidSequenceSha256',
     'priorAuthoritySnapshotSha256',
     'populationSha256',
-  ])('rejects a successor population commitment mutation: %s', (field) => {
-    const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
-    expect(() =>
-      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
-        {
-          ...firstSnapshot,
-          population: {
-            ...firstSnapshot.population,
-            [field]: digest(`mutated-${field}`),
+  ])(
+    'rejects a successor population commitment mutation: %s',
+    (field) => {
+      const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
+      expect(() =>
+        parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+          {
+            ...firstSnapshot,
+            population: {
+              ...firstSnapshot.population,
+              [field]: digest(`mutated-${field}`),
+            },
           },
-        },
-        { rootSnapshot, priorSuccessorSnapshots: [] },
-      ),
-    ).toThrow()
-  }, 30_000)
+          { rootSnapshot, priorSuccessorSnapshots: [] },
+        ),
+      ).toThrow()
+    },
+    30_000,
+  )
 
   it.each([
     'priorProposalSha256',
