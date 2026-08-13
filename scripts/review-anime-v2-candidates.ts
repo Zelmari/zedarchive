@@ -4434,10 +4434,13 @@ export async function verifyCandidateRecoveryForFixture(
 
 export async function checkCandidateReviewContract(
   directory = outputDirectory,
+  fixtureReceipt?: Receipt,
 ) {
-  await readReceipt()
+  await (fixtureReceipt === undefined
+    ? readReceipt()
+    : Promise.resolve(fixtureReceipt))
   try {
-    await loadPrepared(directory)
+    await loadPrepared(directory, fixtureReceipt)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
@@ -4465,7 +4468,8 @@ export async function runCandidateReviewCommandForFixture(
 ) {
   const command = parseCandidateReviewArguments(args)
   const directory = dependencies.directory ?? outputDirectory
-  if (command.mode === 'check') return checkCandidateReviewContract(directory)
+  if (command.mode === 'check')
+    return checkCandidateReviewContract(directory, dependencies.receipt)
   if (command.mode === 'prepare') {
     const receipt = dependencies.receipt ?? (await readReceipt())
     await assertCandidateReviewOutputVacant(directory)

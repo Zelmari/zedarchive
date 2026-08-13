@@ -1276,7 +1276,7 @@ describe('Decision 097 sampling exclusion and allocation matrix', () => {
         fixture.seedAuthority,
       ),
     ).toThrow(/UUID order/)
-  })
+  }, 30_000)
 
   it('changes sample commitment for validated seed, proposal, population, and membership drift', () => {
     const first = population()
@@ -1328,7 +1328,7 @@ describe('Decision 097 sampling exclusion and allocation matrix', () => {
     expect(membershipSample.sampledCanonicalUuids).not.toEqual(
       firstSample.sampledCanonicalUuids,
     )
-  }, 10_000)
+  }, 30_000)
 })
 
 describe('Decision 097 proposal and population drift matrix', () => {

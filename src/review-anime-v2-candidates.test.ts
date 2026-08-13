@@ -461,7 +461,7 @@ describe('candidate acquisition runner', () => {
     const directory = await mkdtemp(join(tmpdir(), 'm45-candidate-check-'))
     try {
       await expect(
-        checkCandidateReviewContract(directory),
+        checkCandidateReviewContract(directory, receipt(1)),
       ).resolves.toBeUndefined()
     } finally {
       await rm(directory, { recursive: true, force: true })
@@ -3043,9 +3043,18 @@ describe('candidate acquisition runner', () => {
     try {
       const input = receipt(1)
       const entities = { Q1: entity('Q1') }
+      const fixturePredecessor =
+        deriveCandidatePredecessorExclusionAuthorityForFixture(
+          Array.from({ length: 500 }, (_, index) => `Q${900_000 + index}`),
+        )
       await runCandidateReviewCommandForFixture(
         ['prepare', '--confirm-wikimedia-live'],
-        { directory, receipt: input, entities },
+        {
+          directory,
+          receipt: input,
+          entities,
+          predecessorReviewResult: fixturePredecessor,
+        },
       )
       const artifacts = buildCandidatePreparationArtifacts(input, entities)
       const verdict = {
@@ -3060,7 +3069,12 @@ describe('candidate acquisition runner', () => {
         JSON.stringify(verdict),
       )
       await expect(
-        completeCandidateReviewManifestForFixture('001', directory, input),
+        completeCandidateReviewManifestForFixture(
+          '001',
+          directory,
+          input,
+          fixturePredecessor,
+        ),
       ).rejects.toThrow('complete:recovery-audit')
     } finally {
       await rm(directory, { recursive: true, force: true })

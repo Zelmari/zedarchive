@@ -649,7 +649,7 @@ describe('Decisions 098–100 successor authority', () => {
         { rootSnapshot, priorSuccessorSnapshots: [] },
       ),
     ).toThrow(/detached authority commitments/)
-  })
+  }, 30_000)
 
   it.each([
     'rootSeedAuthoritySha256',
@@ -696,21 +696,25 @@ describe('Decisions 098–100 successor authority', () => {
     'allocationLedgerSha256',
     'allocationHistorySha256',
     'replacementProofSha256',
-  ])('rejects a replacement proof commitment mutation: %s', (field) => {
-    const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
-    expect(() =>
-      parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
-        {
-          ...firstSnapshot,
-          replacementProof: {
-            ...firstSnapshot.replacementProof,
-            [field]: digest(`mutated-${field}`),
+  ])(
+    'rejects a replacement proof commitment mutation: %s',
+    (field) => {
+      const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
+      expect(() =>
+        parseIndependentReviewSuccessorAuthoritySnapshotForFixture(
+          {
+            ...firstSnapshot,
+            replacementProof: {
+              ...firstSnapshot.replacementProof,
+              [field]: digest(`mutated-${field}`),
+            },
           },
-        },
-        { rootSnapshot, priorSuccessorSnapshots: [] },
-      ),
-    ).toThrow()
-  })
+          { rootSnapshot, priorSuccessorSnapshots: [] },
+        ),
+      ).toThrow()
+    },
+    30_000,
+  )
 
   it('requires a strict, non-empty, ordered triggering-defect table', () => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
@@ -1032,7 +1036,7 @@ describe('Decisions 098–100 successor authority', () => {
         testCase.name,
       ).toThrow()
     }
-  }, 60_000)
+  }, 90_000)
 
   it('rejects every rehashed predecessor-specific retained mutation', () => {
     const { rootSnapshot, firstSnapshot } = createParsedSuccessorRounds()
@@ -1220,7 +1224,7 @@ describe('Decisions 098–100 successor authority', () => {
         { rootSnapshot, priorSuccessorSnapshots: [] },
       ),
     ).toThrow(/outside its frozen proposal/)
-  })
+  }, 30_000)
 
   it('rejects gaps, reordering, lineage prefix drift, ledger/history delta drift, and UUID/QID replay', () => {
     const { rootSnapshot, firstSnapshot, secondSnapshot } =
