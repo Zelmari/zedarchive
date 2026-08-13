@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
   runContinuityReviewAcquire,
+  runContinuityReviewPrepare,
   continuityAcquiredBundleName,
   continuityAcquisitionFilename,
   continuityAcquisitionAggregateFilename,
   continuityEnvelope,
+  continuityPreparedBundleName,
+  continuityPreparationFilename,
+  continuityPrimaryInputFilename,
+  continuityIndependentInputFilename,
   continuityReviewRoot,
   safeError,
   type ContinuityReviewClock,
@@ -552,4 +559,154 @@ describe('M45-07 continuity acquisition runner', () => {
     expect(result.status).toBe('complete')
     expect(Math.max(...delays)).toBe(30_000)
   })
+
+  it('prepare builds the authenticated preparation and role inputs', async () => {
+    const receiptBytes = await readFile(
+      join(
+        repositoryRoot,
+        '.local/m45/discovery/frozen-run/candidate-receipt.json',
+      ),
+    ).catch(() => null)
+    if (receiptBytes === null) return
+    const authorityBytes = await readFile(
+      join(
+        repositoryRoot,
+        '.local/m45/candidate-review/finalized/authority.json',
+      ),
+    )
+    const primaryBytes = await readFile(
+      join(
+        repositoryRoot,
+        '.local/m45/candidate-review/finalized/primary-candidate-review.json',
+      ),
+    )
+    const predecessorBytes = await readFile(
+      join(
+        repositoryRoot,
+        '.local/m45/predecessor-review/finalized/predecessor-review-result.json',
+      ),
+    )
+    const files = new Map<string, Buffer>([
+      [
+        join(
+          repositoryRoot,
+          '.local/m45/discovery/frozen-run/candidate-receipt.json',
+        ),
+        receiptBytes,
+      ],
+      [
+        join(
+          repositoryRoot,
+          '.local/m45/candidate-review/finalized/authority.json',
+        ),
+        authorityBytes,
+      ],
+      [
+        join(
+          repositoryRoot,
+          '.local/m45/candidate-review/finalized/primary-candidate-review.json',
+        ),
+        primaryBytes,
+      ],
+      [
+        join(
+          repositoryRoot,
+          '.local/m45/predecessor-review/finalized/predecessor-review-result.json',
+        ),
+        predecessorBytes,
+      ],
+    ])
+    const filesystem: ContinuityReviewFilesystem = {
+      readFile: async (path) => {
+        const value = files.get(path)
+        if (value === undefined) {
+          const error = new Error('ENOENT') as NodeJS.ErrnoException
+          error.code = 'ENOENT'
+          throw error
+        }
+        return value
+      },
+      lstat: async () => {
+        const error = new Error('ENOENT') as NodeJS.ErrnoException
+        error.code = 'ENOENT'
+        throw error
+      },
+      readdir: async () => [],
+      mkdir: async (path) => {
+        files.set(path, Buffer.alloc(0))
+      },
+      writeFile: async (path, value) => {
+        files.set(path, Buffer.from(value))
+      },
+      link: async (source, destination) => {
+        const value = files.get(source)
+        if (value === undefined) throw safeError('test', 'unknown-path')
+        files.set(destination, value)
+      },
+      unlink: async (path) => {
+        files.delete(path)
+      },
+      rmdir: async (path) => {
+        files.delete(path)
+      },
+    }
+    const { seams, files: baselineFiles } = await createSeamsWithBaseline()
+    const combinedFilesystem = {
+      ...filesystem,
+      readFile: async (path: string) => {
+        if (files.has(path)) return files.get(path)!
+        const baseline = baselineFiles.get(path)
+        if (baseline !== undefined) return baseline
+        const error = new Error('ENOENT') as NodeJS.ErrnoException
+        error.code = 'ENOENT'
+        throw error
+      },
+    }
+    const combined: ContinuityReviewSeams = {
+      ...seams,
+      anchorQidsOverride: undefined,
+      filesystem: combinedFilesystem,
+      fetch: async (input) => {
+        const url = input instanceof URL ? input : new URL(String(input))
+        if (url.searchParams.has('action')) {
+          const ids = url.searchParams.get('ids')!.split('|')
+          const selected: Record<string, WikidataEntity> = {}
+          for (const id of ids) {
+            selected[`Q${id}`] = {
+              id: `Q${id}`,
+              type: 'item',
+              lastrevid: Number(id),
+              labels: {},
+              aliases: {},
+              claims: { P155: [], P156: [] },
+            }
+          }
+          return new Response(JSON.stringify({ entities: selected }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return policyResponse(url, policyUrlFetchBodies())
+      },
+    }
+    await runContinuityReviewAcquire(combined)
+    const result = await runContinuityReviewPrepare(combined)
+    expect(result.status).toBe('complete')
+    expect(result.anchorCount).toBe(250)
+    expect(result.preparationSha256).toMatch(/^[a-f0-9]{64}$/)
+    expect(result.pairCount).toBe(0)
+    const preparedDir = `${root}/${continuityPreparedBundleName}`
+    const preparation = await combined.filesystem.readFile(
+      `${preparedDir}/${continuityPreparationFilename}`,
+    )
+    const primaryInput = await combined.filesystem.readFile(
+      `${preparedDir}/${continuityPrimaryInputFilename}`,
+    )
+    const independentInput = await combined.filesystem.readFile(
+      `${preparedDir}/${continuityIndependentInputFilename}`,
+    )
+    expect(preparation.length).toBeGreaterThan(0)
+    expect(primaryInput.length).toBeGreaterThan(0)
+    expect(independentInput.length).toBeGreaterThan(0)
+  }, 60_000)
 })

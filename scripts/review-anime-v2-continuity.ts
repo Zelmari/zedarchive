@@ -27,8 +27,10 @@ import {
   validatePrimaryCandidateReviewAuthorityForFixture,
 } from '@/features/anime/catalogue/anime-v2-candidate-acquisition'
 import {
+  acceptedSelectionRubricV2Sha256,
   createReducedContinuityAcquisition,
   parseAcceptedCandidateReceipt,
+  parseContinuityPreparation,
   parseReducedContinuityAcquisition,
   primaryCandidateReviewResultSchema,
   type AcceptedCandidateReceipt,
@@ -969,16 +971,261 @@ export async function runContinuityReviewAcquire(
   }
 }
 
+export const continuityPreparedBundleName = 'prepared' as const
+export const continuityPreparationFilename = 'preparation.json' as const
+export const continuityPrimaryInputFilename =
+  'primary-review-input.json' as const
+export const continuityIndependentInputFilename =
+  'independent-review-input.json' as const
+
+type ContinuityDisposition =
+  | 'outside-frozen-receipt'
+  | 'identity-blocked'
+  | 'machine-rejected'
+  | 'primary-review-rejected'
+  | 'primary-approved'
+  | 'predecessor-approved'
+
+async function promoteContinuityPreparationBundle(
+  filesystem: ContinuityReviewFilesystem,
+  preparation: Awaited<ReturnType<typeof parseContinuityPreparation>>,
+  primaryInput: Readonly<Record<string, unknown>>,
+  independentInput: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  const root = join(repositoryRoot, continuityReviewRoot)
+  const prepared = join(root, continuityPreparedBundleName)
+  const staging = join(repositoryRoot, continuityStagingSibling)
+  const files: ReadonlyArray<readonly [string, string]> = [
+    [continuityPreparationFilename, `${JSON.stringify(preparation)}\n`],
+    [continuityPrimaryInputFilename, `${JSON.stringify(primaryInput)}\n`],
+    [
+      continuityIndependentInputFilename,
+      `${JSON.stringify(independentInput)}\n`,
+    ],
+  ]
+  try {
+    await filesystem.lstat(prepared)
+    throw safeError('prepare', 'no-resume')
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+  }
+  try {
+    await filesystem.lstat(staging)
+    throw safeError('prepare', 'custody')
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+  }
+  await filesystem.mkdir(prepared, { mode: 0o700 })
+  try {
+    for (const [name, value] of files)
+      await writeContinuitySecureFile(filesystem, join(prepared, name), value)
+    for (const [name] of files) {
+      const written = await filesystem.readFile(join(prepared, name))
+      const expected = Buffer.from(files.find(([n]) => n === name)![1], 'utf8')
+      if (!written.equals(expected)) throw safeError('prepare', 'custody')
+    }
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('prepare', 'custody')
+  }
+}
+
+export async function runContinuityReviewPrepare(
+  seams: ContinuityReviewSeams,
+): Promise<
+  Readonly<{
+    mode: 'prepare'
+    status: 'complete'
+    preparationSha256: string
+    anchorCount: 250
+    pairCount: number
+    primaryApprovedEndpointCount: number
+    predecessorApprovedEndpointCount: number
+    identityBlockedCount: number
+    machineRejectedCount: number
+    primaryReviewRejectedCount: number
+    outsideFrozenReceiptCount: number
+  }>
+> {
+  const { filesystem } = seams
+  const receiptInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, candidateReceiptPath),
+  )
+  const authorityInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, candidateAuthorityPath),
+  )
+  const primaryInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, primaryCandidateReviewPath),
+  )
+  const predecessorInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, predecessorReviewResultPath),
+  )
+  const acquiredRoot = join(
+    repositoryRoot,
+    continuityReviewRoot,
+    continuityAcquiredBundleName,
+  )
+  const acquisitionInput = await readContinuityInputJson(
+    filesystem,
+    join(acquiredRoot, continuityAcquisitionFilename),
+  )
+  let receipt: AcceptedCandidateReceipt
+  let primary: PrimaryCandidateReviewResult
+  let predecessor: ParsedContinuityPredecessor
+  try {
+    receipt = parseAcceptedCandidateReceipt(receiptInput)
+    primary = parseContinuityPrimaryReview(
+      primaryInput,
+      receipt,
+      authorityInput,
+      predecessorInput,
+    )
+    predecessor = parseContinuityPredecessorReview(predecessorInput)
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('prepare', 'input-authority')
+  }
+  let eligibilityQids: readonly string[]
+  let anchors: readonly string[]
+  try {
+    eligibilityQids = deriveContinuityEligibility(receipt, primary, predecessor)
+    anchors = deriveContinuityAnchors(receipt, eligibilityQids)
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('prepare', 'eligibility')
+  }
+  const acquisition = parseReducedContinuityAcquisition(
+    acquisitionInput,
+    anchors,
+  )
+  const receiptResidentPublishedPredecessorQids = new Set(
+    predecessor.review.records
+      .filter(
+        ({ sourceItemId, currentItem }) =>
+          currentItem.catalogueState === 'published' &&
+          receipt.candidates.some(({ qid }) => qid === sourceItemId),
+      )
+      .map(({ sourceItemId }) => sourceItemId),
+  )
+  if (receiptResidentPublishedPredecessorQids.size !== 436)
+    throw safeError('prepare', 'eligibility')
+  const eligibleSet = new Set(eligibilityQids)
+  const receiptQids = new Set(receipt.candidates.map(({ qid }) => qid))
+  const identityBlockedQids = new Set(
+    receipt.identityBlocked.map(({ qid }) => qid),
+  )
+  const primaryReviewByQid = new Map(
+    primary.records.map((record) => [record.qid, record]),
+  )
+  const anchorAudits = acquisition.responses.map((response) => ({
+    anchorQid: response.anchorQid,
+    related: response.related.map((endpoint) => {
+      let disposition: ContinuityDisposition
+      if (identityBlockedQids.has(endpoint.relatedQid))
+        disposition = 'identity-blocked'
+      else if (!receiptQids.has(endpoint.relatedQid))
+        disposition = 'outside-frozen-receipt'
+      else if (
+        primaryReviewByQid.get(endpoint.relatedQid)?.machineValidation ===
+        'rejected'
+      )
+        disposition = 'machine-rejected'
+      else if (!eligibleSet.has(endpoint.relatedQid))
+        disposition = 'primary-review-rejected'
+      else
+        disposition = receiptResidentPublishedPredecessorQids.has(
+          endpoint.relatedQid,
+        )
+          ? 'predecessor-approved'
+          : 'primary-approved'
+      return { ...endpoint, disposition }
+    }),
+  }))
+  const preparationCandidate = {
+    schema: 'zedarchive.anime-v2-continuity-preparation',
+    version: 1,
+    candidateReceiptSha256: acceptedDiscoveryCandidateReceiptSha256,
+    selectionRubricSha256: acceptedSelectionRubricV2Sha256,
+    primaryApprovedCandidateSetSha256: primary.orderedPrimaryApprovedQidsSha256,
+    continuityEligibleCandidateSetSha256: discoverySha256(eligibilityQids),
+    acquisitionSha256: acquisition.acquisitionSha256,
+    anchorQids: anchors,
+    anchorAudits,
+    orderedRequestCommitmentSha256: acquisition.orderedRequestCommitmentSha256,
+    reducedResponseSetCommitmentSha256:
+      acquisition.reducedResponseSetCommitmentSha256,
+    revisionSetCommitmentSha256: acquisition.revisionSetCommitmentSha256,
+  }
+  const preparation = parseContinuityPreparation(
+    preparationCandidate,
+    receiptInput,
+    primaryInput,
+    acquisitionInput,
+    authorityInput,
+    predecessorInput,
+  )
+  const pairCount = preparation.anchorAudits.reduce(
+    (sum, audit) => sum + audit.related.length,
+    0,
+  )
+  const countDisposition = (disposition: ContinuityDisposition) =>
+    preparation.anchorAudits
+      .flatMap((audit) => audit.related)
+      .filter(({ disposition: value }) => value === disposition).length
+  const primaryInputJson = {
+    schema: 'zedarchive.anime-v2-continuity-primary-review-input',
+    version: 1,
+    preparationSha256: discoverySha256(preparation),
+    acquisitionSha256: acquisition.acquisitionSha256,
+    candidateReceiptSha256: acceptedDiscoveryCandidateReceiptSha256,
+    selectionRubricSha256: acceptedSelectionRubricV2Sha256,
+    anchorAudits: preparation.anchorAudits,
+  }
+  const independentInputJson = {
+    schema: 'zedarchive.anime-v2-continuity-independent-review-input',
+    version: 1,
+    preparationSha256: discoverySha256(preparation),
+    acquisitionSha256: acquisition.acquisitionSha256,
+    candidateReceiptSha256: acceptedDiscoveryCandidateReceiptSha256,
+    selectionRubricSha256: acceptedSelectionRubricV2Sha256,
+    anchorAudits: preparation.anchorAudits,
+  }
+  await promoteContinuityPreparationBundle(
+    filesystem,
+    preparation,
+    primaryInputJson,
+    independentInputJson,
+  )
+  return {
+    mode: 'prepare',
+    status: 'complete',
+    preparationSha256: discoverySha256(preparation),
+    anchorCount: continuityEnvelope.anchors,
+    pairCount,
+    primaryApprovedEndpointCount: countDisposition('primary-approved'),
+    predecessorApprovedEndpointCount: countDisposition('predecessor-approved'),
+    identityBlockedCount: countDisposition('identity-blocked'),
+    machineRejectedCount: countDisposition('machine-rejected'),
+    primaryReviewRejectedCount: countDisposition('primary-review-rejected'),
+    outsideFrozenReceiptCount: countDisposition('outside-frozen-receipt'),
+  }
+}
+
 export async function runContinuityReviewCommand(
   command: ContinuityReviewCommand,
   seams: ContinuityReviewSeams,
 ): Promise<
-  ContinuityCheckResult | Awaited<ReturnType<typeof runContinuityReviewAcquire>>
+  | ContinuityCheckResult
+  | Awaited<ReturnType<typeof runContinuityReviewAcquire>>
+  | Awaited<ReturnType<typeof runContinuityReviewPrepare>>
 > {
   if (command.mode === 'check') return runContinuityReviewCheck(seams)
   if (command.mode === 'acquire') return runContinuityReviewAcquire(seams)
-  if (command.mode === 'prepare')
-    throw safeError('continuity-review', 'not-implemented')
+  if (command.mode === 'prepare') return runContinuityReviewPrepare(seams)
   if (command.mode === 'draft')
     throw safeError('continuity-review', 'not-implemented')
   if (command.mode === 'lock')
