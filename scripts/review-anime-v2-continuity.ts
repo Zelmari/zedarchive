@@ -27,7 +27,9 @@ import {
   validatePrimaryCandidateReviewAuthorityForFixture,
 } from '@/features/anime/catalogue/anime-v2-candidate-acquisition'
 import {
+  createReducedContinuityAcquisition,
   parseAcceptedCandidateReceipt,
+  parseReducedContinuityAcquisition,
   primaryCandidateReviewResultSchema,
   type AcceptedCandidateReceipt,
   type PrimaryCandidateReviewResult,
@@ -44,6 +46,15 @@ import {
   compareDiscoveryQids,
   discoverySha256,
 } from '@/features/anime/catalogue/wikidata-anime-discovery'
+import {
+  parsePolicyBaseline,
+  retrievePolicyBodies,
+} from './m45-policy-baseline'
+import {
+  parseWikidataEntityResponse,
+  type WikidataEntity,
+} from '@/integrations/wikidata/wikidata-entity'
+import { wikidataApiEndpoint } from '@/integrations/wikidata/wikidata-constants'
 
 const repositoryRoot = fileURLToPath(new URL('../', import.meta.url))
 
@@ -164,9 +175,19 @@ export type ContinuityReviewFilesystem = Readonly<{
   unlink(path: string): Promise<void>
   rmdir(path: string): Promise<void>
 }>
+export type ContinuityReviewClock = Readonly<{
+  now: () => number
+  delay: (milliseconds: number) => Promise<void>
+  setTimeout: typeof setTimeout
+  clearTimeout: typeof clearTimeout
+}>
 export type ContinuityReviewSeams = Readonly<{
   filesystem: ContinuityReviewFilesystem
+  fetch: typeof fetch
+  clock: ContinuityReviewClock
   completedAt: () => Date
+  trackedBaselinePath?: string
+  anchorQidsOverride?: readonly string[]
 }>
 
 export const nodeContinuityReviewFilesystem: ContinuityReviewFilesystem = {
@@ -178,6 +199,14 @@ export const nodeContinuityReviewFilesystem: ContinuityReviewFilesystem = {
   link,
   unlink,
   rmdir,
+}
+
+export const nodeContinuityReviewClock: ContinuityReviewClock = {
+  now: Date.now,
+  delay: (milliseconds) =>
+    new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds)),
+  setTimeout,
+  clearTimeout,
 }
 
 type PredecessorReviewResult = z.infer<typeof predecessorReviewResultSchema>
@@ -397,13 +426,486 @@ export async function runContinuityReviewCheck(
   }
 }
 
+export const trackedPolicyBaselinePath =
+  'scripts/policy-baseline-review/wikimedia-policy-baseline.v1.json'
+
+export const continuityAcquiredBundleName = 'acquired' as const
+export const continuityAcquisitionFilename = 'acquisition.json' as const
+export const continuityAcquisitionAggregateFilename =
+  'safe-aggregate.json' as const
+
+type BoundedContinuityResponse = Readonly<{
+  status: number
+  bytes: Uint8Array
+  attemptOrdinal: number
+}>
+
+/** Serial bounded Action API client; never persists raw provider bytes. */
+class ContinuityReviewRequester {
+  private attempts = 0
+  private active = 0
+  private previousCompletion: number | undefined
+  private startedAt: number | undefined
+  private pacingWaits = 0
+  private pacingDelayMilliseconds = 0
+  private successfulResponseGroups = 0
+  private maximumConcurrency = 0
+  private retainedBytes = 0
+  constructor(
+    private readonly request: typeof fetch,
+    private readonly clock: ContinuityReviewClock,
+  ) {}
+  completeResponseGroup(attemptOrdinal: number): void {
+    this.successfulResponseGroups += 1
+    void attemptOrdinal
+  }
+  sourceEvidence() {
+    return {
+      requestEvidence: {
+        requestGroupCount: this.successfulResponseGroups,
+        successfulResponseGroupCount: this.successfulResponseGroups,
+        attempts: this.attempts,
+        retries: this.attempts - this.successfulResponseGroups,
+        pacingWaits: this.pacingWaits,
+        pacingDelayMilliseconds: this.pacingDelayMilliseconds,
+        elapsedMilliseconds:
+          this.startedAt === undefined ? 0 : this.clock.now() - this.startedAt,
+        maximumConcurrency: this.maximumConcurrency as 1,
+      },
+    }
+  }
+  private assertWithinWallTime(): void {
+    if (
+      this.startedAt !== undefined &&
+      this.clock.now() - this.startedAt >=
+        continuityEnvelope.maximumElapsedMilliseconds
+    )
+      throw safeError('acquire', 'wall-time')
+  }
+  private async delayWithinWallTime(milliseconds: number): Promise<void> {
+    this.assertWithinWallTime()
+    if (
+      this.startedAt !== undefined &&
+      this.clock.now() - this.startedAt + milliseconds >=
+        continuityEnvelope.maximumElapsedMilliseconds
+    )
+      throw safeError('acquire', 'wall-time')
+    await this.clock.delay(milliseconds)
+    this.assertWithinWallTime()
+  }
+  async fetch(url: URL, init: RequestInit): Promise<BoundedContinuityResponse> {
+    for (
+      let retry = 0;
+      retry < continuityEnvelope.maximumAttemptsPerGroup;
+      retry += 1
+    ) {
+      if (this.attempts >= continuityEnvelope.maximumAttemptsTotal)
+        throw safeError('acquire', 'attempt-limit')
+      const elapsed =
+        this.previousCompletion === undefined
+          ? undefined
+          : this.clock.now() - this.previousCompletion
+      if (
+        elapsed !== undefined &&
+        elapsed < continuityEnvelope.pacingMilliseconds
+      ) {
+        const wait = continuityEnvelope.pacingMilliseconds - elapsed
+        this.pacingWaits += 1
+        this.pacingDelayMilliseconds += wait
+        await this.delayWithinWallTime(wait)
+      }
+      if (this.active !== 0) throw safeError('acquire', 'concurrency')
+      if (this.startedAt === undefined) this.startedAt = this.clock.now()
+      this.assertWithinWallTime()
+      this.active += 1
+      this.maximumConcurrency = Math.max(this.maximumConcurrency, this.active)
+      this.attempts += 1
+      const attemptOrdinal = this.attempts
+      const controller = new AbortController()
+      const timeout = this.clock.setTimeout(
+        () => controller.abort(),
+        continuityEnvelope.timeoutMilliseconds,
+      )
+      try {
+        const response = await this.request(url, {
+          ...init,
+          redirect: 'error',
+          signal: controller.signal,
+        })
+        const length = Number(response.headers.get('content-length'))
+        if (
+          Number.isFinite(length) &&
+          length > continuityEnvelope.maximumBytesPerGroup
+        ) {
+          controller.abort()
+          throw safeError('acquire', 'body-limit')
+        }
+        const bytes = await readContinuityBodyBytes(response, controller)
+        this.assertWithinWallTime()
+        if (
+          this.retainedBytes + bytes.byteLength >
+          continuityEnvelope.maximumTotalBytes
+        ) {
+          controller.abort()
+          throw safeError('acquire', 'body-limit')
+        }
+        if ([429, 500, 502, 503, 504].includes(response.status)) {
+          if (retry === continuityEnvelope.maximumAttemptsPerGroup - 1)
+            throw safeError('acquire', 'retry-exhausted')
+          await this.delayWithinWallTime(
+            continuityRetryAfter(
+              response.headers.get('retry-after'),
+              this.clock.now(),
+            ) ?? Math.min(30_000, 1_000 * 2 ** retry),
+          )
+          continue
+        }
+        if (!response.ok) throw safeError('acquire', 'http-status')
+        this.retainedBytes += bytes.byteLength
+        this.completeResponseGroup(attemptOrdinal)
+        return { status: response.status, bytes, attemptOrdinal }
+      } catch (error) {
+        if (error instanceof ContinuityReviewCommandError) throw error
+        if (retry === continuityEnvelope.maximumAttemptsPerGroup - 1)
+          throw safeError('acquire', 'retry-exhausted')
+        await this.delayWithinWallTime(Math.min(30_000, 1_000 * 2 ** retry))
+      } finally {
+        this.clock.clearTimeout(timeout)
+        this.active -= 1
+        this.previousCompletion = this.clock.now()
+      }
+    }
+    throw safeError('acquire', 'retry-exhausted')
+  }
+}
+
+function continuityRetryAfter(
+  value: string | null,
+  now: number,
+): number | undefined {
+  if (value === null) return undefined
+  const seconds = Number(value)
+  const milliseconds = Number.isFinite(seconds)
+    ? seconds * 1_000
+    : Date.parse(value) - now
+  if (
+    !Number.isFinite(milliseconds) ||
+    milliseconds < 0 ||
+    milliseconds > 30_000
+  )
+    throw safeError('acquire', 'retry-after')
+  return milliseconds
+}
+
+async function readContinuityBodyBytes(
+  response: Response,
+  controller: AbortController,
+): Promise<Uint8Array> {
+  if (response.body === null) return new Uint8Array()
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > continuityEnvelope.maximumBytesPerGroup) {
+        controller.abort()
+        await reader.cancel().catch(() => undefined)
+        throw safeError('acquire', 'body-limit')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes
+}
+
+async function deriveContinuityAnchorsFromInputs(
+  filesystem: ContinuityReviewFilesystem,
+): Promise<readonly string[]> {
+  const receiptInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, candidateReceiptPath),
+  )
+  const authorityInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, candidateAuthorityPath),
+  )
+  const primaryInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, primaryCandidateReviewPath),
+  )
+  const predecessorInput = await readContinuityInputJson(
+    filesystem,
+    join(repositoryRoot, predecessorReviewResultPath),
+  )
+  let receipt: AcceptedCandidateReceipt
+  let primary: PrimaryCandidateReviewResult
+  let predecessor: ParsedContinuityPredecessor
+  try {
+    receipt = parseAcceptedCandidateReceipt(receiptInput)
+    primary = parseContinuityPrimaryReview(
+      primaryInput,
+      receipt,
+      authorityInput,
+      predecessorInput,
+    )
+    predecessor = parseContinuityPredecessorReview(predecessorInput)
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('acquire', 'input-authority')
+  }
+  let eligibilityQids: readonly string[]
+  let anchors: readonly string[]
+  try {
+    eligibilityQids = deriveContinuityEligibility(receipt, primary, predecessor)
+    anchors = deriveContinuityAnchors(receipt, eligibilityQids)
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('acquire', 'eligibility')
+  }
+  return anchors
+}
+
+async function promoteContinuityAcquisitionBundle(
+  filesystem: ContinuityReviewFilesystem,
+  acquisition: ReturnType<typeof createReducedContinuityAcquisition>,
+  evidence: ReturnType<ContinuityReviewRequester['sourceEvidence']>,
+  baseline: Awaited<ReturnType<typeof parsePolicyBaseline>>,
+  preflightCompletedAt: Date,
+): Promise<void> {
+  const root = join(repositoryRoot, continuityReviewRoot)
+  const acquired = join(root, continuityAcquiredBundleName)
+  const staging = join(repositoryRoot, continuityStagingSibling)
+  const acquisitionJson = `${JSON.stringify(acquisition)}\n`
+  const aggregateJson = `${JSON.stringify({
+    schema: 'zedarchive.anime-v2-continuity-acquisition-aggregate',
+    version: 1,
+    anchorCount: continuityEnvelope.anchors,
+    groupCount: continuityEnvelope.groups,
+    ...evidence.requestEvidence,
+    acquisitionSha256: acquisition.acquisitionSha256,
+    orderedRequestCommitmentSha256: acquisition.orderedRequestCommitmentSha256,
+    reducedResponseSetCommitmentSha256:
+      acquisition.reducedResponseSetCommitmentSha256,
+    revisionSetCommitmentSha256: acquisition.revisionSetCommitmentSha256,
+    preflightEquality: true,
+    preflightAgeWithinWindow: true,
+    policyRetrievedAt: preflightCompletedAt.toISOString(),
+    baselineSha256: baseline.baselineSha256,
+  })}\n`
+  try {
+    await filesystem.lstat(acquired)
+    throw safeError('acquire', 'no-resume')
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+  }
+  try {
+    await filesystem.lstat(staging)
+    throw safeError('acquire', 'custody')
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+  }
+  await filesystem.mkdir(root, { mode: 0o700 }).catch(() => undefined)
+  await filesystem.mkdir(staging, { mode: 0o700 })
+  const staged: ReadonlyArray<readonly [string, string]> = [
+    [continuityAcquisitionFilename, acquisitionJson],
+    [continuityAcquisitionAggregateFilename, aggregateJson],
+  ]
+  try {
+    for (const [name, value] of staged)
+      await writeContinuitySecureFile(filesystem, join(staging, name), value)
+    await filesystem.mkdir(acquired, { mode: 0o700 })
+    for (const [name] of staged) {
+      try {
+        await filesystem.link(join(staging, name), join(acquired, name))
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+          throw safeError('acquire', 'custody')
+        throw error
+      }
+    }
+    for (const [name] of staged) {
+      const promoted = await filesystem.readFile(join(acquired, name))
+      const expected = Buffer.from(staged.find(([n]) => n === name)![1], 'utf8')
+      if (!promoted.equals(expected)) throw safeError('acquire', 'custody')
+    }
+    for (const [name] of staged) await filesystem.unlink(join(staging, name))
+    await filesystem.rmdir(staging)
+  } catch (error) {
+    if (error instanceof ContinuityReviewCommandError) throw error
+    throw safeError('acquire', 'custody')
+  }
+}
+
+async function writeContinuitySecureFile(
+  filesystem: ContinuityReviewFilesystem,
+  path: string,
+  value: string,
+): Promise<void> {
+  try {
+    await filesystem.writeFile(path, value, { flag: 'wx', mode: 0o600 })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+      throw safeError('acquire', 'custody')
+    throw error
+  }
+  const read = await filesystem.readFile(path)
+  if (!read.equals(Buffer.from(value, 'utf8')))
+    throw safeError('acquire', 'custody')
+}
+
+export async function runContinuityReviewAcquire(
+  seams: ContinuityReviewSeams,
+): Promise<
+  Readonly<{
+    mode: 'acquire'
+    status: 'complete'
+    anchorCount: 250
+    groupCount: 10
+    attempts: number
+    retries: number
+    pacingWaits: number
+    pacingDelayMilliseconds: number
+    elapsedMilliseconds: number
+    acquisitionSha256: string
+    reducedResponseSetCommitmentSha256: string
+    revisionSetCommitmentSha256: string
+    policyBaselineSha256: string
+  }>
+> {
+  const { filesystem, fetch: networkFetch, clock, completedAt } = seams
+  const anchors =
+    seams.anchorQidsOverride ??
+    (await deriveContinuityAnchorsFromInputs(filesystem))
+  const trackedBaselinePath = join(
+    repositoryRoot,
+    seams.trackedBaselinePath ?? trackedPolicyBaselinePath,
+  )
+  const baselineInput = await readContinuityInputJson(
+    filesystem,
+    trackedBaselinePath,
+  )
+  const baseline = await parsePolicyBaseline(baselineInput, completedAt())
+  const preflight = await retrievePolicyBodies({
+    fetch: networkFetch,
+    completedAt,
+  })
+  const preflightCompletedAt = completedAt()
+  const preflightAgeMilliseconds =
+    preflightCompletedAt.getTime() -
+    new Date(baseline.capture.retrievedAt).getTime()
+  if (
+    canonicalJson(preflight.capture.decodedBodySha256) !==
+      canonicalJson(baseline.capture.decodedBodySha256) ||
+    canonicalJson(preflight.capture.decodedBodyBytes) !==
+      canonicalJson(baseline.capture.decodedBodyBytes) ||
+    preflight.capture.totalDecodedBytes !==
+      baseline.capture.totalDecodedBytes ||
+    preflight.capture.orderedUrlSequenceSha256 !==
+      baseline.capture.orderedUrlSequenceSha256
+  )
+    throw safeError('preflight', 'policy-drift')
+  if (
+    preflightAgeMilliseconds < 0 ||
+    preflightAgeMilliseconds > 24 * 60 * 60 * 1_000
+  )
+    throw safeError('preflight', 'policy-age')
+
+  const requester = new ContinuityReviewRequester(networkFetch, clock)
+  const entities: WikidataEntity[] = []
+  for (let group = 0; group < continuityEnvelope.groups; group += 1) {
+    const groupQids = anchors.slice(
+      group * continuityEnvelope.groupSize,
+      (group + 1) * continuityEnvelope.groupSize,
+    )
+    if (groupQids.length !== continuityEnvelope.groupSize)
+      throw safeError('acquire', 'group-shape')
+    const url = new URL(wikidataApiEndpoint)
+    url.searchParams.set('action', 'wbgetentities')
+    url.searchParams.set('ids', groupQids.map((qid) => qid.slice(1)).join('|'))
+    url.searchParams.set('props', 'claims|info')
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('formatversion', '2')
+    url.searchParams.set('maxlag', '10')
+    const response = await requester.fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': continuityUserAgent,
+        Accept: 'application/json',
+        'Accept-Encoding': 'gzip',
+      },
+    })
+    let parsed: ReturnType<typeof parseWikidataEntityResponse>
+    try {
+      parsed = parseWikidataEntityResponse(
+        JSON.parse(
+          new TextDecoder('utf-8', { fatal: true }).decode(response.bytes),
+        ),
+      )
+    } catch {
+      throw safeError('acquire', 'response-shape')
+    }
+    const byQid = new Map(
+      groupQids.map((qid) => [qid, parsed.entities[qid]] as const),
+    )
+    for (const qid of groupQids) {
+      const entity = byQid.get(qid)
+      if (entity === undefined || entity.missing === true || entity.redirect)
+        throw safeError('acquire', 'entity-shape')
+      if (entity.type !== 'item' || entity.lastrevid === undefined)
+        throw safeError('acquire', 'entity-shape')
+      entities.push(entity)
+    }
+  }
+  const acquisition = createReducedContinuityAcquisition({
+    anchorQids: anchors,
+    entities,
+  })
+  parseReducedContinuityAcquisition(acquisition, anchors)
+  const evidence = requester.sourceEvidence()
+  await promoteContinuityAcquisitionBundle(
+    filesystem,
+    acquisition,
+    evidence,
+    baseline,
+    preflightCompletedAt,
+  )
+  return {
+    mode: 'acquire',
+    status: 'complete',
+    anchorCount: continuityEnvelope.anchors,
+    groupCount: continuityEnvelope.groups,
+    attempts: evidence.requestEvidence.attempts,
+    retries: evidence.requestEvidence.retries,
+    pacingWaits: evidence.requestEvidence.pacingWaits,
+    pacingDelayMilliseconds: evidence.requestEvidence.pacingDelayMilliseconds,
+    elapsedMilliseconds: evidence.requestEvidence.elapsedMilliseconds,
+    acquisitionSha256: acquisition.acquisitionSha256,
+    reducedResponseSetCommitmentSha256:
+      acquisition.reducedResponseSetCommitmentSha256,
+    revisionSetCommitmentSha256: acquisition.revisionSetCommitmentSha256,
+    policyBaselineSha256: baseline.baselineSha256,
+  }
+}
+
 export async function runContinuityReviewCommand(
   command: ContinuityReviewCommand,
   seams: ContinuityReviewSeams,
-): Promise<ContinuityCheckResult> {
+): Promise<
+  ContinuityCheckResult | Awaited<ReturnType<typeof runContinuityReviewAcquire>>
+> {
   if (command.mode === 'check') return runContinuityReviewCheck(seams)
-  if (command.mode === 'acquire')
-    throw safeError('continuity-review', 'not-implemented')
+  if (command.mode === 'acquire') return runContinuityReviewAcquire(seams)
   if (command.mode === 'prepare')
     throw safeError('continuity-review', 'not-implemented')
   if (command.mode === 'draft')
@@ -464,6 +966,15 @@ export function createContinuitySyntheticFixture(
   }
   return {
     filesystem,
+    fetch: async () => {
+      throw safeError('fixture', 'fetch-unavailable')
+    },
+    clock: {
+      now: () => 1_800_000_000_000,
+      delay: async () => undefined,
+      setTimeout: (() => 0) as unknown as typeof setTimeout,
+      clearTimeout: () => undefined,
+    },
     completedAt: () => new Date('2026-08-13T00:00:00.000Z'),
   }
 }
@@ -493,6 +1004,8 @@ export async function executeContinuityReviewCli(
     stoppedMode = command.mode
     const result = await runContinuityReviewCommand(command, {
       filesystem: nodeContinuityReviewFilesystem,
+      fetch,
+      clock: nodeContinuityReviewClock,
       completedAt: () => new Date(),
     })
     process.stdout.write(`${JSON.stringify(result)}\n`)
