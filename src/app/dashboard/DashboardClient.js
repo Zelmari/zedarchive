@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from '@/lib/auth-client';
 import ShowCard from './ShowCard';
 import BookCard from './BookCard';
 import AddMediaModal from './AddMediaModal';
+import ConfirmModal from './ConfirmModal';
+import ToastContainer from './Toast';
 import {
   createMediaEntry,
   updateMediaProgress,
@@ -21,6 +23,33 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
+  // Custom Toast State
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Custom Confirmation Dialog State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    variant: 'primary',
+    onConfirm: null,
+  });
+
+  const closeConfirmModal = () => {
+    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
@@ -29,15 +58,22 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       router.refresh();
     } catch (err) {
       console.error('Sign out error:', err);
+      addToast('Failed to sign out', 'error');
     } finally {
       setIsSigningOut(false);
     }
   };
 
   const handleCreate = async (data) => {
-    const newEntry = await createMediaEntry(data);
-    if (newEntry) {
-      setEntries((prev) => [newEntry, ...prev]);
+    try {
+      const newEntry = await createMediaEntry(data);
+      if (newEntry) {
+        setEntries((prev) => [newEntry, ...prev]);
+        addToast(`"${newEntry.title}" added to your archive`, 'success');
+      }
+    } catch (err) {
+      console.error('Create entry error:', err);
+      addToast(err.message || 'Failed to create entry', 'error');
     }
   };
 
@@ -60,26 +96,37 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         await updateMediaProgress(id, updates);
       } catch (err) {
         console.error('Failed to sync update with server:', err);
+        addToast('Failed to sync update with server', 'error');
       }
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to remove this item from your archive?')) {
-      return;
-    }
+  const handleDeleteClick = (id) => {
+    const itemToDelete = entries.find((item) => item.id === id);
+    const itemTitle = itemToDelete ? itemToDelete.title : 'this item';
 
-    const previousEntries = entries;
-    setEntries((prev) => prev.filter((item) => item.id !== id));
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove from Archive',
+      message: `Are you sure you want to remove "${itemTitle}" from your archive? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger',
+      onConfirm: async () => {
+        closeConfirmModal();
+        const previousEntries = entries;
+        setEntries((prev) => prev.filter((item) => item.id !== id));
 
-    try {
-      await deleteMediaEntry(id);
-    } catch (err) {
-      console.error('Failed to delete item:', err);
-      // Revert if server call failed
-      setEntries(previousEntries);
-      alert('Failed to delete item. Please try again.');
-    }
+        try {
+          await deleteMediaEntry(id);
+          addToast(`"${itemTitle}" removed from archive`, 'info');
+        } catch (err) {
+          console.error('Failed to delete item:', err);
+          setEntries(previousEntries);
+          addToast('Failed to delete item. Please try again.', 'error');
+        }
+      },
+    });
   };
 
   // Filter entries according to active tab
@@ -216,7 +263,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                     key={item.id}
                     item={item}
                     onUpdate={handleUpdate}
-                    onDelete={handleDelete}
+                    onDelete={handleDeleteClick}
                   />
                 );
               }
@@ -225,7 +272,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   key={item.id}
                   item={item}
                   onUpdate={handleUpdate}
-                  onDelete={handleDelete}
+                  onDelete={handleDeleteClick}
                 />
               );
             })
@@ -242,6 +289,21 @@ export default function DashboardClient({ user, initialEntries = [] }) {
           onAdd={handleCreate}
         />
       )}
+
+      {/* In-App Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+      />
+
+      {/* Floating Toast Container */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 }
