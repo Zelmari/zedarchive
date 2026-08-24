@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
 export default function ConfirmModal({
@@ -13,63 +14,8 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }) {
-  const modalRef = useRef(null);
   const confirmBtnRef = useRef(null);
-  const triggerElementRef = useRef(null);
-
-  // Store the active element that opened the modal so focus can return to it
-  useEffect(() => {
-    if (isOpen) {
-      triggerElementRef.current = document.activeElement;
-      // Focus confirm or cancel button when opened
-      const timer = setTimeout(() => {
-        if (confirmBtnRef.current) {
-          confirmBtnRef.current.focus();
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    } else if (triggerElementRef.current) {
-      triggerElementRef.current.focus?.();
-    }
-  }, [isOpen]);
-
-  // Escape key handler and focus trap
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCancel?.();
-        return;
-      }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusableElements = modalRef.current.querySelectorAll(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
+  const modalRef = useFocusTrap(isOpen, onCancel, { initialFocusRef: confirmBtnRef });
 
   if (!isOpen) return null;
 

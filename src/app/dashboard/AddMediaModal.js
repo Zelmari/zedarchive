@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
 export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd }) {
@@ -25,11 +26,47 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const titleInputRef = useRef(null);
   const searchContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const searchAbortRef = useRef(null);
 
   const isShowLike = category === 'show' || category === 'anime';
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setPrimaryUnitTotal('1');
+    setPrimaryUnitCurrent('1');
+    setSecondaryUnitTotal('');
+    setSecondaryUnitCurrent('0');
+    setStructure([]);
+    setSourceId('');
+    setNotes('');
+    setCoverImage(null);
+    setSearchResults([]);
+    setShowDropdown(false);
+    setError('');
+  }, []);
+
+  const resetAndClose = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+
+  // Escape key handler: close dropdown if open, else close modal
+  const handleEscape = useCallback(
+    (e) => {
+      if (showDropdown) {
+        setShowDropdown(false);
+      } else {
+        resetAndClose();
+      }
+    },
+    [showDropdown, resetAndClose]
+  );
+
+  // Accessible focus trapping
+  const modalRef = useFocusTrap(isOpen, handleEscape, { initialFocusRef: titleInputRef });
 
   // Sync category if type prop changes when modal opens
   useEffect(() => {
@@ -38,7 +75,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
       setCategory(defaultCat);
       resetForm();
     }
-  }, [isOpen, type]);
+  }, [isOpen, type, resetForm]);
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -109,26 +146,6 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   }, [title, category]);
 
   if (!isOpen) return null;
-
-  const resetForm = () => {
-    setTitle('');
-    setPrimaryUnitTotal('1');
-    setPrimaryUnitCurrent('1');
-    setSecondaryUnitTotal('');
-    setSecondaryUnitCurrent('0');
-    setStructure([]);
-    setSourceId('');
-    setNotes('');
-    setCoverImage(null);
-    setSearchResults([]);
-    setShowDropdown(false);
-    setError('');
-  };
-
-  const resetAndClose = () => {
-    resetForm();
-    onClose();
-  };
 
   // Autofill on Selection from search dropdown
   const handleSelectResult = async (item) => {
@@ -239,16 +256,23 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
   return (
     <div className={styles.modalBackdrop} onClick={resetAndClose}>
-      <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        className={styles.modalContent}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-media-modal-title"
+      >
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>
+          <h2 id="add-media-modal-title" className={styles.modalTitle}>
             Add New Media
           </h2>
           <button
             type="button"
             className={styles.modalCloseBtn}
             onClick={resetAndClose}
-            aria-label="Close"
+            aria-label="Close modal"
           >
             ✕
           </button>
@@ -260,9 +284,11 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
           {/* Category Selector Chips */}
           <div className={styles.formGroup}>
             <label className={styles.formLabel}>Category</label>
-            <div className={styles.categoryChips}>
+            <div className={styles.categoryChips} role="radiogroup" aria-label="Media Category">
               <button
                 type="button"
+                role="radio"
+                aria-checked={category === 'show'}
                 className={`${styles.categoryChip} ${category === 'show' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('show')}
               >
@@ -270,6 +296,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               </button>
               <button
                 type="button"
+                role="radio"
+                aria-checked={category === 'anime'}
                 className={`${styles.categoryChip} ${category === 'anime' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('anime')}
               >
@@ -277,6 +305,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               </button>
               <button
                 type="button"
+                role="radio"
+                aria-checked={category === 'book'}
                 className={`${styles.categoryChip} ${category === 'book' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('book')}
               >
@@ -284,6 +314,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               </button>
               <button
                 type="button"
+                role="radio"
+                aria-checked={category === 'manga'}
                 className={`${styles.categoryChip} ${category === 'manga' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('manga')}
               >
@@ -339,6 +371,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               {isSearching && <span className={styles.searchIndicator}>Searching sources...</span>}
             </div>
             <input
+              ref={titleInputRef}
               id="media-title"
               type="text"
               required
@@ -363,12 +396,20 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
             {/* Floating Dropdown Results */}
             {showDropdown && (
-              <div className={styles.searchDropdown}>
+              <div className={styles.searchDropdown} role="listbox" aria-label="Search results">
                 {searchResults.map((item) => (
                   <div
                     key={item.sourceId || `${item.title}-${item.year}`}
                     className={styles.searchResultItem}
                     onClick={() => handleSelectResult(item)}
+                    role="option"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectResult(item);
+                      }
+                    }}
                   >
                     {item.coverUrl ? (
                       <img
