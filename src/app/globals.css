@@ -1,90 +1,145 @@
-:root,
-[data-theme="dark"] {
-  /* Canvas & Surfaces */
-  --bg-canvas: #0c0e12;
-  --bg-surface: #12151b;
-  --bg-elevated: #181d24;
-  --bg-hover: #1f242d;
-  --bg-active: #262c36;
+:root {
+  /* ==========================================================================
+     Canvas, Surfaces & Paper Fills
+     ========================================================================== */
+  --za-color-canvas: #f7f5f0;              /* Warm Linen / Editorial Canvas */
+  --za-color-surface: #ffffff;             /* Crisp White Paper Surface */
+  --za-color-surface-subtle: #f0ede6;      /* Subtle Neutral Surface / Restricted */
 
-  /* Borders & Dividers */
-  --border-subtle: #222730;
-  --border-crisp: #2e3542;
-  --border-focus: #cbb89d; /* Warm beige highlight */
+  /* ==========================================================================
+     Text & Typography Ink
+     ========================================================================== */
+  --za-color-text: #242321;                /* Primary Ink (High Contrast Obsidian) */
+  --za-color-text-muted: #5b5c61;          /* Secondary Muted Ink */
+  --za-color-disabled-text: #64656a;       /* Inactive / Disabled Text */
+  --za-color-disabled-surface: #ece9e2;    /* Inactive / Disabled Surface */
 
-  /* Text & Typography */
-  --text-primary: #f4efe6;   /* Warm Ivory / Linen */
-  --text-secondary: #9aa2ae; /* Muted Slate */
-  --text-tertiary: #656d79;  /* Dim helper text */
+  /* ==========================================================================
+     Borders & Structural Dividers
+     ========================================================================== */
+  --za-color-border-required: #85837c;     /* Controls, Inputs, Active Borders */
+  --za-color-border-decorative: #d6d1c7;   /* Dividers, Subordinate Separators */
 
-  /* Accents & States */
-  --accent-beige: #d4a373;
-  --accent-beige-subtle: rgba(212, 163, 115, 0.12);
-  --accent-warm-white: #f5eedb;
-  --accent-danger: #e06c75;
-  --accent-danger-subtle: rgba(224, 108, 117, 0.12);
-  --accent-success: #98c379;
+  /* ==========================================================================
+     Interactive Accent (Ink Hierarchy)
+     ========================================================================== */
+  --za-color-accent: #242321;              /* Primary Accent Fill */
+  --za-color-accent-hover: #3a3936;        /* Subtle Lightening on Hover */
+  --za-color-accent-active: #171716;       /* Deepened Ink on Active Press */
+  --za-color-accent-soft: #eeece7;         /* Selected / Highlighted Pill Soft Fill */
+  --za-color-on-accent: #ffffff;           /* Pure White Text on Accent Fill */
 
-  /* Shadows & Glows */
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-elevated: 0 10px 24px rgba(0, 0, 0, 0.5);
-  --ambient-glow: radial-gradient(circle at 50% 0%, rgba(212, 163, 115, 0.05) 0%, transparent 60%);
+  /* ==========================================================================
+     Semantic & Destructive States
+     ========================================================================== */
+  --za-color-destructive: #b4232e;         /* Crimson Error / Destructive Action */
+  --za-color-destructive-hover: #8f1d26;   /* Darkened Destructive Hover */
+  --za-color-destructive-active: #76151c;  /* Deep Destructive Press */
+  --za-color-on-destructive: #ffffff;      /* Text on Destructive Fills */
+  --za-color-error-surface: #fbecee;       /* Soft Pink Error Notice Background */
 
-  /* Compatibility Aliases */
-  --bg-primary: var(--bg-canvas);
-  --bg-secondary: var(--bg-surface);
-  --bg-tertiary: var(--bg-elevated);
-  --border-color: var(--border-crisp);
-  --border-hover: var(--border-focus);
-  --text-muted: var(--text-tertiary);
-  --accent: var(--accent-beige);
-  --accent-contrast: #0c0e12;
-  --danger: var(--accent-danger);
-  --danger-bg: var(--accent-danger-subtle);
-}
+  --za-color-success: #26734d;             /* Botanical Forest Green */
+  --za-color-success-surface: #e9f4ee;     /* Soft Mint Success Background */
 
-[data-theme="light"] {
-  /* Canvas & Surfaces */
-  --bg-canvas: #f6f3eb;    /* Warm Linen / Cream */
-  --bg-surface: #ffffff;
-  --bg-elevated: #ece7dc;
-  --bg-hover: #e4decf;
-  --bg-active: #dad2c0;
+  --za-color-warning: #765a00;             /* Warm Amber / Ochre */
+  --za-color-warning-surface: #f8f0d8;     /* Soft Ochre Warning Background */
 
-  /* Borders & Dividers */
-  --border-subtle: #ded8cb;
-  --border-crisp: #c8c0b0;
-  --border-focus: #8c6d48;
+  --za-color-information: #4b4a46;         /* Slate Charcoal Information */
+  --za-color-information-surface: #f0ede6; /* Soft Slate Information Background */
 
-  /* Text & Typography */
-  --text-primary: #1e1b18;   /* Deep Warm Charcoal */
-  --text-secondary: #6c665d; /* Warm Muted Stone */
-  --text-tertiary: #9c9487;
+  /* ==========================================================================
+     Title Tile Placeholder
+     ========================================================================== */
+  --za-color-title-tile: #ded9cf;          /* 2:3 Initials Tile Background */
+  --za-color-title-tile-text: #30353b;     /* Initials Text Color */
 
-  /* Accents & States */
-  --accent-beige: #8c6d48;
-  --accent-beige-subtle: rgba(140, 109, 72, 0.12);
-  --accent-warm-white: #4a3e31;
-  --accent-danger: #c94f53;
-  --accent-danger-subtle: rgba(201, 79, 83, 0.12);
-  --accent-success: #5b8a4e;
+  /* ==========================================================================
+     Typography & Text Scale
+     ========================================================================== */
+  --za-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --za-text-fine: 0.75rem;                 /* 12px - Small captions & fine notes */
+  --za-text-supporting: 0.875rem;          /* 14px - Helper text, metadata, labels */
+  --za-text-base: 1rem;                    /* 16px - Standard body & inputs */
+  --za-text-heading-sm: 1.125rem;          /* 18px - Card subheadings, brand */
+  --za-text-heading-md: 1.25rem;           /* 20px - Card titles, section headers */
+  --za-text-heading-lg: 1.5rem;            /* 24px - Page headings, modal titles */
+  --za-text-heading-xl: 2rem;              /* 32px - Hero masthead titles */
 
-  /* Shadows & Glows */
-  --shadow-card: 0 2px 8px rgba(30, 27, 24, 0.06);
-  --shadow-elevated: 0 8px 20px rgba(30, 27, 24, 0.1);
-  --ambient-glow: radial-gradient(circle at 50% 0%, rgba(140, 109, 72, 0.06) 0%, transparent 60%);
+  --za-leading-body: 1.6;
+  --za-leading-compact: 1.35;
+  --za-weight-body: 400;
+  --za-weight-emphasis: 500;
+  --za-weight-heading: 600;
+  --za-measure-readable: 68ch;
 
-  /* Compatibility Aliases */
-  --bg-primary: var(--bg-canvas);
-  --bg-secondary: var(--bg-surface);
-  --bg-tertiary: var(--bg-elevated);
-  --border-color: var(--border-crisp);
-  --border-hover: var(--border-focus);
-  --text-muted: var(--text-tertiary);
-  --accent: var(--accent-beige);
-  --accent-contrast: #ffffff;
-  --danger: var(--accent-danger);
-  --danger-bg: var(--accent-danger-subtle);
+  /* ==========================================================================
+     Spacing & Layout Rhythm
+     ========================================================================== */
+  --za-space-unit: 0.25rem;                /* 4px base step */
+  --za-space-1: 0.25rem;                   /* 4px */
+  --za-space-2: 0.5rem;                    /* 8px */
+  --za-space-3: 0.75rem;                   /* 12px */
+  --za-space-4: 1rem;                      /* 16px */
+  --za-space-6: 1.5rem;                    /* 24px */
+  --za-space-8: 2rem;                      /* 32px */
+  --za-space-12: 3rem;                     /* 48px */
+  --za-page-gutter: 1rem;                  /* 16px mobile gutter, 24px desktop */
+
+  /* ==========================================================================
+     Container Widths
+     ========================================================================== */
+  --za-content-narrow: 28rem;              /* 448px - Auth, Login, Reset Password */
+  --za-content-medium: 48rem;              /* 768px - Settings, Account Deletion */
+  --za-content-wide: 64rem;                /* 1024px - Catalogue & Archive Grids */
+
+  /* ==========================================================================
+     Radii, Borders & Shadows
+     ========================================================================== */
+  --za-radius-small: 0.25rem;              /* 4px - Title tiles, active route pills */
+  --za-radius-control: 0.5rem;             /* 8px - Controls, buttons, fields, notices, cards */
+  --za-radius-layered: 0.75rem;            /* 12px - Modals, dialogs, elevated containers */
+  --za-border-width: 1px;
+  --za-control-min-block-size: 2.5rem;     /* 40px - Strict touch/click target min-height */
+
+  --za-focus-width: 3px;
+  --za-focus-offset: 3px;
+
+  --za-shadow-raised: 0 1px 2px rgb(36 35 33 / 8%), 0 6px 16px rgb(36 35 33 / 6%);
+  --za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);
+  --za-backdrop-modal: rgb(23 23 22 / 48%);
+
+  /* ==========================================================================
+     Layering (Z-Index Scale)
+     ========================================================================== */
+  --za-layer-content: 0;
+  --za-layer-skip-link: 50;
+  --za-layer-modal: 100;
+
+  /* ==========================================================================
+     Motion & Transitions
+     ========================================================================== */
+  --za-motion-fast: 150ms;
+  --za-motion-reduced: 0.01ms;
+  --za-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Legacy variable compatibility */
+  --bg-canvas: var(--za-color-canvas);
+  --bg-surface: var(--za-color-surface);
+  --bg-elevated: var(--za-color-surface-subtle);
+  --bg-hover: var(--za-color-accent-soft);
+  --border-crisp: var(--za-color-border-decorative);
+  --border-focus: var(--za-color-accent);
+  --border-subtle: var(--za-color-border-decorative);
+  --text-primary: var(--za-color-text);
+  --text-secondary: var(--za-color-text-muted);
+  --text-tertiary: var(--za-color-disabled-text);
+  --accent-beige: var(--za-color-accent);
+  --accent-contrast: var(--za-color-on-accent);
+  --accent-danger: var(--za-color-destructive);
+  --accent-danger-subtle: var(--za-color-error-surface);
+  --accent-success: var(--za-color-success);
+  --shadow-card: var(--za-shadow-raised);
+  --shadow-elevated: var(--za-shadow-layered);
 }
 
 * {
@@ -93,20 +148,23 @@
   margin: 0;
 }
 
-html,
+html {
+  color-scheme: light;
+  background: var(--za-color-canvas);
+  color: var(--za-color-text);
+  font-family: var(--za-font-sans);
+  font-size: var(--za-text-base);
+  line-height: var(--za-leading-body);
+  text-rendering: optimizeLegibility;
+}
+
 body {
-  max-width: 100vw;
   min-height: 100vh;
-  background-color: var(--bg-canvas);
-  background-image: var(--ambient-glow);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  color: var(--text-primary);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  background-color: var(--za-color-canvas);
+  color: var(--za-color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 a {
@@ -114,12 +172,424 @@ a {
   text-decoration: none;
 }
 
-button {
+button, input, select, textarea {
   font-family: inherit;
 }
 
-input, select, textarea {
-  font-family: inherit;
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [tabindex]:not([tabindex='-1']),
+  #main-content
+):focus-visible {
+  outline: var(--za-focus-width) solid var(--za-color-accent);
+  outline-offset: var(--za-focus-offset);
+}
+
+@media (forced-colors: active) {
+  :where(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [tabindex]:not([tabindex='-1']),
+    #main-content
+  ):focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* ==========================================================================
+   Component Utility Classes (.za-*)
+   ========================================================================== */
+.za-container {
+  inline-size: min(
+    calc(100% - (var(--za-page-gutter) * 2)),
+    var(--za-content-wide)
+  );
+  margin-inline: auto;
+}
+
+.za-container--medium {
+  max-inline-size: var(--za-content-medium);
+}
+
+.za-container--narrow {
+  max-inline-size: var(--za-content-narrow);
+}
+
+.za-container--wide {
+  max-inline-size: var(--za-content-wide);
+}
+
+.za-skip-link {
+  position: absolute;
+  inset-block-start: var(--za-space-4);
+  inset-inline-start: var(--za-space-4);
+  z-index: var(--za-layer-skip-link);
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
+  background: var(--za-color-surface);
+  padding: var(--za-space-2) var(--za-space-3);
+  color: var(--za-color-text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.za-skip-link:not(:focus-visible) {
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.za-site-header {
+  border-block-end: var(--za-border-width) solid var(--za-color-border-decorative);
+  background: var(--za-color-surface);
+}
+
+.za-site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--za-space-4);
+  padding-block: var(--za-space-4);
+}
+
+.za-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--za-space-2);
+  color: var(--za-color-text);
+  font-size: var(--za-text-heading-sm);
+  font-weight: var(--za-weight-heading);
+  letter-spacing: -0.025em;
+  text-decoration: none;
+}
+
+.za-wordmark__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 3.75rem;
+  block-size: 2.5rem;
+}
+
+.za-wordmark__mark img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.za-wordmark__text {
+  display: block;
+}
+
+.za-link {
+  color: var(--za-color-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+  transition:
+    color var(--za-motion-fast) var(--za-ease-standard),
+    outline-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-link:hover {
+  color: var(--za-color-accent-hover);
+}
+
+.za-link:active {
+  color: var(--za-color-accent-active);
+}
+
+.za-current-page {
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-accent-soft);
+  box-shadow: inset 0 -2px 0 var(--za-color-accent);
+  font-weight: var(--za-weight-heading);
+}
+
+.za-button,
+.za-field,
+.za-select {
+  min-block-size: var(--za-control-min-block-size);
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
+  font: inherit;
+  line-height: var(--za-leading-compact);
+  transition:
+    background-color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    color var(--za-motion-fast) var(--za-ease-standard),
+    box-shadow var(--za-motion-fast) var(--za-ease-standard),
+    outline-color var(--za-motion-fast) var(--za-ease-standard),
+    opacity var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--za-space-2);
+  padding: var(--za-space-2) var(--za-space-3);
+  font-weight: var(--za-weight-emphasis);
+  text-align: center;
+  cursor: pointer;
+  background: var(--za-color-surface);
+  color: var(--za-color-text);
+  text-decoration: none;
+}
+
+.za-button--primary {
+  border-color: var(--za-color-accent);
+  background: var(--za-color-accent);
+  color: var(--za-color-on-accent);
+}
+
+.za-button--primary:hover {
+  border-color: var(--za-color-accent-hover);
+  background: var(--za-color-accent-hover);
+}
+
+.za-button--primary:active {
+  border-color: var(--za-color-accent-active);
+  background: var(--za-color-accent-active);
+}
+
+.za-button--secondary {
+  background: var(--za-color-surface);
+  color: var(--za-color-accent);
+}
+
+.za-button--secondary:hover {
+  border-color: var(--za-color-accent);
+  background: var(--za-color-accent-soft);
+}
+
+.za-button--secondary:active {
+  border-color: var(--za-color-accent-active);
+  color: var(--za-color-accent-active);
+}
+
+.za-button--tertiary {
+  border-color: transparent;
+  background: transparent;
+  color: var(--za-color-accent);
+}
+
+.za-button--tertiary:hover {
+  background: var(--za-color-accent-soft);
+}
+
+.za-button--tertiary:active {
+  color: var(--za-color-accent-active);
+}
+
+.za-button--selected {
+  border-color: var(--za-color-accent);
+  background: var(--za-color-accent-soft);
+  color: var(--za-color-accent);
+}
+
+.za-button--selected:hover {
+  border-color: var(--za-color-accent-hover);
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-accent-hover);
+}
+
+.za-button--destructive {
+  border-color: var(--za-color-destructive);
+  background: var(--za-color-destructive);
+  color: var(--za-color-on-destructive);
+}
+
+.za-button--destructive:hover {
+  border-color: var(--za-color-destructive-hover);
+  background: var(--za-color-destructive-hover);
+}
+
+.za-button--destructive:active {
+  border-color: var(--za-color-destructive-active);
+  background: var(--za-color-destructive-active);
+}
+
+.za-button--destructive-outline {
+  border-color: var(--za-color-destructive);
+  background: var(--za-color-surface);
+  color: var(--za-color-destructive);
+}
+
+.za-button--destructive-outline:hover {
+  border-color: var(--za-color-destructive-hover);
+  background: var(--za-color-error-surface);
+  color: var(--za-color-destructive-hover);
+}
+
+.za-button:disabled,
+.za-field:disabled,
+.za-select:disabled {
+  cursor: not-allowed;
+  border-color: var(--za-color-border-required);
+  background: var(--za-color-disabled-surface);
+  color: var(--za-color-disabled-text);
+}
+
+.za-field,
+.za-select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  background: var(--za-color-surface);
+  padding: var(--za-space-2) var(--za-space-3);
+  color: var(--za-color-text);
+}
+
+.za-field[aria-invalid='true'],
+.za-select[aria-invalid='true'] {
+  border-color: var(--za-color-destructive);
+}
+
+.za-notice {
+  border: var(--za-border-width) solid currentcolor;
+  border-radius: var(--za-radius-control);
+  padding: var(--za-space-3) var(--za-space-4);
+}
+
+.za-notice--information {
+  background: var(--za-color-information-surface);
+  color: var(--za-color-information);
+}
+
+.za-notice--success {
+  background: var(--za-color-success-surface);
+  color: var(--za-color-success);
+}
+
+.za-notice--warning {
+  background: var(--za-color-warning-surface);
+  color: var(--za-color-warning);
+}
+
+.za-notice--error {
+  background: var(--za-color-error-surface);
+  color: var(--za-color-destructive);
+}
+
+.za-card {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
+  background: var(--za-color-surface);
+  padding: var(--za-space-4);
+  overflow-wrap: anywhere;
+}
+
+.za-card--layered {
+  border-radius: var(--za-radius-layered);
+  box-shadow: var(--za-shadow-layered);
+}
+
+.za-card--raised {
+  box-shadow: var(--za-shadow-raised);
+}
+
+.za-card--restricted {
+  border-color: var(--za-color-border-decorative);
+  background: var(--za-color-surface-subtle);
+  box-shadow: none;
+}
+
+.za-dialog {
+  z-index: var(--za-layer-modal);
+  max-block-size: calc(100dvh - (var(--za-space-4) * 2));
+  inline-size: calc(100% - (var(--za-space-4) * 2));
+  max-inline-size: 32rem;
+  margin: auto;
+  overflow-y: auto;
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-layered);
+  background: var(--za-color-surface);
+  box-shadow: var(--za-shadow-layered);
+  padding: var(--za-space-4);
+  color: var(--za-color-text);
+}
+
+.za-dialog::backdrop {
+  background: var(--za-backdrop-modal);
+}
+
+.za-title-tile {
+  display: grid;
+  aspect-ratio: 2 / 3;
+  place-items: center;
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-title-tile);
+  color: var(--za-color-title-tile-text);
+  font-size: var(--za-text-heading-lg);
+  font-weight: var(--za-weight-heading);
+}
+
+@media (min-width: 40rem) {
+  .za-container {
+    --za-page-gutter: 1.5rem;
+  }
+
+  .za-site-header__inner {
+    padding-block: var(--za-space-4);
+  }
+
+  .za-wordmark__mark {
+    inline-size: 4.5rem;
+    block-size: 3rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .za-current-page {
+    background: Canvas;
+    box-shadow: inset 0 -2px 0 Highlight;
+    color: LinkText;
+  }
+
+  .za-wordmark.za-current-page {
+    text-decoration-line: underline;
+    text-decoration-style: double;
+    text-underline-offset: 0.15em;
+  }
+
+  .za-button.za-current-page {
+    border-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .za-link,
+  .za-button,
+  .za-field,
+  .za-select {
+    transition-duration: var(--za-motion-reduced);
+    animation-duration: var(--za-motion-reduced);
+    animation-iteration-count: 1;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --za-color-text-muted: var(--za-color-text);
+    --za-color-border-decorative: var(--za-color-border-required);
+  }
 }
 
 /* Custom scrollbars */
@@ -129,14 +599,14 @@ input, select, textarea {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-canvas);
+  background: var(--za-color-canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-crisp);
+  background: var(--za-color-border-required);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: var(--za-color-text-muted);
 }

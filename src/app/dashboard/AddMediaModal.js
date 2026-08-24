@@ -651,7 +651,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
           <div className={styles.modalFooter}>
             <button
               type="button"
-              className={styles.cancelBtn}
+              className="za-button za-button--secondary"
               onClick={resetAndClose}
               disabled={isSubmitting}
             >
@@ -659,7 +659,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             </button>
             <button
               type="submit"
-              className={styles.submitBtn}
+              className="za-button za-button--primary"
               disabled={isSubmitting || isCompressing}
             >
               {isSubmitting ? 'Adding...' : 'Add to Archive'}

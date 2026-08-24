@@ -58,7 +58,7 @@ export default function ConfirmModal({
         <div className={styles.confirmModalFooter}>
           <button
             type="button"
-            className={styles.cancelBtn}
+            className="za-button za-button--secondary"
             onClick={onCancel}
           >
             {cancelText}
@@ -66,7 +66,7 @@ export default function ConfirmModal({
           <button
             ref={confirmBtnRef}
             type="button"
-            className={isDanger ? styles.confirmDangerBtn : styles.submitBtn}
+            className={`za-button ${isDanger ? 'za-button--destructive' : 'za-button--primary'}`}
             onClick={onConfirm}
           >
             {confirmText}

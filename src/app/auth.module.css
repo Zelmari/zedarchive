@@ -3,56 +3,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  background-color: var(--bg-canvas);
-  background-image: var(--ambient-glow);
+  padding: var(--za-space-4);
+  background-color: var(--za-color-canvas);
 }
 
 .card {
   width: 100%;
-  max-width: 400px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-crisp);
-  border-radius: 12px;
-  padding: 2.25rem;
-  box-shadow: var(--shadow-elevated);
+  max-width: var(--za-content-narrow);
+  padding: 2rem;
 }
 
 .header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
   text-align: center;
-}
-
-.logo {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-  display: inline-block;
-  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .title {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--za-text-heading-lg);
+  font-weight: var(--za-weight-heading);
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--za-color-text);
+  margin-top: 1rem;
 }
 
 .subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  font-size: var(--za-text-supporting);
+  color: var(--za-color-text-muted);
   margin-top: 0.25rem;
-}
-
-.errorBanner {
-  background-color: var(--accent-danger-subtle);
-  border: 1px solid var(--accent-danger);
-  color: var(--accent-danger);
-  font-size: 0.85rem;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 1.25rem;
 }
 
 .form {
@@ -67,62 +47,15 @@
   gap: 0.35rem;
 }
 
-.fieldGroup label {
-  font-size: 0.825rem;
+.label {
+  font-size: var(--za-text-supporting);
   font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.fieldGroup input {
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-crisp);
-  color: var(--text-primary);
-  padding: 0.65rem 0.85rem;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 150ms ease;
-}
-
-.fieldGroup input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 1px var(--border-focus);
-}
-
-.submitBtn {
-  background-color: var(--accent-beige);
-  color: var(--accent-contrast);
-  border: none;
-  padding: 0.75rem;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  transition: opacity 150ms ease, transform 150ms ease;
-  box-shadow: var(--shadow-card);
-}
-
-.submitBtn:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
-}
-
-.submitBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  color: var(--za-color-text);
 }
 
 .footer {
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   text-align: center;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.link {
-  color: var(--accent-beige);
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-size: var(--za-text-supporting);
+  color: var(--za-color-text-muted);
 }

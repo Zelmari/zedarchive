@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { signIn } from '@/lib/auth-client';
 import styles from '@/app/auth.module.css';
 
@@ -38,23 +39,42 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.container}>
-      <div className={styles.card}>
+    <main id="main-content" className={styles.container}>
+      <div className={`za-card za-card--raised ${styles.card}`}>
         <div className={styles.header}>
-          <Link href="/" className={styles.logo}>zedarchive</Link>
-          <h1 className={styles.title}>Welcome back</h1>
+          <Link href="/" className="za-wordmark">
+            <span className="za-wordmark__mark">
+              <Image
+                src="/zedarchivelogo.png"
+                alt="zedarchive logo"
+                width={72}
+                height={48}
+                priority
+                unoptimized
+              />
+            </span>
+            <span className="za-wordmark__text">zedarchive</span>
+          </Link>
+          <h1 className={styles.title}>Sign In</h1>
           <p className={styles.subtitle}>Enter your credentials to access your archive</p>
         </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {error && (
+          <div className="za-notice za-notice--error" role="alert" style={{ marginBottom: '1.25rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.fieldGroup}>
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email" className={styles.label}>
+              Email
+            </label>
             <input
               id="email"
               type="email"
               required
+              className="za-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
@@ -62,25 +82,33 @@ export default function LoginPage() {
           </div>
 
           <div className={styles.fieldGroup}>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password" className={styles.label}>
+              Password
+            </label>
             <input
               id="password"
               type="password"
               required
+              className="za-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
           </div>
 
-          <button type="submit" disabled={loading} className={styles.submitBtn}>
-            {loading ? 'Logging in...' : 'Log In'}
+          <button
+            type="submit"
+            disabled={loading}
+            className="za-button za-button--primary"
+            style={{ width: '100%', marginTop: '0.5rem' }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         <div className={styles.footer}>
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className={styles.link}>
+          <Link href="/signup" className="za-link">
             Sign up
           </Link>
         </div>

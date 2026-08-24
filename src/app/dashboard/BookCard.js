@@ -11,7 +11,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
   const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? 1;
   const secondaryUnitCurrent = item.secondaryUnitCurrent ?? item.currentProgress ?? 0;
-  const secondaryUnitTotal = item.secondaryUnitTotal ?? item.totalUnits ?? null; // Total chapters/pages
+  const secondaryUnitTotal = item.secondaryUnitTotal ?? item.totalUnits ?? null;
 
   const [prevProgress, setPrevProgress] = useState(secondaryUnitCurrent);
   const [inputValue, setInputValue] = useState(String(secondaryUnitCurrent));
@@ -39,7 +39,6 @@ export default function BookCard({ item, onUpdate, onDelete }) {
 
     if (parsed === secondaryUnitCurrent) return;
 
-    // Optimistic update
     const updates = { secondaryUnitCurrent: parsed };
     onUpdate(item.id, updates);
 
@@ -98,10 +97,17 @@ export default function BookCard({ item, onUpdate, onDelete }) {
     ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
 
+  const getInitials = (titleStr) => {
+    if (!titleStr) return isManga ? 'MG' : 'BK';
+    const words = titleStr.trim().split(/\s+/);
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
   return (
-    <article className={styles.card} aria-label={`${item.title} card`}>
-      {/* 2:3 Portrait Cover (74x111px) */}
-      <div className={styles.coverContainer}>
+    <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
+      {/* 2:3 Aspect Ratio Tile / Cover */}
+      <div className={styles.coverWrapper}>
         {item.coverImage ? (
           <img
             src={item.coverImage}
@@ -110,17 +116,14 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             loading="lazy"
           />
         ) : (
-          <div className={styles.coverPlaceholder}>
-            <span className={styles.placeholderLetter}>
-              {item.title ? item.title.charAt(0).toUpperCase() : isManga ? 'M' : 'B'}
-            </span>
+          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
+            <span>{getInitials(item.title)}</span>
           </div>
         )}
       </div>
 
       {/* Details & Controls */}
-      <div className={styles.cardBody}>
-        {/* Top row: Title + Delete action */}
+      <div className={styles.cardDetails}>
         <div className={styles.cardTopRow}>
           <div className={styles.cardTitleGroup}>
             <h3 className={styles.cardTitle} title={item.title}>
@@ -130,12 +133,12 @@ export default function BookCard({ item, onUpdate, onDelete }) {
           {onDelete && (
             <button
               type="button"
-              className={styles.cardDeleteBtn}
+              className={styles.deleteMiniBtn}
               onClick={() => onDelete(item.id)}
               title={`Remove ${item.title}`}
               aria-label={`Remove ${item.title}`}
             >
-              <Trash2 size={13} strokeWidth={1.75} />
+              <Trash2 size={14} strokeWidth={1.75} />
             </button>
           )}
         </div>
@@ -143,11 +146,11 @@ export default function BookCard({ item, onUpdate, onDelete }) {
         {/* Badges Row */}
         <div className={styles.badgeRow}>
           {primaryUnitTotal > 1 && (
-            <span className={styles.badge}>
+            <span className={styles.metaBadge}>
               Vol {primaryUnitCurrent} / {primaryUnitTotal}
             </span>
           )}
-          <span className={styles.badge}>{isManga ? 'Manga' : 'Book'}</span>
+          <span className={styles.metaBadge}>{isManga ? 'Manga' : 'Book'}</span>
         </div>
 
         {/* Multi-Volume Stepper Row (if applicable) */}
@@ -163,7 +166,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 title="Previous volume"
                 aria-label="Previous volume"
               >
-                <ChevronLeft size={12} strokeWidth={2} />
+                <ChevronLeft size={13} strokeWidth={2} />
               </button>
               <button
                 type="button"
@@ -173,7 +176,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 title="Next volume"
                 aria-label="Next volume"
               >
-                <ChevronRight size={12} strokeWidth={2} />
+                <ChevronRight size={13} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -195,7 +198,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             type="number"
             min="0"
             max={secondaryUnitTotal || undefined}
-            className={styles.chapterInput}
+            className={styles.numericInput}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onBlur={(e) => commitChapterValue(e.target.value)}
@@ -231,3 +234,4 @@ export default function BookCard({ item, onUpdate, onDelete }) {
     </article>
   );
 }
+

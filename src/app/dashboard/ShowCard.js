@@ -13,7 +13,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
   const primaryUnitCurrent = item.primaryUnitCurrent ?? item.currentSeason ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? item.totalSeasons ?? 1;
   const secondaryUnitCurrent = item.secondaryUnitCurrent ?? item.currentProgress ?? 0;
-  const secondaryUnitTotal = item.secondaryUnitTotal ?? item.totalUnits ?? null; // Total episodes in current season
+  const secondaryUnitTotal = item.secondaryUnitTotal ?? item.totalUnits ?? null;
   const structure = Array.isArray(item.structure) ? item.structure : [];
 
   const hasNextSeason = primaryUnitCurrent < primaryUnitTotal || structure.some((s) => s.number > primaryUnitCurrent);
@@ -41,9 +41,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
       return;
     }
 
-    // Increment (delta > 0)
     if (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && secondaryUnitCurrent >= secondaryUnitTotal) {
-      // Reached max episodes for current season
       if (hasNextSeason) {
         const nextSeason = primaryUnitCurrent + 1;
         const nextSeasonObj = structure.find((s) => s.number === nextSeason);
@@ -111,7 +109,13 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
     ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
 
-  // Format double-digit if helpful e.g. Ep 08 / 12
+  const getInitials = (titleStr) => {
+    if (!titleStr) return isAnime ? 'AN' : 'TV';
+    const words = titleStr.trim().split(/\s+/);
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
   const formattedEp =
     secondaryUnitTotal && secondaryUnitTotal >= 10 && secondaryUnitCurrent < 10
       ? `0${secondaryUnitCurrent}`
@@ -123,9 +127,9 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
       : secondaryUnitTotal ? `${secondaryUnitTotal}` : null;
 
   return (
-    <article className={styles.card} aria-label={`${item.title} card`}>
-      {/* 2:3 Portrait Cover (74x111px) */}
-      <div className={styles.coverContainer}>
+    <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
+      {/* 2:3 Aspect Ratio Tile / Cover */}
+      <div className={styles.coverWrapper}>
         {item.coverImage ? (
           <img
             src={item.coverImage}
@@ -134,17 +138,14 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             loading="lazy"
           />
         ) : (
-          <div className={styles.coverPlaceholder}>
-            <span className={styles.placeholderLetter}>
-              {item.title ? item.title.charAt(0).toUpperCase() : isAnime ? 'A' : 'S'}
-            </span>
+          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
+            <span>{getInitials(item.title)}</span>
           </div>
         )}
       </div>
 
-      {/* Details & Controls */}
-      <div className={styles.cardBody}>
-        {/* Top row: Title + Delete action */}
+      {/* Details & Interactive Steppers */}
+      <div className={styles.cardDetails}>
         <div className={styles.cardTopRow}>
           <div className={styles.cardTitleGroup}>
             <h3 className={styles.cardTitle} title={item.title}>
@@ -154,22 +155,22 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
           {onDelete && (
             <button
               type="button"
-              className={styles.cardDeleteBtn}
+              className={styles.deleteMiniBtn}
               onClick={() => onDelete(item.id)}
               title={`Remove ${item.title}`}
               aria-label={`Remove ${item.title}`}
             >
-              <Trash2 size={13} strokeWidth={1.75} />
+              <Trash2 size={14} strokeWidth={1.75} />
             </button>
           )}
         </div>
 
         {/* Badges Row */}
         <div className={styles.badgeRow}>
-          <span className={styles.badge}>
+          <span className={styles.metaBadge}>
             S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
           </span>
-          <span className={styles.badge}>{isAnime ? 'Anime' : 'Show'}</span>
+          <span className={styles.metaBadge}>{isAnime ? 'Anime' : 'TV Series'}</span>
         </div>
 
         {/* Multi-Season Stepper Row (if applicable) */}
@@ -185,7 +186,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 title="Previous season"
                 aria-label="Previous season"
               >
-                <ChevronLeft size={12} strokeWidth={2} />
+                <ChevronLeft size={13} strokeWidth={2} />
               </button>
               <button
                 type="button"
@@ -195,7 +196,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 title="Next season"
                 aria-label="Next season"
               >
-                <ChevronRight size={12} strokeWidth={2} />
+                <ChevronRight size={13} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -248,3 +249,4 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
     </article>
   );
 }
+

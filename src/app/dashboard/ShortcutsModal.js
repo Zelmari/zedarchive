@@ -72,7 +72,7 @@ export default function ShortcutsModal({ isOpen, onClose }) {
         <div className={styles.modalFooter}>
           <button
             type="button"
-            className={styles.cancelBtn}
+            className="za-button za-button--secondary"
             onClick={onClose}
             autoFocus
           >

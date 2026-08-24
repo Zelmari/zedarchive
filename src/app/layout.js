@@ -14,30 +14,24 @@ const monoFont = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "zedarchive — Minimalist Media Tracker",
+  title: "zedarchive — Quiet Media Archive",
   description: "A fast, distraction-free archive for your anime, TV series, novels, and books.",
+  icons: {
+    icon: "/zedarchivelogo.png",
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark" className={`${sansFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var saved = localStorage.getItem('zedarchive-theme');
-                  var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-                  document.documentElement.setAttribute('data-theme', theme);
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body>{children}</body>
+    <html lang="en" className={`${sansFont.variable} ${monoFont.variable}`}>
+      <body>
+        <a href="#main-content" className="za-skip-link">
+          Skip to main content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }
+
 

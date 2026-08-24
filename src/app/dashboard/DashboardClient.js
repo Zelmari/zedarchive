@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Layers,
   Tv,
@@ -10,7 +11,6 @@ import {
   Plus,
   Keyboard,
   LogOut,
-  Sparkles,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import ShowCard from './ShowCard';
@@ -19,7 +19,6 @@ import AddMediaModal from './AddMediaModal';
 import ConfirmModal from './ConfirmModal';
 import ShortcutsModal from './ShortcutsModal';
 import ToastContainer from './Toast';
-import ThemeToggle from './ThemeToggle';
 import {
   createMediaEntry,
   updateMediaProgress,
@@ -62,7 +61,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     setConfirmModal((prev) => ({ ...prev, isOpen: false }));
   };
 
-  // Helper to check if focus is currently inside an input/textarea/editable
+  // Helper to check if focus is inside input
   const isInputFocused = () => {
     const activeEl = document.activeElement;
     if (!activeEl) return false;
@@ -78,19 +77,16 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
-      // Cmd + K or Ctrl + K opens Add Media dialog from anywhere
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         setIsAddModalOpen(true);
         return;
       }
 
-      // If an input is focused or a modal is open, ignore single-key shortcuts
       if (isInputFocused() || isAddModalOpen || confirmModal.isOpen || isShortcutsModalOpen) {
         return;
       }
 
-      // Single-key tab switching
       if (e.key === '1') {
         e.preventDefault();
         setActiveTab('total');
@@ -109,14 +105,12 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         return;
       }
 
-      // Single-key N opens Add modal
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         setIsAddModalOpen(true);
         return;
       }
 
-      // ? or Shift + / opens shortcut cheat sheet
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
         setIsShortcutsModalOpen((prev) => !prev);
@@ -156,7 +150,6 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   };
 
   const handleUpdate = async (id, updates, callServer = false) => {
-    // Optimistic local state update
     setEntries((prev) =>
       prev.map((item) =>
         item.id === id
@@ -207,7 +200,6 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     });
   };
 
-  // Filter entries according to active tab
   const showEntries = entries.filter(
     (item) => item.category === 'show' || item.category === 'anime' || item.type === 'show'
   );
@@ -224,325 +216,188 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   if (activeTab === 'books') displayedEntries = bookEntries;
 
   return (
-    <div className={styles.container}>
-      {/* ====================================================================
-          DESKTOP SIDEBAR
-          ==================================================================== */}
-      <aside className={styles.sidebar} aria-label="Main Sidebar Navigation">
-        <div className={styles.sidebarTop}>
-          <div className={styles.brand}>
-            <div className={styles.brandLogo}>
-              <Sparkles size={18} strokeWidth={2} />
-            </div>
-            <Link href="/dashboard" className={styles.brandLink}>
-              zedarchive
-            </Link>
-          </div>
+    <div className={styles.dashboardContainer}>
+      {/* Site Header with Logo and Wordmark */}
+      <header className="za-site-header">
+        <div className="za-container za-site-header__inner">
+          <Link href="/dashboard" className="za-wordmark">
+            <span className="za-wordmark__mark">
+              <Image
+                src="/zedarchivelogo.png"
+                alt="zedarchive logo"
+                width={72}
+                height={48}
+                priority
+                unoptimized
+              />
+            </span>
+            <span className="za-wordmark__text">zedarchive</span>
+          </Link>
 
-          <nav className={styles.navList} role="tablist" aria-label="Archive navigation">
+          <nav className={styles.headerNav} aria-label="Archive navigation">
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === 'total'}
-              className={`${styles.navItem} ${activeTab === 'total' ? styles.navItemActive : ''}`}
+              className={`za-button ${activeTab === 'total' ? 'za-button--selected za-current-page' : 'za-button--secondary'}`}
               onClick={() => setActiveTab('total')}
               title="Total Archive View (Press 1)"
             >
-              <div className={styles.navItemLabelGroup}>
-                <span className={styles.navItemIcon}>
-                  <Layers size={17} strokeWidth={1.75} />
-                </span>
-                <span>Total View</span>
-              </div>
-              <div className={styles.navItemMeta}>
-                <span className={styles.shortcutBadge}>1</span>
-                <span className={styles.countBadge}>{entries.length}</span>
-              </div>
+              <Layers size={16} strokeWidth={1.75} />
+              <span>Total ({entries.length})</span>
             </button>
 
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === 'shows'}
-              className={`${styles.navItem} ${activeTab === 'shows' ? styles.navItemActive : ''}`}
+              className={`za-button ${activeTab === 'shows' ? 'za-button--selected za-current-page' : 'za-button--secondary'}`}
               onClick={() => setActiveTab('shows')}
               title="Shows & Anime View (Press 2)"
             >
-              <div className={styles.navItemLabelGroup}>
-                <span className={styles.navItemIcon}>
-                  <Tv size={17} strokeWidth={1.75} />
-                </span>
-                <span>Shows & Anime</span>
-              </div>
-              <div className={styles.navItemMeta}>
-                <span className={styles.shortcutBadge}>2</span>
-                <span className={styles.countBadge}>{showEntries.length}</span>
-              </div>
+              <Tv size={16} strokeWidth={1.75} />
+              <span>Shows ({showEntries.length})</span>
             </button>
 
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === 'books'}
-              className={`${styles.navItem} ${activeTab === 'books' ? styles.navItemActive : ''}`}
+              className={`za-button ${activeTab === 'books' ? 'za-button--selected za-current-page' : 'za-button--secondary'}`}
               onClick={() => setActiveTab('books')}
               title="Books & Manga View (Press 3)"
             >
-              <div className={styles.navItemLabelGroup}>
-                <span className={styles.navItemIcon}>
-                  <BookOpen size={17} strokeWidth={1.75} />
-                </span>
-                <span>Books & Manga</span>
-              </div>
-              <div className={styles.navItemMeta}>
-                <span className={styles.shortcutBadge}>3</span>
-                <span className={styles.countBadge}>{bookEntries.length}</span>
-              </div>
+              <BookOpen size={16} strokeWidth={1.75} />
+              <span>Books ({bookEntries.length})</span>
             </button>
           </nav>
 
-          <button
-            type="button"
-            className={styles.sidebarAddBtn}
-            onClick={() => setIsAddModalOpen(true)}
-            title="Add Media to Archive (Press N or ⌘K)"
-          >
-            <div className={styles.sidebarAddBtnGroup}>
-              <Plus size={16} strokeWidth={2.2} />
-              <span>Add Media</span>
-            </div>
-            <span className={styles.sidebarAddBtnBadge}>N</span>
-          </button>
-        </div>
-
-        <div className={styles.sidebarFooter}>
-          <button
-            type="button"
-            className={styles.shortcutTriggerBtn}
-            onClick={() => setIsShortcutsModalOpen(true)}
-            title="Keyboard Shortcuts (Press ?)"
-            aria-label="Keyboard Shortcuts"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <Keyboard size={15} strokeWidth={1.75} />
-              <span>Shortcuts</span>
-            </div>
-            <span className={styles.shortcutBadge}>?</span>
-          </button>
-
-          <div className={styles.userCard}>
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{user?.name || 'Archive User'}</span>
-              <span className={styles.userEmail}>{user?.email}</span>
-            </div>
+          <div className={styles.headerUserArea}>
             <button
               type="button"
-              className={styles.signOutBtn}
+              className="za-button za-button--tertiary"
+              onClick={() => setIsShortcutsModalOpen(true)}
+              title="Keyboard shortcuts (Press ?)"
+              aria-label="Keyboard shortcuts"
+            >
+              <Keyboard size={16} strokeWidth={1.75} />
+              <span className={styles.desktopOnly}>Shortcuts</span>
+            </button>
+
+            <span className={styles.userGreeting}>
+              @{user?.name?.toLowerCase()?.replace(/\s+/g, '') || 'user'}
+            </span>
+
+            <button
+              type="button"
+              className="za-button za-button--secondary"
               onClick={handleSignOut}
               disabled={isSigningOut}
               title="Sign Out"
               aria-label="Sign Out"
             >
               <LogOut size={15} strokeWidth={1.75} />
+              <span className={styles.desktopOnly}>Sign out</span>
             </button>
           </div>
         </div>
-      </aside>
+      </header>
 
-      {/* ====================================================================
-          MOBILE TOP BAR
-          ==================================================================== */}
-      <div className={styles.mobileTopBar}>
-        <div className={styles.brand}>
-          <div className={styles.brandLogo}>
-            <Sparkles size={16} strokeWidth={2} />
-          </div>
-          <Link href="/dashboard" className={styles.brandLink}>
-            zedarchive
-          </Link>
-        </div>
-
-        <div className={styles.mobileTopRight}>
-          <button
-            type="button"
-            className={styles.shortcutTriggerBtn}
-            style={{ width: 'auto', padding: '0.4rem 0.6rem' }}
-            onClick={() => setIsShortcutsModalOpen(true)}
-            title="Shortcuts (?)"
-            aria-label="Keyboard shortcuts"
-          >
-            <Keyboard size={15} strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            className={styles.signOutBtn}
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            title="Sign Out"
-            aria-label="Sign Out"
-          >
-            <LogOut size={15} strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
-
-      {/* ====================================================================
-          MAIN CONTENT AREA
-          ==================================================================== */}
-      <main className={styles.main}>
-        <header className={styles.headerBar}>
-          <div className={styles.headerInfo}>
-            <h1 className={styles.pageTitle}>
-              {activeTab === 'total'
-                ? 'Archive Overview'
-                : activeTab === 'shows'
-                ? 'Shows & Anime'
-                : 'Books & Manga'}
-            </h1>
-            <p className={styles.pageSubtitle}>
-              {activeTab === 'total'
-                ? `Tracking ${entries.length} media items across shows and reading lists`
-                : activeTab === 'shows'
-                ? `${showEntries.length} shows & anime in your collection`
-                : `${bookEntries.length} books, manga & novels in your collection`}
-            </p>
-          </div>
-
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.headerAddBtn}
-              onClick={() => setIsAddModalOpen(true)}
-              title="Add media (N)"
-            >
-              <Plus size={16} strokeWidth={2.2} />
-              <span>
-                Add {activeTab === 'shows' ? 'Show / Anime' : activeTab === 'books' ? 'Book / Manga' : 'Media'}
-              </span>
-            </button>
-          </div>
-        </header>
-
-        {/* Media Grid */}
-        <div className={styles.mediaGrid}>
-          {displayedEntries.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>
-                {activeTab === 'shows' ? (
-                  <Tv size={36} strokeWidth={1.75} />
-                ) : activeTab === 'books' ? (
-                  <BookOpen size={36} strokeWidth={1.75} />
-                ) : (
-                  <Layers size={36} strokeWidth={1.75} />
-                )}
-              </div>
-              <h3 className={styles.emptyTitle}>
-                {activeTab === 'shows'
-                  ? 'No shows or anime in archive yet'
-                  : activeTab === 'books'
-                  ? 'No books or manga in archive yet'
-                  : 'Your archive is empty'}
-              </h3>
-              <p className={styles.emptySubtitle}>
+      {/* Main Content Area */}
+      <main id="main-content" className={styles.mainArea}>
+        <div className="za-container">
+          <div className={styles.pageMasthead}>
+            <div className={styles.mastheadText}>
+              <h1 className={styles.mastheadTitle}>
                 {activeTab === 'total'
-                  ? 'Switch to the Shows or Books tab or press [N] to add your first title.'
-                  : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show or anime' : 'book or manga'}.`}
+                  ? 'Your Media Archive'
+                  : activeTab === 'shows'
+                  ? 'Shows & Anime'
+                  : 'Books & Manga'}
+              </h1>
+              <p className={styles.mastheadSubtitle}>
+                {activeTab === 'total'
+                  ? `Tracking ${entries.length} items across shows and reading lists`
+                  : activeTab === 'shows'
+                  ? `${showEntries.length} shows & anime in your collection`
+                  : `${bookEntries.length} books and manga titles`}
               </p>
+            </div>
+
+            <div className={styles.mastheadActions}>
               <button
                 type="button"
-                className={styles.headerAddBtn}
+                className="za-button za-button--primary"
                 onClick={() => setIsAddModalOpen(true)}
+                title="Add media (Press N or ⌘K)"
               >
                 <Plus size={16} strokeWidth={2.2} />
                 <span>
-                  Add {activeTab === 'shows' ? 'Show / Anime' : activeTab === 'books' ? 'Book / Manga' : 'Media'}
+                  Add {activeTab === 'shows' ? 'Show' : activeTab === 'books' ? 'Book' : 'Media'}
                 </span>
               </button>
             </div>
-          ) : (
-            displayedEntries.map((item) => {
-              const isBookType =
-                item.category === 'book' ||
-                item.category === 'manga' ||
-                item.type === 'book' ||
-                item.type === 'novel';
+          </div>
 
-              if (isBookType) {
+          {/* Media Grid */}
+          <div className={styles.mediaGrid}>
+            {displayedEntries.length === 0 ? (
+              <div className={`za-card ${styles.emptyCard}`}>
+                <div className={styles.emptyIconWrapper}>
+                  {activeTab === 'shows' ? (
+                    <Tv size={36} strokeWidth={1.5} />
+                  ) : activeTab === 'books' ? (
+                    <BookOpen size={36} strokeWidth={1.5} />
+                  ) : (
+                    <Layers size={36} strokeWidth={1.5} />
+                  )}
+                </div>
+                <h2 className={styles.emptyTitle}>
+                  {activeTab === 'shows'
+                    ? 'No shows or anime in your archive yet'
+                    : activeTab === 'books'
+                    ? 'No books or manga in your archive yet'
+                    : 'Your archive is currently empty'}
+                </h2>
+                <p className={styles.emptySubtitle}>
+                  {activeTab === 'total'
+                    ? 'Press [N] or click below to catalog your first media title.'
+                    : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show' : 'book'}.`}
+                </p>
+                <button
+                  type="button"
+                  className="za-button za-button--primary"
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  <Plus size={16} strokeWidth={2.2} />
+                  <span>Add New Title</span>
+                </button>
+              </div>
+            ) : (
+              displayedEntries.map((item) => {
+                const isBookType =
+                  item.category === 'book' ||
+                  item.category === 'manga' ||
+                  item.type === 'book' ||
+                  item.type === 'novel';
+
+                if (isBookType) {
+                  return (
+                    <BookCard
+                      key={item.id}
+                      item={item}
+                      onUpdate={handleUpdate}
+                      onDelete={handleDeleteClick}
+                    />
+                  );
+                }
                 return (
-                  <BookCard
+                  <ShowCard
                     key={item.id}
                     item={item}
                     onUpdate={handleUpdate}
                     onDelete={handleDeleteClick}
                   />
                 );
-              }
-              return (
-                <ShowCard
-                  key={item.id}
-                  item={item}
-                  onUpdate={handleUpdate}
-                  onDelete={handleDeleteClick}
-                />
-              );
-            })
-          )}
+              })
+            )}
+          </div>
         </div>
       </main>
-
-      {/* ====================================================================
-          MOBILE FIXED BOTTOM NAV
-          ==================================================================== */}
-      <nav className={styles.bottomNav} aria-label="Mobile Bottom Navigation">
-        <div className={styles.bottomNavList} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'total'}
-            className={`${styles.bottomNavItem} ${activeTab === 'total' ? styles.bottomNavItemActive : ''}`}
-            onClick={() => setActiveTab('total')}
-          >
-            <Layers size={18} strokeWidth={activeTab === 'total' ? 2.2 : 1.75} />
-            <span>Total ({entries.length})</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'shows'}
-            className={`${styles.bottomNavItem} ${activeTab === 'shows' ? styles.bottomNavItemActive : ''}`}
-            onClick={() => setActiveTab('shows')}
-          >
-            <Tv size={18} strokeWidth={activeTab === 'shows' ? 2.2 : 1.75} />
-            <span>Shows ({showEntries.length})</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'books'}
-            className={`${styles.bottomNavItem} ${activeTab === 'books' ? styles.bottomNavItemActive : ''}`}
-            onClick={() => setActiveTab('books')}
-          >
-            <BookOpen size={18} strokeWidth={activeTab === 'books' ? 2.2 : 1.75} />
-            <span>Books ({bookEntries.length})</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.bottomNavItem} ${styles.bottomNavAddBtn}`}
-            onClick={() => setIsAddModalOpen(true)}
-            aria-label="Add Media"
-          >
-            <div className={styles.bottomNavAddIconWrapper}>
-              <Plus size={18} strokeWidth={2.5} />
-            </div>
-          </button>
-        </div>
-      </nav>
-
-      {/* Floating Bottom-Right Theme Toggle */}
-      <ThemeToggle />
 
       {/* Add Item Modal */}
       {isAddModalOpen && (
@@ -572,7 +427,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         onClose={() => setIsShortcutsModalOpen(false)}
       />
 
-      {/* Floating Toast Container */}
+      {/* Floating Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
