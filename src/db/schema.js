@@ -38,6 +38,7 @@ export const account = pgTable('account', {
   refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
   scope: text('scope'),
   password: text('password'),
+  issuer: text('issuer'), // Added missing required field
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -53,7 +54,7 @@ export const verification = pgTable('verification', {
 
 // MEDIA TRACKER TABLES
 
-export const mediaTypeEnum = pgEnum('media_type', ['show', 'novel']);
+export const mediaTypeEnum = pgEnum('media_type', ['show', 'book', 'novel']);
 export const statusEnum = pgEnum('media_status', [
   'plan_to_track',
   'in_progress',
@@ -68,8 +69,10 @@ export const mediaEntries = pgTable('media_entries', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
-  type: mediaTypeEnum('type').notNull().default('show'),
-  status: statusEnum('status').notNull().default('in_progress'),
+  type: text('type').notNull().default('show'),
+  status: text('status').notNull().default('in_progress'),
+  currentSeason: integer('current_season').notNull().default(1),
+  totalSeasons: integer('total_seasons').notNull().default(1),
   currentProgress: integer('current_progress').notNull().default(0),
   totalUnits: integer('total_units'),
   rating: integer('rating'),
