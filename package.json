@@ -9,11 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "better-auth": "^1.7.1",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.2",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.2"
   }

@@ -1,69 +1,52 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+// src/app/page.js
+import Link from 'next/link';
+import styles from './page.module.css';
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.js</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className={styles.container}>
+      <header className={styles.nav}>
+        <div className={styles.brand}>zedarchive</div>
+        <div className={styles.navLinks}>
+          <Link href="/login" className={styles.navLogin}>
+            Log In
+          </Link>
+          <Link href="/signup" className={styles.navSignup}>
+            Sign Up
+          </Link>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <main className={styles.hero}>
+        <span className={styles.badge}>Minimalist Media Tracker</span>
+        <h1 className={styles.heroTitle}>Track what you watch & read without the bloat.</h1>
+        <p className={styles.heroSubtitle}>
+          A fast, distraction-free archive for your anime, TV series, novels, and books. Kept in sync with your personal account.
+        </p>
+        <div className={styles.ctaGroup}>
+          <Link href="/signup" className={styles.primaryCta}>
+            Get Started Free
+          </Link>
+          <Link href="/login" className={styles.secondaryCta}>
+            Sign In
+          </Link>
         </div>
       </main>
+
+      <section className={styles.features}>
+        <div className={styles.featureCard}>
+          <h3>Unified Tracker</h3>
+          <p>Track anime, shows, web novels, and physical books in a single streamlined dashboard.</p>
+        </div>
+        <div className={styles.featureCard}>
+          <h3>Frictionless Updates</h3>
+          <p>Increment episodes and chapters in one click. No cluttered social feeds or ads.</p>
+        </div>
+        <div className={styles.featureCard}>
+          <h3>Persistent & Private</h3>
+          <p>Your library is stored in PostgreSQL and tied securely to your account.</p>
+        </div>
+      </section>
     </div>
   );
 }

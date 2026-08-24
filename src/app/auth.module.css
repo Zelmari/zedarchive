@@ -1,0 +1,123 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background-color: var(--bg-primary);
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2.25rem;
+}
+
+.header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.errorBanner {
+  background-color: var(--danger-bg);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.85rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fieldGroup label {
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.fieldGroup input {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.fieldGroup input:focus {
+  border-color: var(--border-hover);
+}
+
+.submitBtn {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: opacity 0.15s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.link {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
