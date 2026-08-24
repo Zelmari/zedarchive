@@ -1,16 +1,30 @@
-export const dynamic = 'force-dynamic';
 export const revalidate = 86400;
 
+const MAX_QUERY_LENGTH = 100;
+
+function parseQuery(request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get('q') || searchParams.get('query') || '';
+  const trimmed = query.trim();
+  if (trimmed.length > MAX_QUERY_LENGTH) {
+    return { error: Response.json(
+      { results: [], error: 'Query too long' },
+      { status: 400 }
+    ) };
+  }
+  return { query: trimmed };
+}
+
 export async function GET(request) {
+  const { query, error } = parseQuery(request);
+  if (error) return error;
+
+  if (!query) {
+    return Response.json({ results: [] });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || searchParams.get('query') || '';
-
-    if (!query.trim()) {
-      return Response.json({ results: [] });
-    }
-
-    const searchUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query.trim())}`;
+    const searchUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
     const searchRes = await fetch(searchUrl, {
       next: { revalidate: 86400 },
       headers: {
@@ -19,7 +33,10 @@ export async function GET(request) {
     });
 
     if (!searchRes.ok) {
-      return Response.json({ results: [] });
+      return Response.json(
+        { results: [], error: 'Search service unavailable' },
+        { status: 502 }
+      );
     }
 
     const searchData = await searchRes.json();
@@ -43,11 +60,13 @@ export async function GET(request) {
         }
 
         const structureArray = Array.isArray(seasons)
-          ? seasons.map((s) => ({
-              number: s.number,
-              name: s.name ? s.name : `Season ${s.number}`,
-              total: s.episodeOrder || null,
-            }))
+          ? seasons
+              .filter((s) => s.number !== null && s.number !== undefined && s.number > 0)
+              .map((s) => ({
+                number: s.number,
+                name: s.name ? s.name : `Season ${s.number}`,
+                total: s.episodeOrder || null,
+              }))
           : [];
 
         let coverUrl = show.image?.medium || show.image?.original || null;

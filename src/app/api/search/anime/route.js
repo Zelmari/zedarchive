@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 export const revalidate = 86400;
+
+const MAX_QUERY_LENGTH = 100;
 
 const ANILIST_QUERY = `
 query ($search: String, $type: MediaType) {
@@ -27,17 +28,21 @@ query ($search: String, $type: MediaType) {
 `;
 
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
+  }
+
+  const rawType = (searchParams.get('type') || searchParams.get('category') || 'ANIME').toUpperCase();
+  const mediaType = rawType === 'MANGA' ? 'MANGA' : 'ANIME';
+  const isManga = mediaType === 'MANGA';
+
+  if (!query) {
+    return Response.json({ results: [] });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || searchParams.get('query') || '';
-    const rawType = (searchParams.get('type') || searchParams.get('category') || 'ANIME').toUpperCase();
-    const mediaType = rawType === 'MANGA' ? 'MANGA' : 'ANIME';
-    const isManga = mediaType === 'MANGA';
-
-    if (!query.trim()) {
-      return Response.json({ results: [] });
-    }
-
     const response = await fetch('https://graphql.anilist.co', {
       method: 'POST',
       headers: {
@@ -47,7 +52,7 @@ export async function GET(request) {
       body: JSON.stringify({
         query: ANILIST_QUERY,
         variables: {
-          search: query.trim(),
+          search: query,
           type: mediaType,
         },
       }),
@@ -55,7 +60,10 @@ export async function GET(request) {
     });
 
     if (!response.ok) {
-      return Response.json({ results: [] });
+      return Response.json(
+        { results: [], error: 'Search service unavailable' },
+        { status: 502 }
+      );
     }
 
     const json = await response.json();

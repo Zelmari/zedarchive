@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 export const revalidate = 86400;
+
+const MAX_QUERY_LENGTH = 100;
 
 async function searchOpenLibrary(query) {
   try {
@@ -12,7 +13,7 @@ async function searchOpenLibrary(query) {
     });
 
     if (!res.ok) {
-      return [];
+      return null;
     }
 
     const data = await res.json();
@@ -23,10 +24,10 @@ async function searchOpenLibrary(query) {
         ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
         : null;
 
-      const cleanKey = doc.key ? doc.key.replace(/^\/works\//, '') : String(Math.random());
+      const cleanKey = doc.key ? doc.key.replace(/^\/works\//, '') : null;
 
       return {
-        sourceId: `openlib-${cleanKey}`,
+        sourceId: `openlib-${cleanKey || doc.title || query}`,
         category: 'book',
         title: doc.title || 'Unknown Title',
         coverUrl,
@@ -39,24 +40,25 @@ async function searchOpenLibrary(query) {
     });
   } catch (err) {
     console.error('Open Library fallback error:', err);
-    return [];
+    return null;
   }
 }
 
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
+  }
+
+  if (!query) {
+    return Response.json({ results: [] });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || searchParams.get('query') || '';
-
-    if (!query.trim()) {
-      return Response.json({ results: [] });
-    }
-
-    const cleanQuery = query.trim();
-
     // 1. Try Google Books API
     try {
-      const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(cleanQuery)}&maxResults=5`;
+      const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`;
       const gbooksRes = await fetch(gbooksUrl, {
         next: { revalidate: 86400 },
         headers: {
@@ -95,7 +97,13 @@ export async function GET(request) {
     }
 
     // 2. Fallback to Open Library
-    const fallbackResults = await searchOpenLibrary(cleanQuery);
+    const fallbackResults = await searchOpenLibrary(query);
+    if (fallbackResults === null) {
+      return Response.json(
+        { results: [], error: 'Search service unavailable' },
+        { status: 502 }
+      );
+    }
     return Response.json({ results: fallbackResults });
   } catch (error) {
     console.error('Books search error:', error);
