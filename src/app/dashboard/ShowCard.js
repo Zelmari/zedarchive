@@ -181,6 +181,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 onClick={() => handleSeasonChange(-1)}
                 disabled={primaryUnitCurrent <= 1 || isUpdating}
                 title="Previous season"
+                aria-label="Previous season"
               >
                 ◀
               </button>
@@ -190,6 +191,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 onClick={() => handleSeasonChange(1)}
                 disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
                 title="Next season"
+                aria-label="Next season"
               >
                 ▶
               </button>

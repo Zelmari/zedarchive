@@ -169,6 +169,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 onClick={() => handleVolumeChange(-1)}
                 disabled={primaryUnitCurrent <= 1 || isUpdating}
                 title="Previous volume"
+                aria-label="Previous volume"
               >
                 ◀
               </button>
@@ -178,6 +179,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 onClick={() => handleVolumeChange(1)}
                 disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
                 title="Next volume"
+                aria-label="Next volume"
               >
                 ▶
               </button>

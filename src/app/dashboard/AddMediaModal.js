@@ -20,6 +20,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
   // Search & Autofill state
   const [searchResults, setSearchResults] = useState([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -28,6 +29,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
   const titleInputRef = useRef(null);
   const searchContainerRef = useRef(null);
+  const dropdownItemsRef = useRef([]);
   const fileInputRef = useRef(null);
   const searchAbortRef = useRef(null);
 
@@ -44,6 +46,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setNotes('');
     setCoverImage(null);
     setSearchResults([]);
+    setHighlightedIndex(-1);
     setShowDropdown(false);
     setError('');
   }, []);
@@ -58,6 +61,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     (e) => {
       if (showDropdown) {
         setShowDropdown(false);
+        setHighlightedIndex(-1);
       } else {
         resetAndClose();
       }
@@ -82,11 +86,21 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     function handleClickOutside(event) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         setShowDropdown(false);
+        setHighlightedIndex(-1);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && dropdownItemsRef.current[highlightedIndex]) {
+      dropdownItemsRef.current[highlightedIndex]?.scrollIntoView?.({
+        block: 'nearest',
+      });
+    }
+  }, [highlightedIndex]);
 
   // Debounced search trigger (350ms, >= 3 chars)
   useEffect(() => {
@@ -94,6 +108,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
     if (trimmedTitle.length < 3) {
       setSearchResults([]);
+      setHighlightedIndex(-1);
       setIsSearching(false);
       setShowDropdown(false);
       return;
@@ -131,11 +146,13 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         const data = await res.json();
         const results = data.results || (Array.isArray(data) ? data : []);
         setSearchResults(results);
+        setHighlightedIndex(-1);
         setShowDropdown(results.length > 0);
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error('Search error:', err);
           setSearchResults([]);
+          setHighlightedIndex(-1);
         }
       } finally {
         setIsSearching(false);
@@ -166,6 +183,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setSecondaryUnitTotal(secTotal ? String(secTotal) : '');
 
     setShowDropdown(false);
+    setHighlightedIndex(-1);
 
     // Fetch and compress remote poster
     if (item.coverUrl) {
@@ -182,6 +200,42 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         setCoverImage(item.coverUrl);
       } finally {
         setIsCompressing(false);
+      }
+    }
+  };
+
+  // Keyboard navigation for search input
+  const handleTitleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      if (searchResults.length > 0) {
+        e.preventDefault();
+        if (!showDropdown) {
+          setShowDropdown(true);
+          setHighlightedIndex(0);
+        } else {
+          setHighlightedIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
+        }
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      if (searchResults.length > 0) {
+        e.preventDefault();
+        if (!showDropdown) {
+          setShowDropdown(true);
+          setHighlightedIndex(searchResults.length - 1);
+        } else {
+          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
+        }
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (showDropdown && highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+        e.preventDefault();
+        handleSelectResult(searchResults[highlightedIndex]);
       }
     }
   };
@@ -362,7 +416,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             </div>
           </div>
 
-          {/* Title with Debounced Search Dropdown */}
+          {/* Title with Debounced Search Dropdown & Arrow Key Navigation */}
           <div className={styles.formGroup} ref={searchContainerRef} style={{ position: 'relative' }}>
             <div className={styles.labelRow}>
               <label htmlFor="media-title" className={styles.formLabel}>
@@ -388,21 +442,37 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
               onFocus={() => {
                 if (searchResults.length > 0) setShowDropdown(true);
               }}
               autoFocus
+              aria-expanded={showDropdown}
+              aria-autocomplete="list"
+              aria-controls="search-results-list"
             />
 
             {/* Floating Dropdown Results */}
             {showDropdown && (
-              <div className={styles.searchDropdown} role="listbox" aria-label="Search results">
-                {searchResults.map((item) => (
+              <div
+                id="search-results-list"
+                className={styles.searchDropdown}
+                role="listbox"
+                aria-label="Search results"
+              >
+                {searchResults.map((item, idx) => (
                   <div
-                    key={item.sourceId || `${item.title}-${item.year}`}
-                    className={styles.searchResultItem}
+                    key={item.sourceId || `${item.title}-${item.year}-${idx}`}
+                    ref={(el) => {
+                      dropdownItemsRef.current[idx] = el;
+                    }}
+                    className={`${styles.searchResultItem} ${
+                      highlightedIndex === idx ? styles.searchResultItemActive : ''
+                    }`}
                     onClick={() => handleSelectResult(item)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
                     role="option"
+                    aria-selected={highlightedIndex === idx}
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
