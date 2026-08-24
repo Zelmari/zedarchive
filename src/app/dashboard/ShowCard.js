@@ -20,10 +20,31 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
 
   const canDecrementEp = secondaryUnitCurrent > 0;
   const canIncrementEp =
-    secondaryUnitTotal === null ||
-    secondaryUnitTotal === undefined ||
-    secondaryUnitCurrent < secondaryUnitTotal ||
-    hasNextSeason;
+    hasNextSeason ||
+    (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && secondaryUnitCurrent < secondaryUnitTotal);
+
+  const advanceToNextSeason = async () => {
+    const nextSeason = primaryUnitCurrent + 1;
+    const nextSeasonObj = structure.find((s) => s.number === nextSeason);
+    const nextSeasonTotal =
+      nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
+        ? nextSeasonObj.total
+        : null;
+
+    const updates = {
+      primaryUnitCurrent: nextSeason,
+      secondaryUnitCurrent: 1,
+      secondaryUnitTotal: nextSeasonTotal,
+    };
+
+    onUpdate(item.id, updates);
+    try {
+      setIsUpdating(true);
+      await onUpdate(item.id, updates, true);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleEpisodeChange = async (delta) => {
     if (delta < 0) {
@@ -41,28 +62,12 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
       return;
     }
 
-    if (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && secondaryUnitCurrent >= secondaryUnitTotal) {
+    const totalKnown =
+      secondaryUnitTotal !== null && secondaryUnitTotal !== undefined;
+
+    if (!totalKnown || secondaryUnitCurrent >= secondaryUnitTotal) {
       if (hasNextSeason) {
-        const nextSeason = primaryUnitCurrent + 1;
-        const nextSeasonObj = structure.find((s) => s.number === nextSeason);
-        const nextSeasonTotal =
-          nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
-            ? nextSeasonObj.total
-            : null;
-
-        const updates = {
-          primaryUnitCurrent: nextSeason,
-          secondaryUnitCurrent: 1,
-          secondaryUnitTotal: nextSeasonTotal,
-        };
-
-        onUpdate(item.id, updates);
-        try {
-          setIsUpdating(true);
-          await onUpdate(item.id, updates, true);
-        } finally {
-          setIsUpdating(false);
-        }
+        await advanceToNextSeason();
       }
       return;
     }
@@ -92,7 +97,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
 
     const updates = {
       primaryUnitCurrent: nextSeason,
-      secondaryUnitCurrent: 0,
+      secondaryUnitCurrent: 1,
       secondaryUnitTotal: nextSeasonTotal,
     };
 
@@ -121,10 +126,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
       ? `0${secondaryUnitCurrent}`
       : `${secondaryUnitCurrent}`;
 
-  const formattedTotal =
-    secondaryUnitTotal && secondaryUnitTotal >= 10 && secondaryUnitTotal < 10
-      ? `0${secondaryUnitTotal}`
-      : secondaryUnitTotal ? `${secondaryUnitTotal}` : null;
+  const formattedTotal = secondaryUnitTotal ? `${secondaryUnitTotal}` : null;
 
   return (
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>

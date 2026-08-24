@@ -6,9 +6,16 @@ import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-util
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
+// Persist the last-used category across modal open/close within this page session
+let lastCategory = null;
+
 export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd }) {
   const initialCategory = type === 'book' ? 'book' : 'show';
-  const [category, setCategory] = useState(initialCategory);
+  const [category, setCategory] = useState(() => lastCategory || initialCategory);
+  const updateCategory = (nextCategory) => {
+    lastCategory = nextCategory;
+    setCategory(nextCategory);
+  };
   const [title, setTitle] = useState('');
   const [primaryUnitTotal, setPrimaryUnitTotal] = useState('1');
   const [primaryUnitCurrent, setPrimaryUnitCurrent] = useState('1');
@@ -33,6 +40,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   const dropdownItemsRef = useRef([]);
   const fileInputRef = useRef(null);
   const searchAbortRef = useRef(null);
+  const coverRequestRef = useRef(0);
 
   const isShowLike = category === 'show' || category === 'anime';
 
@@ -50,12 +58,14 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setHighlightedIndex(-1);
     setShowDropdown(false);
     setError('');
+    coverRequestRef.current += 1;
   }, []);
 
   const resetAndClose = useCallback(() => {
+    if (isSubmitting || isCompressing) return;
     resetForm();
     onClose();
-  }, [resetForm, onClose]);
+  }, [resetForm, onClose, isSubmitting, isCompressing]);
 
   // Escape key handler: close dropdown if open, else close modal
   const handleEscape = useCallback(
@@ -73,11 +83,10 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   // Accessible focus trapping
   const modalRef = useFocusTrap(isOpen, handleEscape, { initialFocusRef: titleInputRef });
 
-  // Sync category if type prop changes when modal opens
+  // Sync form when modal opens (category persists from last session use)
   useEffect(() => {
     if (isOpen) {
-      const defaultCat = type === 'book' ? 'book' : 'show';
-      setCategory(defaultCat);
+      setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
       resetForm();
     }
   }, [isOpen, type, resetForm]);
@@ -116,10 +125,9 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     }
 
     const timer = setTimeout(async () => {
-      if (searchAbortRef.current) {
-        searchAbortRef.current.abort();
-      }
-      searchAbortRef.current = new AbortController();
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
 
       setIsSearching(true);
       setError('');
@@ -137,7 +145,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         }
 
         const res = await fetch(endpoint, {
-          signal: searchAbortRef.current.signal,
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -156,17 +164,23 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
           setHighlightedIndex(-1);
         }
       } finally {
-        setIsSearching(false);
+        if (searchAbortRef.current === controller) {
+          setIsSearching(false);
+        }
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      searchAbortRef.current?.abort();
+    };
   }, [title, category]);
 
   if (!isOpen) return null;
 
   // Autofill on Selection from search dropdown
   const handleSelectResult = async (item) => {
+    const requestId = ++coverRequestRef.current;
     setTitle(item.title || '');
     setSourceId(item.sourceId || '');
 
@@ -191,6 +205,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
       setIsCompressing(true);
       try {
         const compressedBase64 = await fetchAndCompressRemoteImage(item.coverUrl, 320, 480, 0.7);
+        if (coverRequestRef.current !== requestId) return;
         if (compressedBase64) {
           setCoverImage(compressedBase64);
         } else {
@@ -198,9 +213,12 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         }
       } catch (imgErr) {
         console.warn('Failed to compress remote cover:', imgErr);
+        if (coverRequestRef.current !== requestId) return;
         setCoverImage(item.coverUrl);
       } finally {
-        setIsCompressing(false);
+        if (coverRequestRef.current === requestId) {
+          setIsCompressing(false);
+        }
       }
     }
   };
@@ -249,8 +267,10 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
       const seasonObj = structure.find((s) => s.number === seasonNum);
       if (seasonObj && seasonObj.total !== null && seasonObj.total !== undefined) {
         setSecondaryUnitTotal(String(seasonObj.total));
+        return;
       }
     }
+    setSecondaryUnitTotal('');
   };
 
   const handleImageUpload = async (e) => {
@@ -345,7 +365,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 role="radio"
                 aria-checked={category === 'show'}
                 className={`${styles.categoryChip} ${category === 'show' ? styles.categoryChipActive : ''}`}
-                onClick={() => setCategory('show')}
+                onClick={() => updateCategory('show')}
               >
                 <Tv size={14} strokeWidth={2} />
                 <span>TV Show</span>
@@ -355,7 +375,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 role="radio"
                 aria-checked={category === 'anime'}
                 className={`${styles.categoryChip} ${category === 'anime' ? styles.categoryChipActive : ''}`}
-                onClick={() => setCategory('anime')}
+                onClick={() => updateCategory('anime')}
               >
                 <Sparkles size={14} strokeWidth={2} />
                 <span>Anime</span>
@@ -365,7 +385,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 role="radio"
                 aria-checked={category === 'book'}
                 className={`${styles.categoryChip} ${category === 'book' ? styles.categoryChipActive : ''}`}
-                onClick={() => setCategory('book')}
+                onClick={() => updateCategory('book')}
               >
                 <BookOpen size={14} strokeWidth={2} />
                 <span>Book</span>
@@ -375,7 +395,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 role="radio"
                 aria-checked={category === 'manga'}
                 className={`${styles.categoryChip} ${category === 'manga' ? styles.categoryChipActive : ''}`}
-                onClick={() => setCategory('manga')}
+                onClick={() => updateCategory('manga')}
               >
                 <Library size={14} strokeWidth={2} />
                 <span>Manga</span>

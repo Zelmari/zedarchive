@@ -1,3 +1,16 @@
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_SOURCE_DIMENSION = 4000; // guard against decompression bombs
+const FETCH_TIMEOUT_MS = 10000;
+
+function withTimeout(promise, ms = FETCH_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Image load timed out')), ms)
+    ),
+  ]);
+}
+
 /**
  * Compresses an uploaded image file on the client using HTML5 Canvas.
  * Scales the image while preserving aspect ratio and outputs a lightweight Base64 data URL.
@@ -18,6 +31,10 @@ export function compressImageFile(file, maxWidth = 320, maxHeight = 480, quality
       return reject(new Error('Selected file is not an image'));
     }
 
+    if (file.size > MAX_FILE_SIZE) {
+      return reject(new Error('Image is too large (max 10 MB)'));
+    }
+
     const reader = new FileReader();
 
     reader.onerror = () => {
@@ -32,6 +49,10 @@ export function compressImageFile(file, maxWidth = 320, maxHeight = 480, quality
       };
 
       img.onload = () => {
+        if (img.naturalWidth > MAX_SOURCE_DIMENSION || img.naturalHeight > MAX_SOURCE_DIMENSION) {
+          return reject(new Error('Image dimensions are too large'));
+        }
+
         let { width, height } = img;
 
         // Preserve aspect ratio while fitting within maxWidth and maxHeight
@@ -92,6 +113,11 @@ export async function fetchAndCompressRemoteImage(
     return '';
   }
 
+  // Only allow http(s) URLs — never data: or file: schemes
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    return '';
+  }
+
   // Helper to load image via HTML Image element with crossOrigin
   const loadViaImageElement = () =>
     new Promise((resolve, reject) => {
@@ -100,6 +126,10 @@ export async function fetchAndCompressRemoteImage(
 
       img.onload = () => {
         try {
+          if (img.naturalWidth > MAX_SOURCE_DIMENSION || img.naturalHeight > MAX_SOURCE_DIMENSION) {
+            return reject(new Error('Image dimensions are too large'));
+          }
+
           let { width, height } = img;
 
           if (width > maxWidth || height > maxHeight) {
@@ -142,14 +172,15 @@ export async function fetchAndCompressRemoteImage(
     const res = await fetch(imageUrl, { mode: 'cors' });
     if (!res.ok) throw new Error('Fetch failed');
     const blob = await res.blob();
+    if (blob.size > MAX_FILE_SIZE) throw new Error('Image is too large');
     return await compressImageFile(blob, maxWidth, maxHeight, quality);
   };
 
   try {
-    return await loadViaImageElement();
+    return await withTimeout(loadViaImageElement());
   } catch {
     try {
-      return await loadViaFetch();
+      return await withTimeout(loadViaFetch());
     } catch {
       return '';
     }

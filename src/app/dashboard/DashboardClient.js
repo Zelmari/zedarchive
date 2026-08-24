@@ -150,6 +150,8 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   };
 
   const handleUpdate = async (id, updates, callServer = false) => {
+    const previousEntry = entries.find((item) => item.id === id);
+
     setEntries((prev) =>
       prev.map((item) =>
         item.id === id
@@ -167,6 +169,9 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         await updateMediaProgress(id, updates);
       } catch (err) {
         console.error('Failed to sync update with server:', err);
+        setEntries((prev) =>
+          prev.map((item) => (item.id === id && previousEntry ? previousEntry : item))
+        );
         addToast('Failed to sync update with server', 'error');
       }
     }
@@ -185,7 +190,8 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       variant: 'danger',
       onConfirm: async () => {
         closeConfirmModal();
-        const previousEntries = entries;
+        const previousIndex = entries.findIndex((item) => item.id === id);
+        const previousEntry = entries[previousIndex];
         setEntries((prev) => prev.filter((item) => item.id !== id));
 
         try {
@@ -193,7 +199,11 @@ export default function DashboardClient({ user, initialEntries = [] }) {
           addToast(`"${itemTitle}" removed from archive`, 'info');
         } catch (err) {
           console.error('Failed to delete item:', err);
-          setEntries(previousEntries);
+          setEntries((prev) => {
+            const next = prev.filter((item) => item.id !== id);
+            next.splice(Math.min(previousIndex, next.length), 0, previousEntry);
+            return next;
+          });
           addToast('Failed to delete item. Please try again.', 'error');
         }
       },
@@ -398,15 +408,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         </div>
       </main>
 
-      {/* Add Item Modal */}
-      {isAddModalOpen && (
-        <AddMediaModal
-          isOpen={isAddModalOpen}
-          type={activeTab === 'books' ? 'book' : 'show'}
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleCreate}
-        />
-      )}
+      {/* Add Item Modal (kept mounted so focus restoration works on close) */}
+      <AddMediaModal
+        isOpen={isAddModalOpen}
+        type={activeTab === 'books' ? 'book' : 'show'}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleCreate}
+      />
 
       {/* In-App Confirmation Modal */}
       <ConfirmModal
