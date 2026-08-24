@@ -1,5 +1,6 @@
 'use client';
 
+import { Keyboard, X } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
@@ -32,7 +33,9 @@ export default function ShortcutsModal({ isOpen, onClose }) {
       >
         <div className={styles.modalHeader}>
           <div className={styles.shortcutsHeaderLeft}>
-            <span className={styles.shortcutsIcon}>⌨️</span>
+            <span className={styles.shortcutsIcon}>
+              <Keyboard size={18} strokeWidth={1.75} />
+            </span>
             <h2 id="shortcuts-modal-title" className={styles.modalTitle}>
               Keyboard Shortcuts
             </h2>
@@ -43,7 +46,7 @@ export default function ShortcutsModal({ isOpen, onClose }) {
             onClick={onClose}
             aria-label="Close shortcuts dialog"
           >
-            ✕
+            <X size={18} strokeWidth={2} />
           </button>
         </div>
 

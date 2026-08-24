@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Tv, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
@@ -58,7 +59,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
 
   // Escape key handler: close dropdown if open, else close modal
   const handleEscape = useCallback(
-    (e) => {
+    () => {
       if (showDropdown) {
         setShowDropdown(false);
         setHighlightedIndex(-1);
@@ -328,7 +329,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             onClick={resetAndClose}
             aria-label="Close modal"
           >
-            ✕
+            <X size={18} strokeWidth={2} />
           </button>
         </div>
 
@@ -346,7 +347,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 className={`${styles.categoryChip} ${category === 'show' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('show')}
               >
-                🎬 TV Show
+                <Tv size={14} strokeWidth={2} />
+                <span>TV Show</span>
               </button>
               <button
                 type="button"
@@ -355,7 +357,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 className={`${styles.categoryChip} ${category === 'anime' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('anime')}
               >
-                ⚡ Anime
+                <Sparkles size={14} strokeWidth={2} />
+                <span>Anime</span>
               </button>
               <button
                 type="button"
@@ -364,7 +367,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 className={`${styles.categoryChip} ${category === 'book' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('book')}
               >
-                📖 Book
+                <BookOpen size={14} strokeWidth={2} />
+                <span>Book</span>
               </button>
               <button
                 type="button"
@@ -373,7 +377,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                 className={`${styles.categoryChip} ${category === 'manga' ? styles.categoryChipActive : ''}`}
                 onClick={() => setCategory('manga')}
               >
-                📚 Manga
+                <Library size={14} strokeWidth={2} />
+                <span>Manga</span>
               </button>
             </div>
           </div>
@@ -384,7 +389,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             <div className={styles.imagePickerContainer}>
               <div className={styles.imagePreview}>
                 {isCompressing ? (
-                  <span className={styles.imagePlaceholder}>Compressing...</span>
+                  <span className={styles.imagePlaceholder}>Loading...</span>
                 ) : coverImage ? (
                   <img src={coverImage} alt="Cover preview" />
                 ) : (
@@ -393,6 +398,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               </div>
               <div className={styles.fileInputWrapper}>
                 <label className={styles.fileInputLabel}>
+                  <Upload size={14} strokeWidth={2} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
                   {coverImage ? 'Change Image' : 'Upload Cover'}
                   <input
                     ref={fileInputRef}

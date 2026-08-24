@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Trash2, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function BookCard({ item, onUpdate, onDelete }) {
@@ -22,7 +23,10 @@ export default function BookCard({ item, onUpdate, onDelete }) {
   }
 
   const canDecrement = secondaryUnitCurrent > 0;
-  const canIncrement = secondaryUnitTotal === null || secondaryUnitTotal === undefined || secondaryUnitCurrent < secondaryUnitTotal;
+  const canIncrement =
+    secondaryUnitTotal === null ||
+    secondaryUnitTotal === undefined ||
+    secondaryUnitCurrent < secondaryUnitTotal;
 
   const commitChapterValue = async (newVal) => {
     let parsed = parseInt(newVal, 10);
@@ -95,7 +99,8 @@ export default function BookCard({ item, onUpdate, onDelete }) {
     : 0;
 
   return (
-    <div className={styles.card}>
+    <article className={styles.card} aria-label={`${item.title} card`}>
+      {/* 2:3 Portrait Cover (74x111px) */}
       <div className={styles.coverContainer}>
         {item.coverImage ? (
           <img
@@ -111,54 +116,41 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             </span>
           </div>
         )}
+      </div>
 
-        <div className={styles.badgeOverlay}>
-          <span className={styles.typeBadge}>{isManga ? 'Manga' : 'Book'}</span>
-          {primaryUnitTotal > 1 && (
-            <span className={styles.seasonBadge}>
-              Vol {primaryUnitCurrent} / {primaryUnitTotal}
-            </span>
+      {/* Details & Controls */}
+      <div className={styles.cardBody}>
+        {/* Top row: Title + Delete action */}
+        <div className={styles.cardTopRow}>
+          <div className={styles.cardTitleGroup}>
+            <h3 className={styles.cardTitle} title={item.title}>
+              {item.title}
+            </h3>
+          </div>
+          {onDelete && (
+            <button
+              type="button"
+              className={styles.cardDeleteBtn}
+              onClick={() => onDelete(item.id)}
+              title={`Remove ${item.title}`}
+              aria-label={`Remove ${item.title}`}
+            >
+              <Trash2 size={13} strokeWidth={1.75} />
+            </button>
           )}
         </div>
 
-        {onDelete && (
-          <button
-            type="button"
-            className={styles.cardDeleteBtn}
-            onClick={() => onDelete(item.id)}
-            title={`Delete ${isManga ? 'manga' : 'book'}`}
-            aria-label={`Delete ${isManga ? 'manga' : 'book'}`}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      <div className={styles.cardBody}>
-        <div className={styles.cardHeader}>
-          <h3 className={styles.cardTitle} title={item.title}>
-            {item.title}
-          </h3>
-          <div className={styles.progressMeta}>
-            <span className={styles.progressLabel}>
-              {isManga ? 'Ch.' : 'Ch./Pg.'} {secondaryUnitCurrent}{secondaryUnitTotal ? ` / ${secondaryUnitTotal}` : ''}
+        {/* Badges Row */}
+        <div className={styles.badgeRow}>
+          {primaryUnitTotal > 1 && (
+            <span className={styles.badge}>
+              Vol {primaryUnitCurrent} / {primaryUnitTotal}
             </span>
-            {secondaryUnitTotal ? (
-              <span>{progressPercentage}%</span>
-            ) : (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ongoing</span>
-            )}
-          </div>
-          {secondaryUnitTotal ? (
-            <div className={styles.progressBarContainer}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          ) : null}
+          )}
+          <span className={styles.badge}>{isManga ? 'Manga' : 'Book'}</span>
         </div>
 
+        {/* Multi-Volume Stepper Row (if applicable) */}
         {primaryUnitTotal > 1 && (
           <div className={styles.seasonRow}>
             <span>Volume {primaryUnitCurrent} of {primaryUnitTotal}</span>
@@ -171,7 +163,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 title="Previous volume"
                 aria-label="Previous volume"
               >
-                ◀
+                <ChevronLeft size={12} strokeWidth={2} />
               </button>
               <button
                 type="button"
@@ -181,12 +173,13 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 title="Next volume"
                 aria-label="Next volume"
               >
-                ▶
+                <ChevronRight size={12} strokeWidth={2} />
               </button>
             </div>
           </div>
         )}
 
+        {/* Stepper Controls Row */}
         <div className={styles.controlsRow}>
           <button
             type="button"
@@ -196,7 +189,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             title="Decrement chapter/page"
             aria-label="Decrement chapter/page"
           >
-            ◄
+            <Minus size={14} strokeWidth={2} />
           </button>
           <input
             type="number"
@@ -208,7 +201,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             onBlur={(e) => commitChapterValue(e.target.value)}
             onKeyDown={handleKeyDown}
             title="Type number and press Enter or click outside"
-            aria-label="Current chapter/page"
+            aria-label="Current chapter or page"
           />
           <button
             type="button"
@@ -218,10 +211,23 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             title="Increment chapter/page"
             aria-label="Increment chapter/page"
           >
-            ►
+            <Plus size={14} strokeWidth={2} />
           </button>
         </div>
+
+        {/* Progress bar */}
+        {secondaryUnitTotal ? (
+          <div className={styles.progressBarSection}>
+            <div className={styles.progressBarContainer}>
+              <div
+                className={styles.progressBarFill}
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <span className={styles.progressPercent}>{progressPercentage}%</span>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </article>
   );
 }

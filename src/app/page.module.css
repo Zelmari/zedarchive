@@ -2,6 +2,8 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-canvas);
+  background-image: var(--ambient-glow);
 }
 
 .nav {
@@ -9,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-crisp);
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -19,6 +21,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.03em;
+  color: var(--text-primary);
 }
 
 .navLinks {
@@ -30,7 +33,7 @@
 .navLogin {
   font-size: 0.9rem;
   color: var(--text-secondary);
-  transition: color 0.15s ease;
+  transition: color 150ms ease;
 }
 
 .navLogin:hover {
@@ -40,15 +43,17 @@
 .navSignup {
   font-size: 0.9rem;
   font-weight: 600;
-  background-color: var(--accent);
+  background-color: var(--accent-beige);
   color: var(--accent-contrast);
   padding: 0.5rem 1rem;
   border-radius: 6px;
-  transition: opacity 0.15s ease;
+  transition: opacity 150ms ease, transform 150ms ease;
+  box-shadow: var(--shadow-card);
 }
 
 .navSignup:hover {
-  opacity: 0.9;
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .hero {
@@ -66,11 +71,12 @@
 .badge {
   display: inline-block;
   padding: 0.35rem 0.85rem;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-crisp);
   border-radius: 9999px;
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  font-weight: 500;
+  color: var(--accent-beige);
   margin-bottom: 1.5rem;
 }
 
@@ -79,6 +85,7 @@
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.1;
+  color: var(--text-primary);
   margin-bottom: 1.25rem;
 }
 
@@ -96,32 +103,35 @@
 }
 
 .primaryCta {
-  background-color: var(--accent);
+  background-color: var(--accent-beige);
   color: var(--accent-contrast);
   padding: 0.85rem 1.75rem;
   border-radius: 6px;
   font-weight: 600;
   font-size: 1rem;
-  transition: opacity 0.15s ease;
+  transition: opacity 150ms ease, transform 150ms ease;
+  box-shadow: var(--shadow-card);
 }
 
 .primaryCta:hover {
-  opacity: 0.9;
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .secondaryCta {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-crisp);
   padding: 0.85rem 1.75rem;
   border-radius: 6px;
   font-weight: 500;
   font-size: 1rem;
-  transition: border-color 0.15s ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .secondaryCta:hover {
-  border-color: var(--border-hover);
+  border-color: var(--border-focus);
+  background-color: var(--bg-hover);
 }
 
 .features {
@@ -135,15 +145,23 @@
 }
 
 .featureCard {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-crisp);
+  border-radius: 12px;
   padding: 1.75rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
 }
 
 .featureCard h3 {
   font-size: 1.1rem;
   font-weight: 600;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 

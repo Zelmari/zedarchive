@@ -4,16 +4,18 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-canvas);
+  background-image: var(--ambient-glow);
 }
 
 .card {
   width: 100%;
   max-width: 400px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-crisp);
+  border-radius: 12px;
   padding: 2.25rem;
+  box-shadow: var(--shadow-elevated);
 }
 
 .header {
@@ -44,9 +46,9 @@
 }
 
 .errorBanner {
-  background-color: var(--danger-bg);
-  border: 1px solid var(--danger);
-  color: var(--danger);
+  background-color: var(--accent-danger-subtle);
+  border: 1px solid var(--accent-danger);
+  color: var(--accent-danger);
   font-size: 0.85rem;
   padding: 0.75rem 1rem;
   border-radius: 6px;
@@ -72,22 +74,23 @@
 }
 
 .fieldGroup input {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-crisp);
   color: var(--text-primary);
   padding: 0.65rem 0.85rem;
   border-radius: 6px;
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 150ms ease;
 }
 
 .fieldGroup input:focus {
-  border-color: var(--border-hover);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 1px var(--border-focus);
 }
 
 .submitBtn {
-  background-color: var(--accent);
+  background-color: var(--accent-beige);
   color: var(--accent-contrast);
   border: none;
   padding: 0.75rem;
@@ -96,11 +99,13 @@
   font-size: 0.95rem;
   cursor: pointer;
   margin-top: 0.5rem;
-  transition: opacity 0.15s ease;
+  transition: opacity 150ms ease, transform 150ms ease;
+  box-shadow: var(--shadow-card);
 }
 
 .submitBtn:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .submitBtn:disabled {
@@ -116,7 +121,7 @@
 }
 
 .link {
-  color: var(--text-primary);
+  color: var(--accent-beige);
   font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Check, X, AlertTriangle, Info } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 function ToastItem({ toast, onDismiss }) {
@@ -15,13 +16,13 @@ function ToastItem({ toast, onDismiss }) {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return '✓';
+        return <Check size={16} strokeWidth={2.2} />;
       case 'error':
-        return '✕';
+        return <X size={16} strokeWidth={2.2} />;
       case 'warning':
-        return '⚠';
+        return <AlertTriangle size={16} strokeWidth={2} />;
       default:
-        return 'ℹ';
+        return <Info size={16} strokeWidth={2} />;
     }
   };
 
@@ -47,7 +48,7 @@ function ToastItem({ toast, onDismiss }) {
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
       >
-        ✕
+        <X size={14} strokeWidth={2} />
       </button>
     </div>
   );

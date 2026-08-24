@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Trash2, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function ShowCard({ item, onUpdate, onDelete }) {
@@ -46,9 +47,10 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
       if (hasNextSeason) {
         const nextSeason = primaryUnitCurrent + 1;
         const nextSeasonObj = structure.find((s) => s.number === nextSeason);
-        const nextSeasonTotal = nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
-          ? nextSeasonObj.total
-          : null;
+        const nextSeasonTotal =
+          nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
+            ? nextSeasonObj.total
+            : null;
 
         const updates = {
           primaryUnitCurrent: nextSeason,
@@ -85,9 +87,10 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
     if (primaryUnitTotal && nextSeason > primaryUnitTotal) return;
 
     const nextSeasonObj = structure.find((s) => s.number === nextSeason);
-    const nextSeasonTotal = nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
-      ? nextSeasonObj.total
-      : null;
+    const nextSeasonTotal =
+      nextSeasonObj && nextSeasonObj.total !== null && nextSeasonObj.total !== undefined
+        ? nextSeasonObj.total
+        : null;
 
     const updates = {
       primaryUnitCurrent: nextSeason,
@@ -108,8 +111,20 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
     ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
 
+  // Format double-digit if helpful e.g. Ep 08 / 12
+  const formattedEp =
+    secondaryUnitTotal && secondaryUnitTotal >= 10 && secondaryUnitCurrent < 10
+      ? `0${secondaryUnitCurrent}`
+      : `${secondaryUnitCurrent}`;
+
+  const formattedTotal =
+    secondaryUnitTotal && secondaryUnitTotal >= 10 && secondaryUnitTotal < 10
+      ? `0${secondaryUnitTotal}`
+      : secondaryUnitTotal ? `${secondaryUnitTotal}` : null;
+
   return (
-    <div className={styles.card}>
+    <article className={styles.card} aria-label={`${item.title} card`}>
+      {/* 2:3 Portrait Cover (74x111px) */}
       <div className={styles.coverContainer}>
         {item.coverImage ? (
           <img
@@ -125,52 +140,39 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             </span>
           </div>
         )}
-
-        <div className={styles.badgeOverlay}>
-          <span className={styles.typeBadge}>{isAnime ? 'Anime' : 'Show'}</span>
-          <span className={styles.seasonBadge}>
-            S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
-          </span>
-        </div>
-
-        {onDelete && (
-          <button
-            type="button"
-            className={styles.cardDeleteBtn}
-            onClick={() => onDelete(item.id)}
-            title={`Delete ${isAnime ? 'anime' : 'show'}`}
-            aria-label={`Delete ${isAnime ? 'anime' : 'show'}`}
-          >
-            ✕
-          </button>
-        )}
       </div>
 
+      {/* Details & Controls */}
       <div className={styles.cardBody}>
-        <div className={styles.cardHeader}>
-          <h3 className={styles.cardTitle} title={item.title}>
-            {item.title}
-          </h3>
-          <div className={styles.progressMeta}>
-            <span className={styles.progressLabel}>
-              Ep. {secondaryUnitCurrent}{secondaryUnitTotal ? ` / ${secondaryUnitTotal}` : ''}
-            </span>
-            {secondaryUnitTotal ? (
-              <span>{progressPercentage}%</span>
-            ) : (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ongoing</span>
-            )}
+        {/* Top row: Title + Delete action */}
+        <div className={styles.cardTopRow}>
+          <div className={styles.cardTitleGroup}>
+            <h3 className={styles.cardTitle} title={item.title}>
+              {item.title}
+            </h3>
           </div>
-          {secondaryUnitTotal ? (
-            <div className={styles.progressBarContainer}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          ) : null}
+          {onDelete && (
+            <button
+              type="button"
+              className={styles.cardDeleteBtn}
+              onClick={() => onDelete(item.id)}
+              title={`Remove ${item.title}`}
+              aria-label={`Remove ${item.title}`}
+            >
+              <Trash2 size={13} strokeWidth={1.75} />
+            </button>
+          )}
         </div>
 
+        {/* Badges Row */}
+        <div className={styles.badgeRow}>
+          <span className={styles.badge}>
+            S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
+          </span>
+          <span className={styles.badge}>{isAnime ? 'Anime' : 'Show'}</span>
+        </div>
+
+        {/* Multi-Season Stepper Row (if applicable) */}
         {primaryUnitTotal > 1 && (
           <div className={styles.seasonRow}>
             <span>Season {primaryUnitCurrent} of {primaryUnitTotal}</span>
@@ -183,7 +185,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 title="Previous season"
                 aria-label="Previous season"
               >
-                ◀
+                <ChevronLeft size={12} strokeWidth={2} />
               </button>
               <button
                 type="button"
@@ -193,12 +195,13 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
                 title="Next season"
                 aria-label="Next season"
               >
-                ▶
+                <ChevronRight size={12} strokeWidth={2} />
               </button>
             </div>
           </div>
         )}
 
+        {/* Stepper Controls Row */}
         <div className={styles.controlsRow}>
           <button
             type="button"
@@ -208,10 +211,10 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             title="Decrement episode"
             aria-label="Decrement episode"
           >
-            ◄
+            <Minus size={14} strokeWidth={2} />
           </button>
           <div className={styles.progressDisplay}>
-            Ep. {secondaryUnitCurrent}
+            Ep {formattedEp}{formattedTotal ? ` / ${formattedTotal}` : ''}
           </div>
           <button
             type="button"
@@ -225,10 +228,23 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             }
             aria-label="Increment episode"
           >
-            ►
+            <Plus size={14} strokeWidth={2} />
           </button>
         </div>
+
+        {/* Progress bar */}
+        {secondaryUnitTotal ? (
+          <div className={styles.progressBarSection}>
+            <div className={styles.progressBarContainer}>
+              <div
+                className={styles.progressBarFill}
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <span className={styles.progressPercent}>{progressPercentage}%</span>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </article>
   );
 }

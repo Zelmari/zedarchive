@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
@@ -33,8 +34,16 @@ export default function ConfirmModal({
         aria-describedby="confirm-modal-message"
       >
         <div className={styles.confirmModalHeader}>
-          <div className={`${styles.confirmIcon} ${isDanger ? styles.confirmIconDanger : styles.confirmIconPrimary}`}>
-            {isDanger ? '⚠️' : 'ℹ️'}
+          <div
+            className={`${styles.confirmIcon} ${
+              isDanger ? styles.confirmIconDanger : styles.confirmIconPrimary
+            }`}
+          >
+            {isDanger ? (
+              <AlertTriangle size={20} strokeWidth={2} />
+            ) : (
+              <Info size={20} strokeWidth={2} />
+            )}
           </div>
           <div>
             <h2 id="confirm-modal-title" className={styles.confirmModalTitle}>
