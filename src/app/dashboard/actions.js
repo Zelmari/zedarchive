@@ -7,6 +7,35 @@ import { headers } from 'next/headers';
 import { eq, and, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
+const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
+const MAX_TITLE_LENGTH = 500;
+const MAX_NOTES_LENGTH = 5000;
+const MAX_SOURCE_ID_LENGTH = 200;
+const MAX_COVER_IMAGE_LENGTH = 2_000_000;
+const MAX_STRUCTURE_LENGTH = 500;
+
+function toInt(value, fallback) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sanitizeStructure(structure) {
+  if (!Array.isArray(structure)) return [];
+  return structure
+    .slice(0, MAX_STRUCTURE_LENGTH)
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const number = toInt(item.number, null);
+      const total = item.total === null || item.total === undefined || item.total === ''
+        ? null
+        : toInt(item.total, null);
+      return number === null
+        ? null
+        : { number, name: String(item.name ?? `Season ${number}`).slice(0, 100), total };
+    })
+    .filter(Boolean);
+}
+
 async function getAuthUser() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -32,39 +61,36 @@ export async function getMediaEntries() {
 export async function createMediaEntry(data) {
   const user = await getAuthUser();
 
-  const title = String(data.title || '').trim();
+  const title = String(data.title || '').trim().slice(0, MAX_TITLE_LENGTH);
   if (!title) {
     throw new Error('Title is required');
   }
 
   const id = crypto.randomUUID();
-  const validCategories = ['show', 'book', 'anime', 'manga'];
-  const category = validCategories.includes(data.category)
+  const category = VALID_CATEGORIES.includes(data.category)
     ? data.category
     : data.type === 'book'
     ? 'book'
     : 'show';
 
-  const primaryUnitCurrent = data.primaryUnitCurrent !== undefined && data.primaryUnitCurrent !== null
-    ? Math.max(1, parseInt(data.primaryUnitCurrent, 10) || 1)
-    : 1;
-
+  const primaryUnitCurrent = Math.max(1, toInt(data.primaryUnitCurrent, 1));
   const primaryUnitTotal = data.primaryUnitTotal !== undefined && data.primaryUnitTotal !== null && data.primaryUnitTotal !== ''
-    ? Math.max(1, parseInt(data.primaryUnitTotal, 10) || 1)
-    : 1;
-
-  const secondaryUnitCurrent = data.secondaryUnitCurrent !== undefined && data.secondaryUnitCurrent !== null
-    ? Math.max(0, parseInt(data.secondaryUnitCurrent, 10) || 0)
-    : 0;
-
-  const secondaryUnitTotal = data.secondaryUnitTotal !== undefined && data.secondaryUnitTotal !== null && data.secondaryUnitTotal !== ''
-    ? Math.max(0, parseInt(data.secondaryUnitTotal, 10))
+    ? Math.max(1, toInt(data.primaryUnitTotal, 1))
     : null;
 
-  const structure = Array.isArray(data.structure) ? data.structure : [];
-  const coverImage = data.coverImage || null;
-  const sourceId = data.sourceId || null;
-  const notes = data.notes ? String(data.notes).trim() : null;
+  const secondaryUnitCurrent = Math.max(0, toInt(data.secondaryUnitCurrent, 0));
+  const secondaryUnitTotal = data.secondaryUnitTotal !== undefined && data.secondaryUnitTotal !== null && data.secondaryUnitTotal !== ''
+    ? Math.max(0, toInt(data.secondaryUnitTotal, null))
+    : null;
+
+  const structure = sanitizeStructure(data.structure);
+  const coverImage = typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+    ? data.coverImage
+    : null;
+  const sourceId = typeof data.sourceId === 'string'
+    ? data.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
+    : null;
+  const notes = data.notes ? String(data.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
 
   const [newEntry] = await db
     .insert(mediaEntries)
@@ -73,9 +99,9 @@ export async function createMediaEntry(data) {
       userId: user.id,
       title,
       category,
-      primaryUnitCurrent,
+      primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
       primaryUnitTotal,
-      secondaryUnitCurrent,
+      secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
       secondaryUnitTotal,
       structure,
       coverImage,
@@ -96,39 +122,60 @@ export async function updateMediaProgress(id, updates) {
     updatedAt: new Date(),
   };
 
+  if (updates.title !== undefined) {
+    const title = String(updates.title).trim().slice(0, MAX_TITLE_LENGTH);
+    if (!title) {
+      throw new Error('Title is required');
+    }
+    updateFields.title = title;
+  }
+
+  if (updates.category !== undefined) {
+    if (!VALID_CATEGORIES.includes(updates.category)) {
+      throw new Error('Invalid category');
+    }
+    updateFields.category = updates.category;
+  }
+
   if (updates.primaryUnitCurrent !== undefined) {
-    updateFields.primaryUnitCurrent = Math.max(1, parseInt(updates.primaryUnitCurrent, 10) || 1);
+    updateFields.primaryUnitCurrent = Math.max(1, toInt(updates.primaryUnitCurrent, 1));
   }
   if (updates.primaryUnitTotal !== undefined) {
     updateFields.primaryUnitTotal = updates.primaryUnitTotal !== null && updates.primaryUnitTotal !== ''
-      ? Math.max(1, parseInt(updates.primaryUnitTotal, 10) || 1)
+      ? Math.max(1, toInt(updates.primaryUnitTotal, 1))
       : null;
   }
   if (updates.secondaryUnitCurrent !== undefined) {
-    updateFields.secondaryUnitCurrent = Math.max(0, parseInt(updates.secondaryUnitCurrent, 10) || 0);
+    updateFields.secondaryUnitCurrent = Math.max(0, toInt(updates.secondaryUnitCurrent, 0));
   }
   if (updates.secondaryUnitTotal !== undefined) {
     updateFields.secondaryUnitTotal = updates.secondaryUnitTotal !== null && updates.secondaryUnitTotal !== ''
-      ? Math.max(0, parseInt(updates.secondaryUnitTotal, 10))
+      ? Math.max(0, toInt(updates.secondaryUnitTotal, null))
       : null;
   }
+
+  if (updateFields.primaryUnitCurrent !== undefined && updateFields.primaryUnitTotal !== null && updateFields.primaryUnitTotal !== undefined) {
+    updateFields.primaryUnitCurrent = Math.min(updateFields.primaryUnitCurrent, updateFields.primaryUnitTotal);
+  }
+  if (updateFields.secondaryUnitCurrent !== undefined && updateFields.secondaryUnitTotal !== null && updateFields.secondaryUnitTotal !== undefined) {
+    updateFields.secondaryUnitCurrent = Math.min(updateFields.secondaryUnitCurrent, updateFields.secondaryUnitTotal);
+  }
+
   if (updates.structure !== undefined) {
-    updateFields.structure = Array.isArray(updates.structure) ? updates.structure : [];
+    updateFields.structure = sanitizeStructure(updates.structure);
   }
   if (updates.coverImage !== undefined) {
-    updateFields.coverImage = updates.coverImage;
+    updateFields.coverImage = typeof updates.coverImage === 'string' && updates.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+      ? updates.coverImage
+      : null;
   }
   if (updates.sourceId !== undefined) {
-    updateFields.sourceId = updates.sourceId;
-  }
-  if (updates.title !== undefined) {
-    updateFields.title = String(updates.title).trim();
-  }
-  if (updates.category !== undefined) {
-    updateFields.category = updates.category;
+    updateFields.sourceId = typeof updates.sourceId === 'string'
+      ? updates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
+      : null;
   }
   if (updates.notes !== undefined) {
-    updateFields.notes = updates.notes;
+    updateFields.notes = updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
   }
 
   const [updated] = await db
@@ -141,6 +188,10 @@ export async function updateMediaProgress(id, updates) {
       )
     )
     .returning();
+
+  if (!updated) {
+    throw new Error('Entry not found');
+  }
 
   revalidatePath('/dashboard');
   return updated;
