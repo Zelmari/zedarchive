@@ -9,24 +9,7 @@
   color: var(--za-color-text);
 }
 
-.headerNav {
-  display: flex;
-  align-items: center;
-  gap: var(--za-space-2);
-  flex-wrap: wrap;
-}
 
-.headerUserArea {
-  display: flex;
-  align-items: center;
-  gap: var(--za-space-3);
-}
-
-.userGreeting {
-  font-size: var(--za-text-supporting);
-  font-weight: var(--za-weight-heading);
-  color: var(--za-color-text);
-}
 
 .desktopOnly {
   display: inline;

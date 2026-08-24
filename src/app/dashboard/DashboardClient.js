@@ -219,22 +219,21 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     <div className={styles.dashboardContainer}>
       {/* Site Header with Logo and Wordmark */}
       <header className="za-site-header">
-        <div className="za-container za-site-header__inner">
-          <Link href="/dashboard" className="za-wordmark">
-            <span className="za-wordmark__mark">
-              <Image
-                src="/zedarchivelogo.png"
-                alt="zedarchive logo"
-                width={72}
-                height={48}
-                priority
-                unoptimized
-              />
-            </span>
+        <div className="za-container za-container--wide za-site-header__inner">
+          <Link href="/dashboard" className="za-wordmark za-link za-site-header__brand">
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="za-wordmark__mark"
+              height={48}
+              src="/zedarchivelogo.png"
+              width={72}
+              unoptimized
+            />
             <span className="za-wordmark__text">zedarchive</span>
           </Link>
 
-          <nav className={styles.headerNav} aria-label="Archive navigation">
+          <nav aria-label="Primary" className="za-site-header__nav">
             <button
               type="button"
               className={`za-button ${activeTab === 'total' ? 'za-button--selected za-current-page' : 'za-button--secondary'}`}
@@ -266,7 +265,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
             </button>
           </nav>
 
-          <div className={styles.headerUserArea}>
+          <nav aria-label="Account" className="za-site-header__nav">
             <button
               type="button"
               className="za-button za-button--tertiary"
@@ -278,7 +277,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               <span className={styles.desktopOnly}>Shortcuts</span>
             </button>
 
-            <span className={styles.userGreeting}>
+            <span className="za-site-header__identity" style={{ fontSize: 'var(--za-text-supporting)', fontWeight: 'var(--za-weight-heading)' }}>
               @{user?.name?.toLowerCase()?.replace(/\s+/g, '') || 'user'}
             </span>
 
@@ -293,7 +292,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               <LogOut size={15} strokeWidth={1.75} />
               <span className={styles.desktopOnly}>Sign out</span>
             </button>
-          </div>
+          </nav>
         </div>
       </header>
 

@@ -98,7 +98,7 @@ All design tokens are defined in `:root` inside `src/app/globals.css` under the 
   /* ==========================================================================
      Typography & Text Scale
      ========================================================================== */
-  --za-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --za-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --za-text-fine: 0.75rem;                 /* 12px - Small captions & fine notes */
   --za-text-supporting: 0.875rem;          /* 14px - Helper text, metadata, labels */
   --za-text-base: 1rem;                    /* 16px - Standard body & inputs */

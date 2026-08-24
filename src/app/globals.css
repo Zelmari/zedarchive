@@ -56,8 +56,10 @@
   /* ==========================================================================
      Typography & Text Scale
      ========================================================================== */
-  --za-font-sans: var(--font-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-  --za-font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  --za-font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --za-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --za-text-fine: 0.75rem;                 /* 12px - Small captions & fine notes */
   --za-text-supporting: 0.875rem;          /* 14px - Helper text, metadata, labels */
   --za-text-base: 1rem;                    /* 16px - Standard body & inputs */
@@ -139,8 +141,6 @@ html {
   font-size: var(--za-text-base);
   line-height: var(--za-leading-body);
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -233,8 +233,6 @@ button, input, select, textarea {
   background: var(--za-color-surface);
   padding: var(--za-space-2) var(--za-space-3);
   color: var(--za-color-text);
-  font-weight: 500;
-  text-decoration: none;
 }
 
 .za-skip-link:not(:focus-visible) {
@@ -253,17 +251,19 @@ button, input, select, textarea {
 }
 
 .za-site-header__inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  align-items: start;
   gap: var(--za-space-4);
   padding-block: var(--za-space-4);
 }
 
 @media (min-width: 40rem) {
   .za-site-header__inner {
-    padding-block: var(--za-space-4);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: var(--za-space-6);
   }
 }
 
@@ -297,6 +297,25 @@ button, input, select, textarea {
   display: block;
 }
 
+.za-site-header__brand,
+.za-site-header__nav,
+.za-site-header__identity {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.za-site-header__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--za-space-4);
+}
+
+.za-site-header__identity {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 @media (min-width: 40rem) {
   .za-wordmark__mark {
     inline-size: 4.5rem;
@@ -310,7 +329,6 @@ button, input, select, textarea {
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
-  font-weight: var(--za-weight-emphasis);
   transition:
     color var(--za-motion-fast) var(--za-ease-standard),
     outline-color var(--za-motion-fast) var(--za-ease-standard);
@@ -345,10 +363,6 @@ button, input, select, textarea {
   font-weight: var(--za-weight-emphasis);
   line-height: var(--za-leading-compact);
   text-align: center;
-  cursor: pointer;
-  background: var(--za-color-surface);
-  color: var(--za-color-text);
-  text-decoration: none;
   transition:
     background-color var(--za-motion-fast) var(--za-ease-standard),
     border-color var(--za-motion-fast) var(--za-ease-standard),
@@ -376,7 +390,6 @@ button, input, select, textarea {
 
 .za-button--secondary {
   background: var(--za-color-surface);
-  border-color: var(--za-color-border-required);
   color: var(--za-color-accent);
 }
 
@@ -416,6 +429,29 @@ button, input, select, textarea {
   color: var(--za-color-accent-hover);
 }
 
+.za-button--selected:active {
+  border-color: var(--za-color-accent-active);
+  color: var(--za-color-accent-active);
+}
+
+.za-button.za-current-page {
+  border-color: var(--za-color-accent);
+  background: var(--za-color-accent-soft);
+  color: var(--za-color-accent);
+  font-weight: var(--za-weight-heading);
+}
+
+.za-button.za-current-page:hover {
+  border-color: var(--za-color-accent-hover);
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-accent-hover);
+}
+
+.za-button.za-current-page:active {
+  border-color: var(--za-color-accent-active);
+  color: var(--za-color-accent-active);
+}
+
 .za-button--destructive {
   border-color: var(--za-color-destructive);
   background: var(--za-color-destructive);
@@ -444,6 +480,11 @@ button, input, select, textarea {
   color: var(--za-color-destructive-hover);
 }
 
+.za-button--destructive-outline:active {
+  border-color: var(--za-color-destructive-active);
+  color: var(--za-color-destructive-active);
+}
+
 .za-button:disabled,
 .za-field:disabled,
 .za-select:disabled {
@@ -451,7 +492,6 @@ button, input, select, textarea {
   border-color: var(--za-color-border-required);
   background: var(--za-color-disabled-surface);
   color: var(--za-color-disabled-text);
-  opacity: 0.7;
 }
 
 /* 6. Form Fields & Selects */
@@ -474,11 +514,6 @@ button, input, select, textarea {
     box-shadow var(--za-motion-fast) var(--za-ease-standard);
 }
 
-.za-field:focus,
-.za-select:focus {
-  border-color: var(--za-color-accent);
-}
-
 .za-field[aria-invalid='true'],
 .za-select[aria-invalid='true'] {
   border-color: var(--za-color-destructive);
@@ -489,8 +524,6 @@ button, input, select, textarea {
   border: var(--za-border-width) solid currentcolor;
   border-radius: var(--za-radius-control);
   padding: var(--za-space-3) var(--za-space-4);
-  font-size: var(--za-text-supporting);
-  line-height: var(--za-leading-compact);
 }
 
 .za-notice--information {
@@ -569,7 +602,6 @@ button, input, select, textarea {
   color: var(--za-color-title-tile-text);
   font-size: var(--za-text-heading-lg);
   font-weight: var(--za-weight-heading);
-  user-select: none;
 }
 
 /* 11. Accessibility Preferences */
@@ -607,23 +639,4 @@ button, input, select, textarea {
     --za-color-text-muted: var(--za-color-text);
     --za-color-border-decorative: var(--za-color-border-required);
   }
-}
-
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--za-color-canvas);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--za-color-border-required);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--za-color-text-muted);
 }

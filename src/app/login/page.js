@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { signIn } from '@/lib/auth-client';
-import styles from '@/app/auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,79 +38,112 @@ export default function LoginPage() {
   }
 
   return (
-    <main id="main-content" className={styles.container}>
-      <div className={`za-card za-card--raised ${styles.card}`}>
-        <div className={styles.header}>
-          <Link href="/" className="za-wordmark">
-            <span className="za-wordmark__mark">
-              <Image
-                src="/zedarchivelogo.png"
-                alt="zedarchive logo"
-                width={72}
-                height={48}
-                priority
-                unoptimized
-              />
-            </span>
-            <span className="za-wordmark__text">zedarchive</span>
-          </Link>
-          <h1 className={styles.title}>Sign In</h1>
-          <p className={styles.subtitle}>Enter your credentials to access your archive</p>
-        </div>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      style={{ paddingBlock: 'var(--za-space-6)' }}
+    >
+      <div className="za-container za-container--narrow">
+        <section
+          className="za-card za-card--raised"
+          style={{ display: 'grid', gap: 'var(--za-space-6)' }}
+        >
+          <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
+            <h1
+              style={{
+                fontSize: 'var(--za-text-heading-lg)',
+                fontWeight: 'var(--za-weight-heading)',
+                lineHeight: 'var(--za-leading-compact)',
+              }}
+            >
+              Sign in
+            </h1>
+            <p
+              style={{
+                fontSize: 'var(--za-text-supporting)',
+                color: 'var(--za-color-text-muted)',
+              }}
+            >
+              Sign in with the email and password for your account.
+            </p>
+          </header>
 
-        {error && (
-          <div className="za-notice za-notice--error" role="alert" style={{ marginBottom: '1.25rem' }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <p className="za-notice za-notice--error" role="alert">
+              {error}
+            </p>
+          )}
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.fieldGroup}>
-            <label htmlFor="email" className={styles.label}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              className="za-field"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-            />
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <label htmlFor="password" className={styles.label}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="za-field"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="za-button za-button--primary"
-            style={{ width: '100%', marginTop: '0.5rem' }}
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: 'grid', gap: 'var(--za-space-4)' }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
+              <label
+                htmlFor="email"
+                style={{
+                  fontSize: 'var(--za-text-supporting)',
+                  fontWeight: 'var(--za-weight-emphasis)',
+                }}
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                className="za-field"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </div>
 
-        <div className={styles.footer}>
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="za-link">
-            Sign up
-          </Link>
-        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
+              <label
+                htmlFor="password"
+                style={{
+                  fontSize: 'var(--za-text-supporting)',
+                  fontWeight: 'var(--za-weight-emphasis)',
+                }}
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                className="za-field"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="za-button za-button--primary"
+              style={{ inlineSize: '100%' }}
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+
+          <p
+            style={{
+              fontSize: 'var(--za-text-supporting)',
+              color: 'var(--za-color-text-muted)',
+              borderTop: 'var(--za-border-width) solid var(--za-color-border-decorative)',
+              paddingTop: 'var(--za-space-4)',
+            }}
+          >
+            Don't have an account?{' '}
+            <Link href="/signup" className="za-link">
+              Register
+            </Link>
+          </p>
+        </section>
       </div>
     </main>
   );
