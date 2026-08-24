@@ -128,81 +128,85 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
 
   return (
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
-      {/* 2:3 Aspect Ratio Tile / Cover */}
-      <div className={styles.coverWrapper}>
-        {item.coverImage ? (
-          <img
-            src={item.coverImage}
-            alt={item.title}
-            className={styles.coverImage}
-            loading="lazy"
-          />
-        ) : (
-          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
-            <span>{getInitials(item.title)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Details & Interactive Steppers */}
-      <div className={styles.cardDetails}>
-        <div className={styles.cardTopRow}>
-          <div className={styles.cardTitleGroup}>
-            <h3 className={styles.cardTitle} title={item.title}>
-              {item.title}
-            </h3>
-          </div>
-          {onDelete && (
-            <button
-              type="button"
-              className={styles.deleteMiniBtn}
-              onClick={() => onDelete(item.id)}
-              title={`Remove ${item.title}`}
-              aria-label={`Remove ${item.title}`}
-            >
-              <Trash2 size={14} strokeWidth={1.75} />
-            </button>
+      <div className={styles.cardTopSection}>
+        {/* 2:3 Aspect Ratio Tile / Cover */}
+        <div className={styles.coverWrapper}>
+          {item.coverImage ? (
+            <img
+              src={item.coverImage}
+              alt={item.title}
+              className={styles.coverImage}
+              loading="lazy"
+            />
+          ) : (
+            <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
+              <span>{getInitials(item.title)}</span>
+            </div>
           )}
         </div>
 
-        {/* Badges Row */}
-        <div className={styles.badgeRow}>
-          <span className={styles.metaBadge}>
-            S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
-          </span>
-          <span className={styles.metaBadge}>{isAnime ? 'Anime' : 'TV Series'}</span>
-        </div>
-
-        {/* Multi-Season Stepper Row (if applicable) */}
-        {primaryUnitTotal > 1 && (
-          <div className={styles.seasonRow}>
-            <span>Season {primaryUnitCurrent} of {primaryUnitTotal}</span>
-            <div className={styles.seasonStepper}>
-              <button
-                type="button"
-                className={styles.seasonMiniBtn}
-                onClick={() => handleSeasonChange(-1)}
-                disabled={primaryUnitCurrent <= 1 || isUpdating}
-                title="Previous season"
-                aria-label="Previous season"
-              >
-                <ChevronLeft size={13} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className={styles.seasonMiniBtn}
-                onClick={() => handleSeasonChange(1)}
-                disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
-                title="Next season"
-                aria-label="Next season"
-              >
-                <ChevronRight size={13} strokeWidth={2} />
-              </button>
+        {/* Details */}
+        <div className={styles.cardDetails}>
+          <div className={styles.cardTopRow}>
+            <div className={styles.cardTitleGroup}>
+              <h3 className={styles.cardTitle} title={item.title}>
+                {item.title}
+              </h3>
             </div>
+            {onDelete && (
+              <button
+                type="button"
+                className={styles.deleteMiniBtn}
+                onClick={() => onDelete(item.id)}
+                title={`Remove ${item.title}`}
+                aria-label={`Remove ${item.title}`}
+              >
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
+            )}
           </div>
-        )}
 
-        {/* Stepper Controls Row */}
+          {/* Badges Row */}
+          <div className={styles.badgeRow}>
+            <span className={styles.metaBadge}>
+              S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
+            </span>
+            <span className={styles.metaBadge}>{isAnime ? 'Anime' : 'TV Series'}</span>
+          </div>
+
+          {/* Multi-Season Stepper Row (if applicable) */}
+          {primaryUnitTotal > 1 && (
+            <div className={styles.seasonRow}>
+              <span>Season {primaryUnitCurrent} of {primaryUnitTotal}</span>
+              <div className={styles.seasonStepper}>
+                <button
+                  type="button"
+                  className={styles.seasonMiniBtn}
+                  onClick={() => handleSeasonChange(-1)}
+                  disabled={primaryUnitCurrent <= 1 || isUpdating}
+                  title="Previous season"
+                  aria-label="Previous season"
+                >
+                  <ChevronLeft size={13} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.seasonMiniBtn}
+                  onClick={() => handleSeasonChange(1)}
+                  disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
+                  title="Next season"
+                  aria-label="Next season"
+                >
+                  <ChevronRight size={13} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Zone / Stepper Controls */}
+      <div className={styles.cardActionZone}>
         <div className={styles.controlsRow}>
           <button
             type="button"
@@ -212,7 +216,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             title="Decrement episode"
             aria-label="Decrement episode"
           >
-            <Minus size={14} strokeWidth={2} />
+            <Minus size={15} strokeWidth={2.2} />
           </button>
           <div className={styles.progressDisplay}>
             Ep {formattedEp}{formattedTotal ? ` / ${formattedTotal}` : ''}
@@ -229,7 +233,7 @@ export default function ShowCard({ item, onUpdate, onDelete }) {
             }
             aria-label="Increment episode"
           >
-            <Plus size={14} strokeWidth={2} />
+            <Plus size={15} strokeWidth={2.2} />
           </button>
         </div>
 

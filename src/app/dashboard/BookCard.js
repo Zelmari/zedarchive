@@ -106,83 +106,87 @@ export default function BookCard({ item, onUpdate, onDelete }) {
 
   return (
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
-      {/* 2:3 Aspect Ratio Tile / Cover */}
-      <div className={styles.coverWrapper}>
-        {item.coverImage ? (
-          <img
-            src={item.coverImage}
-            alt={item.title}
-            className={styles.coverImage}
-            loading="lazy"
-          />
-        ) : (
-          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
-            <span>{getInitials(item.title)}</span>
+      <div className={styles.cardTopSection}>
+        {/* 2:3 Aspect Ratio Tile / Cover */}
+        <div className={styles.coverWrapper}>
+          {item.coverImage ? (
+            <img
+              src={item.coverImage}
+              alt={item.title}
+              className={styles.coverImage}
+              loading="lazy"
+            />
+          ) : (
+            <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
+              <span>{getInitials(item.title)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Details */}
+        <div className={styles.cardDetails}>
+          <div className={styles.cardTopRow}>
+            <div className={styles.cardTitleGroup}>
+              <h3 className={styles.cardTitle} title={item.title}>
+                {item.title}
+              </h3>
+            </div>
+            {onDelete && (
+              <button
+                type="button"
+                className={styles.deleteMiniBtn}
+                onClick={() => onDelete(item.id)}
+                title={`Remove ${item.title}`}
+                aria-label={`Remove ${item.title}`}
+              >
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Badges Row */}
+          <div className={styles.badgeRow}>
+            {primaryUnitTotal > 1 && (
+              <span className={styles.metaBadge}>
+                Vol {primaryUnitCurrent} / {primaryUnitTotal}
+              </span>
+            )}
+            <span className={styles.metaBadge}>{isManga ? 'Manga' : 'Book'}</span>
+          </div>
+
+          {/* Multi-Volume Stepper Row (if applicable) */}
+          {primaryUnitTotal > 1 && (
+            <div className={styles.seasonRow}>
+              <span>Volume {primaryUnitCurrent} of {primaryUnitTotal}</span>
+              <div className={styles.seasonStepper}>
+                <button
+                  type="button"
+                  className={styles.seasonMiniBtn}
+                  onClick={() => handleVolumeChange(-1)}
+                  disabled={primaryUnitCurrent <= 1 || isUpdating}
+                  title="Previous volume"
+                  aria-label="Previous volume"
+                >
+                  <ChevronLeft size={13} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.seasonMiniBtn}
+                  onClick={() => handleVolumeChange(1)}
+                  disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
+                  title="Next volume"
+                  aria-label="Next volume"
+                >
+                  <ChevronRight size={13} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Details & Controls */}
-      <div className={styles.cardDetails}>
-        <div className={styles.cardTopRow}>
-          <div className={styles.cardTitleGroup}>
-            <h3 className={styles.cardTitle} title={item.title}>
-              {item.title}
-            </h3>
-          </div>
-          {onDelete && (
-            <button
-              type="button"
-              className={styles.deleteMiniBtn}
-              onClick={() => onDelete(item.id)}
-              title={`Remove ${item.title}`}
-              aria-label={`Remove ${item.title}`}
-            >
-              <Trash2 size={14} strokeWidth={1.75} />
-            </button>
-          )}
-        </div>
-
-        {/* Badges Row */}
-        <div className={styles.badgeRow}>
-          {primaryUnitTotal > 1 && (
-            <span className={styles.metaBadge}>
-              Vol {primaryUnitCurrent} / {primaryUnitTotal}
-            </span>
-          )}
-          <span className={styles.metaBadge}>{isManga ? 'Manga' : 'Book'}</span>
-        </div>
-
-        {/* Multi-Volume Stepper Row (if applicable) */}
-        {primaryUnitTotal > 1 && (
-          <div className={styles.seasonRow}>
-            <span>Volume {primaryUnitCurrent} of {primaryUnitTotal}</span>
-            <div className={styles.seasonStepper}>
-              <button
-                type="button"
-                className={styles.seasonMiniBtn}
-                onClick={() => handleVolumeChange(-1)}
-                disabled={primaryUnitCurrent <= 1 || isUpdating}
-                title="Previous volume"
-                aria-label="Previous volume"
-              >
-                <ChevronLeft size={13} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className={styles.seasonMiniBtn}
-                onClick={() => handleVolumeChange(1)}
-                disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
-                title="Next volume"
-                aria-label="Next volume"
-              >
-                <ChevronRight size={13} strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stepper Controls Row */}
+      {/* Action Zone / Controls */}
+      <div className={styles.cardActionZone}>
         <div className={styles.controlsRow}>
           <button
             type="button"
@@ -192,7 +196,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             title="Decrement chapter/page"
             aria-label="Decrement chapter/page"
           >
-            <Minus size={14} strokeWidth={2} />
+            <Minus size={15} strokeWidth={2.2} />
           </button>
           <input
             type="number"
@@ -214,7 +218,7 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             title="Increment chapter/page"
             aria-label="Increment chapter/page"
           >
-            <Plus size={14} strokeWidth={2} />
+            <Plus size={15} strokeWidth={2.2} />
           </button>
         </div>
 

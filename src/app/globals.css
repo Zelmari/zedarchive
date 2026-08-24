@@ -1,10 +1,10 @@
 :root {
   /* ==========================================================================
-     Canvas, Surfaces & Paper Fills
+     Canvas, Surfaces & Paper Fills (Warm Linen & Tactile Paper)
      ========================================================================== */
   --za-color-canvas: #f7f5f0;              /* Warm Linen / Editorial Canvas */
   --za-color-surface: #ffffff;             /* Crisp White Paper Surface */
-  --za-color-surface-subtle: #f0ede6;      /* Subtle Neutral Surface / Restricted */
+  --za-color-surface-subtle: #f0ede6;      /* Subtle Neutral Surface / Restricted Tile */
 
   /* ==========================================================================
      Text & Typography Ink
@@ -56,7 +56,8 @@
   /* ==========================================================================
      Typography & Text Scale
      ========================================================================== */
-  --za-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --za-font-sans: var(--font-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --za-font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   --za-text-fine: 0.75rem;                 /* 12px - Small captions & fine notes */
   --za-text-supporting: 0.875rem;          /* 14px - Helper text, metadata, labels */
   --za-text-base: 1rem;                    /* 16px - Standard body & inputs */
@@ -121,28 +122,10 @@
   --za-motion-fast: 150ms;
   --za-motion-reduced: 0.01ms;
   --za-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-
-  /* Legacy variable compatibility */
-  --bg-canvas: var(--za-color-canvas);
-  --bg-surface: var(--za-color-surface);
-  --bg-elevated: var(--za-color-surface-subtle);
-  --bg-hover: var(--za-color-accent-soft);
-  --border-crisp: var(--za-color-border-decorative);
-  --border-focus: var(--za-color-accent);
-  --border-subtle: var(--za-color-border-decorative);
-  --text-primary: var(--za-color-text);
-  --text-secondary: var(--za-color-text-muted);
-  --text-tertiary: var(--za-color-disabled-text);
-  --accent-beige: var(--za-color-accent);
-  --accent-contrast: var(--za-color-on-accent);
-  --accent-danger: var(--za-color-destructive);
-  --accent-danger-subtle: var(--za-color-error-surface);
-  --accent-success: var(--za-color-success);
-  --shadow-card: var(--za-shadow-raised);
-  --shadow-elevated: var(--za-shadow-layered);
 }
 
-* {
+/* Base Reset & Document Typography */
+*, *::before, *::after {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -150,12 +133,14 @@
 
 html {
   color-scheme: light;
-  background: var(--za-color-canvas);
+  background-color: var(--za-color-canvas);
   color: var(--za-color-text);
   font-family: var(--za-font-sans);
   font-size: var(--za-text-base);
   line-height: var(--za-leading-body);
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -163,8 +148,6 @@ body {
   margin: 0;
   background-color: var(--za-color-canvas);
   color: var(--za-color-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
@@ -174,8 +157,11 @@ a {
 
 button, input, select, textarea {
   font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
 
+/* Global Accessible Focus Ring */
 :where(
   a,
   button,
@@ -206,8 +192,10 @@ button, input, select, textarea {
 }
 
 /* ==========================================================================
-   Component Utility Classes (.za-*)
+   CANONICAL COMPONENT CLASSES (.za-*)
    ========================================================================== */
+
+/* 1. Spatial Containers */
 .za-container {
   inline-size: min(
     calc(100% - (var(--za-page-gutter) * 2)),
@@ -228,6 +216,13 @@ button, input, select, textarea {
   max-inline-size: var(--za-content-wide);
 }
 
+@media (min-width: 40rem) {
+  .za-container {
+    --za-page-gutter: 1.5rem;
+  }
+}
+
+/* 2. Skip Link */
 .za-skip-link {
   position: absolute;
   inset-block-start: var(--za-space-4);
@@ -251,6 +246,7 @@ button, input, select, textarea {
   white-space: nowrap;
 }
 
+/* 3. Site Header & Brand */
 .za-site-header {
   border-block-end: var(--za-border-width) solid var(--za-color-border-decorative);
   background: var(--za-color-surface);
@@ -263,6 +259,12 @@ button, input, select, textarea {
   justify-content: space-between;
   gap: var(--za-space-4);
   padding-block: var(--za-space-4);
+}
+
+@media (min-width: 40rem) {
+  .za-site-header__inner {
+    padding-block: var(--za-space-4);
+  }
 }
 
 .za-wordmark {
@@ -295,11 +297,20 @@ button, input, select, textarea {
   display: block;
 }
 
+@media (min-width: 40rem) {
+  .za-wordmark__mark {
+    inline-size: 4.5rem;
+    block-size: 3rem;
+  }
+}
+
+/* 4. Links */
 .za-link {
   color: var(--za-color-accent);
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
+  font-weight: var(--za-weight-emphasis);
   transition:
     color var(--za-motion-fast) var(--za-ease-standard),
     outline-color var(--za-motion-fast) var(--za-ease-standard);
@@ -320,14 +331,24 @@ button, input, select, textarea {
   font-weight: var(--za-weight-heading);
 }
 
-.za-button,
-.za-field,
-.za-select {
+/* 5. Buttons */
+.za-button {
   min-block-size: var(--za-control-min-block-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--za-space-2);
+  padding: var(--za-space-2) var(--za-space-3);
   border: var(--za-border-width) solid var(--za-color-border-required);
   border-radius: var(--za-radius-control);
   font: inherit;
+  font-weight: var(--za-weight-emphasis);
   line-height: var(--za-leading-compact);
+  text-align: center;
+  cursor: pointer;
+  background: var(--za-color-surface);
+  color: var(--za-color-text);
+  text-decoration: none;
   transition:
     background-color var(--za-motion-fast) var(--za-ease-standard),
     border-color var(--za-motion-fast) var(--za-ease-standard),
@@ -335,20 +356,6 @@ button, input, select, textarea {
     box-shadow var(--za-motion-fast) var(--za-ease-standard),
     outline-color var(--za-motion-fast) var(--za-ease-standard),
     opacity var(--za-motion-fast) var(--za-ease-standard);
-}
-
-.za-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--za-space-2);
-  padding: var(--za-space-2) var(--za-space-3);
-  font-weight: var(--za-weight-emphasis);
-  text-align: center;
-  cursor: pointer;
-  background: var(--za-color-surface);
-  color: var(--za-color-text);
-  text-decoration: none;
 }
 
 .za-button--primary {
@@ -369,6 +376,7 @@ button, input, select, textarea {
 
 .za-button--secondary {
   background: var(--za-color-surface);
+  border-color: var(--za-color-border-required);
   color: var(--za-color-accent);
 }
 
@@ -443,16 +451,32 @@ button, input, select, textarea {
   border-color: var(--za-color-border-required);
   background: var(--za-color-disabled-surface);
   color: var(--za-color-disabled-text);
+  opacity: 0.7;
 }
 
+/* 6. Form Fields & Selects */
 .za-field,
 .za-select {
+  min-block-size: var(--za-control-min-block-size);
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
   background: var(--za-color-surface);
   padding: var(--za-space-2) var(--za-space-3);
   color: var(--za-color-text);
+  font: inherit;
+  line-height: var(--za-leading-compact);
+  transition:
+    background-color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    box-shadow var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-field:focus,
+.za-select:focus {
+  border-color: var(--za-color-accent);
 }
 
 .za-field[aria-invalid='true'],
@@ -460,10 +484,13 @@ button, input, select, textarea {
   border-color: var(--za-color-destructive);
 }
 
+/* 7. Notices & Status Banners */
 .za-notice {
   border: var(--za-border-width) solid currentcolor;
   border-radius: var(--za-radius-control);
   padding: var(--za-space-3) var(--za-space-4);
+  font-size: var(--za-text-supporting);
+  line-height: var(--za-leading-compact);
 }
 
 .za-notice--information {
@@ -486,6 +513,7 @@ button, input, select, textarea {
   color: var(--za-color-destructive);
 }
 
+/* 8. Cards & Surfaces */
 .za-card {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -496,13 +524,13 @@ button, input, select, textarea {
   overflow-wrap: anywhere;
 }
 
+.za-card--raised {
+  box-shadow: var(--za-shadow-raised);
+}
+
 .za-card--layered {
   border-radius: var(--za-radius-layered);
   box-shadow: var(--za-shadow-layered);
-}
-
-.za-card--raised {
-  box-shadow: var(--za-shadow-raised);
 }
 
 .za-card--restricted {
@@ -511,6 +539,7 @@ button, input, select, textarea {
   box-shadow: none;
 }
 
+/* 9. Dialogs & Modals */
 .za-dialog {
   z-index: var(--za-layer-modal);
   max-block-size: calc(100dvh - (var(--za-space-4) * 2));
@@ -530,6 +559,7 @@ button, input, select, textarea {
   background: var(--za-backdrop-modal);
 }
 
+/* 10. Title Tile (2:3 Aspect Ratio) */
 .za-title-tile {
   display: grid;
   aspect-ratio: 2 / 3;
@@ -539,23 +569,10 @@ button, input, select, textarea {
   color: var(--za-color-title-tile-text);
   font-size: var(--za-text-heading-lg);
   font-weight: var(--za-weight-heading);
+  user-select: none;
 }
 
-@media (min-width: 40rem) {
-  .za-container {
-    --za-page-gutter: 1.5rem;
-  }
-
-  .za-site-header__inner {
-    padding-block: var(--za-space-4);
-  }
-
-  .za-wordmark__mark {
-    inline-size: 4.5rem;
-    block-size: 3rem;
-  }
-}
-
+/* 11. Accessibility Preferences */
 @media (forced-colors: active) {
   .za-current-page {
     background: Canvas;
@@ -592,7 +609,7 @@ button, input, select, textarea {
   }
 }
 
-/* Custom scrollbars */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
