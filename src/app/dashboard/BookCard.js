@@ -1,60 +1,84 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import styles from './dashboard.module.css';
 
 export default function BookCard({ item, onUpdate, onDelete }) {
-  const currentProgress = item.currentProgress ?? 0;
-  const totalUnits = item.totalUnits; // Total chapters
-  const [prevProgress, setPrevProgress] = useState(currentProgress);
-  const [inputValue, setInputValue] = useState(String(currentProgress));
+  const category = item.category || (item.type === 'manga' ? 'manga' : 'book');
+  const isManga = category === 'manga';
+
+  const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
+  const primaryUnitTotal = item.primaryUnitTotal ?? 1;
+  const secondaryUnitCurrent = item.secondaryUnitCurrent ?? item.currentProgress ?? 0;
+  const secondaryUnitTotal = item.secondaryUnitTotal ?? item.totalUnits ?? null; // Total chapters/pages
+
+  const [prevProgress, setPrevProgress] = useState(secondaryUnitCurrent);
+  const [inputValue, setInputValue] = useState(String(secondaryUnitCurrent));
   const [isUpdating, setIsUpdating] = useState(false);
 
-  if (prevProgress !== currentProgress) {
-    setPrevProgress(currentProgress);
-    setInputValue(String(currentProgress));
+  if (prevProgress !== secondaryUnitCurrent) {
+    setPrevProgress(secondaryUnitCurrent);
+    setInputValue(String(secondaryUnitCurrent));
   }
 
-  const canDecrement = currentProgress > 0;
-  const canIncrement = totalUnits === null || totalUnits === undefined || currentProgress < totalUnits;
+  const canDecrement = secondaryUnitCurrent > 0;
+  const canIncrement = secondaryUnitTotal === null || secondaryUnitTotal === undefined || secondaryUnitCurrent < secondaryUnitTotal;
 
   const commitChapterValue = async (newVal) => {
     let parsed = parseInt(newVal, 10);
     if (isNaN(parsed) || parsed < 0) parsed = 0;
-    if (totalUnits !== null && totalUnits !== undefined && parsed > totalUnits) {
-      parsed = totalUnits;
+    if (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && parsed > secondaryUnitTotal) {
+      parsed = secondaryUnitTotal;
     }
 
     setInputValue(String(parsed));
 
-    if (parsed === currentProgress) return;
+    if (parsed === secondaryUnitCurrent) return;
 
     // Optimistic update
-    onUpdate(item.id, { currentProgress: parsed });
+    const updates = { secondaryUnitCurrent: parsed };
+    onUpdate(item.id, updates);
 
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, { currentProgress: parsed }, true);
+      await onUpdate(item.id, updates, true);
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleStep = async (delta) => {
-    let nextVal = currentProgress + delta;
+    let nextVal = secondaryUnitCurrent + delta;
     if (nextVal < 0) nextVal = 0;
-    if (totalUnits !== null && totalUnits !== undefined && nextVal > totalUnits) {
-      nextVal = totalUnits;
+    if (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && nextVal > secondaryUnitTotal) {
+      nextVal = secondaryUnitTotal;
     }
 
-    if (nextVal === currentProgress) return;
+    if (nextVal === secondaryUnitCurrent) return;
 
     setInputValue(String(nextVal));
-    onUpdate(item.id, { currentProgress: nextVal });
+    const updates = { secondaryUnitCurrent: nextVal };
+    onUpdate(item.id, updates);
 
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, { currentProgress: nextVal }, true);
+      await onUpdate(item.id, updates, true);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleVolumeChange = async (delta) => {
+    const nextVol = primaryUnitCurrent + delta;
+    if (nextVol < 1) return;
+    if (primaryUnitTotal && nextVol > primaryUnitTotal) return;
+
+    const updates = { primaryUnitCurrent: nextVol };
+    onUpdate(item.id, updates);
+
+    try {
+      setIsUpdating(true);
+      await onUpdate(item.id, updates, true);
     } finally {
       setIsUpdating(false);
     }
@@ -66,8 +90,8 @@ export default function BookCard({ item, onUpdate, onDelete }) {
     }
   };
 
-  const progressPercentage = totalUnits
-    ? Math.min(100, Math.round((currentProgress / totalUnits) * 100))
+  const progressPercentage = secondaryUnitTotal
+    ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
 
   return (
@@ -83,13 +107,18 @@ export default function BookCard({ item, onUpdate, onDelete }) {
         ) : (
           <div className={styles.coverPlaceholder}>
             <span className={styles.placeholderLetter}>
-              {item.title ? item.title.charAt(0).toUpperCase() : 'B'}
+              {item.title ? item.title.charAt(0).toUpperCase() : isManga ? 'M' : 'B'}
             </span>
           </div>
         )}
 
         <div className={styles.badgeOverlay}>
-          <span className={styles.typeBadge}>Book</span>
+          <span className={styles.typeBadge}>{isManga ? 'Manga' : 'Book'}</span>
+          {primaryUnitTotal > 1 && (
+            <span className={styles.seasonBadge}>
+              Vol {primaryUnitCurrent} / {primaryUnitTotal}
+            </span>
+          )}
         </div>
 
         {onDelete && (
@@ -97,8 +126,8 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             type="button"
             className={styles.cardDeleteBtn}
             onClick={() => onDelete(item.id)}
-            title="Delete book"
-            aria-label="Delete book"
+            title={`Delete ${isManga ? 'manga' : 'book'}`}
+            aria-label={`Delete ${isManga ? 'manga' : 'book'}`}
           >
             ✕
           </button>
@@ -112,23 +141,49 @@ export default function BookCard({ item, onUpdate, onDelete }) {
           </h3>
           <div className={styles.progressMeta}>
             <span className={styles.progressLabel}>
-              Ch. {currentProgress}{totalUnits ? ` / ${totalUnits}` : ''}
+              {isManga ? 'Ch.' : 'Ch./Pg.'} {secondaryUnitCurrent}{secondaryUnitTotal ? ` / ${secondaryUnitTotal}` : ''}
             </span>
-            {totalUnits ? (
+            {secondaryUnitTotal ? (
               <span>{progressPercentage}%</span>
             ) : (
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ongoing</span>
             )}
           </div>
-          {totalUnits && (
+          {secondaryUnitTotal ? (
             <div className={styles.progressBarContainer}>
               <div
                 className={styles.progressBarFill}
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
-          )}
+          ) : null}
         </div>
+
+        {primaryUnitTotal > 1 && (
+          <div className={styles.seasonRow}>
+            <span>Volume {primaryUnitCurrent} of {primaryUnitTotal}</span>
+            <div className={styles.seasonStepper}>
+              <button
+                type="button"
+                className={styles.seasonMiniBtn}
+                onClick={() => handleVolumeChange(-1)}
+                disabled={primaryUnitCurrent <= 1 || isUpdating}
+                title="Previous volume"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                className={styles.seasonMiniBtn}
+                onClick={() => handleVolumeChange(1)}
+                disabled={primaryUnitCurrent >= primaryUnitTotal || isUpdating}
+                title="Next volume"
+              >
+                ▶
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className={styles.controlsRow}>
           <button
@@ -136,30 +191,30 @@ export default function BookCard({ item, onUpdate, onDelete }) {
             className={styles.stepperBtn}
             onClick={() => handleStep(-1)}
             disabled={!canDecrement || isUpdating}
-            title="Decrement chapter"
-            aria-label="Decrement chapter"
+            title="Decrement chapter/page"
+            aria-label="Decrement chapter/page"
           >
             ◄
           </button>
           <input
             type="number"
             min="0"
-            max={totalUnits || undefined}
+            max={secondaryUnitTotal || undefined}
             className={styles.chapterInput}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onBlur={(e) => commitChapterValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            title="Type chapter number and press Enter or click outside"
-            aria-label="Current chapter"
+            title="Type number and press Enter or click outside"
+            aria-label="Current chapter/page"
           />
           <button
             type="button"
             className={styles.stepperBtn}
             onClick={() => handleStep(1)}
             disabled={!canIncrement || isUpdating}
-            title="Increment chapter"
-            aria-label="Increment chapter"
+            title="Increment chapter/page"
+            aria-label="Increment chapter/page"
           >
             ►
           </button>

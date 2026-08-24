@@ -83,8 +83,16 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   };
 
   // Filter entries according to active tab
-  const showEntries = entries.filter((item) => item.type === 'show');
-  const bookEntries = entries.filter((item) => item.type === 'book' || item.type === 'novel');
+  const showEntries = entries.filter(
+    (item) => item.category === 'show' || item.category === 'anime' || item.type === 'show'
+  );
+  const bookEntries = entries.filter(
+    (item) =>
+      item.category === 'book' ||
+      item.category === 'manga' ||
+      item.type === 'book' ||
+      item.type === 'novel'
+  );
 
   let displayedEntries = entries;
   if (activeTab === 'shows') displayedEntries = showEntries;
@@ -138,7 +146,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               className={`${styles.tabBtn} ${activeTab === 'shows' ? styles.tabBtnActive : ''}`}
               onClick={() => setActiveTab('shows')}
             >
-              Shows
+              Shows & Anime
               <span className={styles.tabCount}>{showEntries.length}</span>
             </button>
             <button
@@ -148,19 +156,19 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               className={`${styles.tabBtn} ${activeTab === 'books' ? styles.tabBtnActive : ''}`}
               onClick={() => setActiveTab('books')}
             >
-              Books
+              Books & Manga
               <span className={styles.tabCount}>{bookEntries.length}</span>
             </button>
           </div>
 
-          {/* Action Button: Hidden/disabled in Total View */}
+          {/* Action Button */}
           {activeTab !== 'total' && (
             <button
               type="button"
               className={styles.addBtn}
               onClick={() => setIsAddModalOpen(true)}
             >
-              + Add {activeTab === 'shows' ? 'Show' : 'Book'}
+              + Add {activeTab === 'shows' ? 'Show / Anime' : 'Book / Manga'}
             </button>
           )}
         </div>
@@ -174,15 +182,15 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               </div>
               <h3 className={styles.emptyTitle}>
                 {activeTab === 'shows'
-                  ? 'No shows in your archive'
+                  ? 'No shows or anime in your archive'
                   : activeTab === 'books'
-                  ? 'No books in your archive'
+                  ? 'No books or manga in your archive'
                   : 'Your archive is empty'}
               </h3>
               <p className={styles.emptySubtitle}>
                 {activeTab === 'total'
                   ? 'Switch to the Shows or Books tab to start tracking your media.'
-                  : `Add your first ${activeTab === 'shows' ? 'show' : 'book'} to begin tracking your progress.`}
+                  : `Add your first ${activeTab === 'shows' ? 'show or anime' : 'book or manga'} to begin tracking your progress.`}
               </p>
               {activeTab !== 'total' && (
                 <button
@@ -190,13 +198,19 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   className={styles.addBtn}
                   onClick={() => setIsAddModalOpen(true)}
                 >
-                  + Add {activeTab === 'shows' ? 'Show' : 'Book'}
+                  + Add {activeTab === 'shows' ? 'Show / Anime' : 'Book / Manga'}
                 </button>
               )}
             </div>
           ) : (
             displayedEntries.map((item) => {
-              if (item.type === 'book' || item.type === 'novel') {
+              const isBookType =
+                item.category === 'book' ||
+                item.category === 'manga' ||
+                item.type === 'book' ||
+                item.type === 'novel';
+
+              if (isBookType) {
                 return (
                   <BookCard
                     key={item.id}
