@@ -1,25 +1,185 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { compressImageFile } from '@/lib/image-utils';
+import { useState, useRef, useEffect } from 'react';
+import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
 import styles from './dashboard.module.css';
 
 export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd }) {
+  const initialCategory = type === 'book' ? 'book' : 'show';
+  const [category, setCategory] = useState(initialCategory);
   const [title, setTitle] = useState('');
-  const [totalSeasons, setTotalSeasons] = useState('1');
-  const [currentSeason, setCurrentSeason] = useState('1');
-  const [totalUnits, setTotalUnits] = useState('');
-  const [currentProgress, setCurrentProgress] = useState('0');
+  const [primaryUnitTotal, setPrimaryUnitTotal] = useState('1');
+  const [primaryUnitCurrent, setPrimaryUnitCurrent] = useState('1');
+  const [secondaryUnitTotal, setSecondaryUnitTotal] = useState('');
+  const [secondaryUnitCurrent, setSecondaryUnitCurrent] = useState('0');
+  const [structure, setStructure] = useState([]);
+  const [sourceId, setSourceId] = useState('');
+  const [notes, setNotes] = useState('');
   const [coverImage, setCoverImage] = useState(null);
+
+  // Search & Autofill state
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const searchContainerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const searchAbortRef = useRef(null);
+
+  const isShowLike = category === 'show' || category === 'anime';
+
+  // Sync category if type prop changes when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const defaultCat = type === 'book' ? 'book' : 'show';
+      setCategory(defaultCat);
+      resetForm();
+    }
+  }, [isOpen, type]);
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced search trigger (350ms, >= 3 chars)
+  useEffect(() => {
+    const trimmedTitle = title.trim();
+
+    if (trimmedTitle.length < 3) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort();
+      }
+      searchAbortRef.current = new AbortController();
+
+      setIsSearching(true);
+      setError('');
+
+      try {
+        let endpoint = '/api/search/shows';
+        if (category === 'book') {
+          endpoint = `/api/search/books?q=${encodeURIComponent(trimmedTitle)}`;
+        } else if (category === 'anime') {
+          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmedTitle)}&category=anime`;
+        } else if (category === 'manga') {
+          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmedTitle)}&category=manga`;
+        } else {
+          endpoint = `/api/search/shows?q=${encodeURIComponent(trimmedTitle)}`;
+        }
+
+        const res = await fetch(endpoint, {
+          signal: searchAbortRef.current.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error('Search failed');
+        }
+
+        const data = await res.json();
+        const results = data.results || (Array.isArray(data) ? data : []);
+        setSearchResults(results);
+        setShowDropdown(results.length > 0);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Search error:', err);
+          setSearchResults([]);
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [title, category]);
 
   if (!isOpen) return null;
 
-  const isShow = type === 'show';
+  const resetForm = () => {
+    setTitle('');
+    setPrimaryUnitTotal('1');
+    setPrimaryUnitCurrent('1');
+    setSecondaryUnitTotal('');
+    setSecondaryUnitCurrent('0');
+    setStructure([]);
+    setSourceId('');
+    setNotes('');
+    setCoverImage(null);
+    setSearchResults([]);
+    setShowDropdown(false);
+    setError('');
+  };
+
+  const resetAndClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  // Autofill on Selection from search dropdown
+  const handleSelectResult = async (item) => {
+    setTitle(item.title || '');
+    setSourceId(item.sourceId || '');
+
+    const itemStructure = item.structure || [];
+    setStructure(itemStructure);
+
+    const primTotal = item.primaryUnitTotal || (itemStructure.length > 0 ? itemStructure.length : 1);
+    setPrimaryUnitTotal(String(primTotal));
+    setPrimaryUnitCurrent('1');
+    setSecondaryUnitCurrent('0');
+
+    // Look up season 1 in structure if available
+    const season1 = itemStructure.find((s) => s.number === 1);
+    const secTotal = season1?.total || item.secondaryUnitTotal || '';
+    setSecondaryUnitTotal(secTotal ? String(secTotal) : '');
+
+    setShowDropdown(false);
+
+    // Fetch and compress remote poster
+    if (item.coverUrl) {
+      setIsCompressing(true);
+      try {
+        const compressedBase64 = await fetchAndCompressRemoteImage(item.coverUrl, 320, 480, 0.7);
+        if (compressedBase64) {
+          setCoverImage(compressedBase64);
+        } else {
+          setCoverImage(item.coverUrl);
+        }
+      } catch (imgErr) {
+        console.warn('Failed to compress remote cover:', imgErr);
+        setCoverImage(item.coverUrl);
+      } finally {
+        setIsCompressing(false);
+      }
+    }
+  };
+
+  // Dynamic season/volume change handler
+  const handlePrimaryUnitChange = (val) => {
+    setPrimaryUnitCurrent(val);
+    const seasonNum = parseInt(val, 10);
+    if (!isNaN(seasonNum) && structure.length > 0) {
+      const seasonObj = structure.find((s) => s.number === seasonNum);
+      if (seasonObj && seasonObj.total !== null && seasonObj.total !== undefined) {
+        setSecondaryUnitTotal(String(seasonObj.total));
+      }
+    }
+  };
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -55,20 +215,20 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setIsSubmitting(true);
 
     try {
-      const data = {
+      const payload = {
         title: title.trim(),
-        type: isShow ? 'show' : 'book',
-        currentProgress: currentProgress ? parseInt(currentProgress, 10) : 0,
-        totalUnits: totalUnits ? parseInt(totalUnits, 10) : null,
+        category,
+        primaryUnitCurrent: parseInt(primaryUnitCurrent, 10) || 1,
+        primaryUnitTotal: primaryUnitTotal ? parseInt(primaryUnitTotal, 10) : 1,
+        secondaryUnitCurrent: parseInt(secondaryUnitCurrent, 10) || 0,
+        secondaryUnitTotal: secondaryUnitTotal ? parseInt(secondaryUnitTotal, 10) : null,
+        structure: structure || [],
         coverImage: coverImage || null,
+        sourceId: sourceId || null,
+        notes: notes.trim() || null,
       };
 
-      if (isShow) {
-        data.totalSeasons = totalSeasons ? parseInt(totalSeasons, 10) : 1;
-        data.currentSeason = currentSeason ? parseInt(currentSeason, 10) : 1;
-      }
-
-      await onAdd(data);
+      await onAdd(payload);
       resetAndClose();
     } catch (err) {
       setError(err.message || 'Failed to create entry');
@@ -77,23 +237,12 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     }
   };
 
-  const resetAndClose = () => {
-    setTitle('');
-    setTotalSeasons('1');
-    setCurrentSeason('1');
-    setTotalUnits('');
-    setCurrentProgress('0');
-    setCoverImage(null);
-    setError('');
-    onClose();
-  };
-
   return (
     <div className={styles.modalBackdrop} onClick={resetAndClose}>
       <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>
-            Add New {isShow ? 'Show' : 'Book'}
+            Add New Media
           </h2>
           <button
             type="button"
@@ -108,9 +257,44 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         <form onSubmit={handleSubmit} className={styles.modalForm}>
           {error && <div className={styles.errorMessage}>{error}</div>}
 
-          {/* Cover Image Upload */}
+          {/* Category Selector Chips */}
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Cover Image (Optional)</label>
+            <label className={styles.formLabel}>Category</label>
+            <div className={styles.categoryChips}>
+              <button
+                type="button"
+                className={`${styles.categoryChip} ${category === 'show' ? styles.categoryChipActive : ''}`}
+                onClick={() => setCategory('show')}
+              >
+                🎬 TV Show
+              </button>
+              <button
+                type="button"
+                className={`${styles.categoryChip} ${category === 'anime' ? styles.categoryChipActive : ''}`}
+                onClick={() => setCategory('anime')}
+              >
+                ⚡ Anime
+              </button>
+              <button
+                type="button"
+                className={`${styles.categoryChip} ${category === 'book' ? styles.categoryChipActive : ''}`}
+                onClick={() => setCategory('book')}
+              >
+                📖 Book
+              </button>
+              <button
+                type="button"
+                className={`${styles.categoryChip} ${category === 'manga' ? styles.categoryChipActive : ''}`}
+                onClick={() => setCategory('manga')}
+              >
+                📚 Manga
+              </button>
+            </div>
+          </div>
+
+          {/* Cover Image Preview & Upload */}
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>Cover Image (Autofilled or Upload)</label>
             <div className={styles.imagePickerContainer}>
               <div className={styles.imagePreview}>
                 {isCompressing ? (
@@ -146,116 +330,205 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             </div>
           </div>
 
-          {/* Title */}
-          <div className={styles.formGroup}>
-            <label htmlFor="media-title" className={styles.formLabel}>
-              Title *
-            </label>
+          {/* Title with Debounced Search Dropdown */}
+          <div className={styles.formGroup} ref={searchContainerRef} style={{ position: 'relative' }}>
+            <div className={styles.labelRow}>
+              <label htmlFor="media-title" className={styles.formLabel}>
+                Title *
+              </label>
+              {isSearching && <span className={styles.searchIndicator}>Searching sources...</span>}
+            </div>
             <input
               id="media-title"
               type="text"
               required
+              autoComplete="off"
               className={styles.formInput}
-              placeholder={isShow ? 'e.g., Attack on Titan' : 'e.g., The Name of the Wind'}
+              placeholder={
+                category === 'show'
+                  ? 'e.g., Breaking Bad'
+                  : category === 'anime'
+                  ? 'e.g., Attack on Titan, Frieren'
+                  : category === 'book'
+                  ? 'e.g., The Name of the Wind, Dune'
+                  : 'e.g., One Piece, Berserk'
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowDropdown(true);
+              }}
               autoFocus
             />
+
+            {/* Floating Dropdown Results */}
+            {showDropdown && (
+              <div className={styles.searchDropdown}>
+                {searchResults.map((item) => (
+                  <div
+                    key={item.sourceId || `${item.title}-${item.year}`}
+                    className={styles.searchResultItem}
+                    onClick={() => handleSelectResult(item)}
+                  >
+                    {item.coverUrl ? (
+                      <img
+                        src={item.coverUrl}
+                        alt={item.title}
+                        className={styles.searchItemThumb}
+                      />
+                    ) : (
+                      <div className={styles.searchItemThumbPlaceholder}>
+                        {item.title ? item.title.charAt(0) : '?'}
+                      </div>
+                    )}
+                    <div className={styles.searchItemInfo}>
+                      <div className={styles.searchItemTitle}>{item.title}</div>
+                      <div className={styles.searchItemMeta}>
+                        {item.year && <span>{item.year}</span>}
+                        {item.authors && <span>{item.authors}</span>}
+                        {item.structure?.length > 0 && (
+                          <span className={styles.searchItemBadge}>
+                            {item.structure.length} Seasons
+                          </span>
+                        )}
+                        {item.secondaryUnitTotal && !item.structure?.length && (
+                          <span className={styles.searchItemBadge}>
+                            {item.secondaryUnitTotal} {isShowLike ? 'Eps' : 'Pages/Ch'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Show Specific Fields */}
-          {isShow ? (
+          {/* Hierarchical Progress Fields */}
+          {isShowLike ? (
             <>
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
-                  <label htmlFor="total-seasons" className={styles.formLabel}>
+                  <label htmlFor="primary-unit-total" className={styles.formLabel}>
                     Total Seasons
                   </label>
                   <input
-                    id="total-seasons"
+                    id="primary-unit-total"
                     type="number"
                     min="1"
                     className={styles.formInput}
-                    value={totalSeasons}
-                    onChange={(e) => setTotalSeasons(e.target.value)}
+                    value={primaryUnitTotal}
+                    onChange={(e) => setPrimaryUnitTotal(e.target.value)}
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label htmlFor="current-season" className={styles.formLabel}>
+                  <label htmlFor="primary-unit-current" className={styles.formLabel}>
                     Current Season
                   </label>
                   <input
-                    id="current-season"
+                    id="primary-unit-current"
                     type="number"
                     min="1"
                     className={styles.formInput}
-                    value={currentSeason}
-                    onChange={(e) => setCurrentSeason(e.target.value)}
+                    value={primaryUnitCurrent}
+                    onChange={(e) => handlePrimaryUnitChange(e.target.value)}
                   />
                 </div>
               </div>
 
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
-                  <label htmlFor="total-units" className={styles.formLabel}>
-                    Total Episodes (Season)
+                  <label htmlFor="secondary-unit-total" className={styles.formLabel}>
+                    Total Episodes (Season {primaryUnitCurrent})
                   </label>
                   <input
-                    id="total-units"
+                    id="secondary-unit-total"
                     type="number"
                     min="1"
                     className={styles.formInput}
                     placeholder="e.g. 12 or 24"
-                    value={totalUnits}
-                    onChange={(e) => setTotalUnits(e.target.value)}
+                    value={secondaryUnitTotal}
+                    onChange={(e) => setSecondaryUnitTotal(e.target.value)}
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label htmlFor="current-progress" className={styles.formLabel}>
+                  <label htmlFor="secondary-unit-current" className={styles.formLabel}>
                     Current Episode
                   </label>
                   <input
-                    id="current-progress"
+                    id="secondary-unit-current"
                     type="number"
                     min="0"
                     className={styles.formInput}
-                    value={currentProgress}
-                    onChange={(e) => setCurrentProgress(e.target.value)}
+                    value={secondaryUnitCurrent}
+                    onChange={(e) => setSecondaryUnitCurrent(e.target.value)}
                   />
                 </div>
               </div>
             </>
           ) : (
-            /* Book Specific Fields */
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label htmlFor="book-total-units" className={styles.formLabel}>
-                  Total Chapters (Optional)
-                </label>
-                <input
-                  id="book-total-units"
-                  type="number"
-                  min="1"
-                  className={styles.formInput}
-                  placeholder="e.g. 350"
-                  value={totalUnits}
-                  onChange={(e) => setTotalUnits(e.target.value)}
-                />
+            /* Book / Manga Fields */
+            <>
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="primary-unit-total" className={styles.formLabel}>
+                    Total Volumes (Optional)
+                  </label>
+                  <input
+                    id="primary-unit-total"
+                    type="number"
+                    min="1"
+                    className={styles.formInput}
+                    placeholder="e.g. 1"
+                    value={primaryUnitTotal}
+                    onChange={(e) => setPrimaryUnitTotal(e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="primary-unit-current" className={styles.formLabel}>
+                    Current Volume
+                  </label>
+                  <input
+                    id="primary-unit-current"
+                    type="number"
+                    min="1"
+                    className={styles.formInput}
+                    value={primaryUnitCurrent}
+                    onChange={(e) => handlePrimaryUnitChange(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className={styles.formGroup}>
-                <label htmlFor="book-current-progress" className={styles.formLabel}>
-                  Current Chapter
-                </label>
-                <input
-                  id="book-current-progress"
-                  type="number"
-                  min="0"
-                  className={styles.formInput}
-                  value={currentProgress}
-                  onChange={(e) => setCurrentProgress(e.target.value)}
-                />
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="secondary-unit-total" className={styles.formLabel}>
+                    Total Chapters / Pages
+                  </label>
+                  <input
+                    id="secondary-unit-total"
+                    type="number"
+                    min="1"
+                    className={styles.formInput}
+                    placeholder="e.g. 350"
+                    value={secondaryUnitTotal}
+                    onChange={(e) => setSecondaryUnitTotal(e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="secondary-unit-current" className={styles.formLabel}>
+                    Current Chapter / Page
+                  </label>
+                  <input
+                    id="secondary-unit-current"
+                    type="number"
+                    min="0"
+                    className={styles.formInput}
+                    value={secondaryUnitCurrent}
+                    onChange={(e) => setSecondaryUnitCurrent(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           <div className={styles.modalFooter}>
@@ -272,7 +545,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               className={styles.submitBtn}
               disabled={isSubmitting || isCompressing}
             >
-              {isSubmitting ? 'Adding...' : `Add ${isShow ? 'Show' : 'Book'}`}
+              {isSubmitting ? 'Adding...' : 'Add to Archive'}
             </button>
           </div>
         </form>
