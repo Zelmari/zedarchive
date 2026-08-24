@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 
 // AUTH TABLES (Better Auth)
 export const user = pgTable('user', {
@@ -54,29 +54,36 @@ export const verification = pgTable('verification', {
 
 // MEDIA TRACKER TABLES
 
-export const mediaTypeEnum = pgEnum('media_type', ['show', 'book', 'novel']);
-export const statusEnum = pgEnum('media_status', [
-  'plan_to_track',
-  'in_progress',
-  'completed',
-  'on_hold',
-  'dropped',
+export const mediaCategoryEnum = pgEnum('media_category', [
+  'show',      // TV Shows, Series
+  'book',      // Novels, Physical Books
+  'anime',     // Anime Series, OVAs
+  'manga'      // Manga, Manhwa, Light Novels
 ]);
 
 export const mediaEntries = pgTable('media_entries', {
-  id: text('id').primaryKey(), // Generated string ID (e.g. crypto.randomUUID())
+  id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
-  type: text('type').notNull().default('show'),
-  status: text('status').notNull().default('in_progress'),
-  currentSeason: integer('current_season').notNull().default(1),
-  totalSeasons: integer('total_seasons').notNull().default(1),
-  currentProgress: integer('current_progress').notNull().default(0),
-  totalUnits: integer('total_units'),
-  rating: integer('rating'),
-  coverImage: text('cover_image'),
+  category: mediaCategoryEnum('category').notNull().default('show'),
+
+  // Primary Units (Seasons, Volumes)
+  primaryUnitCurrent: integer('primary_unit_current').notNull().default(1),
+  primaryUnitTotal: integer('primary_unit_total').default(1),
+
+  // Secondary Units (Episodes, Chapters)
+  secondaryUnitCurrent: integer('secondary_unit_current').notNull().default(0),
+  secondaryUnitTotal: integer('secondary_unit_total'), // Max units for CURRENT primary unit
+
+  // Universal structure breakdown
+  // Example: [{ "number": 1, "name": "Season 1", "total": 12 }, { "number": 2, "name": "Season 2", "total": 24 }]
+  structure: jsonb('structure').$type().default([]),
+
+  // Media & Metadata
+  coverImage: text('cover_image'), // Compressed Base64 data URL
+  sourceId: text('source_id'),     // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
