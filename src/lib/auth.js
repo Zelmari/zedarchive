@@ -3,9 +3,18 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './db';
 import * as schema from '@/db/schema';
 
+const baseURL = process.env.BETTER_AUTH_URL || 'https://zedarchive.com';
+
+if (!process.env.BETTER_AUTH_SECRET) {
+  throw new Error(
+    'BETTER_AUTH_SECRET is not set. Set it in the build environment before building or deploying ' +
+      '(OpenNext inlines process.env values at build time).'
+  );
+}
+
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://zedarchive.com',
-  secret: process.env.BETTER_AUTH_SECRET || 'zedarchive-default-secret-key-change-in-prod',
+  baseURL,
+  secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
     'https://zedarchive.com',
     'https://www.zedarchive.com',
@@ -19,7 +28,11 @@ export const auth = betterAuth({
     'http://127.0.0.1:3002',
     'http://127.0.0.1:3003',
     'http://127.0.0.1:8787',
-    ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',') : [])
+    ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS
+      ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean)
+      : []),
   ],
   database: drizzleAdapter(db, {
     provider: 'pg',
