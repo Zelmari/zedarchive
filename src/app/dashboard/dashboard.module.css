@@ -61,6 +61,38 @@
   color: var(--text-muted);
 }
 
+.shortcutTriggerBtn {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.shortcutTriggerBtn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.shortcutTriggerBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .shortcutTriggerText {
+    display: none;
+  }
+}
+
 .signOutBtn {
   background-color: transparent;
   border: 1px solid var(--border-color);
@@ -913,6 +945,83 @@
   padding: 0.6rem 0.85rem;
   border-radius: 6px;
   font-size: 0.8125rem;
+}
+
+/* Shortcuts Modal */
+.shortcutsModalContent {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+  animation: slideUp 0.18s ease-out;
+}
+
+.shortcutsHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shortcutsIcon {
+  font-size: 1.125rem;
+}
+
+.shortcutsBody {
+  padding: 1.25rem 1.5rem;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.shortcutsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.shortcutRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.35);
+  gap: 1rem;
+}
+
+.shortcutRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.shortcutDesc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.shortcutKeys {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.shortcutOr {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.kbd {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Confirm Modal */

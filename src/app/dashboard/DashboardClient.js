@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from '@/lib/auth-client';
@@ -8,6 +8,7 @@ import ShowCard from './ShowCard';
 import BookCard from './BookCard';
 import AddMediaModal from './AddMediaModal';
 import ConfirmModal from './ConfirmModal';
+import ShortcutsModal from './ShortcutsModal';
 import ToastContainer from './Toast';
 import {
   createMediaEntry,
@@ -21,6 +22,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const [entries, setEntries] = useState(initialEntries);
   const [activeTab, setActiveTab] = useState('total'); // 'total' | 'shows' | 'books'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Custom Toast State
@@ -49,6 +51,72 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const closeConfirmModal = () => {
     setConfirmModal((prev) => ({ ...prev, isOpen: false }));
   };
+
+  // Helper to check if focus is currently inside an input/textarea/editable
+  const isInputFocused = () => {
+    const activeEl = document.activeElement;
+    if (!activeEl) return false;
+    const tag = activeEl.tagName?.toLowerCase();
+    return (
+      tag === 'input' ||
+      tag === 'textarea' ||
+      tag === 'select' ||
+      activeEl.isContentEditable
+    );
+  };
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Cmd + K or Ctrl + K opens Add Media dialog from anywhere
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+        return;
+      }
+
+      // If an input is focused or a modal is open, ignore single-key shortcuts
+      if (isInputFocused() || isAddModalOpen || confirmModal.isOpen || isShortcutsModalOpen) {
+        return;
+      }
+
+      // Single-key tab switching
+      if (e.key === '1') {
+        e.preventDefault();
+        setActiveTab('total');
+        return;
+      }
+
+      if (e.key === '2') {
+        e.preventDefault();
+        setActiveTab('shows');
+        return;
+      }
+
+      if (e.key === '3') {
+        e.preventDefault();
+        setActiveTab('books');
+        return;
+      }
+
+      // Single-key N opens Add modal
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+        return;
+      }
+
+      // ? or Shift + / opens shortcut cheat sheet
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setIsShortcutsModalOpen((prev) => !prev);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isAddModalOpen, confirmModal.isOpen, isShortcutsModalOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -156,6 +224,15 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         </div>
 
         <div className={styles.userSection}>
+          <button
+            type="button"
+            className={styles.shortcutTriggerBtn}
+            onClick={() => setIsShortcutsModalOpen(true)}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+          >
+            ⌨️ <span className={styles.shortcutTriggerText}>Shortcuts (?)</span>
+          </button>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{user?.name || 'Archive User'}</span>
             <span className={styles.userEmail}>{user?.email}</span>
@@ -182,6 +259,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               aria-selected={activeTab === 'total'}
               className={`${styles.tabBtn} ${activeTab === 'total' ? styles.tabBtnActive : ''}`}
               onClick={() => setActiveTab('total')}
+              title="Press 1 to switch to Total View"
             >
               Total View
               <span className={styles.tabCount}>{entries.length}</span>
@@ -192,6 +270,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               aria-selected={activeTab === 'shows'}
               className={`${styles.tabBtn} ${activeTab === 'shows' ? styles.tabBtnActive : ''}`}
               onClick={() => setActiveTab('shows')}
+              title="Press 2 to switch to Shows & Anime"
             >
               Shows & Anime
               <span className={styles.tabCount}>{showEntries.length}</span>
@@ -202,6 +281,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               aria-selected={activeTab === 'books'}
               className={`${styles.tabBtn} ${activeTab === 'books' ? styles.tabBtnActive : ''}`}
               onClick={() => setActiveTab('books')}
+              title="Press 3 to switch to Books & Manga"
             >
               Books & Manga
               <span className={styles.tabCount}>{bookEntries.length}</span>
@@ -214,6 +294,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               type="button"
               className={styles.addBtn}
               onClick={() => setIsAddModalOpen(true)}
+              title="Press N or ⌘K to add"
             >
               + Add {activeTab === 'shows' ? 'Show / Anime' : 'Book / Manga'}
             </button>
@@ -300,6 +381,12 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         variant={confirmModal.variant}
         onConfirm={confirmModal.onConfirm}
         onCancel={closeConfirmModal}
+      />
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      <ShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
 
       {/* Floating Toast Container */}
