@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb, pgEnum, index } from 'drizzle-orm/pg-core';
 
 // AUTH TABLES (Better Auth)
 export const user = pgTable('user', {
@@ -22,7 +22,9 @@ export const session = pgTable('session', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-});
+}, (table) => [
+  index('session_user_id_idx').on(table.userId),
+]);
 
 export const account = pgTable('account', {
   id: text('id').primaryKey(),
@@ -41,7 +43,9 @@ export const account = pgTable('account', {
   issuer: text('issuer'), // Added missing required field
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+  index('account_user_id_idx').on(table.userId),
+]);
 
 export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
@@ -87,4 +91,6 @@ export const mediaEntries = pgTable('media_entries', {
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+  index('media_entries_user_id_idx').on(table.userId),
+]);
