@@ -329,6 +329,10 @@ export async function bulkImportMediaEntries(items, conflictStrategy = 'skip') {
       rating: sanitizeRating(item.rating),
       tags: sanitizeTags(item.tags),
       completedAt: item.completedAt ? new Date(item.completedAt) : item.status === 'completed' ? new Date() : null,
+      startedAt: item.startedAt ? new Date(item.startedAt) : null,
+      rewatchCount: Math.max(0, toInt(item.rewatchCount, 0)),
+      synopsis: item.synopsis ? String(item.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null,
+      genres: Array.isArray(item.genres) ? item.genres.slice(0, 20) : [],
       primaryUnitCurrent: Math.max(1, toInt(item.primaryUnitCurrent, 1)),
       primaryUnitTotal: item.primaryUnitTotal != null ? Math.max(1, toInt(item.primaryUnitTotal, 1)) : null,
       secondaryUnitCurrent: Math.max(0, toInt(item.secondaryUnitCurrent, 0)),
@@ -345,14 +349,20 @@ export async function bulkImportMediaEntries(items, conflictStrategy = 'skip') {
         .update(mediaEntries)
         .set(payload)
         .where(eq(mediaEntries.id, match.id));
+      if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
+      existingBySourceOrTitle.set(titleKey, match);
       updated++;
     } else {
+      const newId = crypto.randomUUID();
       await db.insert(mediaEntries).values({
         ...payload,
-        id: crypto.randomUUID(),
+        id: newId,
         userId: user.id,
         createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
       });
+      const inserted = { id: newId };
+      if (sourceKey) existingBySourceOrTitle.set(sourceKey, inserted);
+      existingBySourceOrTitle.set(titleKey, inserted);
       added++;
     }
   }

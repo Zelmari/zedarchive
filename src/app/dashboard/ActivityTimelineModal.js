@@ -3,20 +3,27 @@
 import { useState, useEffect } from 'react';
 import { Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { getActivityLogs } from '@/server/activity';
+import { getActivityLogs, getUserStreak } from '@/server/activity';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import styles from './dashboard.module.css';
 
 export default function ActivityTimelineModal({ isOpen, onClose }) {
   const [logs, setLogs] = useState([]);
+  const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
-      getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT)
-        .then((data) => setLogs(data || []))
+      Promise.all([
+        getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT),
+        getUserStreak(),
+      ])
+        .then(([logData, streakData]) => {
+          setLogs(logData || []);
+          setStreak(streakData?.streak ?? 0);
+        })
         .catch((e) => console.error('Failed to load activity logs:', e))
         .finally(() => setLoading(false));
     }
@@ -24,31 +31,8 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Calculate streaks
-  const calculateStreak = () => {
-    if (logs.length === 0) return 0;
-    const uniqueDays = new Set(logs.map((l) => new Date(l.createdAt).toDateString()));
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-
-    const hasToday = uniqueDays.has(today.toDateString());
-    const hasYesterday = uniqueDays.has(yesterday.toDateString());
-
-    if (!hasToday && !hasYesterday) return 0;
-
-    let streak = 0;
-    let checkDate = hasToday ? today : yesterday;
-
-    while (uniqueDays.has(checkDate.toDateString())) {
-      streak++;
-      checkDate = new Date(checkDate);
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-    return streak;
-  };
-
-  const streak = calculateStreak();
+  // Streak is computed server-side from the full history (see getUserStreak),
+  // not from the truncated activity window fetched above.
 
   // Group logs by relative date
   const groupedLogs = logs.reduce((groups, log) => {
