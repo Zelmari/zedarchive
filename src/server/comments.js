@@ -10,7 +10,7 @@ import {
   COMMENT_RATE_LIMIT,
   COMMENT_RATE_WINDOW_MS,
 } from '@/lib/constants';
-import { getAuthUser } from './internal';
+import { getAuthUser, getSessionUser } from './internal';
 
 function serializeComment(row) {
   return {
@@ -29,6 +29,26 @@ function serializeComment(row) {
 export async function getProfileComments(profileUserId) {
   if (!profileUserId) return [];
   const now = new Date();
+
+  // Privacy gate: this server action is publicly invocable, so verify the
+  // target profile is public — or the caller is the profile owner (who may
+  // always read their own guestbook). Anonymous visitors only pass for
+  // public profiles, keeping the /u/[username] page working while signed out.
+  const [target] = await db
+    .select({ id: userTable.id, isPublic: userTable.isPublic })
+    .from(userTable)
+    .where(eq(userTable.id, profileUserId));
+
+  if (!target) {
+    return [];
+  }
+
+  if (!target.isPublic) {
+    const viewer = await getSessionUser();
+    if (viewer?.id !== target.id) {
+      return [];
+    }
+  }
 
   // Lazy cleanup: drop this profile's expired comments while we are here anyway.
   await db

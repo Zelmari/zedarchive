@@ -17,6 +17,18 @@ export async function getAuthUser() {
 }
 
 /**
+ * Non-throwing session lookup for endpoints that serve anonymous visitors
+ * (e.g. public profile pages). Returns null when nobody is signed in.
+ */
+export async function getSessionUser() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  return session?.user ?? null;
+}
+
+/**
  * Best-effort activity logging: never fails the calling action.
  */
 export async function logActivity({ userId, mediaId, actionType, details }) {
