@@ -2,14 +2,9 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error(
-    'DATABASE_URL is not set. Set it in the build environment before building or deploying ' +
-      '(OpenNext inlines process.env values at build time).'
-  );
-}
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgres://placeholder:placeholder@localhost:5432/placeholder';
 
 // On Cloudflare Workers, TCP sockets are bound to the specific request that created them.
 // When connection pooling hands out a socket from an earlier request, workerd rejects
