@@ -1347,4 +1347,164 @@
   color: #b45309;
 }
 
+/* ==========================================================================
+   SPOTLIGHT SEARCH-FIRST MODAL
+   ========================================================================== */
+.spotlightModalContent {
+  width: 100%;
+  max-width: 38rem;
+  background-color: var(--za-color-surface);
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-layered);
+  box-shadow: var(--za-shadow-layered);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.spotlightHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--za-space-3) var(--za-space-4);
+  border-bottom: var(--za-border-width) solid var(--za-color-border-decorative);
+  background-color: var(--za-color-surface-subtle);
+}
+
+.spotlightSearchWrapper {
+  position: relative;
+  padding: var(--za-space-3) var(--za-space-4);
+  border-bottom: var(--za-border-width) solid var(--za-color-border-decorative);
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-3);
+}
+
+.spotlightSearchIcon {
+  color: var(--za-color-text-muted);
+  flex-shrink: 0;
+}
+
+.spotlightSearchInput {
+  flex: 1;
+  font-size: var(--za-text-base);
+  font-weight: var(--za-weight-body);
+  color: var(--za-color-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  line-height: 1.5;
+}
+
+.spotlightSearchInput::placeholder {
+  color: var(--za-color-text-muted);
+  opacity: 0.7;
+}
+
+.spotlightResultsContainer {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: var(--za-space-2) 0;
+}
+
+.spotlightItem {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-3);
+  padding: var(--za-space-2) var(--za-space-4);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background-color var(--za-motion-fast) var(--za-ease-standard);
+  user-select: none;
+}
+
+.spotlightItem:hover,
+.spotlightItemActive {
+  background-color: var(--za-color-surface-subtle);
+  border-left-color: var(--za-color-border-focus);
+}
+
+.spotlightItemThumb {
+  width: 2.25rem;
+  height: 3.25rem;
+  object-fit: cover;
+  border-radius: var(--za-radius-small);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  background-color: var(--za-color-surface-subtle);
+  flex-shrink: 0;
+}
+
+.spotlightItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.spotlightItemTitle {
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  color: var(--za-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotlightItemMeta {
+  font-size: 0.75rem;
+  color: var(--za-color-text-muted);
+  margin-top: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotlightFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--za-space-3) var(--za-space-4);
+  background-color: var(--za-color-surface-subtle);
+  border-top: var(--za-border-width) solid var(--za-color-border-decorative);
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+}
+
+.spotlightManualBtn {
+  background: none;
+  border: none;
+  color: var(--za-color-text);
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--za-radius-small);
+  transition: background-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.spotlightManualBtn:hover {
+  background-color: var(--za-color-surface);
+  text-decoration: underline;
+}
+
+.backToSearchBtn {
+  background: none;
+  border: none;
+  color: var(--za-color-text-muted);
+  font-size: var(--za-text-fine);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--za-radius-small);
+  margin-right: auto;
+  transition: color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.backToSearchBtn:hover {
+  color: var(--za-color-text);
+}
+
 
