@@ -56,3 +56,6 @@ examples/
 !.dev.vars.example
 
 !.env.example
+
+# plans
+plans/
