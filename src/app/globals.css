@@ -126,6 +126,106 @@
   --za-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* ==========================================================================
+   THEMES PALETTES (Midnight Slate, Sepia, E-Ink Monochrome, Phosphor Cyber)
+   ========================================================================== */
+
+/* 1. Midnight Slate (Dark Mode) */
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --za-color-canvas: #121316;
+  --za-color-surface: #1a1c22;
+  --za-color-surface-subtle: #242730;
+  --za-color-text: #ededed;
+  --za-color-text-muted: #9da3af;
+  --za-color-disabled-text: #646b7a;
+  --za-color-disabled-surface: #1e2027;
+  --za-color-border-required: #4b5563;
+  --za-color-border-decorative: #2b303c;
+  --za-color-accent: #f3f4f6;
+  --za-color-accent-hover: #ffffff;
+  --za-color-accent-active: #e5e7eb;
+  --za-color-accent-soft: #282c37;
+  --za-color-on-accent: #121316;
+  --za-color-title-tile: #242730;
+  --za-color-title-tile-text: #9da3af;
+  --za-color-error-surface: #381a1e;
+  --za-color-success-surface: #132b1e;
+  --za-color-warning-surface: #33260c;
+  --za-color-information-surface: #20242d;
+  --za-shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --za-shadow-layered: 0 18px 48px rgba(0, 0, 0, 0.6);
+  --za-backdrop-modal: rgba(0, 0, 0, 0.75);
+}
+
+/* 2. Vintage Sepia */
+[data-theme="sepia"] {
+  color-scheme: light;
+  --za-color-canvas: #f4ebd9;
+  --za-color-surface: #fcf8ed;
+  --za-color-surface-subtle: #ebe0c7;
+  --za-color-text: #382b1d;
+  --za-color-text-muted: #6b563f;
+  --za-color-disabled-text: #8e785f;
+  --za-color-disabled-surface: #e5d8bd;
+  --za-color-border-required: #9c8369;
+  --za-color-border-decorative: #d8c8ab;
+  --za-color-accent: #422814;
+  --za-color-accent-hover: #59371c;
+  --za-color-accent-active: #2f1c0d;
+  --za-color-accent-soft: #e5d5b7;
+  --za-color-on-accent: #ffffff;
+  --za-color-title-tile: #dbc9a6;
+  --za-color-title-tile-text: #422814;
+  --za-color-error-surface: #fae4e5;
+  --za-color-success-surface: #e2ede5;
+  --za-color-warning-surface: #f7edcc;
+}
+
+/* 3. E-Ink Monochrome */
+[data-theme="e-ink"] {
+  color-scheme: light;
+  --za-color-canvas: #fcfcfc;
+  --za-color-surface: #ffffff;
+  --za-color-surface-subtle: #eeeeee;
+  --za-color-text: #000000;
+  --za-color-text-muted: #444444;
+  --za-color-disabled-text: #777777;
+  --za-color-disabled-surface: #e0e0e0;
+  --za-color-border-required: #000000;
+  --za-color-border-decorative: #888888;
+  --za-color-accent: #000000;
+  --za-color-accent-hover: #222222;
+  --za-color-accent-active: #000000;
+  --za-color-accent-soft: #e0e0e0;
+  --za-color-on-accent: #ffffff;
+  --za-color-title-tile: #e4e4e4;
+  --za-color-title-tile-text: #000000;
+}
+
+/* 4. Phosphor Cyber */
+[data-theme="cyber"] {
+  color-scheme: dark;
+  --za-color-canvas: #090e09;
+  --za-color-surface: #0e170f;
+  --za-color-surface-subtle: #142416;
+  --za-color-text: #22c55e;
+  --za-color-text-muted: #16a34a;
+  --za-color-disabled-text: #14532d;
+  --za-color-disabled-surface: #0a130c;
+  --za-color-border-required: #22c55e;
+  --za-color-border-decorative: #15421c;
+  --za-color-accent: #22c55e;
+  --za-color-accent-hover: #4ade80;
+  --za-color-accent-active: #16a34a;
+  --za-color-accent-soft: #142c18;
+  --za-color-on-accent: #090e09;
+  --za-color-title-tile: #142c18;
+  --za-color-title-tile-text: #22c55e;
+  --za-color-error-surface: #2b0d10;
+  --za-color-success-surface: #0e2a14;
+}
+
 /* Base Reset & Document Typography */
 *, *::before, *::after {
   box-sizing: border-box;
