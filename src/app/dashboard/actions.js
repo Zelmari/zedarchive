@@ -1,3 +1,5 @@
+'use server';
+
 import { db } from '@/lib/db';
 import { mediaEntries, user as userTable, mediaActivityLogs } from '@/db/schema';
 import { auth } from '@/lib/auth';
