@@ -59,7 +59,8 @@ export default function StatsModal({ isOpen, onClose, entries = [] }) {
         </div>
 
         <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
-          {/* Main Stats Grid */}
+          {/* Status Breakdown Section */}
+          <div className={styles.statsSectionTitle}>Collection Status</div>
           <div className={styles.statsGrid}>
             <div className={styles.statCard}>
               <div className={styles.statValue}>{totalEntries}</div>
@@ -79,21 +80,23 @@ export default function StatsModal({ isOpen, onClose, entries = [] }) {
             </div>
           </div>
 
-          <div className={styles.statsGrid} style={{ marginTop: 0 }}>
+          {/* Volume & Ratings Section */}
+          <div className={styles.statsSectionTitle} style={{ marginTop: 'var(--za-space-3)' }}>Activity & Ratings</div>
+          <div className={styles.statsGrid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(9rem, 1fr))' }}>
             <div className={styles.statCard}>
-              <div className={styles.statValue} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div className={styles.statValue} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Tv size={16} /> {totalEpisodes}
               </div>
               <div className={styles.statLabel}>Episodes Watched</div>
             </div>
             <div className={styles.statCard}>
-              <div className={styles.statValue} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div className={styles.statValue} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <BookOpen size={16} /> {totalChapters}
               </div>
               <div className={styles.statLabel}>Chapters / Pages</div>
             </div>
             <div className={styles.statCard}>
-              <div className={styles.statValue} style={{ color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div className={styles.statValue} style={{ color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Star size={16} fill="currentColor" /> {avgRating}
               </div>
               <div className={styles.statLabel}>Avg Rating ({ratedEntries.length} rated)</div>
@@ -103,12 +106,12 @@ export default function StatsModal({ isOpen, onClose, entries = [] }) {
           {/* Top Rated Titles */}
           {topRated.length > 0 && (
             <div style={{ marginTop: 'var(--za-space-4)', borderTop: 'var(--za-border-width) solid var(--za-color-border-decorative)', paddingTop: 'var(--za-space-3)' }}>
-              <div style={{ fontSize: 'var(--za-text-fine)', fontWeight: 'var(--za-weight-emphasis)', color: 'var(--za-color-text-muted)', marginBottom: 'var(--za-space-2)' }}>
+              <div className={styles.statsSectionTitle}>
                 TOP RATED ENTRIES
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 {topRated.map((item) => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0.5rem', background: 'var(--za-color-surface-subtle)', borderRadius: 'var(--za-radius-small)' }}>
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.65rem', background: 'var(--za-color-surface-subtle)', borderRadius: 'var(--za-radius-small)', border: 'var(--za-border-width) solid var(--za-color-border-decorative)' }}>
                     <span style={{ fontSize: 'var(--za-text-fine)', fontWeight: 'var(--za-weight-emphasis)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.title}
                     </span>
