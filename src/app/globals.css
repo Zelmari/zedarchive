@@ -604,68 +604,63 @@ button, input, select, textarea {
   font-weight: var(--za-weight-heading);
 }
 
-/* 11. Landing Page Hero */
+/* 11. Landing Page (Watermark) */
+.za-landing {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+}
+
+.za-hero__ghost {
+  position: fixed;
+  inset: -12vmin;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.za-hero__ghost img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  filter: invert(1);          /* white ink -> black ink */
+  mix-blend-mode: multiply;   /* let the linen show through */
+  opacity: 0.07;
+}
+
 .za-hero {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--za-space-6);
-  min-block-size: 70vh;
+  min-block-size: 100%;
   padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12));
+  padding-inline: var(--za-page-gutter);
   text-align: center;
 }
 
 .za-hero__eyebrow {
   font-family: var(--za-font-mono);
   font-size: var(--za-text-fine);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--za-color-text-muted);
 }
 
-.za-hero__eyebrow::before,
-.za-hero__eyebrow::after {
-  content: '·';
-  margin-inline: var(--za-space-3);
-  opacity: 0.5;
-}
-
-.za-hero__logo {
-  display: grid;
-  place-items: center;
-  inline-size: min(38rem, 80vw);
-  aspect-ratio: 3 / 2;
-  padding: var(--za-space-6);
-  border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: var(--za-radius-layered);
-  background: var(--za-color-surface);
-  box-shadow: var(--za-shadow-raised);
-}
-
-.za-hero__logo img {
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: contain;
-}
-
 .za-hero__title {
-  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
   font-weight: var(--za-weight-heading);
-  line-height: var(--za-leading-compact);
-  letter-spacing: -0.02em;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
 
 .za-hero__title em {
   font-style: normal;
   color: var(--za-color-text-muted);
-}
-
-.za-hero__desc {
-  max-inline-size: 46ch;
-  color: var(--za-color-text-muted);
-  font-size: 0.925rem;
 }
 
 .za-hero__actions {
@@ -675,47 +670,11 @@ button, input, select, textarea {
   gap: var(--za-space-3);
 }
 
-/* 12. Landing Feature Grid */
-.za-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: var(--za-space-6);
-  padding-block-end: var(--za-space-12);
-}
-
-.za-feature {
-  display: grid;
-  gap: var(--za-space-2);
-  border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: var(--za-radius-control);
-  background: var(--za-color-surface);
-  padding: var(--za-space-4);
-  transition:
-    border-color var(--za-motion-fast) var(--za-ease-standard),
-    transform var(--za-motion-fast) var(--za-ease-standard);
-}
-
-.za-feature:hover {
-  border-color: var(--za-color-border-required);
-  transform: translateY(-2px);
-}
-
-.za-feature__index {
-  font-family: var(--za-font-mono);
-  font-size: var(--za-text-fine);
-  letter-spacing: 0.1em;
-  color: var(--za-color-text-muted);
-}
-
-.za-feature h2 {
-  font-size: var(--za-text-heading-sm);
-  font-weight: var(--za-weight-heading);
-  line-height: var(--za-leading-compact);
-}
-
-.za-feature p {
-  font-size: var(--za-text-supporting);
-  color: var(--za-color-text-muted);
+.za-site-header,
+.za-site-footer,
+.za-landing main {
+  position: relative;
+  z-index: 1;
 }
 
 /* 13. Site Footer */
@@ -763,8 +722,7 @@ button, input, select, textarea {
   .za-link,
   .za-button,
   .za-field,
-  .za-select,
-  .za-feature {
+  .za-select {
     transition-duration: var(--za-motion-reduced);
     animation-duration: var(--za-motion-reduced);
     animation-iteration-count: 1;

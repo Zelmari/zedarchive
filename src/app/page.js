@@ -3,7 +3,18 @@ import Image from 'next/image';
 
 export default function HomePage() {
   return (
-    <>
+    <div className="za-landing">
+      <div className="za-hero__ghost" aria-hidden="true">
+        <Image
+          alt=""
+          height={1254}
+          priority
+          src="/biglogo.png"
+          width={1254}
+          unoptimized
+        />
+      </div>
+
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">
           <Link href="/" className="za-wordmark za-link za-site-header__brand">
@@ -22,83 +33,40 @@ export default function HomePage() {
             <Link className="za-link" href="/login">
               Sign in
             </Link>
-            <Link className="za-button za-button--secondary" href="/signup">
-              Register
+            <Link className="za-button za-button--primary" href="/signup">
+              Get started
             </Link>
           </nav>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        <div className="za-container za-container--wide">
-          <section className="za-hero">
-            <p className="za-hero__eyebrow">Quiet media archive</p>
+        <section className="za-hero">
+          <p className="za-hero__eyebrow">Quiet media archive</p>
 
-            <div className="za-hero__logo">
-              <Image
-                alt="zedarchive logo"
-                height={192}
-                src="/zedarchivelogo.png"
-                width={288}
-                unoptimized
-                priority
-              />
-            </div>
+          <h1 className="za-hero__title">
+            Your watchlist &amp; reading list,
+            <br />
+            <em>kept quietly.</em>
+          </h1>
 
-            <h1 className="za-hero__title">
-              Your watchlist &amp; reading list, <em>kept quietly.</em>
-            </h1>
-
-            <p className="za-hero__desc">
-              A calm, distraction-free catalogue for the anime, television
-              series, novels, and books you&apos;re working through.
-            </p>
-
-            <div className="za-hero__actions">
-              <Link className="za-button za-button--primary" href="/signup">
-                Get started
-              </Link>
-              <Link className="za-button za-button--secondary" href="/login">
-                Sign in
-              </Link>
-            </div>
-          </section>
-
-          <section className="za-feature-grid" aria-label="Features">
-            <article className="za-feature">
-              <span className="za-feature__index">01</span>
-              <h2>Unified collection</h2>
-              <p>
-                Anime series, television shows, light novels, and physical
-                literature in one serene archive.
-              </p>
-            </article>
-            <article className="za-feature">
-              <span className="za-feature__index">02</span>
-              <h2>Frictionless steppers</h2>
-              <p>
-                Increment episodes and chapter milestones in one clean click. No
-                feeds, algorithms, or banner ads.
-              </p>
-            </article>
-            <article className="za-feature">
-              <span className="za-feature__index">03</span>
-              <h2>Private &amp; permanent</h2>
-              <p>
-                Your personal progress is stored securely and remains under your
-                complete ownership.
-              </p>
-            </article>
-          </section>
-        </div>
+          <div className="za-hero__actions">
+            <Link className="za-button za-button--primary" href="/signup">
+              Get started
+            </Link>
+            <Link className="za-button za-button--secondary" href="/login">
+              Sign in
+            </Link>
+          </div>
+        </section>
       </main>
 
       <footer className="za-site-footer">
         <div className="za-container za-container--wide za-site-footer__inner">
-          <small>zedarchive — quiet media archive</small>
           <small>episodes · chapters · volumes</small>
+          <small>no feeds · no noise</small>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
