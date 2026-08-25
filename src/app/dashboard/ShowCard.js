@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText, CheckCircle2 } from 'lucide-react';
 import styles from './dashboard.module.css';
 
-export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
+export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetail }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
 
@@ -12,6 +12,7 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
   const isAnime = category === 'anime';
   const status = item.status || 'in_progress';
   const rating = item.rating;
+  const tags = Array.isArray(item.tags) ? item.tags : [];
 
   const primaryUnitCurrent = item.primaryUnitCurrent ?? item.currentSeason ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? item.totalSeasons ?? 1;
@@ -172,7 +173,12 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
       <div className={styles.cardTopSection}>
         {/* 2:3 Aspect Ratio Tile / Cover */}
-        <div className={styles.coverWrapper}>
+        <div
+          className={styles.coverWrapper}
+          onClick={() => onOpenDetail && onOpenDetail(item)}
+          style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
+          title={onOpenDetail ? `Open details for ${item.title}` : undefined}
+        >
           {item.coverImage ? (
             <img
               src={item.coverImage}
@@ -191,7 +197,12 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
         <div className={styles.cardDetails}>
           <div className={styles.cardTopRow}>
             <div className={styles.cardTitleGroup}>
-              <h3 className={styles.cardTitle} title={item.title}>
+              <h3
+                className={styles.cardTitle}
+                title={item.title}
+                onClick={() => onOpenDetail && onOpenDetail(item)}
+                style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
+              >
                 {item.title}
               </h3>
             </div>
@@ -236,6 +247,11 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
               S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
             </span>
             <span className={styles.metaBadge}>{isAnime ? 'Anime' : 'TV Series'}</span>
+            {tags.slice(0, 2).map((t) => (
+              <span key={t} className={styles.metaBadge} style={{ fontSize: '0.68rem', color: 'var(--za-color-text-muted)' }}>
+                #{t}
+              </span>
+            ))}
           </div>
 
           {/* Multi-Season Stepper Row (if applicable) */}

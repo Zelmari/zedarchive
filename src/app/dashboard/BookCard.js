@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText, CheckCircle2 } from 'lucide-react';
 import styles from './dashboard.module.css';
 
-export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
+export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetail }) {
   const [showNotes, setShowNotes] = useState(false);
   const category = item.category || (item.type === 'manga' ? 'manga' : 'book');
   const isManga = category === 'manga';
   const status = item.status || 'in_progress';
   const rating = item.rating;
+  const tags = Array.isArray(item.tags) ? item.tags : [];
 
   const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? 1;
@@ -48,60 +49,44 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
 
     if (parsed === secondaryUnitCurrent) return;
 
-    const updates = { secondaryUnitCurrent: parsed };
-    onUpdate(item.id, updates);
-
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, { secondaryUnitCurrent: parsed });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleStep = async (delta) => {
-    let nextVal = secondaryUnitCurrent + delta;
-    if (nextVal < 0) nextVal = 0;
+  const handleProgressChange = async (delta) => {
+    const nextVal = Math.max(0, secondaryUnitCurrent + delta);
     if (secondaryUnitTotal !== null && secondaryUnitTotal !== undefined && nextVal > secondaryUnitTotal) {
-      nextVal = secondaryUnitTotal;
+      return;
     }
-
-    if (nextVal === secondaryUnitCurrent) return;
-
-    setInputValue(String(nextVal));
-    const updates = { secondaryUnitCurrent: nextVal };
-    onUpdate(item.id, updates);
-
-    try {
-      setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
-    } finally {
-      setIsUpdating(false);
-    }
+    await commitChapterValue(nextVal);
   };
 
   const handleVolumeChange = async (delta) => {
-    const nextVol = primaryUnitCurrent + delta;
-    if (nextVol < 1) return;
-    if (primaryUnitTotal && nextVol > primaryUnitTotal) return;
-
-    const updates = { primaryUnitCurrent: nextVol };
-    onUpdate(item.id, updates);
+    const nextVol = Math.max(1, Math.min(primaryUnitTotal, primaryUnitCurrent + delta));
+    if (nextVol === primaryUnitCurrent) return;
 
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, {
+        primaryUnitCurrent: nextVol,
+        secondaryUnitCurrent: 0,
+      });
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleMarkCompleted = async () => {
-    const updates = { status: 'completed', completedAt: new Date().toISOString() };
-    onUpdate(item.id, updates);
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -113,10 +98,6 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
     }
   };
 
-  const progressPercentage = secondaryUnitTotal
-    ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
-    : 0;
-
   const getInitials = (titleStr) => {
     if (!titleStr) return isManga ? 'MG' : 'BK';
     const words = titleStr.trim().split(/\s+/);
@@ -126,29 +107,42 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
 
   const getStatusBadgeClass = () => {
     switch (status) {
-      case 'completed': return styles.statusBadgeCompleted;
-      case 'planning': return styles.statusBadgePlanning;
-      case 'on_hold': return styles.statusBadgeOnHold;
-      case 'dropped': return styles.statusBadgeDropped;
-      default: return styles.statusBadgeInProgress;
+      case 'completed': return styles.statusCompleted;
+      case 'planning': return styles.statusPlanning;
+      case 'on_hold': return styles.statusOnHold;
+      case 'dropped': return styles.statusDropped;
+      case 'in_progress':
+      default:
+        return styles.statusInProgress;
     }
   };
 
   const getStatusLabel = () => {
     switch (status) {
       case 'completed': return 'Completed';
-      case 'planning': return 'Planning';
+      case 'planning': return 'Plan to Read';
       case 'on_hold': return 'On Hold';
       case 'dropped': return 'Dropped';
-      default: return 'In Progress';
+      case 'in_progress':
+      default:
+        return 'Reading';
     }
   };
+
+  const progressPercentage = secondaryUnitTotal
+    ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
+    : 0;
 
   return (
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
       <div className={styles.cardTopSection}>
         {/* 2:3 Aspect Ratio Tile / Cover */}
-        <div className={styles.coverWrapper}>
+        <div
+          className={styles.coverWrapper}
+          onClick={() => onOpenDetail && onOpenDetail(item)}
+          style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
+          title={onOpenDetail ? `Open details for ${item.title}` : undefined}
+        >
           {item.coverImage ? (
             <img
               src={item.coverImage}
@@ -167,7 +161,12 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
         <div className={styles.cardDetails}>
           <div className={styles.cardTopRow}>
             <div className={styles.cardTitleGroup}>
-              <h3 className={styles.cardTitle} title={item.title}>
+              <h3
+                className={styles.cardTitle}
+                title={item.title}
+                onClick={() => onOpenDetail && onOpenDetail(item)}
+                style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
+              >
                 {item.title}
               </h3>
             </div>
@@ -214,6 +213,11 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
               </span>
             )}
             <span className={styles.metaBadge}>{isManga ? 'Manga' : 'Book'}</span>
+            {tags.slice(0, 2).map((t) => (
+              <span key={t} className={styles.metaBadge} style={{ fontSize: '0.68rem', color: 'var(--za-color-text-muted)' }}>
+                #{t}
+              </span>
+            ))}
           </div>
 
           {/* Multi-Volume Stepper Row (if applicable) */}
