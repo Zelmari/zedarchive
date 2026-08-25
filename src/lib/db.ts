@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
 
@@ -17,8 +17,13 @@ const connectionString =
 const STALE_IO_MARKER = 'different request';
 const MAX_RETRIES = 3;
 
-function isStaleIoError(error) {
-  let current = error;
+interface ErrorLike {
+  message?: unknown;
+  cause?: unknown;
+}
+
+function isStaleIoError(error: unknown): boolean {
+  let current = error as ErrorLike | null | undefined;
   for (let depth = 0; current && depth < 5; depth++) {
     if (
       typeof current?.message === 'string' &&
@@ -26,20 +31,25 @@ function isStaleIoError(error) {
     ) {
       return true;
     }
-    current = current.cause;
+    current = current.cause as ErrorLike | null | undefined;
   }
   return false;
 }
 
-function createRetryingPostgresClient(connStr, options) {
+type PostgresOptions = postgres.Options<Record<string, postgres.PostgresType<any>>>;
+
+function createRetryingPostgresClient(
+  connStr: string,
+  options: PostgresOptions
+): postgres.Sql<any> {
   const rawClient = postgres(connStr, options);
 
-  function wrapQueryFn(originalFn, ctx = rawClient) {
-    return function retryingQuery(...args) {
+  function wrapQueryFn(originalFn: any, ctx: any = rawClient) {
+    return function retryingQuery(this: unknown, ...args: any[]) {
       let attempt = 0;
-      let currentQuery = null;
+      let currentQuery: any = null;
 
-      function execute() {
+      function execute(): any {
         const queryPromise = originalFn.apply(ctx, args);
         if (!queryPromise || typeof queryPromise.then !== 'function') {
           return queryPromise;
@@ -47,10 +57,10 @@ function createRetryingPostgresClient(connStr, options) {
         currentQuery = queryPromise;
 
         const originalThen = queryPromise.then.bind(queryPromise);
-        queryPromise.then = function (onFulfilled, onRejected) {
+        queryPromise.then = function (onFulfilled: any, onRejected: any) {
           return originalThen(
             onFulfilled,
-            (err) => {
+            (err: unknown) => {
               if (attempt < MAX_RETRIES && isStaleIoError(err)) {
                 attempt++;
                 const isRawMode = currentQuery?.isRaw;
@@ -84,10 +94,10 @@ function createRetryingPostgresClient(connStr, options) {
           return wrapQueryFn(val);
         }
         if (prop === 'begin') {
-          return function retryingBegin(cb) {
+          return function retryingBegin(cb: any) {
             let attempt = 0;
-            function runBegin() {
-              return val.call(target, cb).catch((err) => {
+            function runBegin(): any {
+              return val.call(target, cb).catch((err: unknown) => {
                 if (attempt < MAX_RETRIES && isStaleIoError(err)) {
                   attempt++;
                   return runBegin();
@@ -101,7 +111,7 @@ function createRetryingPostgresClient(connStr, options) {
       }
       return val;
     },
-  });
+  }) as postgres.Sql<any>;
 }
 
 // Disable prefetch as it is not supported for Supabase "Transaction" pooler mode.
@@ -113,4 +123,4 @@ export const client = createRetryingPostgresClient(connectionString, {
   max_lifetime: 60 * 5,
 });
 
-export const db = drizzle(client, { schema });
+export const db: PostgresJsDatabase<typeof schema> = drizzle(client, { schema });

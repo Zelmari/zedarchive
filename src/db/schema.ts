@@ -1,4 +1,6 @@
 import { pgTable, text, integer, timestamp, boolean, jsonb, pgEnum, index } from 'drizzle-orm/pg-core';
+import type { StructureItem } from '@/types/media';
+import type { ThemeId } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
 export const user = pgTable('user', {
@@ -7,7 +9,7 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
-  theme: text('theme').notNull().default('parchment'), // 'parchment' | 'midnight' | 'sepia' | 'e-ink' | 'cyber'
+  theme: text('theme').$type<ThemeId>().notNull().default('parchment'),
   username: text('username').unique(),
   isPublic: boolean('is_public').notNull().default(false),
   bio: text('bio'),
@@ -87,7 +89,7 @@ export const mediaEntries = pgTable('media_entries', {
 
   // Universal structure breakdown
   // Example: [{ "number": 1, "name": "Season 1", "total": 12 }, { "number": 2, "name": "Season 2", "total": 24 }]
-  structure: jsonb('structure').$type().default([]),
+  structure: jsonb('structure').$type<StructureItem[]>().default([]),
 
   // Media & Metadata
   status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped'
@@ -95,9 +97,9 @@ export const mediaEntries = pgTable('media_entries', {
   startedAt: timestamp('started_at'),
   rewatchCount: integer('rewatch_count').notNull().default(0),
   rating: integer('rating'),       // 1 to 10 scale
-  tags: jsonb('tags').$type().default([]), // e.g. ["favorites", "cozy", "summer-2026"]
+  tags: jsonb('tags').$type<string[]>().default([]), // e.g. ["favorites", "cozy", "summer-2026"]
   synopsis: text('synopsis'),
-  genres: jsonb('genres').$type().default([]),
+  genres: jsonb('genres').$type<string[]>().default([]),
   coverImage: text('cover_image'), // Compressed Base64 data URL
   sourceId: text('source_id'),     // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
   notes: text('notes'),
@@ -117,7 +119,7 @@ export const mediaActivityLogs = pgTable('media_activity_logs', {
     .notNull()
     .references(() => mediaEntries.id, { onDelete: 'cascade' }),
   actionType: text('action_type').notNull(), // 'progress_update' | 'status_change' | 'created' | 'completed' | 'rating' | 'rewatch'
-  details: jsonb('details').notNull().default({}),
+  details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
   index('activity_user_id_idx').on(table.userId),

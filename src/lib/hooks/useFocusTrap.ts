@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+interface FocusTrapOptions {
+  /** Specific element to focus on open */
+  initialFocusRef?: RefObject<HTMLElement | null>;
+}
 
 /**
  * Custom React hook for keyboard accessibility and focus trapping inside modals and dialogs.
@@ -14,16 +19,14 @@ const FOCUSABLE_SELECTOR =
  * Visibility of candidate elements is detected via getClientRects() so
  * position: fixed elements are not wrongly excluded (offsetParent is null
  * for fixed-position nodes even when they are visible).
- *
- * @param {boolean} isOpen - Whether the modal/dialog is currently open
- * @param {Function} [onEscape] - Callback function invoked on Escape key press
- * @param {Object} [options] - Additional options
- * @param {React.RefObject} [options.initialFocusRef] - Specific element ref to focus on open
- * @returns {React.RefObject} Ref to attach to the modal container element
  */
-export function useFocusTrap(isOpen, onEscape, options = {}) {
-  const containerRef = useRef(null);
-  const previousActiveElementRef = useRef(null);
+export function useFocusTrap(
+  isOpen: boolean,
+  onEscape?: (e: globalThis.KeyboardEvent) => void,
+  options: FocusTrapOptions = {}
+): RefObject<HTMLDivElement | null> {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
   const optionsRef = useRef(options);
 
   useEffect(() => {
@@ -34,17 +37,15 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
     if (!isOpen) return;
 
     // Capture the trigger exactly once per open transition.
-    previousActiveElementRef.current = document.activeElement;
+    previousActiveElementRef.current = document.activeElement as HTMLElement | null;
 
     const timer = setTimeout(() => {
-      const initialFocusRef = optionsRef.current?.initialFocusRef;
+      const initialFocusRef = optionsRef.current.initialFocusRef;
       if (initialFocusRef?.current) {
         initialFocusRef.current.focus();
       } else if (containerRef.current) {
         const focusable = getVisibleFocusable(containerRef.current);
-        if (focusable.length > 0) {
-          focusable[0].focus();
-        }
+        focusable[0]?.focus();
       }
     }, 50);
 
@@ -55,16 +56,14 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
       // from the tree entirely (unmount while still open).
       const previous = previousActiveElementRef.current;
       previousActiveElementRef.current = null;
-      if (previous && typeof previous.focus === 'function') {
-        previous.focus();
-      }
+      previous?.focus();
     };
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (onEscape) {
           e.preventDefault();
@@ -80,6 +79,8 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
 
         const firstElement = focusable[0];
         const lastElement = focusable[focusable.length - 1];
+
+        if (!firstElement || !lastElement) return;
 
         if (e.shiftKey) {
           if (document.activeElement === firstElement || !containerRef.current.contains(document.activeElement)) {
@@ -102,8 +103,8 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
   return containerRef;
 }
 
-function getVisibleFocusable(container) {
-  return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+function getVisibleFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (el) => el.getClientRects().length > 0
   );
 }
