@@ -105,6 +105,7 @@ export const mediaEntries = pgTable('media_entries', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
   index('media_entries_user_id_idx').on(table.userId),
+  index('media_entries_user_updated_idx').on(table.userId, table.updatedAt.desc()),
 ]);
 
 export const mediaActivityLogs = pgTable('media_activity_logs', {
@@ -121,6 +122,7 @@ export const mediaActivityLogs = pgTable('media_activity_logs', {
 }, (table) => [
   index('activity_user_id_idx').on(table.userId),
   index('activity_created_at_idx').on(table.createdAt),
+  index('activity_user_created_idx').on(table.userId, table.createdAt.desc()),
 ]);
 
 export const profileComments = pgTable('profile_comments', {
@@ -137,4 +139,6 @@ export const profileComments = pgTable('profile_comments', {
 }, (table) => [
   index('comments_profile_idx').on(table.profileUserId),
   index('comments_expires_idx').on(table.expiresAt),
+  index('comments_profile_expires_idx').on(table.profileUserId, table.expiresAt),
+  index('comments_author_created_idx').on(table.authorUserId, table.createdAt.desc()),
 ]);
