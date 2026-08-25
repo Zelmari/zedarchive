@@ -1565,3 +1565,225 @@
 }
 
 
+
+/* ===== Profile Guestbook ===== */
+
+.guestbookCard {
+  margin-top: var(--za-space-6);
+  padding: 0;
+  overflow: hidden;
+}
+
+.guestbookHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--za-space-3);
+  flex-wrap: wrap;
+  padding: var(--za-space-3) var(--za-space-4);
+  border-bottom: var(--za-border-width) solid var(--za-color-border-decorative);
+  background-color: var(--za-color-surface-subtle);
+}
+
+.guestbookTitle {
+  font-size: var(--za-text-heading-sm);
+  font-weight: var(--za-weight-heading);
+  color: var(--za-color-text);
+}
+
+.guestbookCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: var(--za-radius-small);
+  background-color: var(--za-color-accent-soft);
+  color: var(--za-color-accent);
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+}
+
+.guestbookHint {
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+}
+
+.commentList {
+  list-style: none;
+  margin: 0;
+  padding: var(--za-space-3) var(--za-space-4);
+  max-height: 24rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--za-space-3);
+}
+
+.commentRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--za-space-3);
+}
+
+.commentAvatar {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--za-radius-small);
+  background-color: var(--za-color-title-tile);
+  color: var(--za-color-title-tile-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  object-fit: cover;
+}
+
+.commentMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.commentMetaRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.15rem;
+}
+
+.commentAuthor {
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  color: var(--za-color-text);
+  text-decoration: none;
+}
+
+.commentAuthor:hover {
+  text-decoration: underline;
+  color: var(--za-color-accent);
+}
+
+.commentTime {
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+}
+
+.commentExpiry {
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+  opacity: 0.8;
+}
+
+.commentPending {
+  font-style: italic;
+}
+
+.commentBody {
+  margin: 0;
+  font-size: var(--za-text-supporting);
+  line-height: var(--za-leading-body);
+  color: var(--za-color-text);
+  overflow-wrap: anywhere;
+}
+
+.mentionLink {
+  color: var(--za-color-accent);
+  background-color: var(--za-color-accent-soft);
+  border-radius: var(--za-radius-small);
+  padding: 0 0.25rem;
+  text-decoration: none;
+  font-weight: var(--za-weight-emphasis);
+}
+
+.mentionLink:hover {
+  text-decoration: underline;
+}
+
+.mentionSelf {
+  outline: var(--za-focus-width) solid var(--za-color-accent);
+  outline-offset: var(--za-focus-offset);
+}
+
+.commentDeleteBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--za-color-text-muted);
+  padding: 0.25rem;
+  border-radius: var(--za-radius-small);
+  transition: color var(--za-motion-fast) var(--za-ease-standard), background-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.commentDeleteBtn:hover {
+  color: var(--za-color-destructive);
+  background-color: var(--za-color-surface-subtle);
+}
+
+.guestbookEmpty {
+  margin: 0;
+  padding: var(--za-space-5) var(--za-space-4);
+  text-align: center;
+  font-size: var(--za-text-supporting);
+  color: var(--za-color-text-muted);
+}
+
+.guestbookComposerZone {
+  border-top: var(--za-border-width) solid var(--za-color-border-decorative);
+  padding: var(--za-space-3) var(--za-space-4);
+  background-color: var(--za-color-surface-subtle);
+}
+
+.guestbookNotice {
+  margin: 0;
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+  text-align: center;
+}
+
+.commentForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--za-space-2);
+}
+
+.commentInput {
+  width: 100%;
+  resize: vertical;
+  min-height: 3.2rem;
+  padding: var(--za-space-2) var(--za-space-3);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-control);
+  background-color: var(--za-color-surface);
+  color: var(--za-color-text);
+  font-family: var(--za-font-sans);
+  font-size: var(--za-text-supporting);
+}
+
+.commentInput:focus {
+  outline: var(--za-focus-width) solid var(--za-color-accent);
+  outline-offset: var(--za-focus-offset);
+}
+
+.commentFormFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-3);
+}
+
+.charCounter {
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.composerHint {
+  margin-right: auto;
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+  opacity: 0.7;
+}
