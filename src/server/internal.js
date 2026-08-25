@@ -30,10 +30,13 @@ export async function getSessionUser() {
 
 /**
  * Best-effort activity logging: never fails the calling action.
+ * Pass a transaction handle as `tx` to tie the log write to the caller's
+ * transaction connection (the try/catch still prevents log issues from
+ * aborting the surrounding transaction).
  */
-export async function logActivity({ userId, mediaId, actionType, details }) {
+export async function logActivity({ userId, mediaId, actionType, details }, tx = db) {
   try {
-    await db.insert(mediaActivityLogs).values({
+    await tx.insert(mediaActivityLogs).values({
       id: crypto.randomUUID(),
       userId,
       mediaId,

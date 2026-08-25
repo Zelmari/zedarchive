@@ -116,38 +116,42 @@ export async function createMediaEntry(data) {
     : null;
   const notes = data.notes ? String(data.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
 
-  const [newEntry] = await db
-    .insert(mediaEntries)
-    .values({
-      id,
-      userId: user.id,
-      title,
-      category,
-      status,
-      completedAt,
-      startedAt,
-      rewatchCount: 0,
-      rating,
-      tags,
-      genres,
-      synopsis,
-      primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
-      primaryUnitTotal,
-      secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
-      secondaryUnitTotal,
-      structure,
-      coverImage,
-      sourceId,
-      notes,
-      updatedAt: new Date(),
-    })
-    .returning();
+  const newEntry = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(mediaEntries)
+      .values({
+        id,
+        userId: user.id,
+        title,
+        category,
+        status,
+        completedAt,
+        startedAt,
+        rewatchCount: 0,
+        rating,
+        tags,
+        genres,
+        synopsis,
+        primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
+        primaryUnitTotal,
+        secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
+        secondaryUnitTotal,
+        structure,
+        coverImage,
+        sourceId,
+        notes,
+        updatedAt: new Date(),
+      })
+      .returning();
 
-  await logActivity({
-    userId: user.id,
-    mediaId: id,
-    actionType: 'created',
-    details: { title, category, status },
+    await logActivity({
+      userId: user.id,
+      mediaId: id,
+      actionType: 'created',
+      details: { title, category, status },
+    }, tx);
+
+    return inserted;
   });
 
   revalidatePath('/dashboard');
@@ -247,39 +251,43 @@ export async function updateMediaProgress(id, updates) {
     updateFields.notes = updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
   }
 
-  const [updated] = await db
-    .update(mediaEntries)
-    .set(updateFields)
-    .where(
-      and(
-        eq(mediaEntries.id, id),
-        eq(mediaEntries.userId, user.id)
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(mediaEntries)
+      .set(updateFields)
+      .where(
+        and(
+          eq(mediaEntries.id, id),
+          eq(mediaEntries.userId, user.id)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    throw new Error('Entry not found');
-  }
+    if (!row) {
+      throw new Error('Entry not found');
+    }
 
-  let actionType = 'progress_update';
-  if (updates.status === 'completed') actionType = 'completed';
-  else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
-  else if (updates.rating !== undefined) actionType = 'rating';
+    let actionType = 'progress_update';
+    if (updates.status === 'completed') actionType = 'completed';
+    else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
+    else if (updates.rating !== undefined) actionType = 'rating';
 
-  await logActivity({
-    userId: user.id,
-    mediaId: id,
-    actionType,
-    details: {
-      title: updated.title,
-      category: updated.category,
-      season: updated.primaryUnitCurrent,
-      progress: updated.secondaryUnitCurrent,
-      total: updated.secondaryUnitTotal,
-      status: updated.status,
-      rating: updated.rating,
-    },
+    await logActivity({
+      userId: user.id,
+      mediaId: id,
+      actionType,
+      details: {
+        title: row.title,
+        category: row.category,
+        season: row.primaryUnitCurrent,
+        progress: row.secondaryUnitCurrent,
+        total: row.secondaryUnitTotal,
+        status: row.status,
+        rating: row.rating,
+      },
+    }, tx);
+
+    return row;
   });
 
   revalidatePath('/dashboard');
