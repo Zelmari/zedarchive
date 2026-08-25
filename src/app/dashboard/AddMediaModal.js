@@ -31,6 +31,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -57,6 +59,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setSearchResults([]);
     setHighlightedIndex(-1);
     setShowDropdown(false);
+    setSearchError('');
+    setHasSearched(false);
     setError('');
     coverRequestRef.current += 1;
   }, []);
@@ -70,14 +74,15 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   // Escape key handler: close dropdown if open, else close modal
   const handleEscape = useCallback(
     () => {
-      if (showDropdown) {
+      if (showDropdown || searchError) {
         setShowDropdown(false);
+        setSearchError('');
         setHighlightedIndex(-1);
       } else {
         resetAndClose();
       }
     },
-    [showDropdown, resetAndClose]
+    [showDropdown, searchError, resetAndClose]
   );
 
   // Accessible focus trapping
@@ -121,6 +126,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
       setHighlightedIndex(-1);
       setIsSearching(false);
       setShowDropdown(false);
+      setSearchError('');
+      setHasSearched(false);
       return;
     }
 
@@ -148,20 +155,32 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
           signal: controller.signal,
         });
 
+        const data = await res.json().catch(() => null);
+
         if (!res.ok) {
-          throw new Error('Search failed');
+          const message = data?.error || 'Search service unavailable';
+          setSearchResults([]);
+          setHighlightedIndex(-1);
+          setSearchError(message);
+          setHasSearched(true);
+          setShowDropdown(true);
+          return;
         }
 
-        const data = await res.json();
-        const results = data.results || (Array.isArray(data) ? data : []);
+        const results = data?.results || (Array.isArray(data) ? data : []);
         setSearchResults(results);
         setHighlightedIndex(-1);
+        setSearchError('');
+        setHasSearched(true);
         setShowDropdown(results.length > 0);
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error('Search error:', err);
           setSearchResults([]);
           setHighlightedIndex(-1);
+          setSearchError('Search failed. Please try again.');
+          setHasSearched(true);
+          setShowDropdown(true);
         }
       } finally {
         if (searchAbortRef.current === controller) {
@@ -479,14 +498,23 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
             />
 
             {/* Floating Dropdown Results */}
-            {showDropdown && (
+            {(showDropdown || searchError || (hasSearched && searchResults.length === 0 && !isSearching)) && (
               <div
                 id="search-results-list"
                 className={styles.searchDropdown}
-                role="listbox"
+                role={searchResults.length > 0 ? 'listbox' : undefined}
                 aria-label="Search results"
               >
-                {searchResults.map((item, idx) => (
+                {searchError ? (
+                  <div className={styles.searchStatusRow} role="status">
+                    {searchError} — try again in a moment.
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className={styles.searchStatusRow}>
+                    No matches — press Enter to add it manually.
+                  </div>
+                ) : (
+                  searchResults.map((item, idx) => (
                   <div
                     key={item.sourceId || `${item.title}-${item.year}-${idx}`}
                     ref={(el) => {
@@ -536,7 +564,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
                       </div>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
             )}
           </div>

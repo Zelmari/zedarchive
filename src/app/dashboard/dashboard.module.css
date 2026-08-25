@@ -541,6 +541,13 @@
   z-index: 60;
 }
 
+.searchStatusRow {
+  padding: var(--za-space-3);
+  color: var(--za-color-text-muted);
+  font-size: var(--za-text-supporting);
+  text-align: center;
+}
+
 .searchResultItem {
   display: flex;
   align-items: center;

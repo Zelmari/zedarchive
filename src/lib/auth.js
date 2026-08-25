@@ -28,6 +28,9 @@ export const auth = betterAuth({
     'http://127.0.0.1:3002',
     'http://127.0.0.1:3003',
     'http://127.0.0.1:8787',
+    // Cloudflare deployment & preview hosts (workers.dev / pages.dev)
+    'https://*.workers.dev',
+    'https://*.pages.dev',
     ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS
       ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',')
           .map((origin) => origin.trim())
