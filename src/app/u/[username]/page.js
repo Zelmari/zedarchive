@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { getPublicUserProfile } from '@/app/dashboard/actions';
+import { headers } from 'next/headers';
+import { getPublicUserProfile, getProfileComments } from '@/app/dashboard/actions';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { user as userTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import ProfileComments from './ProfileComments';
 import { Tv, BookOpen, Layers, Star, Calendar, ShieldAlert } from 'lucide-react';
 import styles from '@/app/dashboard/dashboard.module.css';
 
@@ -39,6 +45,29 @@ export default async function PublicProfilePage({ params }) {
   }
 
   const { user, entries = [] } = data;
+
+  // Viewer context: who (if anyone) is looking, and may they comment?
+  let viewer = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session?.user?.id) {
+    const [meRow] = await db
+      .select({
+        id: userTable.id,
+        username: userTable.username,
+        name: userTable.name,
+        image: userTable.image,
+        isPublic: userTable.isPublic,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, session.user.id));
+    if (meRow) {
+      viewer = { isLoggedIn: true, ...meRow };
+    }
+  }
+
+  // Guestbook comments (auto-purges expired rows for this profile)
+  const initialComments = await getProfileComments(user.id);
+
   const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
   const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
   const completedCount = entries.filter((e) => e.status === 'completed').length;
@@ -183,6 +212,13 @@ export default async function PublicProfilePage({ params }) {
               })}
             </div>
           </div>
+
+          {/* Guestbook */}
+          <ProfileComments
+            profileUser={{ id: user.id, username: user.username }}
+            initialComments={initialComments}
+            viewer={viewer}
+          />
         </div>
       </main>
     </div>
