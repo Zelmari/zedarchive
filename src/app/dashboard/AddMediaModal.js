@@ -43,6 +43,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   const fileInputRef = useRef(null);
   const searchAbortRef = useRef(null);
   const coverRequestRef = useRef(0);
+  const searchDismissedRef = useRef(false);
 
   const isShowLike = category === 'show' || category === 'anime';
 
@@ -63,6 +64,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setHasSearched(false);
     setError('');
     coverRequestRef.current += 1;
+    searchDismissedRef.current = false;
   }, []);
 
   const resetAndClose = useCallback(() => {
@@ -71,10 +73,13 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     onClose();
   }, [resetForm, onClose, isSubmitting, isCompressing]);
 
-  // Escape key handler: close dropdown if open, else close modal
+  // Escape key handler: close dropdown if open (and freeze search so it can't
+// reopen), else close modal
   const handleEscape = useCallback(
     () => {
       if (showDropdown || searchError) {
+        searchDismissedRef.current = true;
+        searchAbortRef.current?.abort();
         setShowDropdown(false);
         setSearchError('');
         setHighlightedIndex(-1);
@@ -120,6 +125,18 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   // Debounced search trigger (350ms, >= 3 chars)
   useEffect(() => {
     const trimmedTitle = title.trim();
+
+    // Search was dismissed with Escape: freeze it so the dropdown can't
+    // reopen and the modal can't be closed accidentally while typing.
+    // Clearing the field re-enables search.
+    if (searchDismissedRef.current && trimmedTitle) {
+      setIsSearching(false);
+      setShowDropdown(false);
+      return;
+    }
+    if (searchDismissedRef.current && !trimmedTitle) {
+      searchDismissedRef.current = false;
+    }
 
     if (trimmedTitle.length < 3) {
       setSearchResults([]);
@@ -172,7 +189,9 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         setHighlightedIndex(-1);
         setSearchError('');
         setHasSearched(true);
-        setShowDropdown(results.length > 0);
+        if (!searchDismissedRef.current) {
+          setShowDropdown(results.length > 0);
+        }
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error('Search error:', err);
