@@ -165,6 +165,15 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
         <div
           className={styles.coverWrapper}
           onClick={() => onOpenDetail && onOpenDetail(item)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && onOpenDetail) {
+              e.preventDefault();
+              onOpenDetail(item);
+            }
+          }}
+          role={onOpenDetail ? 'button' : undefined}
+          tabIndex={onOpenDetail ? 0 : undefined}
+          aria-label={onOpenDetail ? `Open details for ${item.title}` : undefined}
           style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
           title={onOpenDetail ? `Open details for ${item.title}` : undefined}
         >
@@ -190,6 +199,15 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
                 className={styles.cardTitle}
                 title={item.title}
                 onClick={() => onOpenDetail && onOpenDetail(item)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && onOpenDetail) {
+                    e.preventDefault();
+                    onOpenDetail(item);
+                  }
+                }}
+                role={onOpenDetail ? 'button' : undefined}
+                tabIndex={onOpenDetail ? 0 : undefined}
+                aria-label={onOpenDetail ? `Open details for ${item.title}` : undefined}
                 style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
               >
                 {item.title}

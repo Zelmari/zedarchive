@@ -7,9 +7,13 @@ const FOCUSABLE_SELECTOR =
 
 /**
  * Custom React hook for keyboard accessibility and focus trapping inside modals and dialogs.
- * - Captures the trigger element and restores focus upon closing
+ * - Captures the trigger element once per open transition and restores focus upon closing or unmount
  * - Traps Tab and Shift+Tab navigation within the container
  * - Handles Escape key presses via callback
+ *
+ * Visibility of candidate elements is detected via getClientRects() so
+ * position: fixed elements are not wrongly excluded (offsetParent is null
+ * for fixed-position nodes even when they are visible).
  *
  * @param {boolean} isOpen - Whether the modal/dialog is currently open
  * @param {Function} [onEscape] - Callback function invoked on Escape key press
@@ -20,29 +24,42 @@ const FOCUSABLE_SELECTOR =
 export function useFocusTrap(isOpen, onEscape, options = {}) {
   const containerRef = useRef(null);
   const previousActiveElementRef = useRef(null);
+  const optionsRef = useRef(options);
 
   useEffect(() => {
-    if (isOpen) {
-      previousActiveElementRef.current = document.activeElement;
+    optionsRef.current = options;
+  });
 
-      const timer = setTimeout(() => {
-        if (options.initialFocusRef?.current) {
-          options.initialFocusRef.current.focus();
-        } else if (containerRef.current) {
-          const focusable = containerRef.current.querySelectorAll(FOCUSABLE_SELECTOR);
-          if (focusable.length > 0) {
-            focusable[0].focus();
-          }
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Capture the trigger exactly once per open transition.
+    previousActiveElementRef.current = document.activeElement;
+
+    const timer = setTimeout(() => {
+      const initialFocusRef = optionsRef.current?.initialFocusRef;
+      if (initialFocusRef?.current) {
+        initialFocusRef.current.focus();
+      } else if (containerRef.current) {
+        const focusable = getVisibleFocusable(containerRef.current);
+        if (focusable.length > 0) {
+          focusable[0].focus();
         }
-      }, 50);
-
-      return () => clearTimeout(timer);
-    } else {
-      if (previousActiveElementRef.current && typeof previousActiveElementRef.current.focus === 'function') {
-        previousActiveElementRef.current.focus();
       }
-    }
-  }, [isOpen, options.initialFocusRef]);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+
+      // Restore focus whether the modal was closed via state or removed
+      // from the tree entirely (unmount while still open).
+      const previous = previousActiveElementRef.current;
+      previousActiveElementRef.current = null;
+      if (previous && typeof previous.focus === 'function') {
+        previous.focus();
+      }
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,9 +74,7 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
       }
 
       if (e.key === 'Tab' && containerRef.current) {
-        const focusable = Array.from(
-          containerRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
-        ).filter((el) => el.offsetParent !== null); // only visible elements
+        const focusable = getVisibleFocusable(containerRef.current);
 
         if (focusable.length === 0) return;
 
@@ -85,4 +100,10 @@ export function useFocusTrap(isOpen, onEscape, options = {}) {
   }, [isOpen, onEscape]);
 
   return containerRef;
+}
+
+function getVisibleFocusable(container) {
+  return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.getClientRects().length > 0
+  );
 }

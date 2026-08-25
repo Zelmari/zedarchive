@@ -55,10 +55,10 @@ function ToastItem({ toast, onDismiss }) {
 }
 
 export default function ToastContainer({ toasts = [], onDismiss }) {
-  if (!toasts || toasts.length === 0) return null;
-
+  // The live region must exist in the DOM before the first toast appears,
+  // otherwise screen readers can miss the announcement.
   return (
-    <div className={styles.toastContainer} aria-label="Notifications">
+    <div className={styles.toastContainer} role="status" aria-live="polite">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
