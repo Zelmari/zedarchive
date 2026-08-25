@@ -15,11 +15,19 @@ import {
   BarChart2,
   Database,
   ArrowUpDown,
+  Palette,
+  Activity,
+  Share2,
+  Tag,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import ShowCard from './ShowCard';
 import BookCard from './BookCard';
 import AddMediaModal from './AddMediaModal';
+import MediaDetailModal from './MediaDetailModal';
+import ThemeModal from './ThemeModal';
+import ActivityTimelineModal from './ActivityTimelineModal';
+import ShareProfileModal from './ShareProfileModal';
 import ConfirmModal from './ConfirmModal';
 import ShortcutsModal from './ShortcutsModal';
 import StatsModal from './StatsModal';
@@ -39,10 +47,16 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const [activeTab, setActiveTab] = useState('total'); // 'total' | 'shows' | 'books'
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped'
+  const [selectedTag, setSelectedTag] = useState('all');
   const [sortBy, setSortBy] = useState('updated_desc'); // 'updated_desc' | 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc' | 'progress_desc' | 'rating_desc'
 
+  const [currentTheme, setCurrentTheme] = useState(() => user?.theme || 'parchment');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
@@ -61,6 +75,23 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Theme synchronization on mount and when user.theme changes
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const savedTheme = localStorage.getItem('za-theme') || user?.theme || 'parchment';
+      setCurrentTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  }, [user?.theme]);
+
+  // Keep detail item in sync if updated
+  useEffect(() => {
+    if (detailItem) {
+      const refreshed = entries.find((e) => e.id === detailItem.id);
+      if (refreshed) setDetailItem(refreshed);
+    }
+  }, [entries, detailItem]);
 
   // Custom Confirmation Dialog State
   const [confirmModal, setConfirmModal] = useState({
@@ -99,13 +130,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         return;
       }
 
-      if (e.key === '/' && !isInputFocused() && !isAddModalOpen && !editingItem && !confirmModal.isOpen && !isShortcutsModalOpen && !isStatsModalOpen && !isDataModalOpen) {
+      if (e.key === '/' && !isInputFocused() && !isAddModalOpen && !editingItem && !detailItem && !confirmModal.isOpen && !isShortcutsModalOpen && !isStatsModalOpen && !isDataModalOpen && !isThemeModalOpen && !isActivityModalOpen && !isShareModalOpen) {
         e.preventDefault();
         searchInputRef.current?.focus();
         return;
       }
 
-      if (isInputFocused() || isAddModalOpen || editingItem || confirmModal.isOpen || isShortcutsModalOpen || isStatsModalOpen || isDataModalOpen) {
+      if (isInputFocused() || isAddModalOpen || editingItem || detailItem || confirmModal.isOpen || isShortcutsModalOpen || isStatsModalOpen || isDataModalOpen || isThemeModalOpen || isActivityModalOpen || isShareModalOpen) {
         return;
       }
 
@@ -135,169 +166,192 @@ export default function DashboardClient({ user, initialEntries = [] }) {
 
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
-        setIsShortcutsModalOpen((prev) => !prev);
+        setIsShortcutsModalOpen(true);
+        return;
+      }
+
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        setIsStatsModalOpen(true);
+        return;
+      }
+
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        setIsDataModalOpen(true);
+        return;
+      }
+
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        setIsThemeModalOpen(true);
         return;
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isAddModalOpen, editingItem, confirmModal.isOpen, isShortcutsModalOpen, isStatsModalOpen, isDataModalOpen]);
+  }, [
+    isAddModalOpen,
+    editingItem,
+    detailItem,
+    confirmModal.isOpen,
+    isShortcutsModalOpen,
+    isStatsModalOpen,
+    isDataModalOpen,
+    isThemeModalOpen,
+    isActivityModalOpen,
+    isShareModalOpen,
+  ]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out of your ZedArchive account?',
+      confirmText: 'Sign Out',
+      cancelText: 'Stay Logged In',
+      variant: 'secondary',
+      onConfirm: async () => {
+        setIsSigningOut(true);
+        try {
+          await signOut({
+            fetchOptions: {
+              onSuccess: () => {
+                router.push('/login');
+              },
+            },
+          });
+        } catch (error) {
+          console.error('Sign out error:', error);
+          setIsSigningOut(false);
+          addToast('Failed to sign out. Please try again.', 'error');
+        }
+      },
+    });
+  };
+
+  // Optimistic UI updates
+  const handleUpdate = async (id, updates, skipOptimistic = false) => {
+    const previousEntries = [...entries];
+
+    if (!skipOptimistic) {
+      setEntries((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item;
+          const next = { ...item, ...updates, updatedAt: new Date().toISOString() };
+          if (updates.primaryUnitCurrent !== undefined && next.structure && next.structure.length > 0) {
+            const seasonObj = next.structure.find((s) => s.number === updates.primaryUnitCurrent);
+            if (seasonObj && seasonObj.total) {
+              next.secondaryUnitTotal = seasonObj.total;
+            }
+          }
+          return next;
+        })
+      );
+    }
+
     try {
-      setIsSigningOut(true);
-      await signOut();
-      router.push('/');
-      router.refresh();
+      const updated = await updateMediaProgress(id, updates);
+      setEntries((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+      );
     } catch (err) {
-      console.error('Sign out error:', err);
-      addToast('Failed to sign out', 'error');
-    } finally {
-      setIsSigningOut(false);
+      console.error('Update failed:', err);
+      setEntries(previousEntries);
+      addToast(err.message || 'Failed to update progress', 'error');
     }
   };
 
   const handleCreate = async (data) => {
     try {
       const newEntry = await createMediaEntry(data);
-      if (newEntry) {
-        setEntries((prev) => [newEntry, ...prev]);
-        addToast(`"${newEntry.title}" added to your archive`, 'success');
-      }
+      setEntries((prev) => [newEntry, ...prev]);
+      addToast(`Added "${newEntry.title}" to archive`, 'success');
+      return newEntry;
     } catch (err) {
-      console.error('Create entry error:', err);
+      console.error('Creation failed:', err);
       addToast(err.message || 'Failed to create entry', 'error');
+      throw err;
     }
+  };
+
+  const handleSaveEdit = async (id, updates) => {
+    try {
+      const updated = await updateMediaProgress(id, updates);
+      setEntries((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+      );
+      setEditingItem(null);
+      addToast(`Updated "${updated.title}"`, 'success');
+      return updated;
+    } catch (err) {
+      console.error('Edit save failed:', err);
+      addToast(err.message || 'Failed to save changes', 'error');
+      throw err;
+    }
+  };
+
+  const handleDeleteClick = (id) => {
+    const itemToDelete = entries.find((e) => e.id === id);
+    const itemTitle = itemToDelete ? itemToDelete.title : 'this item';
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Media Entry',
+      message: `Are you sure you want to remove "${itemTitle}" from your archive? This action cannot be undone.`,
+      confirmText: 'Remove Entry',
+      cancelText: 'Keep Entry',
+      variant: 'destructive',
+      onConfirm: async () => {
+        const previousEntries = [...entries];
+        setEntries((prev) => prev.filter((item) => item.id !== id));
+
+        try {
+          await deleteMediaEntry(id);
+          addToast(`Removed "${itemTitle}" from archive`, 'info');
+        } catch (err) {
+          console.error('Delete failed:', err);
+          setEntries(previousEntries);
+          addToast(err.message || 'Failed to delete entry', 'error');
+        }
+      },
+    });
   };
 
   const handleEditClick = (item) => {
     setEditingItem(item);
   };
 
-  const handleSaveEdit = async (id, data) => {
-    const previousEntry = entries.find((item) => item.id === id);
+  // Collect all unique custom tags
+  const allTags = Array.from(new Set(entries.flatMap((e) => e.tags || []))).filter(Boolean);
 
-    setEntries((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...data,
-              updatedAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
+  // Category subsets
+  const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
+  const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
 
-    try {
-      const updated = await updateMediaProgress(id, data);
-      if (updated) {
-        setEntries((prev) =>
-          prev.map((item) => (item.id === id ? updated : item))
-        );
-        addToast(`"${updated.title}" updated`, 'success');
-      }
-    } catch (err) {
-      console.error('Failed to update entry:', err);
-      setEntries((prev) =>
-        prev.map((item) => (item.id === id && previousEntry ? previousEntry : item))
-      );
-      addToast(err.message || 'Failed to update entry', 'error');
-    }
-  };
+  // Status counts for current active tab
+  const tabScopedEntries =
+    activeTab === 'shows' ? showEntries : activeTab === 'books' ? bookEntries : entries;
 
-  const handleUpdate = async (id, updates, callServer = false) => {
-    const previousEntry = entries.find((item) => item.id === id);
+  const countAll = tabScopedEntries.length;
+  const countInProgress = tabScopedEntries.filter((e) => (e.status || 'in_progress') === 'in_progress').length;
+  const countCompleted = tabScopedEntries.filter((e) => e.status === 'completed').length;
+  const countPlanning = tabScopedEntries.filter((e) => e.status === 'planning').length;
+  const countOnHold = tabScopedEntries.filter((e) => e.status === 'on_hold').length;
+  const countDropped = tabScopedEntries.filter((e) => e.status === 'dropped').length;
 
-    setEntries((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
-
-    if (callServer) {
-      try {
-        await updateMediaProgress(id, updates);
-      } catch (err) {
-        console.error('Failed to sync update with server:', err);
-        setEntries((prev) =>
-          prev.map((item) => (item.id === id && previousEntry ? previousEntry : item))
-        );
-        addToast('Failed to sync update with server', 'error');
-      }
-    }
-  };
-
-  const handleDeleteClick = (id) => {
-    const itemToDelete = entries.find((item) => item.id === id);
-    const itemTitle = itemToDelete ? itemToDelete.title : 'this item';
-
-    setConfirmModal({
-      isOpen: true,
-      title: 'Remove from Archive',
-      message: `Are you sure you want to remove "${itemTitle}" from your archive? This action cannot be undone.`,
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      variant: 'danger',
-      onConfirm: async () => {
-        closeConfirmModal();
-        const previousIndex = entries.findIndex((item) => item.id === id);
-        const previousEntry = entries[previousIndex];
-        setEntries((prev) => prev.filter((item) => item.id !== id));
-
-        try {
-          await deleteMediaEntry(id);
-          addToast(`"${itemTitle}" removed from archive`, 'info');
-        } catch (err) {
-          console.error('Failed to delete item:', err);
-          setEntries((prev) => {
-            const next = prev.filter((item) => item.id !== id);
-            next.splice(Math.min(previousIndex, next.length), 0, previousEntry);
-            return next;
-          });
-          addToast('Failed to delete item. Please try again.', 'error');
-        }
-      },
-    });
-  };
-
-  const showEntries = entries.filter(
-    (item) => item.category === 'show' || item.category === 'anime' || item.type === 'show'
-  );
-  const bookEntries = entries.filter(
-    (item) =>
-      item.category === 'book' ||
-      item.category === 'manga' ||
-      item.type === 'book' ||
-      item.type === 'novel'
-  );
-
-  const baseCategoryEntries = entries.filter((item) => {
-    const isBook = item.category === 'book' || item.category === 'manga' || item.type === 'book' || item.type === 'novel';
-    if (activeTab === 'shows') return !isBook;
-    if (activeTab === 'books') return isBook;
-    return true;
-  });
-
-  const countAll = baseCategoryEntries.length;
-  const countInProgress = baseCategoryEntries.filter((e) => !e.status || e.status === 'in_progress').length;
-  const countCompleted = baseCategoryEntries.filter((e) => e.status === 'completed').length;
-  const countPlanning = baseCategoryEntries.filter((e) => e.status === 'planning').length;
-  const countOnHold = baseCategoryEntries.filter((e) => e.status === 'on_hold').length;
-  const countDropped = baseCategoryEntries.filter((e) => e.status === 'dropped').length;
-
-  const filteredEntries = baseCategoryEntries.filter((item) => {
+  // Filtered entries
+  const filteredEntries = tabScopedEntries.filter((item) => {
     // Status filter
     if (statusFilter !== 'all') {
       const itemStatus = item.status || 'in_progress';
       if (itemStatus !== statusFilter) return false;
+    }
+
+    // Tag filter
+    if (selectedTag !== 'all') {
+      if (!Array.isArray(item.tags) || !item.tags.includes(selectedTag)) return false;
     }
 
     // Search query filter
@@ -305,7 +359,8 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       const q = searchQuery.toLowerCase().trim();
       const titleMatch = item.title?.toLowerCase().includes(q);
       const notesMatch = item.notes?.toLowerCase().includes(q);
-      if (!titleMatch && !notesMatch) return false;
+      const tagMatch = Array.isArray(item.tags) && item.tags.some((t) => t.toLowerCase().includes(q));
+      if (!titleMatch && !notesMatch && !tagMatch) return false;
     }
 
     return true;
@@ -389,6 +444,17 @@ export default function DashboardClient({ user, initialEntries = [] }) {
             <button
               type="button"
               className="za-button za-button--tertiary"
+              onClick={() => setIsThemeModalOpen(true)}
+              title="Change Theme (Press T)"
+              aria-label="Change Theme"
+            >
+              <Palette size={16} strokeWidth={1.75} />
+              <span className={styles.desktopOnly}>Theme</span>
+            </button>
+
+            <button
+              type="button"
+              className="za-button za-button--tertiary"
               onClick={() => setIsShortcutsModalOpen(true)}
               title="Keyboard shortcuts (Press ?)"
               aria-label="Keyboard shortcuts"
@@ -452,46 +518,80 @@ export default function DashboardClient({ user, initialEntries = [] }) {
             </div>
           </div>
 
-          {/* Dashboard Controls Toolbar (Search, Filter, Sort, Stats & Backup) */}
-          <div className={styles.dashboardControlsBar}>
-            <div className={styles.toolbarTopRow}>
-              <div className={styles.searchAndSortGroup}>
-                <div className={styles.archiveSearchWrapper}>
-                  <Search size={14} className={styles.searchIconInside} />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    className={styles.archiveSearchInput}
-                    placeholder="Search archive or notes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search archive"
-                  />
-                  {!searchQuery && <span className={styles.searchKbdHint}>/</span>}
-                </div>
-
-                <select
-                  className={styles.sortDropdownSelect}
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  aria-label="Sort archive"
-                >
-                  <option value="updated_desc">Recently Updated</option>
-                  <option value="created_desc">Date Added (Newest)</option>
-                  <option value="created_asc">Date Added (Oldest)</option>
-                  <option value="title_asc">Title (A → Z)</option>
-                  <option value="title_desc">Title (Z → A)</option>
-                  <option value="progress_desc">Progress %</option>
-                  <option value="rating_desc">Highest Rated</option>
-                </select>
+          {/* Controls Toolbar: Search, Sort, Stats, Activity, Share, Backup */}
+          <div className={styles.archiveToolbarWrapper}>
+            <div className={styles.archiveToolbarTop}>
+              {/* Search Bar */}
+              <div className={styles.searchBarWrapper}>
+                <Search size={16} className={styles.searchIcon} />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search titles, tags, notes... (Press /)"
+                  className={styles.searchInput}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className={styles.searchClearBtn}
+                    onClick={() => {
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    title="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
+              {/* Action Buttons & Sort Dropdown */}
               <div className={styles.toolbarActionsGroup}>
+                <div className={styles.sortDropdownWrapper}>
+                  <ArrowUpDown size={14} className={styles.sortIcon} />
+                  <select
+                    className={styles.sortSelect}
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Sort Archive"
+                  >
+                    <option value="updated_desc">Recently Updated</option>
+                    <option value="created_desc">Date Added (Newest)</option>
+                    <option value="created_asc">Date Added (Oldest)</option>
+                    <option value="title_asc">Title (A → Z)</option>
+                    <option value="title_desc">Title (Z → A)</option>
+                    <option value="progress_desc">Progress %</option>
+                    <option value="rating_desc">Highest Rated</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="za-button za-button--secondary"
+                  onClick={() => setIsActivityModalOpen(true)}
+                  title="View Activity Log & Streaks"
+                >
+                  <Activity size={15} strokeWidth={1.75} />
+                  <span>Activity</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="za-button za-button--secondary"
+                  onClick={() => setIsShareModalOpen(true)}
+                  title="Public Share Profile"
+                >
+                  <Share2 size={15} strokeWidth={1.75} />
+                  <span>Share</span>
+                </button>
+
                 <button
                   type="button"
                   className="za-button za-button--secondary"
                   onClick={() => setIsStatsModalOpen(true)}
-                  title="View Archive Statistics"
+                  title="View Archive Statistics (Press S)"
                 >
                   <BarChart2 size={15} strokeWidth={1.75} />
                   <span>Stats</span>
@@ -501,10 +601,10 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   type="button"
                   className="za-button za-button--secondary"
                   onClick={() => setIsDataModalOpen(true)}
-                  title="Export or Import Backups"
+                  title="Export or Import Backups (Press B)"
                 >
                   <Database size={15} strokeWidth={1.75} />
-                  <span>Backup & Import</span>
+                  <span>Backup</span>
                 </button>
               </div>
             </div>
@@ -531,6 +631,34 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                 </button>
               ))}
             </div>
+
+            {/* Custom Shelves & Tags Pills (if any tags exist) */}
+            {allTags.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.2rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                  <Tag size={12} /> Shelves:
+                </span>
+                <button
+                  type="button"
+                  className={`${styles.statusPillBtn} ${selectedTag === 'all' ? styles.statusPillActive : ''}`}
+                  style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+                  onClick={() => setSelectedTag('all')}
+                >
+                  All
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`${styles.statusPillBtn} ${selectedTag === tag ? styles.statusPillActive : ''}`}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+                    onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Media Grid */}
@@ -547,7 +675,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   )}
                 </div>
                 <h2 className={styles.emptyTitle}>
-                  {searchQuery || statusFilter !== 'all'
+                  {searchQuery || statusFilter !== 'all' || selectedTag !== 'all'
                     ? 'No matching entries found'
                     : activeTab === 'shows'
                     ? 'No shows or anime in your archive yet'
@@ -556,13 +684,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                     : 'Your archive is currently empty'}
                 </h2>
                 <p className={styles.emptySubtitle}>
-                  {searchQuery || statusFilter !== 'all'
-                    ? 'Try adjusting your search terms or status filter.'
+                  {searchQuery || statusFilter !== 'all' || selectedTag !== 'all'
+                    ? 'Try adjusting your search terms, shelves, or status filter.'
                     : activeTab === 'total'
                     ? 'Press [N] or click below to catalog your first media title.'
                     : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show' : 'book'}.`}
                 </p>
-                {!searchQuery && statusFilter === 'all' && (
+                {!searchQuery && statusFilter === 'all' && selectedTag === 'all' && (
                   <button
                     type="button"
                     className="za-button za-button--primary"
@@ -589,6 +717,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                       onUpdate={handleUpdate}
                       onDelete={handleDeleteClick}
                       onEdit={handleEditClick}
+                      onOpenDetail={(itemToOpen) => setDetailItem(itemToOpen)}
                     />
                   );
                 }
@@ -599,6 +728,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                     onUpdate={handleUpdate}
                     onDelete={handleDeleteClick}
                     onEdit={handleEditClick}
+                    onOpenDetail={(itemToOpen) => setDetailItem(itemToOpen)}
                   />
                 );
               })
@@ -618,6 +748,39 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         onAdd={handleCreate}
         editItem={editingItem}
         onSave={handleSaveEdit}
+      />
+
+      {/* Media Detail & Checklist Modal */}
+      <MediaDetailModal
+        isOpen={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        onUpdate={handleUpdate}
+        onEdit={(itemToEdit) => {
+          setDetailItem(null);
+          setEditingItem(itemToEdit);
+        }}
+      />
+
+      {/* Theme Selector Modal */}
+      <ThemeModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        currentTheme={currentTheme}
+        onThemeChange={(newTheme) => setCurrentTheme(newTheme)}
+      />
+
+      {/* Activity Timeline & Streaks Modal */}
+      <ActivityTimelineModal
+        isOpen={isActivityModalOpen}
+        onClose={() => setIsActivityModalOpen(false)}
+      />
+
+      {/* Public Profile Sharing Modal */}
+      <ShareProfileModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        onToast={addToast}
       />
 
       {/* Archive Stats Modal */}
