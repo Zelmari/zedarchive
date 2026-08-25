@@ -1,7 +1,37 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
 
-export default function HomePage() {
+async function isAuthenticated() {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    return Boolean(session?.user?.id);
+  } catch {
+    return false;
+  }
+}
+
+export default async function HomePage() {
+  const signedIn = await isAuthenticated();
+
+  const accountNav = signedIn ? (
+    <nav aria-label="Account" className="za-site-header__nav">
+      <Link className="za-button za-button--primary" href="/dashboard">
+        Open your archive
+      </Link>
+    </nav>
+  ) : (
+    <nav aria-label="Account" className="za-site-header__nav">
+      <Link className="za-link" href="/login">
+        Sign in
+      </Link>
+      <Link className="za-button za-button--primary" href="/signup">
+        Get started
+      </Link>
+    </nav>
+  );
+
   return (
     <div className="za-landing">
       <div className="za-hero__ghost" aria-hidden="true">
@@ -29,14 +59,7 @@ export default function HomePage() {
             />
             <span className="za-wordmark__text">zedarchive</span>
           </Link>
-          <nav aria-label="Account" className="za-site-header__nav">
-            <Link className="za-link" href="/login">
-              Sign in
-            </Link>
-            <Link className="za-button za-button--primary" href="/signup">
-              Get started
-            </Link>
-          </nav>
+          {accountNav}
         </div>
       </header>
 
@@ -51,12 +74,20 @@ export default function HomePage() {
           </h1>
 
           <div className="za-hero__actions">
-            <Link className="za-button za-button--primary" href="/signup">
-              Get started
-            </Link>
-            <Link className="za-button za-button--secondary" href="/login">
-              Sign in
-            </Link>
+            {signedIn ? (
+              <Link className="za-button za-button--primary" href="/dashboard">
+                Open your archive
+              </Link>
+            ) : (
+              <>
+                <Link className="za-button za-button--primary" href="/signup">
+                  Get started
+                </Link>
+                <Link className="za-button za-button--secondary" href="/login">
+                  Sign in
+                </Link>
+              </>
+            )}
           </div>
         </section>
       </main>
