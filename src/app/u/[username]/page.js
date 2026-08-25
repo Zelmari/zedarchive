@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getPublicUserProfile, getProfileComments } from '@/app/dashboard/actions';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { user as userTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { Star, ShieldAlert } from 'lucide-react';
 import ProfileComments from './ProfileComments';
-import { Tv, BookOpen, Layers, Star, Calendar, ShieldAlert } from 'lucide-react';
 import styles from '@/app/dashboard/dashboard.module.css';
 
 export async function generateMetadata({ params }) {

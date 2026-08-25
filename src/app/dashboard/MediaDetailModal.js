@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Pencil, Star, Calendar, RotateCcw, Tag, FileText, CheckCircle2, Tv, BookOpen } from 'lucide-react';
+import { X, Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 

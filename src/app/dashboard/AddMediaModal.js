@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tv, Sparkles, BookOpen, Library, X, Upload, Search, ArrowLeft, Loader2, Star, Check } from 'lucide-react';
+import { Tv, Sparkles, BookOpen, Library, X, Upload, Search, ArrowLeft, Loader2 } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';

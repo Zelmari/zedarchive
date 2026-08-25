@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Calendar, Flame, CheckCircle, Tv, BookOpen, Clock, Activity, RotateCcw, Star } from 'lucide-react';
+import { X, Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import { getActivityLogs } from './actions';
 import styles from './dashboard.module.css';

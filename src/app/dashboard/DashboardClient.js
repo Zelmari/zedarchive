@@ -14,7 +14,6 @@ import {
   Search,
   BarChart2,
   Database,
-  ArrowUpDown,
   Palette,
   Activity,
   Share2,

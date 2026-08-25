@@ -304,10 +304,6 @@ button, input, select, textarea {
   margin-inline: auto;
 }
 
-.za-container--medium {
-  max-inline-size: var(--za-content-medium);
-}
-
 .za-container--narrow {
   max-inline-size: var(--za-content-narrow);
 }
@@ -568,26 +564,8 @@ button, input, select, textarea {
   background: var(--za-color-destructive-active);
 }
 
-.za-button--destructive-outline {
-  border-color: var(--za-color-destructive);
-  background: var(--za-color-surface);
-  color: var(--za-color-destructive);
-}
-
-.za-button--destructive-outline:hover {
-  border-color: var(--za-color-destructive-hover);
-  background: var(--za-color-error-surface);
-  color: var(--za-color-destructive-hover);
-}
-
-.za-button--destructive-outline:active {
-  border-color: var(--za-color-destructive-active);
-  color: var(--za-color-destructive-active);
-}
-
 .za-button:disabled,
 .za-field:disabled,
-.za-select:disabled {
   cursor: not-allowed;
   border-color: var(--za-color-border-required);
   background: var(--za-color-disabled-surface);
@@ -595,8 +573,7 @@ button, input, select, textarea {
 }
 
 /* 6. Form Fields & Selects */
-.za-field,
-.za-select {
+.za-field {
   min-block-size: var(--za-control-min-block-size);
   inline-size: 100%;
   min-inline-size: 0;
@@ -614,8 +591,7 @@ button, input, select, textarea {
     box-shadow var(--za-motion-fast) var(--za-ease-standard);
 }
 
-.za-field[aria-invalid='true'],
-.za-select[aria-invalid='true'] {
+.za-field[aria-invalid='true'] {
   border-color: var(--za-color-destructive);
 }
 
@@ -626,20 +602,6 @@ button, input, select, textarea {
   padding: var(--za-space-3) var(--za-space-4);
 }
 
-.za-notice--information {
-  background: var(--za-color-information-surface);
-  color: var(--za-color-information);
-}
-
-.za-notice--success {
-  background: var(--za-color-success-surface);
-  color: var(--za-color-success);
-}
-
-.za-notice--warning {
-  background: var(--za-color-warning-surface);
-  color: var(--za-color-warning);
-}
 
 .za-notice--error {
   background: var(--za-color-error-surface);
@@ -661,38 +623,6 @@ button, input, select, textarea {
   box-shadow: var(--za-shadow-raised);
 }
 
-.za-card--layered {
-  border-radius: var(--za-radius-layered);
-  box-shadow: var(--za-shadow-layered);
-}
-
-.za-card--restricted {
-  border-color: var(--za-color-border-decorative);
-  background: var(--za-color-surface-subtle);
-  box-shadow: none;
-}
-
-/* 9. Dialogs & Modals */
-.za-dialog {
-  z-index: var(--za-layer-modal);
-  max-block-size: calc(100dvh - (var(--za-space-4) * 2));
-  inline-size: calc(100% - (var(--za-space-4) * 2));
-  max-inline-size: 32rem;
-  margin: auto;
-  overflow-y: auto;
-  border: var(--za-border-width) solid var(--za-color-border-required);
-  border-radius: var(--za-radius-layered);
-  background: var(--za-color-surface);
-  box-shadow: var(--za-shadow-layered);
-  padding: var(--za-space-4);
-  color: var(--za-color-text);
-}
-
-.za-dialog::backdrop {
-  background: var(--za-backdrop-modal);
-}
-
-/* 10. Title Tile (2:3 Aspect Ratio) */
 .za-title-tile {
   display: grid;
   aspect-ratio: 2 / 3;
@@ -863,8 +793,7 @@ button, input, select, textarea {
 @media (prefers-reduced-motion: reduce) {
   .za-link,
   .za-button,
-  .za-field,
-  .za-select {
+  .za-field {
     transition-duration: var(--za-motion-reduced);
     animation-duration: var(--za-motion-reduced);
     animation-iteration-count: 1;

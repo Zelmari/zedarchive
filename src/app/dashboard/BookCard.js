@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText, CheckCircle2 } from 'lucide-react';
+import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetail }) {

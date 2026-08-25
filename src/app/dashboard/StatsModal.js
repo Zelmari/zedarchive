@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Tv, BookOpen, CheckCircle, Star, BarChart2 } from 'lucide-react';
+import { X, Tv, BookOpen, Star, BarChart2 } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
