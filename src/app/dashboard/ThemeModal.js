@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Palette, Check } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Palette, Check } from 'lucide-react';
+import ModalShell from './ModalShell';
 import { updateUserTheme } from './actions';
 import styles from './dashboard.module.css';
 
@@ -50,7 +50,6 @@ const THEMES = [
 ];
 
 export default function ThemeModal({ isOpen, onClose, currentTheme = 'parchment', onThemeChange }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
   const [selectedTheme, setSelectedTheme] = useState(currentTheme);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -78,34 +77,15 @@ export default function ThemeModal({ isOpen, onClose, currentTheme = 'parchment'
   };
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={styles.modalContent}
-        style={{ maxWidth: '32rem' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="theme-modal-title"
-      >
-        <div className={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Palette size={18} />
-            <h2 id="theme-modal-title" className={styles.modalTitle}>
-              Theme & Aesthetic
-            </h2>
-          </div>
-          <button
-            type="button"
-            className={styles.modalCloseBtn}
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="theme-modal-title"
+      title="Theme & Aesthetic"
+      icon={<Palette size={18} />}
+      contentStyle={{ maxWidth: '32rem' }}
+    >
+      <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
           <p style={{ fontSize: 'var(--za-text-fine)', color: 'var(--za-color-text-muted)', marginBottom: 'var(--za-space-4)' }}>
             Choose a visual style. Your theme is saved to your account and syncs across all your devices.
           </p>
@@ -172,7 +152,6 @@ export default function ThemeModal({ isOpen, onClose, currentTheme = 'parchment'
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

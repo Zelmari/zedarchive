@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
+import ModalShell from './ModalShell';
 import { bulkImportMediaEntries } from './actions';
 import { parseImportFile } from '@/lib/backup';
 import styles from './dashboard.module.css';
 
 export default function DataBackupModal({ isOpen, onClose, entries = [], onImportSuccess }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
   const [activeTab, setActiveTab] = useState('export'); // 'export' | 'import'
   const [conflictStrategy, setConflictStrategy] = useState('skip'); // 'skip' | 'overwrite'
   const [importStatus, setImportStatus] = useState({ state: 'idle', message: '', result: null });
@@ -97,28 +96,13 @@ export default function DataBackupModal({ isOpen, onClose, entries = [], onImpor
   };
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={`${styles.modalContent} ${styles.importModalContent}`}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="data-backup-modal-title"
-      >
-        <div className={styles.modalHeader}>
-          <h2 id="data-backup-modal-title" className={styles.modalTitle}>
-            Data Sovereignty & Backups
-          </h2>
-          <button
-            type="button"
-            className={styles.modalCloseBtn}
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="data-backup-modal-title"
+      title="Data Sovereignty & Backups"
+      contentClassName={`${styles.modalContent} ${styles.importModalContent}`}
+    >
 
         {/* Tab Buttons */}
         <div style={{ display: 'flex', borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)' }}>
@@ -277,7 +261,6 @@ export default function DataBackupModal({ isOpen, onClose, entries = [], onImpor
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen } from 'lucide-react';
+import ModalShell from './ModalShell';
 import { getTileInitials } from '@/lib/format';
 import styles from './dashboard.module.css';
 
 export default function MediaDetailModal({ isOpen, onClose, item, onUpdate, onEdit }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
   const [activeSeason, setActiveSeason] = useState(1);
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -83,31 +82,22 @@ export default function MediaDetailModal({ isOpen, onClose, item, onUpdate, onEd
   const totalUnitsInSeason = currentSeasonObj?.total || (activeSeason === primaryCurrent ? secondaryTotal : null) || 24;
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={`${styles.modalContent}`}
-        style={{ maxWidth: '44rem', maxHeight: '90vh', overflowY: 'auto' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="media-detail-title"
-      >
-        {/* Header */}
-        <div className={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-            {isBookLike ? <BookOpen size={20} /> : <Tv size={20} />}
-            <h2 id="media-detail-title" className={styles.modalTitle} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {item.title}
-            </h2>
-          </div>
-          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
-            <X size={18} strokeWidth={2} />
-          </button>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="media-detail-title"
+      header={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+          {isBookLike ? <BookOpen size={20} /> : <Tv size={20} />}
+          <h2 id="media-detail-title" className={styles.modalTitle} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.title}
+          </h2>
         </div>
-
-        {/* Content Layout */}
-        <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
+      }
+      contentStyle={{ maxWidth: '44rem', maxHeight: '90vh', overflowY: 'auto' }}
+    >
+      {/* Content Layout */}
+      <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: 'var(--za-space-5)' }}>
             {/* Left Column: Artwork & Metadata */}
             <div>
@@ -312,7 +302,6 @@ export default function MediaDetailModal({ isOpen, onClose, item, onUpdate, onEd
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

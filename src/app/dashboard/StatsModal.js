@@ -1,13 +1,10 @@
 'use client';
 
-import { X, Tv, BookOpen, Star, BarChart2 } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Tv, BookOpen, Star, BarChart2 } from 'lucide-react';
+import ModalShell from './ModalShell';
 import styles from './dashboard.module.css';
 
 export default function StatsModal({ isOpen, onClose, entries = [] }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
-
-  if (!isOpen) return null;
 
   const totalEntries = entries.length;
   const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
@@ -32,31 +29,14 @@ export default function StatsModal({ isOpen, onClose, entries = [] }) {
   const topRated = [...ratedEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 4);
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={`${styles.modalContent} ${styles.statsModalContent}`}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="stats-modal-title"
-      >
-        <div className={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <BarChart2 size={18} />
-            <h2 id="stats-modal-title" className={styles.modalTitle}>
-              Archive Statistics
-            </h2>
-          </div>
-          <button
-            type="button"
-            className={styles.modalCloseBtn}
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="stats-modal-title"
+      title="Archive Statistics"
+      icon={<BarChart2 size={18} />}
+      contentClassName={`${styles.modalContent} ${styles.statsModalContent}`}
+    >
 
         <div style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
           {/* Status Breakdown Section */}
@@ -130,7 +110,6 @@ export default function StatsModal({ isOpen, onClose, entries = [] }) {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

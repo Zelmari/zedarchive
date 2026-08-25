@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
+import ModalShell from './ModalShell';
 import { getActivityLogs } from './actions';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import styles from './dashboard.module.css';
 
 export default function ActivityTimelineModal({ isOpen, onClose }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,29 +108,15 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={`${styles.modalContent}`}
-        style={{ maxWidth: '36rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="activity-modal-title"
-      >
-        <div className={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={18} />
-            <h2 id="activity-modal-title" className={styles.modalTitle}>
-              Activity & Habits
-            </h2>
-          </div>
-          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <div style={{ padding: 'var(--za-space-4) var(--za-space-6)', overflowY: 'auto', flex: 1 }}>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="activity-modal-title"
+      title="Activity & Habits"
+      icon={<Activity size={18} />}
+      contentStyle={{ maxWidth: '36rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+    >
+      <div style={{ padding: 'var(--za-space-4) var(--za-space-6)', overflowY: 'auto', flex: 1 }}>
           {/* Streak Banner */}
           <div
             style={{
@@ -224,7 +209,6 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

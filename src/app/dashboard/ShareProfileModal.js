@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Share2, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Share2, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react';
+import ModalShell from './ModalShell';
 import { getUserProfile, updateUserProfile } from './actions';
 import { normalizeHandle } from '@/lib/handles';
 import styles from './dashboard.module.css';
 
 export default function ShareProfileModal({ isOpen, onClose, onToast }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
   const [profile, setProfile] = useState({ username: '', isPublic: false, bio: '' });
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -70,29 +69,15 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
   };
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={`${styles.modalContent}`}
-        style={{ maxWidth: '34rem' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="share-profile-title"
-      >
-        <div className={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Share2 size={18} />
-            <h2 id="share-profile-title" className={styles.modalTitle}>
-              Public Archive Profile
-            </h2>
-          </div>
-          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSave} style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="share-profile-title"
+      title="Public Archive Profile"
+      icon={<Share2 size={18} />}
+      contentStyle={{ maxWidth: '34rem' }}
+    >
+      <form onSubmit={handleSave} style={{ padding: 'var(--za-space-4) var(--za-space-6)' }}>
           {error && <div className={styles.errorMessage} style={{ marginBottom: 'var(--za-space-3)' }}>{error}</div>}
 
           <p style={{ fontSize: 'var(--za-text-fine)', color: 'var(--za-color-text-muted)', marginBottom: 'var(--za-space-4)' }}>
@@ -196,8 +181,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
               {isSaving ? 'Saving…' : 'Save Profile'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalShell>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { Keyboard, X } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { Keyboard } from 'lucide-react';
+import ModalShell from './ModalShell';
 import styles from './dashboard.module.css';
 
 const SHORTCUTS = [
@@ -21,39 +21,26 @@ const SHORTCUTS = [
 ];
 
 export default function ShortcutsModal({ isOpen, onClose }) {
-  const modalRef = useFocusTrap(isOpen, onClose);
-
   if (!isOpen) return null;
 
   return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={styles.shortcutsModalContent}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="shortcuts-modal-title"
-      >
-        <div className={styles.modalHeader}>
-          <div className={styles.shortcutsHeaderLeft}>
-            <span className={styles.shortcutsIcon}>
-              <Keyboard size={18} strokeWidth={1.75} />
-            </span>
-            <h2 id="shortcuts-modal-title" className={styles.modalTitle}>
-              Keyboard Shortcuts
-            </h2>
-          </div>
-          <button
-            type="button"
-            className={styles.modalCloseBtn}
-            onClick={onClose}
-            aria-label="Close shortcuts dialog"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="shortcuts-modal-title"
+      contentClassName={styles.shortcutsModalContent}
+      closeLabel="Close shortcuts dialog"
+      header={
+        <div className={styles.shortcutsHeaderLeft}>
+          <span className={styles.shortcutsIcon}>
+            <Keyboard size={18} strokeWidth={1.75} />
+          </span>
+          <h2 id="shortcuts-modal-title" className={styles.modalTitle}>
+            Keyboard Shortcuts
+          </h2>
         </div>
-
+      }
+    >
         <div className={styles.shortcutsBody}>
           <div className={styles.shortcutsGrid}>
             {SHORTCUTS.map((s, idx) => (
@@ -83,7 +70,6 @@ export default function ShortcutsModal({ isOpen, onClose }) {
             Got it (Esc)
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
