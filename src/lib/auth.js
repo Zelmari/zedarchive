@@ -3,7 +3,13 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './db';
 import * as schema from '@/db/schema';
 
-const baseURL = process.env.BETTER_AUTH_URL || 'https://zedarchive.com';
+const isDev = process.env.NODE_ENV === 'development';
+
+// In dev, fall back to localhost unless explicitly configured. Production must
+// always resolve to the canonical browsing origin (Cloudflare dashboard vars).
+const fallbackURL = isDev ? 'http://localhost:3000' : 'https://zedarchive.com';
+const baseURL = process.env.BETTER_AUTH_URL || fallbackURL;
+
 const authSecret =
   process.env.BETTER_AUTH_SECRET ||
   'placeholder_build_secret_0123456789abcdef0123456789abcdef';
@@ -11,6 +17,12 @@ const authSecret =
 export const auth = betterAuth({
   baseURL,
   secret: authSecret,
+  // Explicit rather than inferred from baseURL: keeps cookie names byte-identical
+  // in production (__Secure- prefix preserved) while letting plain-http local
+  // development issue ordinary cookies that browsers actually store.
+  advanced: {
+    useSecureCookies: !isDev,
+  },
   trustedOrigins: [
     'https://zedarchive.com',
     'https://www.zedarchive.com',
