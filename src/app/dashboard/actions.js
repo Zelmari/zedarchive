@@ -1,10 +1,10 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { mediaEntries, user as userTable, mediaActivityLogs } from '@/db/schema';
+import { mediaEntries, user as userTable, mediaActivityLogs, profileComments } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc, gt, lte, count } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
@@ -15,6 +15,10 @@ const MAX_NOTES_LENGTH = 5000;
 const MAX_SOURCE_ID_LENGTH = 200;
 const MAX_COVER_IMAGE_LENGTH = 2_000_000;
 const MAX_STRUCTURE_LENGTH = 500;
+const MAX_COMMENT_LENGTH = 500;
+const COMMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // exactly 7 days
+const COMMENT_RATE_LIMIT = 5;                  // max comments per window
+const COMMENT_RATE_WINDOW_MS = 60 * 1000;
 
 function toInt(value, fallback) {
   const parsed = parseInt(value, 10);
@@ -526,4 +530,159 @@ export async function getActivityLogs(limit = 40) {
     ...log,
     createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
   }));
+}
+
+function serializeComment(row) {
+  return {
+    id: row.id,
+    profileUserId: row.profileUserId,
+    authorId: row.authorId,
+    authorUsername: row.authorUsername,
+    authorName: row.authorName,
+    authorImage: row.authorImage || null,
+    body: row.body,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
+  };
+}
+
+export async function getProfileComments(profileUserId) {
+  if (!profileUserId) return [];
+  const now = new Date();
+
+  // Lazy cleanup: drop this profile's expired comments while we are here anyway.
+  await db
+    .delete(profileComments)
+    .where(and(
+      eq(profileComments.profileUserId, profileUserId),
+      lte(profileComments.expiresAt, now),
+    ));
+
+  const rows = await db
+    .select({
+      id: profileComments.id,
+      profileUserId: profileComments.profileUserId,
+      body: profileComments.body,
+      createdAt: profileComments.createdAt,
+      expiresAt: profileComments.expiresAt,
+      authorId: userTable.id,
+      authorUsername: userTable.username,
+      authorName: userTable.name,
+      authorImage: userTable.image,
+    })
+    .from(profileComments)
+    .innerJoin(userTable, eq(profileComments.authorUserId, userTable.id))
+    .where(and(
+      eq(profileComments.profileUserId, profileUserId),
+      gt(profileComments.expiresAt, now),
+      // Reciprocity rule, enforced retroactively: comments by users whose own
+      // archive is no longer public stop rendering until they go public again.
+      eq(userTable.isPublic, true),
+    ))
+    .orderBy(asc(profileComments.createdAt))
+    .limit(200);
+
+  return rows.map(serializeComment);
+}
+
+export async function createProfileComment(profileUserId, body) {
+  const me = await getAuthUser();
+
+  const [target] = await db
+    .select({ id: userTable.id, username: userTable.username, isPublic: userTable.isPublic })
+    .from(userTable)
+    .where(eq(userTable.id, profileUserId));
+
+  if (!target || !target.isPublic) {
+    throw new Error('This archive is not available for comments');
+  }
+
+  // Reciprocity gate: only members of the public archive community may comment.
+  const [meRow] = await db
+    .select({
+      id: userTable.id,
+      username: userTable.username,
+      name: userTable.name,
+      image: userTable.image,
+      isPublic: userTable.isPublic,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, me.id));
+
+  if (!meRow?.isPublic) {
+    throw new Error('Your own archive must be public to comment');
+  }
+
+  const clean = String(body || '').trim().slice(0, MAX_COMMENT_LENGTH);
+  if (!clean) {
+    throw new Error('Comment cannot be empty');
+  }
+
+  const windowStart = new Date(Date.now() - COMMENT_RATE_WINDOW_MS);
+  const [rateRow] = await db
+    .select({ value: count() })
+    .from(profileComments)
+    .where(and(
+      eq(profileComments.authorUserId, me.id),
+      gt(profileComments.createdAt, windowStart),
+    ));
+
+  if (Number(rateRow?.value ?? 0) >= COMMENT_RATE_LIMIT) {
+    throw new Error('You are commenting too fast. Try again in a minute');
+  }
+
+  const now = new Date();
+  const [created] = await db
+    .insert(profileComments)
+    .values({
+      id: crypto.randomUUID(),
+      profileUserId: target.id,
+      authorUserId: meRow.id,
+      body: clean,
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + COMMENT_TTL_MS),
+    })
+    .returning();
+
+  revalidatePath(`/u/${target.username}`);
+
+  return serializeComment({
+    ...created,
+    authorId: meRow.id,
+    authorUsername: meRow.username,
+    authorName: meRow.name,
+    authorImage: meRow.image,
+  });
+}
+
+export async function deleteProfileComment(commentId) {
+  const me = await getAuthUser();
+
+  const [comment] = await db
+    .select({ id: profileComments.id, profileUserId: profileComments.profileUserId, authorUserId: profileComments.authorUserId })
+    .from(profileComments)
+    .where(eq(profileComments.id, commentId));
+
+  if (!comment) {
+    throw new Error('Comment not found');
+  }
+
+  const isAuthor = comment.authorUserId === me.id;
+  const isProfileOwner = comment.profileUserId === me.id;
+  if (!isAuthor && !isProfileOwner) {
+    throw new Error('You can only delete your own comments');
+  }
+
+  await db.delete(profileComments).where(eq(profileComments.id, commentId));
+
+  const [owner] = await db
+    .select({ username: userTable.username })
+    .from(userTable)
+    .where(eq(userTable.id, comment.profileUserId));
+
+  if (owner?.username) {
+    revalidatePath(`/u/${owner.username}`);
+  }
+
+  return { ok: true };
 }
