@@ -45,6 +45,7 @@ AGENTS.md
 CLAUDE.md
 agents/
 prompts/
+examples/
 
 # OpenNext
 .open-next
