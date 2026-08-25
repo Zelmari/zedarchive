@@ -18,6 +18,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     setCategory(nextCategory);
   };
   const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('in_progress');
+  const [rating, setRating] = useState(null);
   const [primaryUnitTotal, setPrimaryUnitTotal] = useState('1');
   const [primaryUnitCurrent, setPrimaryUnitCurrent] = useState('1');
   const [secondaryUnitTotal, setSecondaryUnitTotal] = useState('');
@@ -53,6 +55,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
       setTitle(editItem.title || '');
       const cat = editItem.category || (editItem.type === 'manga' ? 'manga' : editItem.type === 'book' ? 'book' : editItem.type === 'anime' ? 'anime' : 'show');
       setCategory(cat);
+      setStatus(editItem.status || 'in_progress');
+      setRating(editItem.rating != null ? editItem.rating : null);
       setPrimaryUnitTotal(editItem.primaryUnitTotal != null ? String(editItem.primaryUnitTotal) : '');
       setPrimaryUnitCurrent(editItem.primaryUnitCurrent != null ? String(editItem.primaryUnitCurrent) : '1');
       setSecondaryUnitTotal(editItem.secondaryUnitTotal != null ? String(editItem.secondaryUnitTotal) : '');
@@ -65,6 +69,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     } else {
       setTitle('');
       setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
+      setStatus('in_progress');
+      setRating(null);
       setPrimaryUnitTotal('1');
       setPrimaryUnitCurrent('1');
       setSecondaryUnitTotal('');
@@ -364,6 +370,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
       const payload = {
         title: title.trim(),
         category,
+        status,
+        rating: rating != null ? parseInt(rating, 10) : null,
         primaryUnitCurrent: parseInt(primaryUnitCurrent, 10) || 1,
         primaryUnitTotal: primaryUnitTotal ? parseInt(primaryUnitTotal, 10) : 1,
         secondaryUnitCurrent: parseInt(secondaryUnitCurrent, 10) || 0,
@@ -734,6 +742,77 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
               </div>
             </>
           )}
+
+          {/* Status Selector */}
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>Status</label>
+            <div className={styles.statusFilterPills} role="radiogroup" aria-label="Media Status">
+              {[
+                { id: 'in_progress', label: 'In Progress' },
+                { id: 'completed', label: 'Completed' },
+                { id: 'planning', label: 'Planning' },
+                { id: 'on_hold', label: 'On Hold' },
+                { id: 'dropped', label: 'Dropped' },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={status === s.id}
+                  className={`${styles.statusPillBtn} ${status === s.id ? styles.statusPillActive : ''}`}
+                  onClick={() => setStatus(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Rating (1-10) */}
+          <div className={styles.formGroup}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className={styles.formLabel}>Personal Rating (1–10)</label>
+              {rating && (
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: 'var(--za-color-text-muted)', fontSize: 'var(--za-text-fine)', cursor: 'pointer' }}
+                  onClick={() => setRating(null)}
+                >
+                  Clear Rating
+                </button>
+              )}
+            </div>
+            <div className={styles.ratingSelectGrid} role="radiogroup" aria-label="Score">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                <button
+                  key={score}
+                  type="button"
+                  role="radio"
+                  aria-checked={rating === score}
+                  className={`${styles.ratingOptionBtn} ${rating === score ? styles.ratingOptionActive : ''}`}
+                  onClick={() => setRating(rating === score ? null : score)}
+                >
+                  {score}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Personal Notes */}
+          <div className={styles.formGroup}>
+            <label htmlFor="media-notes" className={styles.formLabel}>
+              Personal Notes & Review
+            </label>
+            <textarea
+              id="media-notes"
+              className={styles.formInput}
+              rows={3}
+              placeholder="Thoughts, quotes, or reminders..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              style={{ resize: 'vertical', minHeight: '4.5rem' }}
+            />
+          </div>
 
           <div className={styles.modalFooter}>
             <button

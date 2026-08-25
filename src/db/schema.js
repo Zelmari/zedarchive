@@ -86,6 +86,9 @@ export const mediaEntries = pgTable('media_entries', {
   structure: jsonb('structure').$type().default([]),
 
   // Media & Metadata
+  status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped'
+  completedAt: timestamp('completed_at'),
+  rating: integer('rating'),       // 1 to 10 scale
   coverImage: text('cover_image'), // Compressed Base64 data URL
   sourceId: text('source_id'),     // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
   notes: text('notes'),

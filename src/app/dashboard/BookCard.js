@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText, CheckCircle2 } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
+  const [showNotes, setShowNotes] = useState(false);
   const category = item.category || (item.type === 'manga' ? 'manga' : 'book');
   const isManga = category === 'manga';
+  const status = item.status || 'in_progress';
+  const rating = item.rating;
 
   const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? 1;
@@ -21,6 +24,12 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
     setPrevProgress(secondaryUnitCurrent);
     setInputValue(String(secondaryUnitCurrent));
   }
+
+  const isAtFinalChapter =
+    primaryUnitCurrent >= primaryUnitTotal &&
+    secondaryUnitTotal !== null &&
+    secondaryUnitTotal !== undefined &&
+    secondaryUnitCurrent >= secondaryUnitTotal;
 
   const canDecrement = secondaryUnitCurrent > 0;
   const canIncrement =
@@ -87,6 +96,17 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
     }
   };
 
+  const handleMarkCompleted = async () => {
+    const updates = { status: 'completed', completedAt: new Date().toISOString() };
+    onUpdate(item.id, updates);
+    try {
+      setIsUpdating(true);
+      await onUpdate(item.id, updates, true);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.target.blur();
@@ -102,6 +122,26 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
     const words = titleStr.trim().split(/\s+/);
     if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
     return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
+  const getStatusBadgeClass = () => {
+    switch (status) {
+      case 'completed': return styles.statusBadgeCompleted;
+      case 'planning': return styles.statusBadgePlanning;
+      case 'on_hold': return styles.statusBadgeOnHold;
+      case 'dropped': return styles.statusBadgeDropped;
+      default: return styles.statusBadgeInProgress;
+    }
+  };
+
+  const getStatusLabel = () => {
+    switch (status) {
+      case 'completed': return 'Completed';
+      case 'planning': return 'Planning';
+      case 'on_hold': return 'On Hold';
+      case 'dropped': return 'Dropped';
+      default: return 'In Progress';
+    }
   };
 
   return (
@@ -159,6 +199,15 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
 
           {/* Badges Row */}
           <div className={styles.badgeRow}>
+            <span className={`${styles.metaBadge} ${getStatusBadgeClass()}`}>
+              {getStatusLabel()}
+            </span>
+            {rating != null && (
+              <span className={styles.ratingBadge} title={`Rated ${rating}/10`}>
+                <Star size={11} className={styles.ratingStarIcon} fill="currentColor" />
+                <span>{rating}</span>
+              </span>
+            )}
             {primaryUnitTotal > 1 && (
               <span className={styles.metaBadge}>
                 Vol {primaryUnitCurrent} / {primaryUnitTotal}
@@ -195,8 +244,42 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
               </div>
             </div>
           )}
+
+          {/* Notes Toggle */}
+          {item.notes && (
+            <div className={styles.cardNotesSection}>
+              <button
+                type="button"
+                className={styles.notesToggleBtn}
+                onClick={() => setShowNotes((p) => !p)}
+              >
+                <FileText size={12} />
+                <span>{showNotes ? 'Hide note' : 'View note'}</span>
+              </button>
+              {showNotes && (
+                <div className={styles.cardNotesDrawer}>
+                  {item.notes}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Completion Prompt (if user reached end of book but not marked completed) */}
+      {isAtFinalChapter && status !== 'completed' && (
+        <div className={styles.completionPromptRow}>
+          <span>Finished reading!</span>
+          <button
+            type="button"
+            className={styles.markCompleteBtn}
+            onClick={handleMarkCompleted}
+            disabled={isUpdating}
+          >
+            Mark Completed
+          </button>
+        </div>
+      )}
 
       {/* Action Zone / Controls */}
       <div className={styles.cardActionZone}>

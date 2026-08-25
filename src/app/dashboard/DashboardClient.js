@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,6 +11,10 @@ import {
   Plus,
   Keyboard,
   LogOut,
+  Search,
+  BarChart2,
+  Database,
+  ArrowUpDown,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import ShowCard from './ShowCard';
@@ -18,8 +22,11 @@ import BookCard from './BookCard';
 import AddMediaModal from './AddMediaModal';
 import ConfirmModal from './ConfirmModal';
 import ShortcutsModal from './ShortcutsModal';
+import StatsModal from './StatsModal';
+import DataBackupModal from './DataBackupModal';
 import ToastContainer from './Toast';
 import {
+  getMediaEntries,
   createMediaEntry,
   updateMediaProgress,
   deleteMediaEntry,
@@ -30,10 +37,18 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const router = useRouter();
   const [entries, setEntries] = useState(initialEntries);
   const [activeTab, setActiveTab] = useState('total'); // 'total' | 'shows' | 'books'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped'
+  const [sortBy, setSortBy] = useState('updated_desc'); // 'updated_desc' | 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc' | 'progress_desc' | 'rating_desc'
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const searchInputRef = useRef(null);
 
   // Custom Toast State
   const [toasts, setToasts] = useState([]);
@@ -84,7 +99,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         return;
       }
 
-      if (isInputFocused() || isAddModalOpen || editingItem || confirmModal.isOpen || isShortcutsModalOpen) {
+      if (e.key === '/' && !isInputFocused() && !isAddModalOpen && !editingItem && !confirmModal.isOpen && !isShortcutsModalOpen && !isStatsModalOpen && !isDataModalOpen) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (isInputFocused() || isAddModalOpen || editingItem || confirmModal.isOpen || isShortcutsModalOpen || isStatsModalOpen || isDataModalOpen) {
         return;
       }
 
@@ -121,7 +142,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isAddModalOpen, editingItem, confirmModal.isOpen, isShortcutsModalOpen]);
+  }, [isAddModalOpen, editingItem, confirmModal.isOpen, isShortcutsModalOpen, isStatsModalOpen, isDataModalOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -258,9 +279,61 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       item.type === 'novel'
   );
 
-  let displayedEntries = entries;
-  if (activeTab === 'shows') displayedEntries = showEntries;
-  if (activeTab === 'books') displayedEntries = bookEntries;
+  const baseCategoryEntries = entries.filter((item) => {
+    const isBook = item.category === 'book' || item.category === 'manga' || item.type === 'book' || item.type === 'novel';
+    if (activeTab === 'shows') return !isBook;
+    if (activeTab === 'books') return isBook;
+    return true;
+  });
+
+  const countAll = baseCategoryEntries.length;
+  const countInProgress = baseCategoryEntries.filter((e) => !e.status || e.status === 'in_progress').length;
+  const countCompleted = baseCategoryEntries.filter((e) => e.status === 'completed').length;
+  const countPlanning = baseCategoryEntries.filter((e) => e.status === 'planning').length;
+  const countOnHold = baseCategoryEntries.filter((e) => e.status === 'on_hold').length;
+  const countDropped = baseCategoryEntries.filter((e) => e.status === 'dropped').length;
+
+  const filteredEntries = baseCategoryEntries.filter((item) => {
+    // Status filter
+    if (statusFilter !== 'all') {
+      const itemStatus = item.status || 'in_progress';
+      if (itemStatus !== statusFilter) return false;
+    }
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const titleMatch = item.title?.toLowerCase().includes(q);
+      const notesMatch = item.notes?.toLowerCase().includes(q);
+      if (!titleMatch && !notesMatch) return false;
+    }
+
+    return true;
+  });
+
+  // Sorting
+  const displayedEntries = [...filteredEntries].sort((a, b) => {
+    switch (sortBy) {
+      case 'title_asc':
+        return (a.title || '').localeCompare(b.title || '');
+      case 'title_desc':
+        return (b.title || '').localeCompare(a.title || '');
+      case 'created_desc':
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      case 'created_asc':
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      case 'rating_desc':
+        return (b.rating || 0) - (a.rating || 0);
+      case 'progress_desc': {
+        const pA = a.secondaryUnitTotal ? (a.secondaryUnitCurrent || 0) / a.secondaryUnitTotal : 0;
+        const pB = b.secondaryUnitTotal ? (b.secondaryUnitCurrent || 0) / b.secondaryUnitTotal : 0;
+        return pB - pA;
+      }
+      case 'updated_desc':
+      default:
+        return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    }
+  });
 
   return (
     <div className={styles.dashboardContainer}>
@@ -379,6 +452,87 @@ export default function DashboardClient({ user, initialEntries = [] }) {
             </div>
           </div>
 
+          {/* Dashboard Controls Toolbar (Search, Filter, Sort, Stats & Backup) */}
+          <div className={styles.dashboardControlsBar}>
+            <div className={styles.toolbarTopRow}>
+              <div className={styles.searchAndSortGroup}>
+                <div className={styles.archiveSearchWrapper}>
+                  <Search size={14} className={styles.searchIconInside} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className={styles.archiveSearchInput}
+                    placeholder="Search archive or notes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search archive"
+                  />
+                  {!searchQuery && <span className={styles.searchKbdHint}>/</span>}
+                </div>
+
+                <select
+                  className={styles.sortDropdownSelect}
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  aria-label="Sort archive"
+                >
+                  <option value="updated_desc">Recently Updated</option>
+                  <option value="created_desc">Date Added (Newest)</option>
+                  <option value="created_asc">Date Added (Oldest)</option>
+                  <option value="title_asc">Title (A → Z)</option>
+                  <option value="title_desc">Title (Z → A)</option>
+                  <option value="progress_desc">Progress %</option>
+                  <option value="rating_desc">Highest Rated</option>
+                </select>
+              </div>
+
+              <div className={styles.toolbarActionsGroup}>
+                <button
+                  type="button"
+                  className="za-button za-button--secondary"
+                  onClick={() => setIsStatsModalOpen(true)}
+                  title="View Archive Statistics"
+                >
+                  <BarChart2 size={15} strokeWidth={1.75} />
+                  <span>Stats</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="za-button za-button--secondary"
+                  onClick={() => setIsDataModalOpen(true)}
+                  title="Export or Import Backups"
+                >
+                  <Database size={15} strokeWidth={1.75} />
+                  <span>Backup & Import</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Status Filter Pills */}
+            <div className={styles.statusFilterPills} role="radiogroup" aria-label="Status filter">
+              {[
+                { id: 'all', label: `All (${countAll})` },
+                { id: 'in_progress', label: `In Progress (${countInProgress})` },
+                { id: 'completed', label: `Completed (${countCompleted})` },
+                { id: 'planning', label: `Planning (${countPlanning})` },
+                { id: 'on_hold', label: `On Hold (${countOnHold})` },
+                { id: 'dropped', label: `Dropped (${countDropped})` },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={statusFilter === pill.id}
+                  className={`${styles.statusPillBtn} ${statusFilter === pill.id ? styles.statusPillActive : ''}`}
+                  onClick={() => setStatusFilter(pill.id)}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Media Grid */}
           <div className={styles.mediaGrid}>
             {displayedEntries.length === 0 ? (
@@ -393,25 +547,31 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   )}
                 </div>
                 <h2 className={styles.emptyTitle}>
-                  {activeTab === 'shows'
+                  {searchQuery || statusFilter !== 'all'
+                    ? 'No matching entries found'
+                    : activeTab === 'shows'
                     ? 'No shows or anime in your archive yet'
                     : activeTab === 'books'
                     ? 'No books or manga in your archive yet'
                     : 'Your archive is currently empty'}
                 </h2>
                 <p className={styles.emptySubtitle}>
-                  {activeTab === 'total'
+                  {searchQuery || statusFilter !== 'all'
+                    ? 'Try adjusting your search terms or status filter.'
+                    : activeTab === 'total'
                     ? 'Press [N] or click below to catalog your first media title.'
                     : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show' : 'book'}.`}
                 </p>
-                <button
-                  type="button"
-                  className="za-button za-button--primary"
-                  onClick={() => setIsAddModalOpen(true)}
-                >
-                  <Plus size={16} strokeWidth={2.2} />
-                  <span>Add New Title</span>
-                </button>
+                {!searchQuery && statusFilter === 'all' && (
+                  <button
+                    type="button"
+                    className="za-button za-button--primary"
+                    onClick={() => setIsAddModalOpen(true)}
+                  >
+                    <Plus size={16} strokeWidth={2.2} />
+                    <span>Add New Title</span>
+                  </button>
+                )}
               </div>
             ) : (
               displayedEntries.map((item) => {
@@ -447,7 +607,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         </div>
       </main>
 
-      {/* Add / Edit Item Modal (kept mounted so focus restoration works on close) */}
+      {/* Add / Edit Item Modal */}
       <AddMediaModal
         isOpen={isAddModalOpen || !!editingItem}
         type={editingItem?.category === 'book' || editingItem?.category === 'manga' ? 'book' : activeTab === 'books' ? 'book' : 'show'}
@@ -458,6 +618,29 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         onAdd={handleCreate}
         editItem={editingItem}
         onSave={handleSaveEdit}
+      />
+
+      {/* Archive Stats Modal */}
+      <StatsModal
+        isOpen={isStatsModalOpen}
+        onClose={() => setIsStatsModalOpen(false)}
+        entries={entries}
+      />
+
+      {/* Data Backup & Import Modal */}
+      <DataBackupModal
+        isOpen={isDataModalOpen}
+        onClose={() => setIsDataModalOpen(false)}
+        entries={entries}
+        onImportSuccess={async () => {
+          try {
+            const fresh = await getMediaEntries();
+            setEntries(fresh);
+            addToast('Archive refreshed with imported items', 'success');
+          } catch (e) {
+            console.error('Failed to reload entries:', e);
+          }
+        }}
       />
 
       {/* In-App Confirmation Modal */}

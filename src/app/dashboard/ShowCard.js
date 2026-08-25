@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText, CheckCircle2 } from 'lucide-react';
 import styles from './dashboard.module.css';
 
 export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   const category = item.category || (item.type === 'anime' ? 'anime' : 'show');
   const isAnime = category === 'anime';
+  const status = item.status || 'in_progress';
+  const rating = item.rating;
 
   const primaryUnitCurrent = item.primaryUnitCurrent ?? item.currentSeason ?? 1;
   const primaryUnitTotal = item.primaryUnitTotal ?? item.totalSeasons ?? 1;
@@ -17,6 +20,12 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
   const structure = Array.isArray(item.structure) ? item.structure : [];
 
   const hasNextSeason = primaryUnitCurrent < primaryUnitTotal || structure.some((s) => s.number > primaryUnitCurrent);
+
+  const isAtFinalEpisode =
+    !hasNextSeason &&
+    secondaryUnitTotal !== null &&
+    secondaryUnitTotal !== undefined &&
+    secondaryUnitCurrent >= secondaryUnitTotal;
 
   const canDecrementEp = secondaryUnitCurrent > 0;
   const canIncrementEp =
@@ -110,6 +119,17 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
     }
   };
 
+  const handleMarkCompleted = async () => {
+    const updates = { status: 'completed', completedAt: new Date().toISOString() };
+    onUpdate(item.id, updates);
+    try {
+      setIsUpdating(true);
+      await onUpdate(item.id, updates, true);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const progressPercentage = secondaryUnitTotal
     ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
@@ -127,6 +147,26 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
       : `${secondaryUnitCurrent}`;
 
   const formattedTotal = secondaryUnitTotal ? `${secondaryUnitTotal}` : null;
+
+  const getStatusBadgeClass = () => {
+    switch (status) {
+      case 'completed': return styles.statusBadgeCompleted;
+      case 'planning': return styles.statusBadgePlanning;
+      case 'on_hold': return styles.statusBadgeOnHold;
+      case 'dropped': return styles.statusBadgeDropped;
+      default: return styles.statusBadgeInProgress;
+    }
+  };
+
+  const getStatusLabel = () => {
+    switch (status) {
+      case 'completed': return 'Completed';
+      case 'planning': return 'Planning';
+      case 'on_hold': return 'On Hold';
+      case 'dropped': return 'Dropped';
+      default: return 'In Progress';
+    }
+  };
 
   return (
     <article className={`za-card za-card--raised ${styles.mediaCard}`} aria-label={`${item.title} card`}>
@@ -183,6 +223,15 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
 
           {/* Badges Row */}
           <div className={styles.badgeRow}>
+            <span className={`${styles.metaBadge} ${getStatusBadgeClass()}`}>
+              {getStatusLabel()}
+            </span>
+            {rating != null && (
+              <span className={styles.ratingBadge} title={`Rated ${rating}/10`}>
+                <Star size={11} className={styles.ratingStarIcon} fill="currentColor" />
+                <span>{rating}</span>
+              </span>
+            )}
             <span className={styles.metaBadge}>
               S{primaryUnitCurrent}{primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
             </span>
@@ -217,8 +266,42 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit }) {
               </div>
             </div>
           )}
+
+          {/* Notes Toggle */}
+          {item.notes && (
+            <div className={styles.cardNotesSection}>
+              <button
+                type="button"
+                className={styles.notesToggleBtn}
+                onClick={() => setShowNotes((p) => !p)}
+              >
+                <FileText size={12} />
+                <span>{showNotes ? 'Hide note' : 'View note'}</span>
+              </button>
+              {showNotes && (
+                <div className={styles.cardNotesDrawer}>
+                  {item.notes}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Completion Prompt (if user reached end of final season but not marked completed) */}
+      {isAtFinalEpisode && status !== 'completed' && (
+        <div className={styles.completionPromptRow}>
+          <span>Series completed!</span>
+          <button
+            type="button"
+            className={styles.markCompleteBtn}
+            onClick={handleMarkCompleted}
+            disabled={isUpdating}
+          >
+            Mark Completed
+          </button>
+        </div>
+      )}
 
       {/* Action Zone / Stepper Controls */}
       <div className={styles.cardActionZone}>

@@ -8,6 +8,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
+const VALID_STATUSES = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'];
 const MAX_TITLE_LENGTH = 500;
 const MAX_NOTES_LENGTH = 5000;
 const MAX_SOURCE_ID_LENGTH = 200;
@@ -36,6 +37,20 @@ function sanitizeStructure(structure) {
     .filter(Boolean);
 }
 
+function sanitizeRating(rating) {
+  if (rating === null || rating === undefined || rating === '') return null;
+  const parsed = parseInt(rating, 10);
+  if (isNaN(parsed)) return null;
+  return Math.min(10, Math.max(1, parsed));
+}
+
+function sanitizeStatus(status) {
+  if (typeof status === 'string' && VALID_STATUSES.includes(status)) {
+    return status;
+  }
+  return 'in_progress';
+}
+
 async function getAuthUser() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -52,6 +67,9 @@ function serializeEntry(entry) {
   if (!entry) return null;
   return {
     ...entry,
+    status: entry.status || 'in_progress',
+    rating: entry.rating != null ? entry.rating : null,
+    completedAt: entry.completedAt instanceof Date ? entry.completedAt.toISOString() : (entry.completedAt || null),
     createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
     updatedAt: entry.updatedAt instanceof Date ? entry.updatedAt.toISOString() : entry.updatedAt,
   };
@@ -95,6 +113,10 @@ export async function createMediaEntry(data) {
     : null;
 
   const structure = sanitizeStructure(data.structure);
+  const status = sanitizeStatus(data.status);
+  const rating = sanitizeRating(data.rating);
+  const completedAt = status === 'completed' ? (data.completedAt ? new Date(data.completedAt) : new Date()) : null;
+
   const coverImage = typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
     ? data.coverImage
     : null;
@@ -110,6 +132,9 @@ export async function createMediaEntry(data) {
       userId: user.id,
       title,
       category,
+      status,
+      completedAt,
+      rating,
       primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
       primaryUnitTotal,
       secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
@@ -146,6 +171,20 @@ export async function updateMediaProgress(id, updates) {
       throw new Error('Invalid category');
     }
     updateFields.category = updates.category;
+  }
+
+  if (updates.status !== undefined) {
+    const status = sanitizeStatus(updates.status);
+    updateFields.status = status;
+    if (status === 'completed') {
+      updateFields.completedAt = updates.completedAt ? new Date(updates.completedAt) : new Date();
+    } else {
+      updateFields.completedAt = null;
+    }
+  }
+
+  if (updates.rating !== undefined) {
+    updateFields.rating = sanitizeRating(updates.rating);
   }
 
   if (updates.primaryUnitCurrent !== undefined) {
@@ -206,6 +245,80 @@ export async function updateMediaProgress(id, updates) {
 
   revalidatePath('/dashboard');
   return serializeEntry(updated);
+}
+
+export async function bulkImportMediaEntries(items, conflictStrategy = 'skip') {
+  const user = await getAuthUser();
+  if (!Array.isArray(items) || items.length === 0) {
+    return { added: 0, updated: 0, skipped: 0 };
+  }
+
+  const existing = await db
+    .select()
+    .from(mediaEntries)
+    .where(eq(mediaEntries.userId, user.id));
+
+  const existingBySourceOrTitle = new Map();
+  existing.forEach((e) => {
+    if (e.sourceId) existingBySourceOrTitle.set(e.sourceId.toLowerCase(), e);
+    existingBySourceOrTitle.set(`${e.category}:${e.title.toLowerCase()}`, e);
+  });
+
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    const title = String(item.title || '').trim().slice(0, MAX_TITLE_LENGTH);
+    if (!title) continue;
+
+    const category = VALID_CATEGORIES.includes(item.category) ? item.category : 'show';
+    const sourceKey = item.sourceId ? item.sourceId.toLowerCase() : null;
+    const titleKey = `${category}:${title.toLowerCase()}`;
+
+    const match = (sourceKey && existingBySourceOrTitle.get(sourceKey)) || existingBySourceOrTitle.get(titleKey);
+
+    if (match && conflictStrategy === 'skip') {
+      skipped++;
+      continue;
+    }
+
+    const payload = {
+      title,
+      category,
+      status: sanitizeStatus(item.status),
+      rating: sanitizeRating(item.rating),
+      completedAt: item.completedAt ? new Date(item.completedAt) : item.status === 'completed' ? new Date() : null,
+      primaryUnitCurrent: Math.max(1, toInt(item.primaryUnitCurrent, 1)),
+      primaryUnitTotal: item.primaryUnitTotal != null ? Math.max(1, toInt(item.primaryUnitTotal, 1)) : null,
+      secondaryUnitCurrent: Math.max(0, toInt(item.secondaryUnitCurrent, 0)),
+      secondaryUnitTotal: item.secondaryUnitTotal != null ? Math.max(0, toInt(item.secondaryUnitTotal, null)) : null,
+      structure: sanitizeStructure(item.structure),
+      coverImage: typeof item.coverImage === 'string' && item.coverImage.length <= MAX_COVER_IMAGE_LENGTH ? item.coverImage : null,
+      sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null,
+      notes: item.notes ? String(item.notes).trim().slice(0, MAX_NOTES_LENGTH) : null,
+      updatedAt: new Date(),
+    };
+
+    if (match && conflictStrategy === 'overwrite') {
+      await db
+        .update(mediaEntries)
+        .set(payload)
+        .where(eq(mediaEntries.id, match.id));
+      updated++;
+    } else {
+      await db.insert(mediaEntries).values({
+        ...payload,
+        id: crypto.randomUUID(),
+        userId: user.id,
+        createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+      });
+      added++;
+    }
+  }
+
+  revalidatePath('/dashboard');
+  return { added, updated, skipped };
 }
 
 export async function deleteMediaEntry(id) {

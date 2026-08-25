@@ -1022,13 +1022,329 @@
 
   .modalContent,
   .shortcutsModalContent,
-  .confirmModalContent {
+  .confirmModalContent,
+  .statsModalContent,
+  .importModalContent {
     max-height: 85vh;
   }
 
   .formRow {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   STATUS & RATING BADGES
+   ========================================================================== */
+.statusBadgeInProgress {
+  background-color: var(--za-color-surface-subtle);
+  border-color: var(--za-color-border-decorative);
+  color: var(--za-color-text);
+}
+
+.statusBadgeCompleted {
+  background-color: rgba(46, 125, 50, 0.12);
+  border-color: rgba(46, 125, 50, 0.35);
+  color: #2e7d32;
+}
+
+.statusBadgePlanning {
+  background-color: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.35);
+  color: var(--za-color-text-muted);
+}
+
+.statusBadgeOnHold {
+  background-color: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.35);
+  color: #d97706;
+}
+
+.statusBadgeDropped {
+  background-color: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.3);
+  color: var(--za-color-destructive);
+}
+
+.ratingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--za-radius-small);
+  background-color: rgba(234, 179, 8, 0.12);
+  border: var(--za-border-width) solid rgba(234, 179, 8, 0.4);
+  color: #b45309;
+}
+
+.ratingStarIcon {
+  color: #d97706;
+}
+
+/* ==========================================================================
+   AUTO-COMPLETION PROMPT ON CARDS
+   ========================================================================== */
+.completionPromptRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--za-space-2) var(--za-space-3);
+  background-color: rgba(46, 125, 50, 0.08);
+  border: var(--za-border-width) solid rgba(46, 125, 50, 0.25);
+  border-radius: var(--za-radius-control);
+  margin-top: var(--za-space-2);
+  font-size: var(--za-text-fine);
+  color: #2e7d32;
+}
+
+.markCompleteBtn {
+  background: #2e7d32;
+  color: #ffffff;
+  border: none;
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--za-radius-control);
+  cursor: pointer;
+  transition: opacity var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.markCompleteBtn:hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
+   EXPANDABLE CARD NOTES
+   ========================================================================== */
+.cardNotesSection {
+  margin-top: var(--za-space-2);
+  border-top: var(--za-border-width) dotted var(--za-color-border-decorative);
+  padding-top: var(--za-space-2);
+}
+
+.notesToggleBtn {
+  background: transparent;
+  border: none;
+  color: var(--za-color-text-muted);
+  font-size: var(--za-text-fine);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.notesToggleBtn:hover {
+  color: var(--za-color-text);
+}
+
+.cardNotesDrawer {
+  margin-top: var(--za-space-2);
+  padding: var(--za-space-2) var(--za-space-3);
+  background-color: var(--za-color-surface-subtle);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-control);
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text);
+  line-height: var(--za-leading-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+/* ==========================================================================
+   DASHBOARD CONTROLS TOOLBAR (SEARCH, STATUS FILTERS, SORT, EXPORT/STATS)
+   ========================================================================== */
+.dashboardControlsBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--za-space-3);
+  margin-bottom: var(--za-space-6);
+}
+
+.toolbarTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--za-space-3);
+  flex-wrap: wrap;
+}
+
+.searchAndSortGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-2);
+  flex: 1;
+  min-width: 16rem;
+}
+
+.archiveSearchWrapper {
+  position: relative;
+  flex: 1;
+  max-width: 22rem;
+}
+
+.archiveSearchInput {
+  width: 100%;
+  padding: 0.45rem 2rem 0.45rem 2rem;
+  font-size: var(--za-text-fine);
+  background-color: var(--za-color-surface);
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
+  color: var(--za-color-text);
+  transition: border-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.archiveSearchInput:focus {
+  outline: none;
+  border-color: var(--za-color-border-focus);
+}
+
+.searchIconInside {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--za-color-text-muted);
+  pointer-events: none;
+}
+
+.searchKbdHint {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  padding: 0.1rem 0.3rem;
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-small);
+  color: var(--za-color-text-muted);
+  background-color: var(--za-color-surface-subtle);
+  pointer-events: none;
+}
+
+.sortDropdownSelect {
+  padding: 0.45rem 0.8rem;
+  font-size: var(--za-text-fine);
+  background-color: var(--za-color-surface);
+  border: var(--za-border-width) solid var(--za-color-border-required);
+  border-radius: var(--za-radius-control);
+  color: var(--za-color-text);
+  cursor: pointer;
+}
+
+.sortDropdownSelect:focus {
+  outline: none;
+  border-color: var(--za-color-border-focus);
+}
+
+.toolbarActionsGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-2);
+  flex-wrap: wrap;
+}
+
+.statusFilterPills {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-1);
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.statusPillBtn {
+  font-size: var(--za-text-fine);
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--za-radius-control);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  background: var(--za-color-surface);
+  color: var(--za-color-text-muted);
+  cursor: pointer;
+  transition: all var(--za-motion-fast) var(--za-ease-standard);
+  white-space: nowrap;
+}
+
+.statusPillBtn:hover {
+  color: var(--za-color-text);
+  border-color: var(--za-color-border-required);
+}
+
+.statusPillActive {
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text);
+  border-color: var(--za-color-border-required);
+  font-weight: var(--za-weight-emphasis);
+}
+
+/* ==========================================================================
+   STATS MODAL & DATA BACKUP MODALS
+   ========================================================================== */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--za-space-3);
+  margin-top: var(--za-space-4);
+  margin-bottom: var(--za-space-5);
+}
+
+.statCard {
+  background: var(--za-color-surface-subtle);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-control);
+  padding: var(--za-space-3);
+  text-align: center;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: var(--za-weight-heading);
+  color: var(--za-color-text);
+  line-height: 1.2;
+}
+
+.statLabel {
+  font-size: var(--za-text-fine);
+  color: var(--za-color-text-muted);
+  margin-top: var(--za-space-1);
+}
+
+.ratingSelectGrid {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: var(--za-space-1);
+}
+
+.ratingOptionBtn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-emphasis);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  background: var(--za-color-surface);
+  border-radius: var(--za-radius-control);
+  color: var(--za-color-text-muted);
+  cursor: pointer;
+  transition: all var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.ratingOptionBtn:hover {
+  border-color: #d97706;
+  color: #b45309;
+}
+
+.ratingOptionActive {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #b45309;
 }
 
 
