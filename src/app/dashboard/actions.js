@@ -48,14 +48,25 @@ async function getAuthUser() {
   return session.user;
 }
 
+function serializeEntry(entry) {
+  if (!entry) return null;
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
+    updatedAt: entry.updatedAt instanceof Date ? entry.updatedAt.toISOString() : entry.updatedAt,
+  };
+}
+
 export async function getMediaEntries() {
   const user = await getAuthUser();
 
-  return await db
+  const entries = await db
     .select()
     .from(mediaEntries)
     .where(eq(mediaEntries.userId, user.id))
     .orderBy(desc(mediaEntries.updatedAt));
+
+  return entries.map(serializeEntry);
 }
 
 export async function createMediaEntry(data) {
@@ -112,7 +123,7 @@ export async function createMediaEntry(data) {
     .returning();
 
   revalidatePath('/dashboard');
-  return newEntry;
+  return serializeEntry(newEntry);
 }
 
 export async function updateMediaProgress(id, updates) {
@@ -194,7 +205,7 @@ export async function updateMediaProgress(id, updates) {
   }
 
   revalidatePath('/dashboard');
-  return updated;
+  return serializeEntry(updated);
 }
 
 export async function deleteMediaEntry(id) {
