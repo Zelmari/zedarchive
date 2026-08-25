@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseImportFile } from '../src/lib/backup.js';
+import { parseImportFile } from '@/lib/backup';
 
 describe('parseImportFile', () => {
   it('accepts a plain ZedArchive JSON array', () => {
     const items = parseImportFile('backup.json', JSON.stringify([{ title: 'Frieren' }]));
     expect(items).toHaveLength(1);
-    expect(items[0].title).toBe('Frieren');
+    expect(items[0]?.title).toBe('Frieren');
   });
 
   it('parses AniList list exports', () => {
@@ -55,8 +55,8 @@ describe('parseImportFile', () => {
     const csv = 'Book Id,Title,Author\n1,"Bell Hooks, All About Love",someone\n2,Atomic Habits,x\n';
     const items = parseImportFile('books.csv', csv);
     expect(items).toHaveLength(2);
-    expect(items[0].title).toBe('Bell Hooks, All About Love');
-    expect(items[0].category).toBe('book');
+    expect(items[0]?.title).toBe('Bell Hooks, All About Love');
+    expect(items[0]?.category).toBe('book');
   });
 
   it('throws on an empty CSV', () => {

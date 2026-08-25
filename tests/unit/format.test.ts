@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getInitials, getTileInitials, relativeTime } from '../src/lib/format.js';
+import { getInitials, getTileInitials, relativeTime } from '@/lib/format';
 
 describe('getInitials', () => {
   it('uses the fallback for empty input', () => {
