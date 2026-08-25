@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { mediaEntries } from '@/db/schema';
+import { mediaEntries, user as userTable } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import DashboardClient from './DashboardClient';
 
@@ -15,6 +15,21 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
+  // Fetch user profile and preferences
+  const [dbUser] = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      email: userTable.email,
+      image: userTable.image,
+      theme: userTable.theme,
+      username: userTable.username,
+      isPublic: userTable.isPublic,
+      bio: userTable.bio,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, session.user.id));
+
   // Fetch initial media entries for authenticated user
   const rawEntries = await db
     .select()
@@ -25,6 +40,12 @@ export default async function DashboardPage() {
   // Serialize Date objects for React Server Component -> Client Component boundary
   const initialEntries = rawEntries.map((entry) => ({
     ...entry,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    genres: Array.isArray(entry.genres) ? entry.genres : [],
+    rewatchCount: entry.rewatchCount || 0,
+    synopsis: entry.synopsis || null,
+    startedAt: entry.startedAt instanceof Date ? entry.startedAt.toISOString() : (entry.startedAt || null),
+    completedAt: entry.completedAt instanceof Date ? entry.completedAt.toISOString() : (entry.completedAt || null),
     createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
     updatedAt: entry.updatedAt instanceof Date ? entry.updatedAt.toISOString() : entry.updatedAt,
   }));
@@ -33,9 +54,13 @@ export default async function DashboardPage() {
     <DashboardClient
       user={{
         id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image,
+        name: dbUser?.name || session.user.name,
+        email: dbUser?.email || session.user.email,
+        image: dbUser?.image || session.user.image,
+        theme: dbUser?.theme || 'parchment',
+        username: dbUser?.username || null,
+        isPublic: Boolean(dbUser?.isPublic),
+        bio: dbUser?.bio || null,
       }}
       initialEntries={initialEntries}
     />
