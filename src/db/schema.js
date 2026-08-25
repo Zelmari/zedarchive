@@ -122,3 +122,19 @@ export const mediaActivityLogs = pgTable('media_activity_logs', {
   index('activity_user_id_idx').on(table.userId),
   index('activity_created_at_idx').on(table.createdAt),
 ]);
+
+export const profileComments = pgTable('profile_comments', {
+  id: text('id').primaryKey(),
+  profileUserId: text('profile_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  authorUserId: text('author_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(), // createdAt + exactly 7 days
+}, (table) => [
+  index('comments_profile_idx').on(table.profileUserId),
+  index('comments_expires_idx').on(table.expiresAt),
+]);

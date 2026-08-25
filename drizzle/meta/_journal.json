@@ -29,6 +29,13 @@
       "when": 1787638332303,
       "tag": "0003_tricky_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787674282886,
+      "tag": "0004_nosy_kang",
+      "breakpoints": true
     }
   ]
 }
