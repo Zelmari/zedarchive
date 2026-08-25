@@ -2,6 +2,41 @@ export const revalidate = 86400;
 
 const MAX_QUERY_LENGTH = 100;
 
+interface AniListMedia {
+  id: number;
+  title?: { romaji?: string | null; english?: string | null };
+  coverImage?: { large?: string | null; medium?: string | null };
+  episodes?: number | null;
+  chapters?: number | null;
+  volumes?: number | null;
+  startDate?: { year?: number | null };
+}
+
+interface TvmazeShowShape {
+  id: number;
+  name: string;
+  image?: { medium?: string | null; original?: string | null } | null;
+  premiered?: string | null;
+}
+
+interface TvmazeSeasonShape {
+  number?: number | null;
+  name?: string | null;
+  episodeOrder?: number | null;
+}
+
+interface SearchResult {
+  sourceId: string;
+  category: string;
+  title: string;
+  coverUrl: string | null;
+  primaryUnitTotal: number;
+  structure: Array<{ number: number; name: string; total: number | null }>;
+  secondaryUnitTotal: number | null;
+  authors?: string | null;
+  year: string | null;
+}
+
 const ANILIST_QUERY = `
 query ($search: String, $type: MediaType) {
   Page(page: 1, perPage: 5) {
@@ -27,12 +62,16 @@ query ($search: String, $type: MediaType) {
 }
 `;
 
-function toAnimeResult(item, isManga, sourcePrefix = 'anilist') {
-  const title = item.title?.english || item.title?.romaji || 'Unknown Title';
-  let coverUrl = item.coverImage?.large || item.coverImage?.medium || null;
-  if (coverUrl && coverUrl.startsWith('http://')) {
-    coverUrl = coverUrl.replace('http://', 'https://');
+function httpsCover(url: string | null | undefined): string | null {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
   }
+  return url ?? null;
+}
+
+function toAnimeResult(item: AniListMedia, isManga: boolean, sourcePrefix = 'anilist'): SearchResult {
+  const title = item.title?.english || item.title?.romaji || 'Unknown Title';
+  const coverUrl = httpsCover(item.coverImage?.large || item.coverImage?.medium);
 
   if (isManga) {
     const volumeCount = item.volumes || 1;
@@ -56,9 +95,7 @@ function toAnimeResult(item, isManga, sourcePrefix = 'anilist') {
     };
   }
 
-  const structure = item.episodes
-    ? [{ number: 1, name: 'Season 1', total: item.episodes }]
-    : [];
+  const structure = item.episodes ? [{ number: 1, name: 'Season 1', total: item.episodes }] : [];
 
   return {
     sourceId: `${sourcePrefix}-${item.id}`,
@@ -72,7 +109,7 @@ function toAnimeResult(item, isManga, sourcePrefix = 'anilist') {
   };
 }
 
-async function searchAniList(query, isManga) {
+async function searchAniList(query: string, isManga: boolean): Promise<SearchResult[] | null> {
   const response = await fetch('https://graphql.anilist.co', {
     method: 'POST',
     headers: {
@@ -96,14 +133,15 @@ async function searchAniList(query, isManga) {
     return null;
   }
 
-  const json = await response.json();
-  const mediaList = json.data?.Page?.media || [];
+  const json: unknown = await response.json();
+  const mediaList =
+    (json as { data?: { Page?: { media?: AniListMedia[] } } })?.data?.Page?.media || [];
   return mediaList.map((item) => toAnimeResult(item, isManga, 'anilist'));
 }
 
 // TVMaze covers most anime series and is reachable from Workers, unlike
 // AniList (403 on datacenter IPs) and Jikan (504 from Workers).
-async function searchTvmazeAnime(query) {
+async function searchTvmazeAnime(query: string): Promise<SearchResult[] | null> {
   const searchRes = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`, {
     next: { revalidate: 86400 },
     headers: { Accept: 'application/json' },
@@ -111,19 +149,23 @@ async function searchTvmazeAnime(query) {
 
   if (!searchRes.ok) return null;
 
-  const searchData = await searchRes.json();
-  const topResults = Array.isArray(searchData) ? searchData.slice(0, 5) : [];
+  const searchData: unknown = await searchRes.json();
+  const topResults = Array.isArray(searchData)
+    ? (searchData as { show?: TvmazeShowShape }[]).slice(0, 5)
+    : [];
 
   const results = await Promise.all(
-    topResults.map(async ({ show }) => {
-      let seasons = [];
+    topResults.map(async ({ show }): Promise<SearchResult | null> => {
+      if (!show) return null;
+
+      let seasons: TvmazeSeasonShape[] = [];
       try {
         const seasonsRes = await fetch(`https://api.tvmaze.com/shows/${show.id}/seasons`, {
           next: { revalidate: 86400 },
           headers: { Accept: 'application/json' },
         });
         if (seasonsRes.ok) {
-          seasons = await seasonsRes.json();
+          seasons = (await seasonsRes.json()) as TvmazeSeasonShape[];
         }
       } catch {
         seasons = [];
@@ -131,18 +173,15 @@ async function searchTvmazeAnime(query) {
 
       const structureArray = Array.isArray(seasons)
         ? seasons
-            .filter((s) => s.number !== null && s.number !== undefined && s.number > 0)
+            .filter((s) => s.number !== null && s.number !== undefined && (s.number ?? 0) > 0)
             .map((s) => ({
-              number: s.number,
+              number: s.number as number,
               name: s.name ? s.name : `Season ${s.number}`,
               total: s.episodeOrder || null,
             }))
         : [];
 
-      let coverUrl = show.image?.medium || show.image?.original || null;
-      if (coverUrl && coverUrl.startsWith('http://')) {
-        coverUrl = coverUrl.replace('http://', 'https://');
-      }
+      const coverUrl = httpsCover(show.image?.medium || show.image?.original);
 
       return {
         sourceId: `tvmaze-${show.id}`,
@@ -157,13 +196,14 @@ async function searchTvmazeAnime(query) {
     })
   );
 
-  return results.length > 0 ? results : null;
+  const filtered = results.filter((r): r is SearchResult => r !== null);
+  return filtered.length > 0 ? filtered : null;
 }
 
 // Manga volumes are published as books, so Google Books (reachable from
 // Workers) serves as the manga fallback, with Open Library as a second
 // fallback when Google blocks datacenter IPs.
-async function searchGoogleBooksManga(query) {
+async function searchGoogleBooksManga(query: string): Promise<SearchResult[] | null> {
   const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`${query} manga`)}&maxResults=5`;
   const gbooksRes = await fetch(gbooksUrl, {
     next: { revalidate: 86400 },
@@ -172,31 +212,31 @@ async function searchGoogleBooksManga(query) {
 
   if (!gbooksRes.ok) return null;
 
-  const gbooksData = await gbooksRes.json();
-  if (!Array.isArray(gbooksData.items) || gbooksData.items.length === 0) return null;
+  const gbooksData: unknown = await gbooksRes.json();
+  const items = (gbooksData as { items?: unknown[] }).items;
+  if (!Array.isArray(items) || items.length === 0) return null;
 
-  return gbooksData.items.map((item) => {
+  return items.map((rawItem): SearchResult => {
+    const item = rawItem as { id: number; volumeInfo?: Record<string, unknown> };
     const info = item.volumeInfo || {};
-    let coverUrl = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
-    if (coverUrl && coverUrl.startsWith('http://')) {
-      coverUrl = coverUrl.replace('http://', 'https://');
-    }
+    const imageLinks = info.imageLinks as { thumbnail?: string; smallThumbnail?: string } | undefined;
+    const coverUrl = httpsCover(imageLinks?.thumbnail || imageLinks?.smallThumbnail);
 
     return {
       sourceId: `gbooks-${item.id}`,
       category: 'manga',
-      title: info.title || 'Unknown Title',
+      title: (info.title as string) || 'Unknown Title',
       coverUrl,
       primaryUnitTotal: 1,
       structure: [],
       secondaryUnitTotal: typeof info.pageCount === 'number' ? info.pageCount : null,
       authors: Array.isArray(info.authors) ? info.authors.join(', ') : null,
-      year: info.publishedDate ? info.publishedDate.substring(0, 4) : null,
+      year: info.publishedDate ? String(info.publishedDate).substring(0, 4) : null,
     };
   });
 }
 
-async function searchOpenLibraryManga(query) {
+async function searchOpenLibraryManga(query: string): Promise<SearchResult[] | null> {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(`${query} manga`)}&limit=5`;
   const res = await fetch(url, {
     next: { revalidate: 86400 },
@@ -205,32 +245,32 @@ async function searchOpenLibraryManga(query) {
 
   if (!res.ok) return null;
 
-  const data = await res.json();
-  const docs = Array.isArray(data.docs) ? data.docs : [];
+  const data = (await res.json()) as Record<string, unknown>;
+  const docs = Array.isArray(data.docs) ? (data.docs as Record<string, unknown>[]) : [];
   if (docs.length === 0) return null;
 
-  return docs.map((doc) => {
+  return docs.map((doc): SearchResult => {
     const coverUrl = doc.cover_i
-      ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+      ? `https://covers.openlibrary.org/b/id/${String(doc.cover_i)}-M.jpg`
       : null;
 
-    const cleanKey = doc.key ? doc.key.replace(/^\/works\//, '') : null;
+    const cleanKey = doc.key ? String(doc.key).replace(/^\/works\//, '') : null;
 
     return {
       sourceId: `openlib-${cleanKey || doc.title || query}`,
       category: 'manga',
-      title: doc.title || 'Unknown Title',
+      title: (doc.title as string) || 'Unknown Title',
       coverUrl,
       primaryUnitTotal: 1,
       structure: [],
-      secondaryUnitTotal: doc.number_of_pages_median || null,
+      secondaryUnitTotal: (doc.number_of_pages_median as number) || null,
       authors: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : null,
       year: doc.first_publish_year ? String(doc.first_publish_year) : null,
     };
   });
 }
 
-export async function GET(request) {
+export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
   if (query.length > MAX_QUERY_LENGTH) {

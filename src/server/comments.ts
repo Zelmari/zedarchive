@@ -10,23 +10,36 @@ import {
   COMMENT_RATE_LIMIT,
   COMMENT_RATE_WINDOW_MS,
 } from '@/lib/constants';
+import type { ProfileComment } from '@/types/comments';
 import { getAuthUser, getSessionUser } from './internal';
 
-function serializeComment(row) {
+type CommentRow = typeof profileComments.$inferSelect;
+
+interface AuthorInfo {
+  id: string;
+  username: string | null;
+  name: string;
+  image: string | null;
+}
+
+function serializeCommentFlat(
+  row: CommentRow,
+  author: AuthorInfo
+): ProfileComment {
   return {
     id: row.id,
     profileUserId: row.profileUserId,
-    authorId: row.authorId,
-    authorUsername: row.authorUsername,
-    authorName: row.authorName,
-    authorImage: row.authorImage || null,
+    authorId: author.id,
+    authorUsername: author.username,
+    authorName: author.name,
+    authorImage: author.image || null,
     body: row.body,
-    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : String(row.expiresAt),
   };
 }
 
-export async function getProfileComments(profileUserId) {
+export async function getProfileComments(profileUserId: unknown): Promise<ProfileComment[]> {
   if (!profileUserId) return [];
   const now = new Date();
 
@@ -37,7 +50,7 @@ export async function getProfileComments(profileUserId) {
   const [target] = await db
     .select({ id: userTable.id, isPublic: userTable.isPublic })
     .from(userTable)
-    .where(eq(userTable.id, profileUserId));
+    .where(eq(userTable.id, String(profileUserId)));
 
   if (!target) {
     return [];
@@ -54,7 +67,7 @@ export async function getProfileComments(profileUserId) {
   await db
     .delete(profileComments)
     .where(and(
-      eq(profileComments.profileUserId, profileUserId),
+      eq(profileComments.profileUserId, target.id),
       lte(profileComments.expiresAt, now),
     ));
 
@@ -73,7 +86,7 @@ export async function getProfileComments(profileUserId) {
     .from(profileComments)
     .innerJoin(userTable, eq(profileComments.authorUserId, userTable.id))
     .where(and(
-      eq(profileComments.profileUserId, profileUserId),
+      eq(profileComments.profileUserId, target.id),
       gt(profileComments.expiresAt, now),
       // Reciprocity rule, enforced retroactively: comments by users whose own
       // archive is no longer public stop rendering until they go public again.
@@ -82,16 +95,29 @@ export async function getProfileComments(profileUserId) {
     .orderBy(asc(profileComments.createdAt))
     .limit(200);
 
-  return rows.map(serializeComment);
+  return rows.map((row) => ({
+    id: row.id,
+    profileUserId: row.profileUserId,
+    authorId: row.authorId,
+    authorUsername: row.authorUsername,
+    authorName: row.authorName,
+    authorImage: row.authorImage || null,
+    body: row.body,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : String(row.expiresAt),
+  }));
 }
 
-export async function createProfileComment(profileUserId, body) {
+export async function createProfileComment(
+  profileUserId: unknown,
+  body: unknown
+): Promise<ProfileComment> {
   const me = await getAuthUser();
 
   const [target] = await db
     .select({ id: userTable.id, username: userTable.username, isPublic: userTable.isPublic })
     .from(userTable)
-    .where(eq(userTable.id, profileUserId));
+    .where(eq(userTable.id, String(profileUserId)));
 
   if (!target || !target.isPublic) {
     throw new Error('This archive is not available for comments');
@@ -132,36 +158,35 @@ export async function createProfileComment(profileUserId, body) {
   }
 
   const now = new Date();
-  const [created] = await db
-    .insert(profileComments)
-    .values({
-      id: crypto.randomUUID(),
-      profileUserId: target.id,
-      authorUserId: meRow.id,
-      body: clean,
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + COMMENT_TTL_MS),
-    })
-    .returning();
+  const created = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(profileComments)
+      .values({
+        id: crypto.randomUUID(),
+        profileUserId: target.id,
+        authorUserId: meRow.id,
+        body: clean,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + COMMENT_TTL_MS),
+      })
+      .returning();
+
+    if (!inserted) throw new Error('Failed to create comment');
+    return serializeCommentFlat(inserted, meRow);
+  });
 
   revalidatePath(`/u/${target.username}`);
 
-  return serializeComment({
-    ...created,
-    authorId: meRow.id,
-    authorUsername: meRow.username,
-    authorName: meRow.name,
-    authorImage: meRow.image,
-  });
+  return created;
 }
 
-export async function deleteProfileComment(commentId) {
+export async function deleteProfileComment(commentId: unknown): Promise<{ ok: boolean }> {
   const me = await getAuthUser();
 
   const [comment] = await db
     .select({ id: profileComments.id, profileUserId: profileComments.profileUserId, authorUserId: profileComments.authorUserId })
     .from(profileComments)
-    .where(eq(profileComments.id, commentId));
+    .where(eq(profileComments.id, String(commentId)));
 
   if (!comment) {
     throw new Error('Comment not found');
@@ -173,7 +198,7 @@ export async function deleteProfileComment(commentId) {
     throw new Error('You can only delete your own comments');
   }
 
-  await db.delete(profileComments).where(eq(profileComments.id, commentId));
+  await db.delete(profileComments).where(eq(profileComments.id, comment.id));
 
   const [owner] = await db
     .select({ username: userTable.username })

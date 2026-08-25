@@ -2,10 +2,19 @@
 
 import { db } from '@/lib/db';
 import { mediaActivityLogs } from '@/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, type SQL } from 'drizzle-orm';
 import { getAuthUser } from './internal';
 
-export async function getActivityLogs(limit = 40) {
+export interface ActivityLogRow {
+  id: string;
+  userId: string;
+  mediaId: string;
+  actionType: string;
+  details: Record<string, unknown>;
+  createdAt: Date | string;
+}
+
+export async function getActivityLogs(limit = 40): Promise<ActivityLogRow[]> {
   const user = await getAuthUser();
 
   const logs = await db
@@ -17,22 +26,21 @@ export async function getActivityLogs(limit = 40) {
 
   return logs.map((log) => ({
     ...log,
-    createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+    createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : String(log.createdAt),
   }));
 }
 
-function utcDayKey(date) {
+function utcDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export async function getUserStreak() {
+export async function getUserStreak(): Promise<{ streak: number }> {
   const user = await getAuthUser();
 
   // Bucketed by UTC day so a streak never shifts with the DB session timezone.
+  const activeDayExpr: SQL = sql`DATE(created_at AT TIME ZONE 'UTC')`;
   const rows = await db
-    .select({
-      activeDay: sql`DATE(created_at AT TIME ZONE 'UTC')`.as('active_day'),
-    })
+    .select({ activeDay: activeDayExpr.as('active_day') })
     .from(mediaActivityLogs)
     .where(eq(mediaActivityLogs.userId, user.id))
     .groupBy(sql`active_day`);
@@ -46,7 +54,7 @@ export async function getUserStreak() {
   const yesterday = new Date(today);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  let cursor;
+  let cursor: Date;
   if (activeDays.has(utcDayKey(today))) {
     cursor = today;
   } else if (activeDays.has(utcDayKey(yesterday))) {
