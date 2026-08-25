@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { getTileInitials } from '@/lib/format';
 import styles from './dashboard.module.css';
 
 export default function MediaDetailModal({ isOpen, onClose, item, onUpdate, onEdit }) {
@@ -115,7 +116,7 @@ export default function MediaDetailModal({ isOpen, onClose, item, onUpdate, onEd
                   <img src={item.coverImage} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.5rem' }}>
-                    {item.title ? item.title.slice(0, 2).toUpperCase() : '??'}
+                    {getTileInitials(item.title)}
                   </div>
                 )}
               </div>

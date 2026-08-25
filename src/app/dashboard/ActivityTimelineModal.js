@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import { getActivityLogs } from './actions';
+import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import styles from './dashboard.module.css';
 
 export default function ActivityTimelineModal({ isOpen, onClose }) {
@@ -15,7 +16,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
-      getActivityLogs(50)
+      getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT)
         .then((data) => setLogs(data || []))
         .catch((e) => console.error(e))
         .finally(() => setLoading(false));

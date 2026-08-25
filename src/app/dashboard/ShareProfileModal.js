@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Share2, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import { getUserProfile, updateUserProfile } from './actions';
+import { normalizeHandle } from '@/lib/handles';
 import styles from './dashboard.module.css';
 
 export default function ShareProfileModal({ isOpen, onClose, onToast }) {
@@ -19,7 +20,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
         .then((data) => {
           if (data) {
             setProfile({
-              username: data.username || data.name?.toLowerCase().replace(/[^a-z0-9_-]/g, '') || '',
+              username: data.username || normalizeHandle(data.name) || '',
               isPublic: Boolean(data.isPublic),
               bio: data.bio || '',
             });
@@ -48,7 +49,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
     setError('');
     setIsSaving(true);
     try {
-      const cleanUsername = profile.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      const cleanUsername = normalizeHandle(profile.username);
       if (profile.isPublic && !cleanUsername) {
         throw new Error('A username handle is required for a public profile');
       }

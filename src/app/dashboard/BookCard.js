@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus, Star, FileText } from 'lucide-react';
+import { getInitials } from '@/lib/format';
 import styles from './dashboard.module.css';
 
 export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetail }) {
@@ -100,13 +101,6 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
     }
   };
 
-  const getInitials = (titleStr) => {
-    if (!titleStr) return isManga ? 'MG' : 'BK';
-    const words = titleStr.trim().split(/\s+/);
-    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-    return (words[0][0] + words[1][0]).toUpperCase();
-  };
-
   const getStatusBadgeClass = () => {
     switch (status) {
       case 'completed': return styles.statusBadgeCompleted;
@@ -154,7 +148,7 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
             />
           ) : (
             <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
-              <span>{getInitials(item.title)}</span>
+              <span>{getInitials(item.title, isManga ? 'MG' : 'BK')}</span>
             </div>
           )}
         </div>

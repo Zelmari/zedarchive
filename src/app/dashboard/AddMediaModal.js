@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tv, Sparkles, BookOpen, Library, X, Upload, Search, ArrowLeft, Loader2 } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
+import { getTileInitials } from '@/lib/format';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
 
@@ -514,7 +515,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
                       <img src={item.coverUrl} alt="" className={styles.spotlightItemThumb} loading="lazy" />
                     ) : (
                       <div className={styles.spotlightItemThumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
-                        {item.title ? item.title.slice(0, 2).toUpperCase() : '??'}
+                        {getTileInitials(item.title)}
                       </div>
                     )}
                     <div className={styles.spotlightItemInfo}>

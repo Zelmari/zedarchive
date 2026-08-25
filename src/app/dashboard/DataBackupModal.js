@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { X, Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import { bulkImportMediaEntries } from './actions';
+import { parseImportFile } from '@/lib/backup';
 import styles from './dashboard.module.css';
 
 export default function DataBackupModal({ isOpen, onClose, entries = [], onImportSuccess }) {
@@ -76,62 +77,7 @@ export default function DataBackupModal({ isOpen, onClose, entries = [], onImpor
 
     try {
       const text = await file.text();
-      let parsedItems = [];
-
-      if (file.name.endsWith('.json')) {
-        const json = JSON.parse(text);
-        if (Array.isArray(json)) {
-          parsedItems = json;
-        } else if (json.data && Array.isArray(json.data.MediaListCollection?.lists)) {
-          // AniList export format
-          json.data.MediaListCollection.lists.forEach((list) => {
-            (list.entries || []).forEach((item) => {
-              parsedItems.push({
-                title: item.media?.title?.english || item.media?.title?.romaji || 'Untitled',
-                category: item.media?.type === 'MANGA' ? 'manga' : 'anime',
-                status: item.status === 'COMPLETED' ? 'completed' : 'in_progress',
-                secondaryUnitCurrent: item.progress || 0,
-                secondaryUnitTotal: item.media?.episodes || item.media?.chapters || null,
-                coverImage: item.media?.coverImage?.large || null,
-                notes: item.notes || null,
-                rating: item.score ? Math.round(item.score / 10) : null,
-              });
-            });
-          });
-        } else {
-          throw new Error('Unrecognized JSON format. Please upload a ZedArchive backup or supported export.');
-        }
-      } else if (file.name.endsWith('.csv')) {
-        // Simple CSV parser
-        const lines = text.split(/\r?\n/).filter(Boolean);
-        if (lines.length <= 1) throw new Error('CSV file is empty');
-        const header = lines[0].toLowerCase();
-        
-        // Goodreads CSV format
-        if (header.includes('book id') || header.includes('title')) {
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            if (cols.length >= 2) {
-              const cleanTitle = cols[1]?.replace(/^"|"$/g, '').trim();
-              if (cleanTitle) {
-                parsedItems.push({
-                  title: cleanTitle,
-                  category: 'book',
-                  status: 'in_progress',
-                  primaryUnitCurrent: 1,
-                  primaryUnitTotal: 1,
-                  secondaryUnitCurrent: 0,
-                  secondaryUnitTotal: null,
-                });
-              }
-            }
-          }
-        }
-      }
-
-      if (parsedItems.length === 0) {
-        throw new Error('No valid entries could be parsed from the file.');
-      }
+      const parsedItems = parseImportFile(file.name, text);
 
       setImportStatus({ state: 'loading', message: `Importing ${parsedItems.length} items to your archive...`, result: null });
       const res = await bulkImportMediaEntries(parsedItems, conflictStrategy);
@@ -146,7 +92,6 @@ export default function DataBackupModal({ isOpen, onClose, entries = [], onImpor
         onImportSuccess();
       }
     } catch (err) {
-      console.error('Import error:', err);
       setImportStatus({ state: 'error', message: err.message || 'Failed to process import file', result: null });
     }
   };

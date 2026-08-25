@@ -6,19 +6,26 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { eq, and, desc, asc, gt, lte, count } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import {
+  VALID_CATEGORIES,
+  VALID_STATUSES,
+  VALID_THEMES,
+  MAX_TITLE_LENGTH,
+  MAX_NOTES_LENGTH,
+  MAX_SYNOPSIS_LENGTH,
+  MAX_SOURCE_ID_LENGTH,
+  MAX_COVER_IMAGE_LENGTH,
+  MAX_STRUCTURE_LENGTH,
+  MAX_RATING,
+  MAX_BIO_LENGTH,
+  MAX_COMMENT_LENGTH,
+  COMMENT_TTL_MS,
+  COMMENT_RATE_LIMIT,
+  COMMENT_RATE_WINDOW_MS,
+} from '@/lib/constants';
+import { normalizeHandle } from '@/lib/handles';
+import { serializeEntry } from '@/lib/serialize';
 
-const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
-const VALID_STATUSES = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'];
-const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber'];
-const MAX_TITLE_LENGTH = 500;
-const MAX_NOTES_LENGTH = 5000;
-const MAX_SOURCE_ID_LENGTH = 200;
-const MAX_COVER_IMAGE_LENGTH = 2_000_000;
-const MAX_STRUCTURE_LENGTH = 500;
-const MAX_COMMENT_LENGTH = 500;
-const COMMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // exactly 7 days
-const COMMENT_RATE_LIMIT = 5;                  // max comments per window
-const COMMENT_RATE_WINDOW_MS = 60 * 1000;
 
 function toInt(value, fallback) {
   const parsed = parseInt(value, 10);
@@ -54,7 +61,7 @@ function sanitizeRating(rating) {
   if (rating === null || rating === undefined || rating === '') return null;
   const parsed = parseInt(rating, 10);
   if (isNaN(parsed)) return null;
-  return Math.min(10, Math.max(1, parsed));
+  return Math.min(MAX_RATING, Math.max(1, parsed));
 }
 
 function sanitizeStatus(status) {
@@ -74,23 +81,6 @@ async function getAuthUser() {
   }
 
   return session.user;
-}
-
-function serializeEntry(entry) {
-  if (!entry) return null;
-  return {
-    ...entry,
-    status: entry.status || 'in_progress',
-    rating: entry.rating != null ? entry.rating : null,
-    tags: Array.isArray(entry.tags) ? entry.tags : [],
-    genres: Array.isArray(entry.genres) ? entry.genres : [],
-    rewatchCount: entry.rewatchCount || 0,
-    synopsis: entry.synopsis || null,
-    startedAt: entry.startedAt instanceof Date ? entry.startedAt.toISOString() : (entry.startedAt || null),
-    completedAt: entry.completedAt instanceof Date ? entry.completedAt.toISOString() : (entry.completedAt || null),
-    createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
-    updatedAt: entry.updatedAt instanceof Date ? entry.updatedAt.toISOString() : entry.updatedAt,
-  };
 }
 
 export async function getMediaEntries() {
@@ -135,7 +125,7 @@ export async function createMediaEntry(data) {
   const rating = sanitizeRating(data.rating);
   const tags = sanitizeTags(data.tags);
   const genres = Array.isArray(data.genres) ? data.genres.slice(0, 20) : [];
-  const synopsis = data.synopsis ? String(data.synopsis).trim().slice(0, 5000) : null;
+  const synopsis = data.synopsis ? String(data.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null;
   const startedAt = data.startedAt ? new Date(data.startedAt) : new Date();
   const completedAt = status === 'completed' ? (data.completedAt ? new Date(data.completedAt) : new Date()) : null;
 
@@ -231,7 +221,7 @@ export async function updateMediaProgress(id, updates) {
     updateFields.tags = sanitizeTags(updates.tags);
   }
   if (updates.synopsis !== undefined) {
-    updateFields.synopsis = updates.synopsis ? String(updates.synopsis).trim().slice(0, 5000) : null;
+    updateFields.synopsis = updates.synopsis ? String(updates.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null;
   }
   if (updates.genres !== undefined) {
     updateFields.genres = Array.isArray(updates.genres) ? updates.genres.slice(0, 20) : [];
@@ -455,7 +445,7 @@ export async function updateUserProfile(updates) {
   const updateData = { updatedAt: new Date() };
 
   if (updates.username !== undefined) {
-    const raw = String(updates.username || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30);
+    const raw = normalizeHandle(updates.username);
     updateData.username = raw || null;
   }
 
@@ -464,7 +454,7 @@ export async function updateUserProfile(updates) {
   }
 
   if (updates.bio !== undefined) {
-    updateData.bio = String(updates.bio || '').trim().slice(0, 500) || null;
+    updateData.bio = String(updates.bio || '').trim().slice(0, MAX_BIO_LENGTH) || null;
   }
 
   const [updated] = await db

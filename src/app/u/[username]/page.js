@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { user as userTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { Star, ShieldAlert } from 'lucide-react';
+import { getTileInitials } from '@/lib/format';
 import ProfileComments from './ProfileComments';
 import styles from '@/app/dashboard/dashboard.module.css';
 
@@ -161,7 +162,7 @@ export default async function PublicProfilePage({ params }) {
                           <img src={item.coverImage} alt={item.title} className={styles.coverImage} loading="lazy" />
                         ) : (
                           <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
-                            <span>{item.title ? item.title.slice(0, 2).toUpperCase() : '??'}</span>
+                            <span>{getTileInitials(item.title)}</span>
                           </div>
                         )}
                       </div>

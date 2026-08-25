@@ -4,21 +4,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { MessageCircle, Trash2, Lock } from 'lucide-react';
 import { createProfileComment, deleteProfileComment } from '@/app/dashboard/actions';
+import { MAX_COMMENT_LENGTH, COMMENT_TTL_MS } from '@/lib/constants';
+import { relativeTime } from '@/lib/format';
 import styles from '@/app/dashboard/dashboard.module.css';
 
 const MENTION_SPLIT = /(@[a-z0-9_-]{1,30})/gi;
-const MAX_LENGTH = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function relativeTime(iso) {
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60 * 1000) return 'just now';
-  const minutes = Math.floor(diff / (60 * 1000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 function expiryLabel(iso) {
   const remaining = new Date(iso).getTime() - Date.now();
@@ -98,7 +89,7 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
       authorImage: viewer.image || null,
       body,
       createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 7 * DAY_MS).toISOString(),
+      expiresAt: new Date(Date.now() + COMMENT_TTL_MS).toISOString(),
       _pending: true,
     };
     setComments((list) => [...list, optimistic]);
@@ -221,7 +212,7 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
             <textarea
               className={styles.commentInput}
               rows={2}
-              maxLength={MAX_LENGTH}
+              maxLength={MAX_COMMENT_LENGTH}
               placeholder={`Leave a note for @${profileUser.username}… use @name to mention someone`}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -230,7 +221,7 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
               aria-label="Write a comment"
             />
             <div className={styles.commentFormFooter}>
-              <span className={styles.charCounter}>{draft.length}/{MAX_LENGTH}</span>
+              <span className={styles.charCounter}>{draft.length}/{MAX_COMMENT_LENGTH}</span>
               <span className={styles.composerHint}>Enter to post · Shift+Enter for newline</span>
               <button type="submit" className="za-button za-button--primary" disabled={isSubmitting || !draft.trim()}>
                 {isSubmitting ? 'Posting…' : 'Post'}
