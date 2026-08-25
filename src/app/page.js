@@ -51,15 +51,8 @@ export default function HomePage() {
 
             <p className="za-hero__desc">
               A calm, distraction-free catalogue for the anime, television
-              series, novels, and books you&apos;re working through — nothing more.
+              series, novels, and books you&apos;re working through.
             </p>
-
-            <div className="za-hero__badges" aria-label="Catalogued media types">
-              <span className="za-badge">TV Series</span>
-              <span className="za-badge">Anime</span>
-              <span className="za-badge">Books</span>
-              <span className="za-badge">Manga</span>
-            </div>
 
             <div className="za-hero__actions">
               <Link className="za-button za-button--primary" href="/signup">

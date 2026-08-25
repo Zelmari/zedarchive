@@ -609,8 +609,10 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--za-space-6);
-  padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12)) var(--za-space-6);
+  min-block-size: 70vh;
+  padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12));
   text-align: center;
 }
 
@@ -632,7 +634,7 @@ button, input, select, textarea {
 .za-hero__logo {
   display: grid;
   place-items: center;
-  inline-size: min(21.25rem, 72vw);
+  inline-size: min(38rem, 80vw);
   aspect-ratio: 3 / 2;
   padding: var(--za-space-6);
   border: var(--za-border-width) solid var(--za-color-border-decorative);
@@ -648,7 +650,7 @@ button, input, select, textarea {
 }
 
 .za-hero__title {
-  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
   font-weight: var(--za-weight-heading);
   line-height: var(--za-leading-compact);
   letter-spacing: -0.02em;
@@ -664,33 +666,6 @@ button, input, select, textarea {
   max-inline-size: 46ch;
   color: var(--za-color-text-muted);
   font-size: 0.925rem;
-}
-
-.za-hero__badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--za-space-3);
-}
-
-.za-badge {
-  font-family: var(--za-font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--za-color-text-muted);
-  border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: 999px;
-  background: var(--za-color-surface);
-  padding: 0.3rem 0.85rem;
-  transition:
-    border-color var(--za-motion-fast) var(--za-ease-standard),
-    color var(--za-motion-fast) var(--za-ease-standard);
-}
-
-.za-badge:hover {
-  border-color: var(--za-color-border-required);
-  color: var(--za-color-text);
 }
 
 .za-hero__actions {
@@ -789,7 +764,6 @@ button, input, select, textarea {
   .za-button,
   .za-field,
   .za-select,
-  .za-badge,
   .za-feature {
     transition-duration: var(--za-motion-reduced);
     animation-duration: var(--za-motion-reduced);
