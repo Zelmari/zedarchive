@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tv, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
+import { Tv, Sparkles, BookOpen, Library, X, Upload, Search, ArrowLeft, Loader2, Star, Check } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import styles from './dashboard.module.css';
@@ -17,6 +17,11 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     lastCategory = nextCategory;
     setCategory(nextCategory);
   };
+
+  // View Mode: 'search' (Spotlight-first) or 'manual' (Full form)
+  const [viewMode, setViewMode] = useState(() => (isEditMode ? 'manual' : 'search'));
+
+  // Form Fields
   const [title, setTitle] = useState('');
   const [status, setStatus] = useState('in_progress');
   const [rating, setRating] = useState(null);
@@ -30,23 +35,23 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
   const [coverImage, setCoverImage] = useState(null);
 
   // Search & Autofill state
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const searchInputRef = useRef(null);
   const titleInputRef = useRef(null);
-  const searchContainerRef = useRef(null);
+  const resultsContainerRef = useRef(null);
   const dropdownItemsRef = useRef([]);
   const fileInputRef = useRef(null);
   const searchAbortRef = useRef(null);
   const coverRequestRef = useRef(0);
-  const searchDismissedRef = useRef(false);
 
   const isShowLike = category === 'show' || category === 'anime';
 
@@ -65,9 +70,10 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
       setSourceId(editItem.sourceId || '');
       setNotes(editItem.notes || '');
       setCoverImage(editItem.coverImage || null);
-      searchDismissedRef.current = true;
+      setViewMode('manual');
     } else {
       setTitle('');
+      setSearchQuery('');
       setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
       setStatus('in_progress');
       setRating(null);
@@ -79,11 +85,10 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
       setSourceId('');
       setNotes('');
       setCoverImage(null);
-      searchDismissedRef.current = false;
+      setViewMode('search');
     }
     setSearchResults([]);
     setHighlightedIndex(-1);
-    setShowDropdown(false);
     setSearchError('');
     setHasSearched(false);
     setError('');
@@ -96,25 +101,22 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     onClose();
   }, [resetForm, onClose, isSubmitting, isCompressing]);
 
-  // Escape key handler: close dropdown if open (and freeze search so it can't
-  // reopen), else close modal
-  const handleEscape = useCallback(
-    () => {
-      if (showDropdown || searchError) {
-        searchDismissedRef.current = true;
-        searchAbortRef.current?.abort();
-        setShowDropdown(false);
-        setSearchError('');
-        setHighlightedIndex(-1);
-      } else {
-        resetAndClose();
+  // Escape key handler: in 'search' mode, opens 'manual' mode. In 'manual' mode, closes modal.
+  const handleEscape = useCallback(() => {
+    if (viewMode === 'search') {
+      if (searchQuery.trim() && !title) {
+        setTitle(searchQuery.trim());
       }
-    },
-    [showDropdown, searchError, resetAndClose]
-  );
+      setViewMode('manual');
+    } else {
+      resetAndClose();
+    }
+  }, [viewMode, searchQuery, title, resetAndClose]);
 
   // Accessible focus trapping
-  const modalRef = useFocusTrap(isOpen, handleEscape, { initialFocusRef: titleInputRef });
+  const modalRef = useFocusTrap(isOpen, handleEscape, {
+    initialFocusRef: viewMode === 'search' ? searchInputRef : titleInputRef,
+  });
 
   // Sync form when modal opens
   useEffect(() => {
@@ -123,17 +125,14 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     }
   }, [isOpen, resetForm]);
 
-  // Handle click outside dropdown
+  // Focus search input when switching to search view
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
-        setShowDropdown(false);
-        setHighlightedIndex(-1);
-      }
+    if (isOpen && viewMode === 'search') {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen, viewMode]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -144,27 +143,15 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     }
   }, [highlightedIndex]);
 
-  // Debounced search trigger (350ms, >= 3 chars)
+  // Debounced search trigger (300ms, >= 2 chars)
   useEffect(() => {
-    const trimmedTitle = title.trim();
+    if (viewMode !== 'search') return;
+    const trimmed = searchQuery.trim();
 
-    // Search was dismissed with Escape: freeze it so the dropdown can't
-    // reopen and the modal can't be closed accidentally while typing.
-    // Clearing the field re-enables search.
-    if (searchDismissedRef.current && trimmedTitle) {
-      setIsSearching(false);
-      setShowDropdown(false);
-      return;
-    }
-    if (searchDismissedRef.current && !trimmedTitle) {
-      searchDismissedRef.current = false;
-    }
-
-    if (trimmedTitle.length < 3) {
+    if (trimmed.length < 2) {
       setSearchResults([]);
       setHighlightedIndex(-1);
       setIsSearching(false);
-      setShowDropdown(false);
       setSearchError('');
       setHasSearched(false);
       return;
@@ -181,13 +168,13 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
       try {
         let endpoint = '/api/search/shows';
         if (category === 'book') {
-          endpoint = `/api/search/books?q=${encodeURIComponent(trimmedTitle)}`;
+          endpoint = `/api/search/books?q=${encodeURIComponent(trimmed)}`;
         } else if (category === 'anime') {
-          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmedTitle)}&category=anime`;
+          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmed)}&category=anime`;
         } else if (category === 'manga') {
-          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmedTitle)}&category=manga`;
+          endpoint = `/api/search/anime?q=${encodeURIComponent(trimmed)}&category=manga`;
         } else {
-          endpoint = `/api/search/shows?q=${encodeURIComponent(trimmedTitle)}`;
+          endpoint = `/api/search/shows?q=${encodeURIComponent(trimmed)}`;
         }
 
         const res = await fetch(endpoint, {
@@ -202,7 +189,6 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
           setHighlightedIndex(-1);
           setSearchError(message);
           setHasSearched(true);
-          setShowDropdown(true);
           return;
         }
 
@@ -211,9 +197,6 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
         setHighlightedIndex(-1);
         setSearchError('');
         setHasSearched(true);
-        if (!searchDismissedRef.current) {
-          setShowDropdown(results.length > 0);
-        }
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error('Search error:', err);
@@ -221,24 +204,23 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
           setHighlightedIndex(-1);
           setSearchError('Search failed. Please try again.');
           setHasSearched(true);
-          setShowDropdown(true);
         }
       } finally {
         if (searchAbortRef.current === controller) {
           setIsSearching(false);
         }
       }
-    }, 350);
+    }, 300);
 
     return () => {
       clearTimeout(timer);
       searchAbortRef.current?.abort();
     };
-  }, [title, category]);
+  }, [searchQuery, category, viewMode]);
 
   if (!isOpen) return null;
 
-  // Autofill on Selection from search dropdown
+  // Autofill on Selection from search results
   const handleSelectResult = async (item) => {
     const requestId = ++coverRequestRef.current;
     setTitle(item.title || '');
@@ -257,8 +239,8 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     const secTotal = season1?.total || item.secondaryUnitTotal || '';
     setSecondaryUnitTotal(secTotal ? String(secTotal) : '');
 
-    setShowDropdown(false);
-    setHighlightedIndex(-1);
+    // Switch to manual edit mode so user can review and customize before saving!
+    setViewMode('manual');
 
     // Fetch and compress remote poster
     if (item.coverUrl) {
@@ -284,16 +266,17 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
   };
 
   // Keyboard navigation for search input
-  const handleTitleKeyDown = (e) => {
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleEscape();
+      return;
+    }
+
     if (e.key === 'ArrowDown') {
       if (searchResults.length > 0) {
         e.preventDefault();
-        if (!showDropdown) {
-          setShowDropdown(true);
-          setHighlightedIndex(0);
-        } else {
-          setHighlightedIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
-        }
+        setHighlightedIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
       }
       return;
     }
@@ -301,18 +284,13 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     if (e.key === 'ArrowUp') {
       if (searchResults.length > 0) {
         e.preventDefault();
-        if (!showDropdown) {
-          setShowDropdown(true);
-          setHighlightedIndex(searchResults.length - 1);
-        } else {
-          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
-        }
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
       }
       return;
     }
 
     if (e.key === 'Enter') {
-      if (showDropdown && highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+      if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
         e.preventDefault();
         handleSelectResult(searchResults[highlightedIndex]);
       }
@@ -395,6 +373,192 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     }
   };
 
+  // =========================================================================
+  // VIEW MODE 1: SPOTLIGHT SEARCH-FIRST WINDOW
+  // =========================================================================
+  if (viewMode === 'search') {
+    return (
+      <div className={styles.modalBackdrop} onClick={resetAndClose}>
+        <div
+          ref={modalRef}
+          className={styles.spotlightModalContent}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="spotlight-modal-title"
+        >
+          {/* Header with Category Chips and Close */}
+          <div className={styles.spotlightHeader}>
+            <div className={styles.categoryChips} role="radiogroup" aria-label="Media Category">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={category === 'show'}
+                className={`${styles.categoryChip} ${category === 'show' ? styles.categoryChipActive : ''}`}
+                onClick={() => updateCategory('show')}
+              >
+                <Tv size={14} strokeWidth={2} />
+                <span>TV Show</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={category === 'anime'}
+                className={`${styles.categoryChip} ${category === 'anime' ? styles.categoryChipActive : ''}`}
+                onClick={() => updateCategory('anime')}
+              >
+                <Sparkles size={14} strokeWidth={2} />
+                <span>Anime</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={category === 'book'}
+                className={`${styles.categoryChip} ${category === 'book' ? styles.categoryChipActive : ''}`}
+                onClick={() => updateCategory('book')}
+              >
+                <BookOpen size={14} strokeWidth={2} />
+                <span>Book</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={category === 'manga'}
+                className={`${styles.categoryChip} ${category === 'manga' ? styles.categoryChipActive : ''}`}
+                onClick={() => updateCategory('manga')}
+              >
+                <Library size={14} strokeWidth={2} />
+                <span>Manga</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={styles.modalCloseBtn}
+              onClick={resetAndClose}
+              aria-label="Close modal"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
+
+          {/* Large Spotlight Search Box */}
+          <div className={styles.spotlightSearchWrapper}>
+            <Search size={18} className={styles.spotlightSearchIcon} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className={styles.spotlightSearchInput}
+              placeholder={
+                category === 'show'
+                  ? 'Search TV shows (e.g. Breaking Bad, The Bear)...'
+                  : category === 'anime'
+                  ? 'Search anime (e.g. Frieren, Horimiya)...'
+                  : category === 'book'
+                  ? 'Search books (e.g. Crime and Punishment, Dune)...'
+                  : 'Search manga (e.g. Chainsaw Man, Berserk)...'
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              autoComplete="off"
+            />
+            {isSearching && <Loader2 size={16} className="za-spin" style={{ color: 'var(--za-color-text-muted)' }} />}
+            {searchQuery && !isSearching && (
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--za-color-text-muted)', cursor: 'pointer', padding: 0 }}
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Results List */}
+          {searchResults.length > 0 && (
+            <div ref={resultsContainerRef} className={styles.spotlightResultsContainer}>
+              {searchResults.map((item, idx) => {
+                const isSelected = idx === highlightedIndex;
+                const metaParts = [];
+                if (item.year) metaParts.push(item.year);
+                if (item.primaryUnitTotal) {
+                  metaParts.push(
+                    `${item.primaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Volumes' : 'Seasons'}`
+                  );
+                }
+                if (item.secondaryUnitTotal) {
+                  metaParts.push(
+                    `${item.secondaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Chapters' : 'Episodes'}`
+                  );
+                }
+                if (item.genres && item.genres.length > 0) {
+                  metaParts.push(item.genres.slice(0, 2).join(', '));
+                }
+
+                return (
+                  <div
+                    key={item.sourceId || idx}
+                    ref={(el) => (dropdownItemsRef.current[idx] = el)}
+                    className={`${styles.spotlightItem} ${isSelected ? styles.spotlightItemActive : ''}`}
+                    onClick={() => handleSelectResult(item)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                  >
+                    {item.coverUrl ? (
+                      <img src={item.coverUrl} alt="" className={styles.spotlightItemThumb} loading="lazy" />
+                    ) : (
+                      <div className={styles.spotlightItemThumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
+                        {item.title ? item.title.slice(0, 2).toUpperCase() : '??'}
+                      </div>
+                    )}
+                    <div className={styles.spotlightItemInfo}>
+                      <div className={styles.spotlightItemTitle}>{item.title}</div>
+                      <div className={styles.spotlightItemMeta}>
+                        {metaParts.join(' • ') || 'Catalogue Match'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {hasSearched && searchResults.length === 0 && !isSearching && searchQuery.trim().length >= 2 && (
+            <div style={{ padding: 'var(--za-space-4)', textAlign: 'center', color: 'var(--za-color-text-muted)', fontSize: 'var(--za-text-fine)' }}>
+              No catalogue matches found for "{searchQuery}".
+            </div>
+          )}
+
+          {/* Spotlight Footer with Prompt */}
+          <div className={styles.spotlightFooter}>
+            <span>
+              Press <kbd style={{ padding: '0.1rem 0.35rem', background: 'var(--za-color-surface)', border: '1px solid var(--za-color-border-decorative)', borderRadius: 3 }}>Esc</kbd> to enter manually
+            </span>
+            <button
+              type="button"
+              className={styles.spotlightManualBtn}
+              onClick={() => {
+                if (searchQuery.trim() && !title) {
+                  setTitle(searchQuery.trim());
+                }
+                setViewMode('manual');
+              }}
+            >
+              Enter manually →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW MODE 2: FULL EDIT / MANUAL CREATION VIEW
+  // =========================================================================
   return (
     <div className={styles.modalBackdrop} onClick={resetAndClose}>
       <div
@@ -406,8 +570,18 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
         aria-labelledby="add-media-modal-title"
       >
         <div className={styles.modalHeader}>
+          {!isEditMode && (
+            <button
+              type="button"
+              className={styles.backToSearchBtn}
+              onClick={() => setViewMode('search')}
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Search</span>
+            </button>
+          )}
           <h2 id="add-media-modal-title" className={styles.modalTitle}>
-            {isEditMode ? 'Edit Entry' : 'Add New Media'}
+            {isEditMode ? 'Edit Entry' : 'Manual Entry'}
           </h2>
           <button
             type="button"
@@ -469,154 +643,62 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
             </div>
           </div>
 
-          {/* Cover Image Preview & Upload */}
+          {/* Title Field */}
           <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Cover Image (Autofilled or Upload)</label>
-            <div className={styles.imagePickerContainer}>
-              <div className={styles.imagePreview}>
-                {isCompressing ? (
-                  <span className={styles.imagePlaceholder}>Loading...</span>
-                ) : coverImage ? (
-                  <img src={coverImage} alt="Cover preview" />
-                ) : (
-                  <span className={styles.imagePlaceholder}>No image</span>
-                )}
-              </div>
-              <div className={styles.fileInputWrapper}>
-                <label className={styles.fileInputLabel}>
-                  <Upload size={14} strokeWidth={2} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
-                  {coverImage ? 'Change Image' : 'Upload Cover'}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className={styles.hiddenFileInput}
-                    onChange={handleImageUpload}
-                    disabled={isCompressing || isSubmitting}
-                  />
-                </label>
-                {coverImage && (
-                  <button
-                    type="button"
-                    className={styles.removeImageBtn}
-                    onClick={handleRemoveImage}
-                  >
-                    Remove cover
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Title with Debounced Search Dropdown & Arrow Key Navigation */}
-          <div className={styles.formGroup} ref={searchContainerRef} style={{ position: 'relative' }}>
-            <div className={styles.labelRow}>
-              <label htmlFor="media-title" className={styles.formLabel}>
-                Title *
-              </label>
-              {isSearching && <span className={styles.searchIndicator}>Searching sources...</span>}
-            </div>
+            <label htmlFor="media-title" className={styles.formLabel}>
+              Title <span className={styles.required}>*</span>
+            </label>
             <input
               ref={titleInputRef}
               id="media-title"
               type="text"
-              required
-              autoComplete="off"
               className={styles.formInput}
-              placeholder={
-                category === 'show'
-                  ? 'e.g., Breaking Bad'
-                  : category === 'anime'
-                  ? 'e.g., Attack on Titan, Frieren'
-                  : category === 'book'
-                  ? 'e.g., The Name of the Wind, Dune'
-                  : 'e.g., One Piece, Berserk'
-              }
+              placeholder="e.g. Frieren: Beyond Journey's End"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              onFocus={() => {
-                if (searchResults.length > 0) setShowDropdown(true);
-              }}
-              autoFocus
-              aria-expanded={showDropdown}
-              aria-autocomplete="list"
-              aria-controls="search-results-list"
+              required
             />
-
-            {/* Floating Dropdown Results */}
-            {(showDropdown || searchError || (hasSearched && searchResults.length === 0 && !isSearching)) && (
-              <div
-                id="search-results-list"
-                className={styles.searchDropdown}
-                role={searchResults.length > 0 ? 'listbox' : undefined}
-                aria-label="Search results"
-              >
-                {searchError ? (
-                  <div className={styles.searchStatusRow} role="status">
-                    {searchError} — try again in a moment.
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className={styles.searchStatusRow}>
-                    No matches — press Enter to add it manually.
-                  </div>
-                ) : (
-                  searchResults.map((item, idx) => (
-                  <div
-                    key={item.sourceId || `${item.title}-${item.year}-${idx}`}
-                    ref={(el) => {
-                      dropdownItemsRef.current[idx] = el;
-                    }}
-                    className={`${styles.searchResultItem} ${
-                      highlightedIndex === idx ? styles.searchResultItemActive : ''
-                    }`}
-                    onClick={() => handleSelectResult(item)}
-                    onMouseEnter={() => setHighlightedIndex(idx)}
-                    role="option"
-                    aria-selected={highlightedIndex === idx}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleSelectResult(item);
-                      }
-                    }}
-                  >
-                    {item.coverUrl ? (
-                      <img
-                        src={item.coverUrl}
-                        alt={item.title}
-                        className={styles.searchItemThumb}
-                      />
-                    ) : (
-                      <div className={styles.searchItemThumbPlaceholder}>
-                        {item.title ? item.title.charAt(0) : '?'}
-                      </div>
-                    )}
-                    <div className={styles.searchItemInfo}>
-                      <div className={styles.searchItemTitle}>{item.title}</div>
-                      <div className={styles.searchItemMeta}>
-                        {item.year && <span>{item.year}</span>}
-                        {item.authors && <span>{item.authors}</span>}
-                        {item.structure?.length > 0 && (
-                          <span className={styles.searchItemBadge}>
-                            {item.structure.length} Seasons
-                          </span>
-                        )}
-                        {item.secondaryUnitTotal && !item.structure?.length && (
-                          <span className={styles.searchItemBadge}>
-                            {item.secondaryUnitTotal} {isShowLike ? 'Eps' : 'Pages/Ch'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )))}
-              </div>
-            )}
           </div>
 
-          {/* Hierarchical Progress Fields */}
+          {/* Cover Art Preview & Upload */}
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>Cover Art</label>
+            <div className={styles.coverUploadRow}>
+              {coverImage ? (
+                <div className={styles.coverThumbnailWrapper}>
+                  <img src={coverImage} alt="Cover preview" className={styles.coverThumbnail} />
+                  <button
+                    type="button"
+                    className={styles.removeImageBtn}
+                    onClick={handleRemoveImage}
+                    title="Remove cover"
+                    aria-label="Remove cover image"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.uploadButton}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressing}
+                >
+                  <Upload size={18} strokeWidth={2} />
+                  <span>{isCompressing ? 'Compressing…' : 'Upload custom image'}</span>
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className={styles.hiddenFileInput}
+                onChange={handleImageUpload}
+              />
+            </div>
+          </div>
+
+          {/* Units / Breakdown */}
           {isShowLike ? (
             <>
               <div className={styles.formRow}>
@@ -629,6 +711,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
                     type="number"
                     min="1"
                     className={styles.formInput}
+                    placeholder="1"
                     value={primaryUnitTotal}
                     onChange={(e) => setPrimaryUnitTotal(e.target.value)}
                   />
@@ -651,14 +734,14 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
                   <label htmlFor="secondary-unit-total" className={styles.formLabel}>
-                    Total Episodes (Season {primaryUnitCurrent})
+                    Episodes in Season {primaryUnitCurrent}
                   </label>
                   <input
                     id="secondary-unit-total"
                     type="number"
                     min="1"
                     className={styles.formInput}
-                    placeholder="e.g. 12 or 24"
+                    placeholder="e.g. 12"
                     value={secondaryUnitTotal}
                     onChange={(e) => setSecondaryUnitTotal(e.target.value)}
                   />
@@ -679,19 +762,18 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
               </div>
             </>
           ) : (
-            /* Book / Manga Fields */
             <>
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
                   <label htmlFor="primary-unit-total" className={styles.formLabel}>
-                    Total Volumes (Optional)
+                    Total Volumes
                   </label>
                   <input
                     id="primary-unit-total"
                     type="number"
                     min="1"
                     className={styles.formInput}
-                    placeholder="e.g. 1"
+                    placeholder="1"
                     value={primaryUnitTotal}
                     onChange={(e) => setPrimaryUnitTotal(e.target.value)}
                   />
