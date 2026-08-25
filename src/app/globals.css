@@ -604,6 +604,167 @@ button, input, select, textarea {
   font-weight: var(--za-weight-heading);
 }
 
+/* 11. Landing Page Hero */
+.za-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--za-space-6);
+  padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12)) var(--za-space-6);
+  text-align: center;
+}
+
+.za-hero__eyebrow {
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--za-color-text-muted);
+}
+
+.za-hero__eyebrow::before,
+.za-hero__eyebrow::after {
+  content: '·';
+  margin-inline: var(--za-space-3);
+  opacity: 0.5;
+}
+
+.za-hero__logo {
+  display: grid;
+  place-items: center;
+  inline-size: min(21.25rem, 72vw);
+  aspect-ratio: 3 / 2;
+  padding: var(--za-space-6);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-layered);
+  background: var(--za-color-surface);
+  box-shadow: var(--za-shadow-raised);
+}
+
+.za-hero__logo img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.za-hero__title {
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  font-weight: var(--za-weight-heading);
+  line-height: var(--za-leading-compact);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.za-hero__title em {
+  font-style: normal;
+  color: var(--za-color-text-muted);
+}
+
+.za-hero__desc {
+  max-inline-size: 46ch;
+  color: var(--za-color-text-muted);
+  font-size: 0.925rem;
+}
+
+.za-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--za-space-3);
+}
+
+.za-badge {
+  font-family: var(--za-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--za-color-text-muted);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: 999px;
+  background: var(--za-color-surface);
+  padding: 0.3rem 0.85rem;
+  transition:
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-badge:hover {
+  border-color: var(--za-color-border-required);
+  color: var(--za-color-text);
+}
+
+.za-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--za-space-3);
+}
+
+/* 12. Landing Feature Grid */
+.za-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--za-space-6);
+  padding-block-end: var(--za-space-12);
+}
+
+.za-feature {
+  display: grid;
+  gap: var(--za-space-2);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-control);
+  background: var(--za-color-surface);
+  padding: var(--za-space-4);
+  transition:
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    transform var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-feature:hover {
+  border-color: var(--za-color-border-required);
+  transform: translateY(-2px);
+}
+
+.za-feature__index {
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.1em;
+  color: var(--za-color-text-muted);
+}
+
+.za-feature h2 {
+  font-size: var(--za-text-heading-sm);
+  font-weight: var(--za-weight-heading);
+  line-height: var(--za-leading-compact);
+}
+
+.za-feature p {
+  font-size: var(--za-text-supporting);
+  color: var(--za-color-text-muted);
+}
+
+/* 13. Site Footer */
+.za-site-footer {
+  border-block-start: var(--za-border-width) solid var(--za-color-border-decorative);
+}
+
+.za-site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--za-space-3);
+  padding-block: var(--za-space-4);
+}
+
+.za-site-footer__inner small {
+  font-family: var(--za-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--za-color-text-muted);
+}
+
 /* 11. Accessibility Preferences */
 @media (forced-colors: active) {
   .za-current-page {
@@ -627,7 +788,9 @@ button, input, select, textarea {
   .za-link,
   .za-button,
   .za-field,
-  .za-select {
+  .za-select,
+  .za-badge,
+  .za-feature {
     transition-duration: var(--za-motion-reduced);
     animation-duration: var(--za-motion-reduced);
     animation-iteration-count: 1;

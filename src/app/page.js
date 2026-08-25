@@ -22,128 +22,90 @@ export default function HomePage() {
             <Link className="za-link" href="/login">
               Sign in
             </Link>
-            <Link className="za-link" href="/signup">
+            <Link className="za-button za-button--secondary" href="/signup">
               Register
             </Link>
           </nav>
         </div>
       </header>
 
-      <main
-        id="main-content"
-        tabIndex={-1}
-        style={{ display: 'grid', gap: 'var(--za-space-6)', paddingBlock: 'var(--za-space-6)' }}
-      >
-        <div className="za-container za-container--wide" style={{ display: 'grid', gap: 'var(--za-space-6)' }}>
-          <section className="za-card za-card--raised" style={{ display: 'grid', gap: 'var(--za-space-4)', padding: 'var(--za-space-4)' }}>
-            <h1
-              style={{
-                fontSize: 'var(--za-text-heading-xl)',
-                lineHeight: 'var(--za-leading-compact)',
-                fontWeight: 'var(--za-weight-heading)',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              Track what you watch &amp; read
+      <main id="main-content" tabIndex={-1}>
+        <div className="za-container za-container--wide">
+          <section className="za-hero">
+            <p className="za-hero__eyebrow">Quiet media archive</p>
+
+            <div className="za-hero__logo">
+              <Image
+                alt="zedarchive logo"
+                height={192}
+                src="/zedarchivelogo.png"
+                width={288}
+                unoptimized
+                priority
+              />
+            </div>
+
+            <h1 className="za-hero__title">
+              Your watchlist &amp; reading list, <em>kept quietly.</em>
             </h1>
-            <p
-              style={{
-                fontSize: 'var(--za-text-supporting)',
-                color: 'var(--za-color-text-muted)',
-                lineHeight: 'var(--za-leading-body)',
-                maxInlineSize: 'var(--za-measure-readable)',
-              }}
-            >
-              A calm, distraction-free catalogue for your anime, television
-              series, web novels, and books. Kept cleanly in sync with your
-              personal account.
+
+            <p className="za-hero__desc">
+              A calm, distraction-free catalogue for the anime, television
+              series, novels, and books you&apos;re working through — nothing more.
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--za-space-3)' }}>
-              <Link href="/signup" className="za-button za-button--primary">
+
+            <div className="za-hero__badges" aria-label="Catalogued media types">
+              <span className="za-badge">TV Series</span>
+              <span className="za-badge">Anime</span>
+              <span className="za-badge">Books</span>
+              <span className="za-badge">Manga</span>
+            </div>
+
+            <div className="za-hero__actions">
+              <Link className="za-button za-button--primary" href="/signup">
                 Get started
               </Link>
-              <Link href="/login" className="za-button za-button--secondary">
+              <Link className="za-button za-button--secondary" href="/login">
                 Sign in
               </Link>
             </div>
           </section>
 
-          <ul
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 'var(--za-space-6)',
-              listStyle: 'none',
-              padding: 0,
-              margin: 0,
-            }}
-          >
-            <li className="za-card za-card--raised" style={{ display: 'grid', gap: 'var(--za-space-2)', padding: 'var(--za-space-4)' }}>
-              <h2
-                style={{
-                  fontSize: 'var(--za-text-heading-md)',
-                  fontWeight: 'var(--za-weight-heading)',
-                  lineHeight: 'var(--za-leading-compact)',
-                }}
-              >
-                Unified collection
-              </h2>
-              <p
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  color: 'var(--za-color-text-muted)',
-                  lineHeight: 'var(--za-leading-body)',
-                }}
-              >
-                Keep anime series, television shows, light novels, and physical
+          <section className="za-feature-grid" aria-label="Features">
+            <article className="za-feature">
+              <span className="za-feature__index">01</span>
+              <h2>Unified collection</h2>
+              <p>
+                Anime series, television shows, light novels, and physical
                 literature in one serene archive.
               </p>
-            </li>
-            <li className="za-card za-card--raised" style={{ display: 'grid', gap: 'var(--za-space-2)', padding: 'var(--za-space-4)' }}>
-              <h2
-                style={{
-                  fontSize: 'var(--za-text-heading-md)',
-                  fontWeight: 'var(--za-weight-heading)',
-                  lineHeight: 'var(--za-leading-compact)',
-                }}
-              >
-                Frictionless steppers
-              </h2>
-              <p
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  color: 'var(--za-color-text-muted)',
-                  lineHeight: 'var(--za-leading-body)',
-                }}
-              >
+            </article>
+            <article className="za-feature">
+              <span className="za-feature__index">02</span>
+              <h2>Frictionless steppers</h2>
+              <p>
                 Increment episodes and chapter milestones in one clean click. No
-                social feeds, algorithms, or banner ads.
+                feeds, algorithms, or banner ads.
               </p>
-            </li>
-            <li className="za-card za-card--raised" style={{ display: 'grid', gap: 'var(--za-space-2)', padding: 'var(--za-space-4)' }}>
-              <h2
-                style={{
-                  fontSize: 'var(--za-text-heading-md)',
-                  fontWeight: 'var(--za-weight-heading)',
-                  lineHeight: 'var(--za-leading-compact)',
-                }}
-              >
-                Private &amp; permanent
-              </h2>
-              <p
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  color: 'var(--za-color-text-muted)',
-                  lineHeight: 'var(--za-leading-body)',
-                }}
-              >
+            </article>
+            <article className="za-feature">
+              <span className="za-feature__index">03</span>
+              <h2>Private &amp; permanent</h2>
+              <p>
                 Your personal progress is stored securely and remains under your
                 complete ownership.
               </p>
-            </li>
-          </ul>
+            </article>
+          </section>
         </div>
       </main>
+
+      <footer className="za-site-footer">
+        <div className="za-container za-container--wide za-site-footer__inner">
+          <small>zedarchive — quiet media archive</small>
+          <small>episodes · chapters · volumes</small>
+        </div>
+      </footer>
     </>
   );
 }
