@@ -610,12 +610,15 @@ button, input, select, textarea {
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
+  overflow: hidden;
 }
 
 .za-hero__ghost {
   position: fixed;
   inset: -12vmin;
   z-index: 0;
+  display: grid;
+  place-items: center;
   pointer-events: none;
 }
 
@@ -693,10 +696,39 @@ button, input, select, textarea {
 
 .za-site-footer__inner small {
   font-family: var(--za-font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--za-color-text-muted);
+}
+
+/* Landing-page overrides — match 04-watermark example */
+.za-landing .za-site-header {
+  background: transparent;
+}
+
+.za-landing .za-button {
+  border-radius: 999px;
+  min-block-size: 2.4rem;
+  padding: 0 1.1rem;
+  font-size: 0.875rem;
+}
+
+.za-landing .za-site-header__nav .za-link {
+  font-size: 0.875rem;
+  color: var(--za-color-text-muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease;
+}
+
+.za-landing .za-site-header__nav .za-link:hover {
+  color: var(--za-color-text);
+  border-bottom-color: var(--za-color-text);
+}
+
+.za-landing .za-hero {
+  gap: 1.3rem;
 }
 
 /* 11. Accessibility Preferences */
