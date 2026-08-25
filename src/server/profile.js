@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { MAX_BIO_LENGTH } from '@/lib/constants';
+import { MAX_BIO_LENGTH, VALID_THEMES } from '@/lib/constants';
 import { normalizeHandle } from '@/lib/handles';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser } from './internal';

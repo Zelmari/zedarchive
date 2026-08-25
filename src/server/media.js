@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { mediaEntries } from '@/db/schema';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
   VALID_CATEGORIES,
@@ -13,6 +13,7 @@ import {
   MAX_SOURCE_ID_LENGTH,
   MAX_COVER_IMAGE_LENGTH,
   MAX_STRUCTURE_LENGTH,
+  MAX_RATING,
 } from '@/lib/constants';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser, logActivity } from './internal';
