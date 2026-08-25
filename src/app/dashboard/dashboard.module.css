@@ -1178,25 +1178,26 @@
   display: flex;
   align-items: center;
   gap: var(--za-space-2);
-  flex: 1;
-  min-width: 16rem;
+  flex: 1 1 20rem;
+  max-width: 32rem;
 }
 
 .archiveSearchWrapper {
   position: relative;
   flex: 1;
-  max-width: 22rem;
+  min-width: 10rem;
 }
 
 .archiveSearchInput {
   width: 100%;
-  padding: 0.45rem 2rem 0.45rem 2rem;
+  padding: 0.45rem 2.2rem 0.45rem 2.2rem;
   font-size: var(--za-text-fine);
   background-color: var(--za-color-surface);
   border: var(--za-border-width) solid var(--za-color-border-required);
   border-radius: var(--za-radius-control);
   color: var(--za-color-text);
   transition: border-color var(--za-motion-fast) var(--za-ease-standard);
+  height: 2.25rem;
 }
 
 .archiveSearchInput:focus {
@@ -1206,7 +1207,7 @@
 
 .searchIconInside {
   position: absolute;
-  left: 0.6rem;
+  left: 0.65rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--za-color-text-muted);
@@ -1227,14 +1228,35 @@
   pointer-events: none;
 }
 
+.searchClearBtn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--za-color-text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--za-radius-small);
+}
+
+.searchClearBtn:hover {
+  color: var(--za-color-text);
+}
+
 .sortDropdownSelect {
-  padding: 0.45rem 0.8rem;
+  padding: 0.45rem 0.75rem;
   font-size: var(--za-text-fine);
   background-color: var(--za-color-surface);
   border: var(--za-border-width) solid var(--za-color-border-required);
   border-radius: var(--za-radius-control);
   color: var(--za-color-text);
   cursor: pointer;
+  height: 2.25rem;
+  flex-shrink: 0;
 }
 
 .sortDropdownSelect:focus {
@@ -1249,7 +1271,21 @@
   flex-wrap: wrap;
 }
 
+.toolbarBottomRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--za-space-2);
+}
+
 .statusFilterPills {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-1);
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.shelvesPills {
   display: flex;
   align-items: center;
   gap: var(--za-space-1);

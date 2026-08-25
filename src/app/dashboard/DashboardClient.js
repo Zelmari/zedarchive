@@ -519,54 +519,56 @@ export default function DashboardClient({ user, initialEntries = [] }) {
           </div>
 
           {/* Controls Toolbar: Search, Sort, Stats, Activity, Share, Backup */}
-          <div className={styles.archiveToolbarWrapper}>
-            <div className={styles.archiveToolbarTop}>
-              {/* Search Bar */}
-              <div className={styles.searchBarWrapper}>
-                <Search size={16} className={styles.searchIcon} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search titles, tags, notes... (Press /)"
-                  className={styles.searchInput}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    className={styles.searchClearBtn}
-                    onClick={() => {
-                      setSearchQuery('');
-                      searchInputRef.current?.focus();
-                    }}
-                    title="Clear search"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {/* Action Buttons & Sort Dropdown */}
-              <div className={styles.toolbarActionsGroup}>
-                <div className={styles.sortDropdownWrapper}>
-                  <ArrowUpDown size={14} className={styles.sortIcon} />
-                  <select
-                    className={styles.sortSelect}
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    aria-label="Sort Archive"
-                  >
-                    <option value="updated_desc">Recently Updated</option>
-                    <option value="created_desc">Date Added (Newest)</option>
-                    <option value="created_asc">Date Added (Oldest)</option>
-                    <option value="title_asc">Title (A → Z)</option>
-                    <option value="title_desc">Title (Z → A)</option>
-                    <option value="progress_desc">Progress %</option>
-                    <option value="rating_desc">Highest Rated</option>
-                  </select>
+          <div className={styles.dashboardControlsBar}>
+            {/* Top Row: Search & Sort Group (Left) + Auxiliary Actions Group (Right) */}
+            <div className={styles.toolbarTopRow}>
+              {/* Search + Sort Group */}
+              <div className={styles.searchAndSortGroup}>
+                <div className={styles.archiveSearchWrapper}>
+                  <Search size={15} className={styles.searchIconInside} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search archive, tags, notes... (Press /)"
+                    className={styles.archiveSearchInput}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      className={styles.searchClearBtn}
+                      onClick={() => {
+                        setSearchQuery('');
+                        searchInputRef.current?.focus();
+                      }}
+                      title="Clear search"
+                    >
+                      ×
+                    </button>
+                  ) : (
+                    <kbd className={styles.searchKbdHint}>/</kbd>
+                  )}
                 </div>
 
+                <select
+                  className={styles.sortDropdownSelect}
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  aria-label="Sort Archive"
+                >
+                  <option value="updated_desc">Recently Updated</option>
+                  <option value="created_desc">Date Added (Newest)</option>
+                  <option value="created_asc">Date Added (Oldest)</option>
+                  <option value="title_asc">Title (A → Z)</option>
+                  <option value="title_desc">Title (Z → A)</option>
+                  <option value="progress_desc">Progress %</option>
+                  <option value="rating_desc">Highest Rated</option>
+                </select>
+              </div>
+
+              {/* Action Buttons Group */}
+              <div className={styles.toolbarActionsGroup}>
                 <button
                   type="button"
                   className="za-button za-button--secondary"
@@ -609,56 +611,59 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               </div>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className={styles.statusFilterPills} role="radiogroup" aria-label="Status filter">
-              {[
-                { id: 'all', label: `All (${countAll})` },
-                { id: 'in_progress', label: `In Progress (${countInProgress})` },
-                { id: 'completed', label: `Completed (${countCompleted})` },
-                { id: 'planning', label: `Planning (${countPlanning})` },
-                { id: 'on_hold', label: `On Hold (${countOnHold})` },
-                { id: 'dropped', label: `Dropped (${countDropped})` },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={statusFilter === pill.id}
-                  className={`${styles.statusPillBtn} ${statusFilter === pill.id ? styles.statusPillActive : ''}`}
-                  onClick={() => setStatusFilter(pill.id)}
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Shelves & Tags Pills (if any tags exist) */}
-            {allTags.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.2rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                  <Tag size={12} /> Shelves:
-                </span>
-                <button
-                  type="button"
-                  className={`${styles.statusPillBtn} ${selectedTag === 'all' ? styles.statusPillActive : ''}`}
-                  style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
-                  onClick={() => setSelectedTag('all')}
-                >
-                  All
-                </button>
-                {allTags.map((tag) => (
+            {/* Bottom Row: Status Filter Pills + Custom Shelves Pills */}
+            <div className={styles.toolbarBottomRow}>
+              {/* Status Filter Pills */}
+              <div className={styles.statusFilterPills} role="radiogroup" aria-label="Status filter">
+                {[
+                  { id: 'all', label: `All (${countAll})` },
+                  { id: 'in_progress', label: `In Progress (${countInProgress})` },
+                  { id: 'completed', label: `Completed (${countCompleted})` },
+                  { id: 'planning', label: `Planning (${countPlanning})` },
+                  { id: 'on_hold', label: `On Hold (${countOnHold})` },
+                  { id: 'dropped', label: `Dropped (${countDropped})` },
+                ].map((pill) => (
                   <button
-                    key={tag}
+                    key={pill.id}
                     type="button"
-                    className={`${styles.statusPillBtn} ${selectedTag === tag ? styles.statusPillActive : ''}`}
-                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
-                    onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
+                    role="radio"
+                    aria-checked={statusFilter === pill.id}
+                    className={`${styles.statusPillBtn} ${statusFilter === pill.id ? styles.statusPillActive : ''}`}
+                    onClick={() => setStatusFilter(pill.id)}
                   >
-                    #{tag}
+                    {pill.label}
                   </button>
                 ))}
               </div>
-            )}
+
+              {/* Custom Shelves & Tags Pills (if any tags exist) */}
+              {allTags.length > 0 && (
+                <div className={styles.shelvesPills}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                    <Tag size={12} /> Shelves:
+                  </span>
+                  <button
+                    type="button"
+                    className={`${styles.statusPillBtn} ${selectedTag === 'all' ? styles.statusPillActive : ''}`}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+                    onClick={() => setSelectedTag('all')}
+                  >
+                    All
+                  </button>
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`${styles.statusPillBtn} ${selectedTag === tag ? styles.statusPillActive : ''}`}
+                      style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}
+                      onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Media Grid */}
