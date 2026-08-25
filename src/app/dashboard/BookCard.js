@@ -109,13 +109,13 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
 
   const getStatusBadgeClass = () => {
     switch (status) {
-      case 'completed': return styles.statusCompleted;
-      case 'planning': return styles.statusPlanning;
-      case 'on_hold': return styles.statusOnHold;
-      case 'dropped': return styles.statusDropped;
+      case 'completed': return styles.statusBadgeCompleted;
+      case 'planning': return styles.statusBadgePlanning;
+      case 'on_hold': return styles.statusBadgeOnHold;
+      case 'dropped': return styles.statusBadgeDropped;
       case 'in_progress':
       default:
-        return styles.statusInProgress;
+        return styles.statusBadgeInProgress;
     }
   };
 

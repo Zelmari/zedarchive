@@ -850,6 +850,16 @@ button, input, select, textarea {
   }
 }
 
+.za-spin {
+  animation: za-spin 0.8s linear infinite;
+}
+
+@keyframes za-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .za-link,
   .za-button,
@@ -858,6 +868,10 @@ button, input, select, textarea {
     transition-duration: var(--za-motion-reduced);
     animation-duration: var(--za-motion-reduced);
     animation-iteration-count: 1;
+  }
+
+  .za-spin {
+    animation: none;
   }
 }
 

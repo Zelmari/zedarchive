@@ -81,7 +81,7 @@ export default function ThemeModal({ isOpen, onClose, currentTheme = 'parchment'
     <div className={styles.modalBackdrop} onClick={onClose}>
       <div
         ref={modalRef}
-        className={`${styles.modalContent} ${styles.themeModalContent}`}
+        className={styles.modalContent}
         style={{ maxWidth: '32rem' }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"

@@ -1787,3 +1787,58 @@
   color: var(--za-color-text-muted);
   opacity: 0.7;
 }
+
+/* ===== Cover Upload (AddMediaModal) ===== */
+
+.coverUploadRow {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-3);
+}
+
+.coverThumbnailWrapper {
+  position: relative;
+  inline-size: 4.5rem;
+  block-size: 6rem;
+  border-radius: var(--za-radius-small);
+  overflow: hidden;
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  background-color: var(--za-color-surface-subtle);
+}
+
+.coverThumbnail {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  border: var(--za-border-width) dashed var(--za-color-border-decorative);
+  border-radius: var(--za-radius-control);
+  background: none;
+  color: var(--za-color-text-muted);
+  font-size: var(--za-text-fine);
+  cursor: pointer;
+  transition:
+    color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.uploadButton:hover {
+  color: var(--za-color-text);
+  border-color: var(--za-color-accent);
+}
+
+.uploadButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.required {
+  color: var(--za-color-destructive);
+}
