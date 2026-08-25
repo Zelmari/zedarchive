@@ -565,7 +565,7 @@ button, input, select, textarea {
 }
 
 .za-button:disabled,
-.za-field:disabled,
+.za-field:disabled {
   cursor: not-allowed;
   border-color: var(--za-color-border-required);
   background: var(--za-color-disabled-surface);
