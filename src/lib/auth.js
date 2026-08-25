@@ -46,4 +46,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  session: {
+    // Cache the resolved session in a short-lived cookie so per-request reads
+    // (root-layout theming, dashboard SSR, public profiles) skip the DB round-trip.
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
 });

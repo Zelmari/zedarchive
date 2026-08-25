@@ -80,6 +80,11 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', currentTheme);
+      try {
+        localStorage.setItem('za-theme', currentTheme);
+      } catch {
+        // Storage unavailable (private mode etc.) — attribute is still set above.
+      }
     }
   }, [currentTheme]);
 
