@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { MessageCircle, Trash2, Lock } from 'lucide-react';
-import { createProfileComment, deleteProfileComment } from '@/app/dashboard/actions';
+import { createProfileComment, deleteProfileComment } from '@/server/comments';
 import { MAX_COMMENT_LENGTH, COMMENT_TTL_MS } from '@/lib/constants';
 import { relativeTime } from '@/lib/format';
 import styles from '@/app/dashboard/dashboard.module.css';

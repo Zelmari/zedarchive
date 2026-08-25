@@ -37,7 +37,7 @@ import {
   createMediaEntry,
   updateMediaProgress,
   deleteMediaEntry,
-} from './actions';
+} from '@/server/media';
 import styles from './dashboard.module.css';
 
 export default function DashboardClient({ user, initialEntries = [] }) {

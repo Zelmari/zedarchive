@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Flame, CheckCircle, Clock, Activity, RotateCcw, Star } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { getActivityLogs } from './actions';
+import { getActivityLogs } from '@/server/activity';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import styles from './dashboard.module.css';
 

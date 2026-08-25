@@ -1,31 +1,21 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { mediaEntries, user as userTable, mediaActivityLogs, profileComments } from '@/db/schema';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { eq, and, desc, asc, gt, lte, count } from 'drizzle-orm';
+import { mediaEntries } from '@/db/schema';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
   VALID_CATEGORIES,
   VALID_STATUSES,
-  VALID_THEMES,
   MAX_TITLE_LENGTH,
   MAX_NOTES_LENGTH,
   MAX_SYNOPSIS_LENGTH,
   MAX_SOURCE_ID_LENGTH,
   MAX_COVER_IMAGE_LENGTH,
   MAX_STRUCTURE_LENGTH,
-  MAX_RATING,
-  MAX_BIO_LENGTH,
-  MAX_COMMENT_LENGTH,
-  COMMENT_TTL_MS,
-  COMMENT_RATE_LIMIT,
-  COMMENT_RATE_WINDOW_MS,
 } from '@/lib/constants';
-import { normalizeHandle } from '@/lib/handles';
 import { serializeEntry } from '@/lib/serialize';
-
+import { getAuthUser, logActivity } from './internal';
 
 function toInt(value, fallback) {
   const parsed = parseInt(value, 10);
@@ -69,18 +59,6 @@ function sanitizeStatus(status) {
     return status;
   }
   return 'in_progress';
-}
-
-async function getAuthUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user?.id) {
-    throw new Error('Unauthorized');
-  }
-
-  return session.user;
 }
 
 export async function getMediaEntries() {
@@ -164,18 +142,12 @@ export async function createMediaEntry(data) {
     })
     .returning();
 
-  // Log activity
-  try {
-    await db.insert(mediaActivityLogs).values({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      mediaId: id,
-      actionType: 'created',
-      details: { title, category, status },
-    });
-  } catch (logErr) {
-    console.warn('Failed to write activity log:', logErr);
-  }
+  await logActivity({
+    userId: user.id,
+    mediaId: id,
+    actionType: 'created',
+    details: { title, category, status },
+  });
 
   revalidatePath('/dashboard');
   return serializeEntry(newEntry);
@@ -289,31 +261,25 @@ export async function updateMediaProgress(id, updates) {
     throw new Error('Entry not found');
   }
 
-  // Log progress or status activity
-  try {
-    let actionType = 'progress_update';
-    if (updates.status === 'completed') actionType = 'completed';
-    else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
-    else if (updates.rating !== undefined) actionType = 'rating';
+  let actionType = 'progress_update';
+  if (updates.status === 'completed') actionType = 'completed';
+  else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
+  else if (updates.rating !== undefined) actionType = 'rating';
 
-    await db.insert(mediaActivityLogs).values({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      mediaId: id,
-      actionType,
-      details: {
-        title: updated.title,
-        category: updated.category,
-        season: updated.primaryUnitCurrent,
-        progress: updated.secondaryUnitCurrent,
-        total: updated.secondaryUnitTotal,
-        status: updated.status,
-        rating: updated.rating,
-      },
-    });
-  } catch (logErr) {
-    console.warn('Failed to write activity log:', logErr);
-  }
+  await logActivity({
+    userId: user.id,
+    mediaId: id,
+    actionType,
+    details: {
+      title: updated.title,
+      category: updated.category,
+      season: updated.primaryUnitCurrent,
+      progress: updated.secondaryUnitCurrent,
+      total: updated.secondaryUnitTotal,
+      status: updated.status,
+      rating: updated.rating,
+    },
+  });
 
   revalidatePath('/dashboard');
   return serializeEntry(updated);
@@ -408,271 +374,4 @@ export async function deleteMediaEntry(id) {
 
   revalidatePath('/dashboard');
   return { success: true };
-}
-
-export async function updateUserTheme(theme) {
-  const user = await getAuthUser();
-  const safeTheme = VALID_THEMES.includes(theme) ? theme : 'parchment';
-
-  await db
-    .update(userTable)
-    .set({ theme: safeTheme, updatedAt: new Date() })
-    .where(eq(userTable.id, user.id));
-
-  return { theme: safeTheme };
-}
-
-export async function getUserProfile() {
-  const user = await getAuthUser();
-  const [profile] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      email: userTable.email,
-      theme: userTable.theme,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, user.id));
-
-  return profile;
-}
-
-export async function updateUserProfile(updates) {
-  const user = await getAuthUser();
-  const updateData = { updatedAt: new Date() };
-
-  if (updates.username !== undefined) {
-    const raw = normalizeHandle(updates.username);
-    updateData.username = raw || null;
-  }
-
-  if (updates.isPublic !== undefined) {
-    updateData.isPublic = Boolean(updates.isPublic);
-  }
-
-  if (updates.bio !== undefined) {
-    updateData.bio = String(updates.bio || '').trim().slice(0, MAX_BIO_LENGTH) || null;
-  }
-
-  const [updated] = await db
-    .update(userTable)
-    .set(updateData)
-    .where(eq(userTable.id, user.id))
-    .returning({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-      theme: userTable.theme,
-    });
-
-  revalidatePath('/dashboard');
-  return updated;
-}
-
-export async function getPublicUserProfile(username) {
-  if (!username) return null;
-  const clean = String(username).trim().toLowerCase();
-
-  const [foundUser] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      bio: userTable.bio,
-      isPublic: userTable.isPublic,
-      createdAt: userTable.createdAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.username, clean));
-
-  if (!foundUser || !foundUser.isPublic) {
-    return null;
-  }
-
-  const entries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, foundUser.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  return {
-    user: foundUser,
-    entries: entries.map(serializeEntry),
-  };
-}
-
-export async function getActivityLogs(limit = 40) {
-  const user = await getAuthUser();
-
-  const logs = await db
-    .select()
-    .from(mediaActivityLogs)
-    .where(eq(mediaActivityLogs.userId, user.id))
-    .orderBy(desc(mediaActivityLogs.createdAt))
-    .limit(limit);
-
-  return logs.map((log) => ({
-    ...log,
-    createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
-  }));
-}
-
-function serializeComment(row) {
-  return {
-    id: row.id,
-    profileUserId: row.profileUserId,
-    authorId: row.authorId,
-    authorUsername: row.authorUsername,
-    authorName: row.authorName,
-    authorImage: row.authorImage || null,
-    body: row.body,
-    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
-  };
-}
-
-export async function getProfileComments(profileUserId) {
-  if (!profileUserId) return [];
-  const now = new Date();
-
-  // Lazy cleanup: drop this profile's expired comments while we are here anyway.
-  await db
-    .delete(profileComments)
-    .where(and(
-      eq(profileComments.profileUserId, profileUserId),
-      lte(profileComments.expiresAt, now),
-    ));
-
-  const rows = await db
-    .select({
-      id: profileComments.id,
-      profileUserId: profileComments.profileUserId,
-      body: profileComments.body,
-      createdAt: profileComments.createdAt,
-      expiresAt: profileComments.expiresAt,
-      authorId: userTable.id,
-      authorUsername: userTable.username,
-      authorName: userTable.name,
-      authorImage: userTable.image,
-    })
-    .from(profileComments)
-    .innerJoin(userTable, eq(profileComments.authorUserId, userTable.id))
-    .where(and(
-      eq(profileComments.profileUserId, profileUserId),
-      gt(profileComments.expiresAt, now),
-      // Reciprocity rule, enforced retroactively: comments by users whose own
-      // archive is no longer public stop rendering until they go public again.
-      eq(userTable.isPublic, true),
-    ))
-    .orderBy(asc(profileComments.createdAt))
-    .limit(200);
-
-  return rows.map(serializeComment);
-}
-
-export async function createProfileComment(profileUserId, body) {
-  const me = await getAuthUser();
-
-  const [target] = await db
-    .select({ id: userTable.id, username: userTable.username, isPublic: userTable.isPublic })
-    .from(userTable)
-    .where(eq(userTable.id, profileUserId));
-
-  if (!target || !target.isPublic) {
-    throw new Error('This archive is not available for comments');
-  }
-
-  // Reciprocity gate: only members of the public archive community may comment.
-  const [meRow] = await db
-    .select({
-      id: userTable.id,
-      username: userTable.username,
-      name: userTable.name,
-      image: userTable.image,
-      isPublic: userTable.isPublic,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, me.id));
-
-  if (!meRow?.isPublic) {
-    throw new Error('Your own archive must be public to comment');
-  }
-
-  const clean = String(body || '').trim().slice(0, MAX_COMMENT_LENGTH);
-  if (!clean) {
-    throw new Error('Comment cannot be empty');
-  }
-
-  const windowStart = new Date(Date.now() - COMMENT_RATE_WINDOW_MS);
-  const [rateRow] = await db
-    .select({ value: count() })
-    .from(profileComments)
-    .where(and(
-      eq(profileComments.authorUserId, me.id),
-      gt(profileComments.createdAt, windowStart),
-    ));
-
-  if (Number(rateRow?.value ?? 0) >= COMMENT_RATE_LIMIT) {
-    throw new Error('You are commenting too fast. Try again in a minute');
-  }
-
-  const now = new Date();
-  const [created] = await db
-    .insert(profileComments)
-    .values({
-      id: crypto.randomUUID(),
-      profileUserId: target.id,
-      authorUserId: meRow.id,
-      body: clean,
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + COMMENT_TTL_MS),
-    })
-    .returning();
-
-  revalidatePath(`/u/${target.username}`);
-
-  return serializeComment({
-    ...created,
-    authorId: meRow.id,
-    authorUsername: meRow.username,
-    authorName: meRow.name,
-    authorImage: meRow.image,
-  });
-}
-
-export async function deleteProfileComment(commentId) {
-  const me = await getAuthUser();
-
-  const [comment] = await db
-    .select({ id: profileComments.id, profileUserId: profileComments.profileUserId, authorUserId: profileComments.authorUserId })
-    .from(profileComments)
-    .where(eq(profileComments.id, commentId));
-
-  if (!comment) {
-    throw new Error('Comment not found');
-  }
-
-  const isAuthor = comment.authorUserId === me.id;
-  const isProfileOwner = comment.profileUserId === me.id;
-  if (!isAuthor && !isProfileOwner) {
-    throw new Error('You can only delete your own comments');
-  }
-
-  await db.delete(profileComments).where(eq(profileComments.id, commentId));
-
-  const [owner] = await db
-    .select({ username: userTable.username })
-    .from(userTable)
-    .where(eq(userTable.id, comment.profileUserId));
-
-  if (owner?.username) {
-    revalidatePath(`/u/${owner.username}`);
-  }
-
-  return { ok: true };
 }

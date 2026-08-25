@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { headers } from 'next/headers';
-import { getPublicUserProfile, getProfileComments } from '@/app/dashboard/actions';
+import { getPublicUserProfile } from '@/server/profile';
+import { getProfileComments } from '@/server/comments';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { user as userTable } from '@/db/schema';

@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { bulkImportMediaEntries } from './actions';
+import { bulkImportMediaEntries } from '@/server/media';
 import { parseImportFile } from '@/lib/backup';
 import styles from './dashboard.module.css';
 

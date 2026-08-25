@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Share2, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { getUserProfile, updateUserProfile } from './actions';
+import { getUserProfile, updateUserProfile } from '@/server/profile';
 import { normalizeHandle } from '@/lib/handles';
 import styles from './dashboard.module.css';
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Palette, Check } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { updateUserTheme } from './actions';
+import { updateUserTheme } from '@/server/profile';
 import styles from './dashboard.module.css';
 
 const THEMES = [
