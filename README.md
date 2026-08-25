@@ -86,6 +86,25 @@ Choose an aesthetic that matches your taste, stored in your database account so 
 * **Icons:** [Lucide Icons](https://lucide.dev/)
 * **Design & Styling:** Pure CSS Modules with semantic CSS custom properties and responsive mobile-first layouts
 
+### Runtime Requirements
+
+* **Node.js ≥ 22** (enforced via `engines`, `.nvmrc`, and Cloudflare's `NODE_VERSION` build variable)
+
+### Environment Contract
+
+| Variable | Scope | Example |
+|---|---|---|
+| `DATABASE_URL` | Runtime secret | `postgres://…@host:6543/postgres` |
+| `BETTER_AUTH_SECRET` | Runtime secret | 32+ char random string |
+| `BETTER_AUTH_URL` | Runtime + build | `https://zedarchive.com` (must match the canonical browsing origin) |
+| `NEXT_PUBLIC_APP_URL` | Build (+ runtime harmless) | `https://zedarchive.com` |
+
+Set them in the Cloudflare dashboard under the Worker's *Variables & Secrets*; keep secrets out of `.env.local`-style files in CI. Locally, mirror them in `.env.local` for `next dev`.
+
+### Known Trade-offs
+
+* Cover art is stored per-entry as compressed Base64 data URLs (≤ ~2 MB) directly in Postgres. This keeps the archive self-contained but inflates row sizes; object storage (e.g. R2) is the natural next step at larger scale.
+
 ---
 
 ## 📄 License

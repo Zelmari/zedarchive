@@ -26,7 +26,6 @@ export default function SignUpForm() {
       });
 
       if (res?.error) {
-        console.error('Sign up response error:', res.error);
         setError(res.error.message || res.error.statusText || 'Failed to create account.');
       } else {
         router.push('/dashboard');

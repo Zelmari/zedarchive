@@ -17,7 +17,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
       setLoading(true);
       getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT)
         .then((data) => setLogs(data || []))
-        .catch((e) => console.error(e))
+        .catch((e) => console.error('Failed to load activity logs:', e))
         .finally(() => setLoading(false));
     }
   }, [isOpen]);
