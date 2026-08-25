@@ -1,7 +1,5 @@
-'use server';
-
 import { db } from '@/lib/db';
-import { mediaEntries } from '@/db/schema';
+import { mediaEntries, user as userTable, mediaActivityLogs } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { eq, and, desc } from 'drizzle-orm';
@@ -9,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 
 const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
 const VALID_STATUSES = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'];
+const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber'];
 const MAX_TITLE_LENGTH = 500;
 const MAX_NOTES_LENGTH = 5000;
 const MAX_SOURCE_ID_LENGTH = 200;
@@ -34,6 +33,14 @@ function sanitizeStructure(structure) {
         ? null
         : { number, name: String(item.name ?? `Season ${number}`).slice(0, 100), total };
     })
+    .filter(Boolean);
+}
+
+function sanitizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .slice(0, 50)
+    .map((t) => String(t || '').trim().toLowerCase().slice(0, 50))
     .filter(Boolean);
 }
 
@@ -69,6 +76,11 @@ function serializeEntry(entry) {
     ...entry,
     status: entry.status || 'in_progress',
     rating: entry.rating != null ? entry.rating : null,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    genres: Array.isArray(entry.genres) ? entry.genres : [],
+    rewatchCount: entry.rewatchCount || 0,
+    synopsis: entry.synopsis || null,
+    startedAt: entry.startedAt instanceof Date ? entry.startedAt.toISOString() : (entry.startedAt || null),
     completedAt: entry.completedAt instanceof Date ? entry.completedAt.toISOString() : (entry.completedAt || null),
     createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
     updatedAt: entry.updatedAt instanceof Date ? entry.updatedAt.toISOString() : entry.updatedAt,
@@ -115,6 +127,10 @@ export async function createMediaEntry(data) {
   const structure = sanitizeStructure(data.structure);
   const status = sanitizeStatus(data.status);
   const rating = sanitizeRating(data.rating);
+  const tags = sanitizeTags(data.tags);
+  const genres = Array.isArray(data.genres) ? data.genres.slice(0, 20) : [];
+  const synopsis = data.synopsis ? String(data.synopsis).trim().slice(0, 5000) : null;
+  const startedAt = data.startedAt ? new Date(data.startedAt) : new Date();
   const completedAt = status === 'completed' ? (data.completedAt ? new Date(data.completedAt) : new Date()) : null;
 
   const coverImage = typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
@@ -134,7 +150,12 @@ export async function createMediaEntry(data) {
       category,
       status,
       completedAt,
+      startedAt,
+      rewatchCount: 0,
       rating,
+      tags,
+      genres,
+      synopsis,
       primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
       primaryUnitTotal,
       secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
@@ -146,6 +167,19 @@ export async function createMediaEntry(data) {
       updatedAt: new Date(),
     })
     .returning();
+
+  // Log activity
+  try {
+    await db.insert(mediaActivityLogs).values({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      mediaId: id,
+      actionType: 'created',
+      details: { title, category, status },
+    });
+  } catch (logErr) {
+    console.warn('Failed to write activity log:', logErr);
+  }
 
   revalidatePath('/dashboard');
   return serializeEntry(newEntry);
@@ -185,6 +219,22 @@ export async function updateMediaProgress(id, updates) {
 
   if (updates.rating !== undefined) {
     updateFields.rating = sanitizeRating(updates.rating);
+  }
+
+  if (updates.tags !== undefined) {
+    updateFields.tags = sanitizeTags(updates.tags);
+  }
+  if (updates.synopsis !== undefined) {
+    updateFields.synopsis = updates.synopsis ? String(updates.synopsis).trim().slice(0, 5000) : null;
+  }
+  if (updates.genres !== undefined) {
+    updateFields.genres = Array.isArray(updates.genres) ? updates.genres.slice(0, 20) : [];
+  }
+  if (updates.startedAt !== undefined) {
+    updateFields.startedAt = updates.startedAt ? new Date(updates.startedAt) : null;
+  }
+  if (updates.rewatchCount !== undefined) {
+    updateFields.rewatchCount = Math.max(0, toInt(updates.rewatchCount, 0));
   }
 
   if (updates.primaryUnitCurrent !== undefined) {
@@ -243,6 +293,32 @@ export async function updateMediaProgress(id, updates) {
     throw new Error('Entry not found');
   }
 
+  // Log progress or status activity
+  try {
+    let actionType = 'progress_update';
+    if (updates.status === 'completed') actionType = 'completed';
+    else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
+    else if (updates.rating !== undefined) actionType = 'rating';
+
+    await db.insert(mediaActivityLogs).values({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      mediaId: id,
+      actionType,
+      details: {
+        title: updated.title,
+        category: updated.category,
+        season: updated.primaryUnitCurrent,
+        progress: updated.secondaryUnitCurrent,
+        total: updated.secondaryUnitTotal,
+        status: updated.status,
+        rating: updated.rating,
+      },
+    });
+  } catch (logErr) {
+    console.warn('Failed to write activity log:', logErr);
+  }
+
   revalidatePath('/dashboard');
   return serializeEntry(updated);
 }
@@ -288,6 +364,7 @@ export async function bulkImportMediaEntries(items, conflictStrategy = 'skip') {
       category,
       status: sanitizeStatus(item.status),
       rating: sanitizeRating(item.rating),
+      tags: sanitizeTags(item.tags),
       completedAt: item.completedAt ? new Date(item.completedAt) : item.status === 'completed' ? new Date() : null,
       primaryUnitCurrent: Math.max(1, toInt(item.primaryUnitCurrent, 1)),
       primaryUnitTotal: item.primaryUnitTotal != null ? Math.max(1, toInt(item.primaryUnitTotal, 1)) : null,
@@ -335,4 +412,116 @@ export async function deleteMediaEntry(id) {
 
   revalidatePath('/dashboard');
   return { success: true };
+}
+
+export async function updateUserTheme(theme) {
+  const user = await getAuthUser();
+  const safeTheme = VALID_THEMES.includes(theme) ? theme : 'parchment';
+
+  await db
+    .update(userTable)
+    .set({ theme: safeTheme, updatedAt: new Date() })
+    .where(eq(userTable.id, user.id));
+
+  return { theme: safeTheme };
+}
+
+export async function getUserProfile() {
+  const user = await getAuthUser();
+  const [profile] = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      email: userTable.email,
+      theme: userTable.theme,
+      username: userTable.username,
+      isPublic: userTable.isPublic,
+      bio: userTable.bio,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, user.id));
+
+  return profile;
+}
+
+export async function updateUserProfile(updates) {
+  const user = await getAuthUser();
+  const updateData = { updatedAt: new Date() };
+
+  if (updates.username !== undefined) {
+    const raw = String(updates.username || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30);
+    updateData.username = raw || null;
+  }
+
+  if (updates.isPublic !== undefined) {
+    updateData.isPublic = Boolean(updates.isPublic);
+  }
+
+  if (updates.bio !== undefined) {
+    updateData.bio = String(updates.bio || '').trim().slice(0, 500) || null;
+  }
+
+  const [updated] = await db
+    .update(userTable)
+    .set(updateData)
+    .where(eq(userTable.id, user.id))
+    .returning({
+      id: userTable.id,
+      name: userTable.name,
+      username: userTable.username,
+      isPublic: userTable.isPublic,
+      bio: userTable.bio,
+      theme: userTable.theme,
+    });
+
+  revalidatePath('/dashboard');
+  return updated;
+}
+
+export async function getPublicUserProfile(username) {
+  if (!username) return null;
+  const clean = String(username).trim().toLowerCase();
+
+  const [foundUser] = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      username: userTable.username,
+      bio: userTable.bio,
+      isPublic: userTable.isPublic,
+      createdAt: userTable.createdAt,
+    })
+    .from(userTable)
+    .where(eq(userTable.username, clean));
+
+  if (!foundUser || !foundUser.isPublic) {
+    return null;
+  }
+
+  const entries = await db
+    .select()
+    .from(mediaEntries)
+    .where(eq(mediaEntries.userId, foundUser.id))
+    .orderBy(desc(mediaEntries.updatedAt));
+
+  return {
+    user: foundUser,
+    entries: entries.map(serializeEntry),
+  };
+}
+
+export async function getActivityLogs(limit = 40) {
+  const user = await getAuthUser();
+
+  const logs = await db
+    .select()
+    .from(mediaActivityLogs)
+    .where(eq(mediaActivityLogs.userId, user.id))
+    .orderBy(desc(mediaActivityLogs.createdAt))
+    .limit(limit);
+
+  return logs.map((log) => ({
+    ...log,
+    createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+  }));
 }
