@@ -160,6 +160,36 @@
   overflow-wrap: anywhere;
 }
 
+.cardActionsGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--za-space-1);
+  flex-shrink: 0;
+}
+
+.editMiniBtn {
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  background: var(--za-color-surface);
+  color: var(--za-color-text-muted);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--za-radius-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: all var(--za-motion-fast) var(--za-ease-standard);
+  flex-shrink: 0;
+}
+
+.editMiniBtn:hover {
+  opacity: 1;
+  color: var(--za-color-text);
+  border-color: var(--za-color-border-focus);
+  background-color: var(--za-color-surface-hover);
+}
+
 .deleteMiniBtn {
   border: var(--za-border-width) solid var(--za-color-border-decorative);
   background: var(--za-color-surface);

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { Trash2, Pencil, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import styles from './dashboard.module.css';
 
-export default function BookCard({ item, onUpdate, onDelete }) {
+export default function BookCard({ item, onUpdate, onDelete, onEdit }) {
   const category = item.category || (item.type === 'manga' ? 'manga' : 'book');
   const isManga = category === 'manga';
 
@@ -131,17 +131,30 @@ export default function BookCard({ item, onUpdate, onDelete }) {
                 {item.title}
               </h3>
             </div>
-            {onDelete && (
-              <button
-                type="button"
-                className={styles.deleteMiniBtn}
-                onClick={() => onDelete(item.id)}
-                title={`Remove ${item.title}`}
-                aria-label={`Remove ${item.title}`}
-              >
-                <Trash2 size={14} strokeWidth={1.75} />
-              </button>
-            )}
+            <div className={styles.cardActionsGroup}>
+              {onEdit && (
+                <button
+                  type="button"
+                  className={styles.editMiniBtn}
+                  onClick={() => onEdit(item)}
+                  title={`Edit ${item.title}`}
+                  aria-label={`Edit ${item.title}`}
+                >
+                  <Pencil size={13} strokeWidth={1.75} />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  className={styles.deleteMiniBtn}
+                  onClick={() => onDelete(item.id)}
+                  title={`Remove ${item.title}`}
+                  aria-label={`Remove ${item.title}`}
+                >
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Badges Row */}

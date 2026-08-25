@@ -31,6 +31,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const [entries, setEntries] = useState(initialEntries);
   const [activeTab, setActiveTab] = useState('total'); // 'total' | 'shows' | 'books'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -83,7 +84,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         return;
       }
 
-      if (isInputFocused() || isAddModalOpen || confirmModal.isOpen || isShortcutsModalOpen) {
+      if (isInputFocused() || isAddModalOpen || editingItem || confirmModal.isOpen || isShortcutsModalOpen) {
         return;
       }
 
@@ -120,7 +121,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isAddModalOpen, confirmModal.isOpen, isShortcutsModalOpen]);
+  }, [isAddModalOpen, editingItem, confirmModal.isOpen, isShortcutsModalOpen]);
 
   const handleSignOut = async () => {
     try {
@@ -146,6 +147,42 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     } catch (err) {
       console.error('Create entry error:', err);
       addToast(err.message || 'Failed to create entry', 'error');
+    }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = async (id, data) => {
+    const previousEntry = entries.find((item) => item.id === id);
+
+    setEntries((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...data,
+              updatedAt: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+
+    try {
+      const updated = await updateMediaProgress(id, data);
+      if (updated) {
+        setEntries((prev) =>
+          prev.map((item) => (item.id === id ? updated : item))
+        );
+        addToast(`"${updated.title}" updated`, 'success');
+      }
+    } catch (err) {
+      console.error('Failed to update entry:', err);
+      setEntries((prev) =>
+        prev.map((item) => (item.id === id && previousEntry ? previousEntry : item))
+      );
+      addToast(err.message || 'Failed to update entry', 'error');
     }
   };
 
@@ -391,6 +428,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                       item={item}
                       onUpdate={handleUpdate}
                       onDelete={handleDeleteClick}
+                      onEdit={handleEditClick}
                     />
                   );
                 }
@@ -400,6 +438,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                     item={item}
                     onUpdate={handleUpdate}
                     onDelete={handleDeleteClick}
+                    onEdit={handleEditClick}
                   />
                 );
               })
@@ -408,12 +447,17 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         </div>
       </main>
 
-      {/* Add Item Modal (kept mounted so focus restoration works on close) */}
+      {/* Add / Edit Item Modal (kept mounted so focus restoration works on close) */}
       <AddMediaModal
-        isOpen={isAddModalOpen}
-        type={activeTab === 'books' ? 'book' : 'show'}
-        onClose={() => setIsAddModalOpen(false)}
+        isOpen={isAddModalOpen || !!editingItem}
+        type={editingItem?.category === 'book' || editingItem?.category === 'manga' ? 'book' : activeTab === 'books' ? 'book' : 'show'}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingItem(null);
+        }}
         onAdd={handleCreate}
+        editItem={editingItem}
+        onSave={handleSaveEdit}
       />
 
       {/* In-App Confirmation Modal */}

@@ -9,7 +9,8 @@ import styles from './dashboard.module.css';
 // Persist the last-used category across modal open/close within this page session
 let lastCategory = null;
 
-export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd }) {
+export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, editItem = null, onSave = null }) {
+  const isEditMode = !!editItem;
   const initialCategory = type === 'book' ? 'book' : 'show';
   const [category, setCategory] = useState(() => lastCategory || initialCategory);
   const updateCategory = (nextCategory) => {
@@ -48,15 +49,32 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   const isShowLike = category === 'show' || category === 'anime';
 
   const resetForm = useCallback(() => {
-    setTitle('');
-    setPrimaryUnitTotal('1');
-    setPrimaryUnitCurrent('1');
-    setSecondaryUnitTotal('');
-    setSecondaryUnitCurrent('0');
-    setStructure([]);
-    setSourceId('');
-    setNotes('');
-    setCoverImage(null);
+    if (editItem) {
+      setTitle(editItem.title || '');
+      const cat = editItem.category || (editItem.type === 'manga' ? 'manga' : editItem.type === 'book' ? 'book' : editItem.type === 'anime' ? 'anime' : 'show');
+      setCategory(cat);
+      setPrimaryUnitTotal(editItem.primaryUnitTotal != null ? String(editItem.primaryUnitTotal) : '');
+      setPrimaryUnitCurrent(editItem.primaryUnitCurrent != null ? String(editItem.primaryUnitCurrent) : '1');
+      setSecondaryUnitTotal(editItem.secondaryUnitTotal != null ? String(editItem.secondaryUnitTotal) : '');
+      setSecondaryUnitCurrent(editItem.secondaryUnitCurrent != null ? String(editItem.secondaryUnitCurrent) : '0');
+      setStructure(Array.isArray(editItem.structure) ? editItem.structure : []);
+      setSourceId(editItem.sourceId || '');
+      setNotes(editItem.notes || '');
+      setCoverImage(editItem.coverImage || null);
+      searchDismissedRef.current = true;
+    } else {
+      setTitle('');
+      setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
+      setPrimaryUnitTotal('1');
+      setPrimaryUnitCurrent('1');
+      setSecondaryUnitTotal('');
+      setSecondaryUnitCurrent('0');
+      setStructure([]);
+      setSourceId('');
+      setNotes('');
+      setCoverImage(null);
+      searchDismissedRef.current = false;
+    }
     setSearchResults([]);
     setHighlightedIndex(-1);
     setShowDropdown(false);
@@ -64,8 +82,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
     setHasSearched(false);
     setError('');
     coverRequestRef.current += 1;
-    searchDismissedRef.current = false;
-  }, []);
+  }, [editItem, type]);
 
   const resetAndClose = useCallback(() => {
     if (isSubmitting || isCompressing) return;
@@ -74,7 +91,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   }, [resetForm, onClose, isSubmitting, isCompressing]);
 
   // Escape key handler: close dropdown if open (and freeze search so it can't
-// reopen), else close modal
+  // reopen), else close modal
   const handleEscape = useCallback(
     () => {
       if (showDropdown || searchError) {
@@ -93,13 +110,12 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
   // Accessible focus trapping
   const modalRef = useFocusTrap(isOpen, handleEscape, { initialFocusRef: titleInputRef });
 
-  // Sync form when modal opens (category persists from last session use)
+  // Sync form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
       resetForm();
     }
-  }, [isOpen, type, resetForm]);
+  }, [isOpen, resetForm]);
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -358,10 +374,14 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
         notes: notes.trim() || null,
       };
 
-      await onAdd(payload);
+      if (isEditMode && onSave) {
+        await onSave(editItem.id, payload);
+      } else if (onAdd) {
+        await onAdd(payload);
+      }
       resetAndClose();
     } catch (err) {
-      setError(err.message || 'Failed to create entry');
+      setError(err.message || (isEditMode ? 'Failed to update entry' : 'Failed to create entry'));
     } finally {
       setIsSubmitting(false);
     }
@@ -379,7 +399,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
       >
         <div className={styles.modalHeader}>
           <h2 id="add-media-modal-title" className={styles.modalTitle}>
-            Add New Media
+            {isEditMode ? 'Edit Entry' : 'Add New Media'}
           </h2>
           <button
             type="button"
@@ -729,7 +749,9 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd })
               className="za-button za-button--primary"
               disabled={isSubmitting || isCompressing}
             >
-              {isSubmitting ? 'Adding...' : 'Add to Archive'}
+              {isSubmitting
+                ? (isEditMode ? 'Saving…' : 'Adding…')
+                : (isEditMode ? 'Save Changes' : 'Add to Archive')}
             </button>
           </div>
         </form>
