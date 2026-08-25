@@ -42,11 +42,15 @@ function createRetryingPostgresClient(connStr, options) {
   function wrapQueryFn(originalFn, ctx = rawClient) {
     return function retryingQuery(...args) {
       let attempt = 0;
+      let currentQuery = null;
+
       function execute() {
         const queryPromise = originalFn.apply(ctx, args);
         if (!queryPromise || typeof queryPromise.then !== 'function') {
           return queryPromise;
         }
+        currentQuery = queryPromise;
+
         const originalThen = queryPromise.then.bind(queryPromise);
         queryPromise.then = function (onFulfilled, onRejected) {
           return originalThen(
@@ -54,7 +58,14 @@ function createRetryingPostgresClient(connStr, options) {
             (err) => {
               if (attempt < MAX_RETRIES && isStaleIoError(err)) {
                 attempt++;
-                return execute().then(onFulfilled, onRejected);
+                const isRawMode = currentQuery?.isRaw;
+                const nextPromise = execute();
+                if (isRawMode === 'values') {
+                  nextPromise.values();
+                } else if (isRawMode === true) {
+                  nextPromise.raw();
+                }
+                return nextPromise.then(onFulfilled, onRejected);
               }
               if (onRejected) return onRejected(err);
               throw err;
