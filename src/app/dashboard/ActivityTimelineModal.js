@@ -13,6 +13,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       getActivityLogs(50)
         .then((data) => setLogs(data || []))

@@ -159,7 +159,7 @@ export default async function PublicProfilePage({ params }) {
 
                         {item.notes && (
                           <p style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', marginTop: 'var(--za-space-2)', lineHeight: 1.4, maxHeight: '3.5rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            "{item.notes}"
+                            &ldquo;{item.notes}&rdquo;
                           </p>
                         )}
                       </div>

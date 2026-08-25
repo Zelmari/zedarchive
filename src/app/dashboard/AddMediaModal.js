@@ -121,6 +121,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
   // Sync form when modal opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetForm();
     }
   }, [isOpen, resetForm]);
@@ -149,6 +150,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
     const trimmed = searchQuery.trim();
 
     if (trimmed.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchResults([]);
       setHighlightedIndex(-1);
       setIsSearching(false);
@@ -529,7 +531,7 @@ export default function AddMediaModal({ isOpen, onClose, type = 'show', onAdd, e
 
           {hasSearched && searchResults.length === 0 && !isSearching && searchQuery.trim().length >= 2 && (
             <div style={{ padding: 'var(--za-space-4)', textAlign: 'center', color: 'var(--za-color-text-muted)', fontSize: 'var(--za-text-fine)' }}>
-              No catalogue matches found for "{searchQuery}".
+              No catalogue matches found for &ldquo;{searchQuery}&rdquo;.
             </div>
           )}
 

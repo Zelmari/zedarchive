@@ -76,22 +76,17 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Theme synchronization on mount and when user.theme changes
+  // Theme synchronization on mount and when theme changes
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      const savedTheme = localStorage.getItem('za-theme') || user?.theme || 'parchment';
-      setCurrentTheme(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.documentElement.setAttribute('data-theme', currentTheme);
     }
-  }, [user?.theme]);
+  }, [currentTheme]);
 
-  // Keep detail item in sync if updated
-  useEffect(() => {
-    if (detailItem) {
-      const refreshed = entries.find((e) => e.id === detailItem.id);
-      if (refreshed) setDetailItem(refreshed);
-    }
-  }, [entries, detailItem]);
+  // Derive active detail item dynamically from latest entries state
+  const activeDetailItem = detailItem
+    ? entries.find((e) => e.id === detailItem.id) || detailItem
+    : null;
 
   // Custom Confirmation Dialog State
   const [confirmModal, setConfirmModal] = useState({
@@ -757,8 +752,8 @@ export default function DashboardClient({ user, initialEntries = [] }) {
 
       {/* Media Detail & Checklist Modal */}
       <MediaDetailModal
-        isOpen={!!detailItem}
-        item={detailItem}
+        isOpen={!!activeDetailItem}
+        item={activeDetailItem}
         onClose={() => setDetailItem(null)}
         onUpdate={handleUpdate}
         onEdit={(itemToEdit) => {

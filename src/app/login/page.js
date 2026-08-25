@@ -138,7 +138,7 @@ export default function LoginPage() {
               paddingTop: 'var(--za-space-4)',
             }}
           >
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="za-link">
               Register
             </Link>

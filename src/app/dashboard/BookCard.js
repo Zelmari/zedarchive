@@ -65,6 +65,8 @@ export default function BookCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
     await commitChapterValue(nextVal);
   };
 
+  const handleStep = handleProgressChange;
+
   const handleVolumeChange = async (delta) => {
     const nextVol = Math.max(1, Math.min(primaryUnitTotal, primaryUnitCurrent + delta));
     if (nextVol === primaryUnitCurrent) return;
