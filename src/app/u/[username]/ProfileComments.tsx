@@ -6,7 +6,6 @@ import { MessageCircle, Trash2, Lock } from 'lucide-react';
 import { createProfileComment, deleteProfileComment } from '@/server/comments';
 import { MAX_COMMENT_LENGTH, COMMENT_TTL_MS } from '@/lib/constants';
 import { relativeTime } from '@/lib/format';
-import styles from '@/app/dashboard/dashboard.module.css';
 
 const MENTION_SPLIT = /(@[a-z0-9_-]{1,30})/gi;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +27,7 @@ function MentionText({
   const parts = String(body || '').split(MENTION_SPLIT);
 
   return (
-    <p className={styles.commentBody}>
+    <p className="m-0 [overflow-wrap:anywhere] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
       {parts.map((part, index) => {
         const match = part.match(/^@([a-z0-9_-]{1,30})$/i);
         if (!match) {
@@ -40,7 +39,7 @@ function MentionText({
           <Link
             key={index}
             href={`/u/${handle}`}
-            className={`${styles.mentionLink}${isSelf ? ` ${styles.mentionSelf}` : ''}`}
+            className={`za-link${isSelf ? ` font-[var(--za-weight-emphasis)] underline decoration-accent-soft` : ''}`}
             title={isSelf ? 'You were mentioned' : `@${handle}'s archive`}
           >
             @{handle}
@@ -165,26 +164,39 @@ export default function ProfileComments({
 
   return (
     <section
-      className={`za-card ${styles.guestbookCard}`}
+      className={`za-card rounded-layered border border-required bg-surface shadow-raised`}
       aria-label={`Guestbook for @${profileUser.username}`}
     >
-      <header className={styles.guestbookHeader}>
+      <header className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <MessageCircle size={16} aria-hidden="true" />
-          <h2 className={styles.guestbookTitle}>Guestbook</h2>
-          <span className={styles.guestbookCount}>{comments.length}</span>
+          <h2 className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink">
+            Guestbook
+          </h2>
+          <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+            {comments.length}
+          </span>
         </div>
-        <span className={styles.guestbookHint}>comments disappear after 7 days</span>
+        <span className="mb-2 text-[length:var(--za-text-fine)] text-ink-muted">
+          comments disappear after 7 days
+        </span>
       </header>
 
       {error && (
-        <div className={styles.errorMessage} role="alert" style={{ margin: '0 var(--za-space-4)' }}>
+        <div
+          className="rounded-small border border-danger bg-danger-surface px-[var(--za-space-3)] py-2 text-[length:var(--za-text-fine)] text-danger"
+          role="alert"
+          style={{ margin: '0 var(--za-space-4)' }}
+        >
           {error}
         </div>
       )}
 
       {comments.length > 0 ? (
-        <ol ref={listRef} className={styles.commentList}>
+        <ol
+          ref={listRef}
+          className="m-0 flex max-h-96 list-none flex-col gap-[var(--za-space-3)] overflow-y-auto px-[var(--za-space-4)] py-[var(--za-space-3)]"
+        >
           {comments.map((comment) => {
             const canDelete = isOwner || comment.authorId === viewer?.id;
             const initials = (comment.authorName || comment.authorUsername || '??')
@@ -193,32 +205,38 @@ export default function ProfileComments({
               .toUpperCase();
 
             return (
-              <li key={comment.id} className={styles.commentRow}>
+              <li key={comment.id} className="flex items-start gap-[var(--za-space-3)]">
                 {comment.authorImage ? (
                   <img
                     src={comment.authorImage}
                     alt=""
-                    className={styles.commentAvatar}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small bg-[var(--za-color-title-tile)] text-xs font-bold text-[var(--za-color-title-tile-text)]"
                     loading="lazy"
                   />
                 ) : (
-                  <span className={styles.commentAvatar} aria-hidden="true">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small bg-[var(--za-color-title-tile)] text-xs font-bold text-[var(--za-color-title-tile-text)]"
+                    aria-hidden="true"
+                  >
                     {initials}
                   </span>
                 )}
-                <div className={styles.commentMain}>
-                  <div className={styles.commentMetaRow}>
-                    <Link href={`/u/${comment.authorUsername}`} className={styles.commentAuthor}>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-[0.15rem] flex flex-wrap items-baseline gap-2">
+                    <Link
+                      href={`/u/${comment.authorUsername}`}
+                      className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink hover:underline"
+                    >
                       @{comment.authorUsername}
                     </Link>
                     <span
-                      className={styles.commentTime}
+                      className="text-[length:var(--za-text-fine)] text-ink-muted"
                       title={new Date(comment.createdAt).toLocaleString()}
                     >
                       {relativeTime(comment.createdAt)}
                     </span>
                     <span
-                      className={`${styles.commentExpiry}${comment._pending ? ` ${styles.commentPending}` : ''}`}
+                      className={`text-[length:var(--za-text-fine)] text-ink-muted opacity-80${comment._pending ? ` italic` : ''}`}
                       title={new Date(comment.expiresAt).toLocaleString()}
                     >
                       · {expiryLabel(comment.expiresAt)}
@@ -229,7 +247,7 @@ export default function ProfileComments({
                 {canDelete && !comment._pending && (
                   <button
                     type="button"
-                    className={styles.commentDeleteBtn}
+                    className="shrink-0 cursor-pointer rounded-small border-none bg-transparent p-1 text-ink-muted hover:text-danger"
                     onClick={() => handleDelete(comment.id)}
                     aria-label={`Delete comment by @${comment.authorUsername}`}
                     title={
@@ -246,19 +264,21 @@ export default function ProfileComments({
           })}
         </ol>
       ) : (
-        <p className={styles.guestbookEmpty}>No comments yet. Break the silence.</p>
+        <p className="px-[var(--za-space-6)] pb-[var(--za-space-6)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
+          No comments yet. Break the silence.
+        </p>
       )}
 
-      <footer className={styles.guestbookComposerZone}>
+      <footer className="border-t border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
         {!viewer?.isLoggedIn ? (
-          <p className={styles.guestbookNotice}>
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 text-[length:var(--za-text-fine)] text-ink-muted">
             <Link href="/login" className="za-link">
               Log in
             </Link>{' '}
             to join the conversation.
           </p>
         ) : !viewer.isPublic ? (
-          <p className={styles.guestbookNotice}>
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 text-[length:var(--za-text-fine)] text-ink-muted">
             <Lock
               size={13}
               aria-hidden="true"
@@ -271,9 +291,9 @@ export default function ProfileComments({
             to comment here.
           </p>
         ) : (
-          <form onSubmit={handleSubmit} className={styles.commentForm}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <textarea
-              className={styles.commentInput}
+              className="w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-2 text-[length:var(--za-text-supporting)] text-ink focus:border-accent focus:outline-none"
               rows={2}
               maxLength={MAX_COMMENT_LENGTH}
               placeholder={`Leave a note for @${profileUser.username}… use @name to mention someone`}
@@ -283,11 +303,13 @@ export default function ProfileComments({
               disabled={isSubmitting}
               aria-label="Write a comment"
             />
-            <div className={styles.commentFormFooter}>
-              <span className={styles.charCounter}>
+            <div className="flex items-center justify-between gap-[var(--za-space-3)]">
+              <span className="text-[length:var(--za-text-fine)] text-ink-muted">
                 {draft.length}/{MAX_COMMENT_LENGTH}
               </span>
-              <span className={styles.composerHint}>Enter to post · Shift+Enter for newline</span>
+              <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+                Enter to post · Shift+Enter for newline
+              </span>
               <button
                 type="submit"
                 className="za-button za-button--primary"

@@ -10,7 +10,6 @@ import { eq } from 'drizzle-orm';
 import { Star, ShieldAlert } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
 import ProfileComments from './ProfileComments';
-import styles from '@/app/dashboard/dashboard.module.css';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -34,7 +33,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
   if (!data?.user) {
     return (
       <div
-        className={styles.dashboardContainer}
+        className="flex min-h-screen flex-col bg-canvas text-ink"
         style={{
           minHeight: '100vh',
           display: 'flex',
@@ -43,15 +42,19 @@ export default async function PublicProfilePage({ params }: PageParams) {
         }}
       >
         <div
-          className={`za-card ${styles.emptyCard}`}
+          className={`za-card col-span-full flex flex-col items-center justify-center rounded-control border border-dashed border-required px-[var(--za-space-6)] py-[var(--za-space-12)] text-center [box-shadow:none]`}
           style={{ maxWidth: '28rem', textAlign: 'center' }}
         >
           <ShieldAlert
             size={36}
             style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }}
           />
-          <h1 className={styles.emptyTitle}>Archive Unavailable</h1>
-          <p className={styles.emptySubtitle}>This archive is either private or does not exist.</p>
+          <h1 className="mb-[var(--za-space-1)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink">
+            Archive Unavailable
+          </h1>
+          <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            This archive is either private or does not exist.
+          </p>
           <Link
             href="/"
             className="za-button za-button--primary"
@@ -101,7 +104,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
   const topRated = entries.filter((e) => e.rating && e.rating >= 9);
 
   return (
-    <div className={styles.dashboardContainer} style={{ minHeight: '100vh' }}>
+    <div className="flex min-h-screen flex-col bg-canvas text-ink" style={{ minHeight: '100vh' }}>
       {/* Public Header */}
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">
@@ -127,17 +130,17 @@ export default async function PublicProfilePage({ params }: PageParams) {
       </header>
 
       {/* Main Content */}
-      <main id="main-content" className={styles.mainArea}>
+      <main id="main-content" className="flex-1 pt-[var(--za-space-6)] pb-[var(--za-space-12)]">
         <div className="za-container">
           {/* Profile Header Masthead */}
           <div
-            className={styles.pageMasthead}
+            className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised"
             style={{
               borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)',
               paddingBottom: 'var(--za-space-6)',
             }}
           >
-            <div className={styles.mastheadText}>
+            <div className="flex flex-col gap-[var(--za-space-1)]">
               <div
                 style={{
                   display: 'flex',
@@ -146,9 +149,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   marginBottom: '0.25rem',
                 }}
               >
-                <h1 className={styles.mastheadTitle}>@{user.username}</h1>
+                <h1 className="text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
+                  @{user.username}
+                </h1>
                 <span
-                  className={styles.metaBadge}
+                  className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
                   style={{
                     background: 'rgba(46, 125, 50, 0.1)',
                     color: '#2e7d32',
@@ -159,31 +164,46 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 </span>
               </div>
               {user.bio && (
-                <p className={styles.mastheadSubtitle} style={{ marginTop: 'var(--za-space-2)' }}>
+                <p
+                  className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
+                  style={{ marginTop: 'var(--za-space-2)' }}
+                >
                   {user.bio}
                 </p>
               )}
             </div>
 
             {/* Quick Stats Grid */}
-            <div className={styles.statsGrid} style={{ marginTop: 'var(--za-space-4)' }}>
-              <div className={styles.statCard}>
-                <div className={styles.statValue}>{entries.length}</div>
-                <div className={styles.statLabel}>Total Cataloged</div>
+            <div
+              className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-[var(--za-space-3)]"
+              style={{ marginTop: 'var(--za-space-4)' }}
+            >
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {entries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Total Cataloged</div>
               </div>
-              <div className={styles.statCard}>
-                <div className={styles.statValue} style={{ color: '#2e7d32' }}>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div
+                  className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
+                  style={{ color: '#2e7d32' }}
+                >
                   {completedCount}
                 </div>
-                <div className={styles.statLabel}>Completed</div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Completed</div>
               </div>
-              <div className={styles.statCard}>
-                <div className={styles.statValue}>{showEntries.length}</div>
-                <div className={styles.statLabel}>Shows & Anime</div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {showEntries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Shows & Anime</div>
               </div>
-              <div className={styles.statCard}>
-                <div className={styles.statValue}>{bookEntries.length}</div>
-                <div className={styles.statLabel}>Books & Manga</div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {bookEntries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Books & Manga</div>
               </div>
             </div>
           </div>
@@ -200,7 +220,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
               Cataloged Titles ({entries.length})
             </div>
 
-            <div className={styles.mediaGrid}>
+            <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
               {entries.map((item) => {
                 const isBook = item.category === 'book' || item.category === 'manga';
                 const progressPct = item.secondaryUnitTotal
@@ -213,14 +233,17 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   : 0;
 
                 return (
-                  <article key={item.id} className={`za-card za-card--raised ${styles.mediaCard}`}>
-                    <div className={styles.cardTopSection}>
-                      <div className={styles.coverWrapper}>
+                  <article
+                    key={item.id}
+                    className={`za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] rounded-control p-[var(--za-space-4)]`}
+                  >
+                    <div className="flex items-start gap-[var(--za-space-4)]">
+                      <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
                         {item.coverImage ? (
                           <img
                             src={item.coverImage}
                             alt={item.title}
-                            className={styles.coverImage}
+                            className="block h-full w-full object-cover"
                             loading="lazy"
                           />
                         ) : (
@@ -230,24 +253,27 @@ export default async function PublicProfilePage({ params }: PageParams) {
                         )}
                       </div>
 
-                      <div className={styles.cardDetails}>
-                        <h3 className={styles.cardTitle} title={item.title}>
+                      <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
+                        <h3
+                          className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+                          title={item.title}
+                        >
                           {item.title}
                         </h3>
 
-                        <div className={styles.badgeRow}>
+                        <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
                           <span
-                            className={styles.metaBadge}
+                            className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
                             style={{ textTransform: 'capitalize' }}
                           >
                             {(item.status || 'in_progress').replace('_', ' ')}
                           </span>
                           {item.rating != null && (
-                            <span className={styles.ratingBadge}>
+                            <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
                               <Star size={11} fill="currentColor" /> {item.rating}/10
                             </span>
                           )}
-                          <span className={styles.metaBadge}>
+                          <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
                             {isBook
                               ? `Vol ${item.primaryUnitCurrent || 1}`
                               : `S${item.primaryUnitCurrent || 1}`}
@@ -272,7 +298,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                       </div>
                     </div>
 
-                    <div className={styles.cardActionZone}>
+                    <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
                       <div
                         style={{
                           display: 'flex',
@@ -290,9 +316,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
                         </span>
                       </div>
                       {item.secondaryUnitTotal ? (
-                        <div className={styles.progressBarContainer}>
+                        <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
                           <div
-                            className={styles.progressBarFill}
+                            className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>
