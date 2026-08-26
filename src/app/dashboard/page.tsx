@@ -28,6 +28,8 @@ export default async function DashboardPage() {
       username: userTable.username,
       isPublic: userTable.isPublic,
       bio: userTable.bio,
+      emailVerified: userTable.emailVerified,
+      verificationDismissedAt: userTable.verificationDismissedAt,
     })
     .from(userTable)
     .where(eq(userTable.id, session.user.id));
@@ -55,6 +57,12 @@ export default async function DashboardPage() {
         username: dbUser?.username || null,
         isPublic: Boolean(dbUser?.isPublic),
         bio: dbUser?.bio || null,
+        emailVerified:
+          dbUser?.emailVerified ??
+          ('emailVerified' in session.user ? Boolean(session.user.emailVerified) : false),
+        verificationDismissedAt: dbUser?.verificationDismissedAt
+          ? dbUser.verificationDismissedAt.toISOString()
+          : null,
       }}
       initialEntries={initialEntries}
     />

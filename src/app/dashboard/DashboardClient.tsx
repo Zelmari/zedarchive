@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Layers, Tv, BookOpen, Plus } from 'lucide-react';
-import { signOut } from '@/lib/auth-client';
+import { Layers, Tv, BookOpen, Plus, AlertTriangle, X } from 'lucide-react';
+import { signOut, authClient } from '@/lib/auth-client';
+import { dismissVerificationNotice } from '@/server/profile';
 import MediaCard from '@/components/cards/MediaCard';
 import AddMediaModal from './AddMediaModal';
 import MediaDetailModal from './MediaDetailModal';
@@ -69,6 +70,8 @@ interface DashboardClientProps {
     username?: string | null;
     isPublic?: boolean;
     bio?: string | null;
+    emailVerified?: boolean;
+    verificationDismissedAt?: string | null;
   } | null;
   initialEntries?: MediaEntry[];
 }
@@ -82,6 +85,10 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
   const [detailItem, setDetailItem] = useState<CardItem | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [confirmModal, setConfirmModal] = useState<ConfirmState>(CONFIRM_CLOSED);
+  const [verificationDismissed, setVerificationDismissed] = useState(
+    Boolean(user?.verificationDismissedAt),
+  );
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -331,6 +338,32 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     onOpenDetail: (itemToOpen: CardItem) => setDetailItem(itemToOpen),
   };
 
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+    try {
+      setIsSendingVerification(true);
+      await authClient.sendVerificationEmail({
+        email: user.email,
+        callbackURL: '/verified',
+      });
+      addToast('Verification email sent! Please check your inbox.', 'success');
+    } catch (err) {
+      console.error('Failed to send verification email:', err);
+      addToast('Failed to send verification email. Try again later.', 'error');
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
+
+  const handleDismissVerification = async () => {
+    setVerificationDismissed(true);
+    try {
+      await dismissVerificationNotice();
+    } catch (err) {
+      console.error('Failed to dismiss verification notice on server:', err);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <DashboardHeader
@@ -348,6 +381,37 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
       <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]">
         <div className="za-container">
+          {/* Email verification nudge */}
+          {user?.emailVerified === false && !verificationDismissed && (
+            <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 rounded-control border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[var(--za-space-4)] py-[var(--za-space-3)] text-[length:var(--za-text-supporting)] text-[#b45309]">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} />
+                <span>
+                  Your email address is unverified. Verify your email to ensure account recovery.
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isSendingVerification}
+                  onClick={handleResendVerification}
+                  className="cursor-pointer font-[var(--za-weight-emphasis)] underline hover:no-underline disabled:opacity-50"
+                >
+                  {isSendingVerification ? 'Sending…' : 'Resend link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissVerification}
+                  className="cursor-pointer text-ink-muted hover:text-ink"
+                  aria-label="Dismiss verification notice"
+                  title="Dismiss notice"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Masthead */}
           <div className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised">
             <div className="flex flex-col gap-[var(--za-space-1)]">
