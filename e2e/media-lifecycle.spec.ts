@@ -21,7 +21,8 @@ test.describe('media lifecycle', () => {
     const spotlight = page.getByPlaceholder(/Search TV shows/);
     await spotlight.fill('Frieren');
 
-    const firstResult = page.locator('[class*="spotlightItem"]').first();
+    // Styling-agnostic selector: components expose data-testid hooks.
+    const firstResult = page.getByTestId('spotlight-item').first();
     await expect(firstResult).toBeVisible({ timeout: 30_000 });
     await firstResult.click();
 
