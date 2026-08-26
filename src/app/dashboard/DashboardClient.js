@@ -31,7 +31,7 @@ import ConfirmModal from './ConfirmModal';
 import ShortcutsModal from './ShortcutsModal';
 import StatsModal from './StatsModal';
 import DataBackupModal from './DataBackupModal';
-import ToastContainer from './Toast';
+import ToastContainer from '@/components/ui/Toast';
 import {
   getMediaEntries,
   createMediaEntry,
@@ -112,12 +112,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     const activeEl = document.activeElement;
     if (!activeEl) return false;
     const tag = activeEl.tagName?.toLowerCase();
-    return (
-      tag === 'input' ||
-      tag === 'textarea' ||
-      tag === 'select' ||
-      activeEl.isContentEditable
-    );
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || activeEl.isContentEditable;
   };
 
   // Global Keyboard Shortcuts
@@ -129,13 +124,38 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         return;
       }
 
-      if (e.key === '/' && !isInputFocused() && !isAddModalOpen && !editingItem && !detailItem && !confirmModal.isOpen && !isShortcutsModalOpen && !isStatsModalOpen && !isDataModalOpen && !isThemeModalOpen && !isActivityModalOpen && !isShareModalOpen) {
+      if (
+        e.key === '/' &&
+        !isInputFocused() &&
+        !isAddModalOpen &&
+        !editingItem &&
+        !detailItem &&
+        !confirmModal.isOpen &&
+        !isShortcutsModalOpen &&
+        !isStatsModalOpen &&
+        !isDataModalOpen &&
+        !isThemeModalOpen &&
+        !isActivityModalOpen &&
+        !isShareModalOpen
+      ) {
         e.preventDefault();
         searchInputRef.current?.focus();
         return;
       }
 
-      if (isInputFocused() || isAddModalOpen || editingItem || detailItem || confirmModal.isOpen || isShortcutsModalOpen || isStatsModalOpen || isDataModalOpen || isThemeModalOpen || isActivityModalOpen || isShareModalOpen) {
+      if (
+        isInputFocused() ||
+        isAddModalOpen ||
+        editingItem ||
+        detailItem ||
+        confirmModal.isOpen ||
+        isShortcutsModalOpen ||
+        isStatsModalOpen ||
+        isDataModalOpen ||
+        isThemeModalOpen ||
+        isActivityModalOpen ||
+        isShareModalOpen
+      ) {
         return;
       }
 
@@ -239,22 +259,24 @@ export default function DashboardClient({ user, initialEntries = [] }) {
         prev.map((item) => {
           if (item.id !== id) return item;
           const next = { ...item, ...updates, updatedAt: new Date().toISOString() };
-          if (updates.primaryUnitCurrent !== undefined && next.structure && next.structure.length > 0) {
+          if (
+            updates.primaryUnitCurrent !== undefined &&
+            next.structure &&
+            next.structure.length > 0
+          ) {
             const seasonObj = next.structure.find((s) => s.number === updates.primaryUnitCurrent);
             if (seasonObj && seasonObj.total) {
               next.secondaryUnitTotal = seasonObj.total;
             }
           }
           return next;
-        })
+        }),
       );
     }
 
     try {
       const updated = await updateMediaProgress(id, updates);
-      setEntries((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
-      );
+      setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
     } catch (err) {
       console.error('Update failed:', err);
       setEntries(previousEntries);
@@ -278,9 +300,7 @@ export default function DashboardClient({ user, initialEntries = [] }) {
   const handleSaveEdit = async (id, updates) => {
     try {
       const updated = await updateMediaProgress(id, updates);
-      setEntries((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
-      );
+      setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
       setEditingItem(null);
       addToast(`Updated "${updated.title}"`, 'success');
       return updated;
@@ -334,7 +354,9 @@ export default function DashboardClient({ user, initialEntries = [] }) {
     activeTab === 'shows' ? showEntries : activeTab === 'books' ? bookEntries : entries;
 
   const countAll = tabScopedEntries.length;
-  const countInProgress = tabScopedEntries.filter((e) => (e.status || 'in_progress') === 'in_progress').length;
+  const countInProgress = tabScopedEntries.filter(
+    (e) => (e.status || 'in_progress') === 'in_progress',
+  ).length;
   const countCompleted = tabScopedEntries.filter((e) => e.status === 'completed').length;
   const countPlanning = tabScopedEntries.filter((e) => e.status === 'planning').length;
   const countOnHold = tabScopedEntries.filter((e) => e.status === 'on_hold').length;
@@ -358,7 +380,8 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       const q = searchQuery.toLowerCase().trim();
       const titleMatch = item.title?.toLowerCase().includes(q);
       const notesMatch = item.notes?.toLowerCase().includes(q);
-      const tagMatch = Array.isArray(item.tags) && item.tags.some((t) => t.toLowerCase().includes(q));
+      const tagMatch =
+        Array.isArray(item.tags) && item.tags.some((t) => t.toLowerCase().includes(q));
       if (!titleMatch && !notesMatch && !tagMatch) return false;
     }
 
@@ -462,7 +485,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               <span className={styles.desktopOnly}>Shortcuts</span>
             </button>
 
-            <span className="za-site-header__identity" style={{ fontSize: 'var(--za-text-supporting)', fontWeight: 'var(--za-weight-heading)' }}>
+            <span
+              className="za-site-header__identity"
+              style={{
+                fontSize: 'var(--za-text-supporting)',
+                fontWeight: 'var(--za-weight-heading)',
+              }}
+            >
               @{user?.name?.toLowerCase()?.replace(/\s+/g, '') || 'user'}
             </span>
 
@@ -490,15 +519,15 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                 {activeTab === 'total'
                   ? 'Your Media Archive'
                   : activeTab === 'shows'
-                  ? 'Shows & Anime'
-                  : 'Books & Manga'}
+                    ? 'Shows & Anime'
+                    : 'Books & Manga'}
               </h1>
               <p className={styles.mastheadSubtitle}>
                 {activeTab === 'total'
                   ? `Tracking ${entries.length} items across shows and reading lists`
                   : activeTab === 'shows'
-                  ? `${showEntries.length} shows & anime in your collection`
-                  : `${bookEntries.length} books and manga titles`}
+                    ? `${showEntries.length} shows & anime in your collection`
+                    : `${bookEntries.length} books and manga titles`}
               </p>
             </div>
 
@@ -613,7 +642,11 @@ export default function DashboardClient({ user, initialEntries = [] }) {
             {/* Bottom Row: Status Filter Pills + Custom Shelves Pills */}
             <div className={styles.toolbarBottomRow}>
               {/* Status Filter Pills */}
-              <div className={styles.statusFilterPills} role="radiogroup" aria-label="Status filter">
+              <div
+                className={styles.statusFilterPills}
+                role="radiogroup"
+                aria-label="Status filter"
+              >
                 {[
                   { id: 'all', label: `All (${countAll})` },
                   { id: 'in_progress', label: `In Progress (${countInProgress})` },
@@ -638,7 +671,16 @@ export default function DashboardClient({ user, initialEntries = [] }) {
               {/* Custom Shelves & Tags Pills (if any tags exist) */}
               {allTags.length > 0 && (
                 <div className={styles.shelvesPills}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--za-color-text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      flexShrink: 0,
+                    }}
+                  >
                     <Tag size={12} /> Shelves:
                   </span>
                   <button
@@ -682,17 +724,17 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                   {searchQuery || statusFilter !== 'all' || selectedTag !== 'all'
                     ? 'No matching entries found'
                     : activeTab === 'shows'
-                    ? 'No shows or anime in your archive yet'
-                    : activeTab === 'books'
-                    ? 'No books or manga in your archive yet'
-                    : 'Your archive is currently empty'}
+                      ? 'No shows or anime in your archive yet'
+                      : activeTab === 'books'
+                        ? 'No books or manga in your archive yet'
+                        : 'Your archive is currently empty'}
                 </h2>
                 <p className={styles.emptySubtitle}>
                   {searchQuery || statusFilter !== 'all' || selectedTag !== 'all'
                     ? 'Try adjusting your search terms, shelves, or status filter.'
                     : activeTab === 'total'
-                    ? 'Press [N] or click below to catalog your first media title.'
-                    : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show' : 'book'}.`}
+                      ? 'Press [N] or click below to catalog your first media title.'
+                      : `Press [N] or click below to add your first ${activeTab === 'shows' ? 'show' : 'book'}.`}
                 </p>
                 {!searchQuery && statusFilter === 'all' && selectedTag === 'all' && (
                   <button
@@ -744,7 +786,13 @@ export default function DashboardClient({ user, initialEntries = [] }) {
       {/* Add / Edit Item Modal */}
       <AddMediaModal
         isOpen={isAddModalOpen || !!editingItem}
-        type={editingItem?.category === 'book' || editingItem?.category === 'manga' ? 'book' : activeTab === 'books' ? 'book' : 'show'}
+        type={
+          editingItem?.category === 'book' || editingItem?.category === 'manga'
+            ? 'book'
+            : activeTab === 'books'
+              ? 'book'
+              : 'show'
+        }
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingItem(null);
