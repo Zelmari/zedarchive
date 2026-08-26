@@ -1,6 +1,7 @@
 'use client';
 
-import { Tv, BookOpen, Star, BarChart2 } from 'lucide-react';
+import Link from 'next/link';
+import { Tv, BookOpen, Star, BarChart2, Sparkles } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { RatingBadge } from '@/components/ui/Badge';
 import { calculateArchiveStats } from '@/lib/stats';
@@ -110,7 +111,11 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
           </div>
         )}
 
-        <div className="mt-[var(--za-space-5)] flex justify-end">
+        <div className="mt-[var(--za-space-5)] flex items-center justify-between border-t border-decorative pt-[var(--za-space-3)]">
+          <Link href="/wrapped" className="za-button za-button--primary text-xs" onClick={onClose}>
+            <Sparkles size={14} className="mr-1.5" />
+            <span>Open Yearly Wrapped</span>
+          </Link>
           <button type="button" className="za-button za-button--secondary" onClick={onClose}>
             Close
           </button>
