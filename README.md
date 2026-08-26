@@ -111,6 +111,17 @@ Choose an aesthetic that matches your taste, stored in your database account so 
 
 Set them in the Cloudflare dashboard under the Worker's _Variables & Secrets_; keep secrets out of `.env.local`-style files in CI. Locally, mirror them in `.env.local` for `next dev`.
 
+### Deployment
+
+Production deploys via **push to `main`** — Cloudflare Workers Builds builds and
+deploys automatically. Do not use `npm run deploy` for production.
+
+Required Worker runtime bindings (Settings → Variables & Secrets):
+
+- `DATABASE_URL` (secret)
+- `BETTER_AUTH_SECRET` (secret)
+- `NEXT_PUBLIC_APP_URL` (optional; client falls back to the request origin)
+
 ### Contributing Notes
 
 - **Lockfile discipline:** CI runs Node 22 / npm 10. When dependencies change locally, regenerate the lock with the same major: `npx npm@10 install` — otherwise `npm ci` fails in CI.
