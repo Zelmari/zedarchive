@@ -339,6 +339,15 @@
     font-size: inherit;
     color: inherit;
   }
+
+  /* Minimal button baseline (stands in for Tailwind Preflight, which we
+     deliberately skip): strips UA chrome so components opt INTO backgrounds
+     and borders instead of fighting platform defaults. */
+  button {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+  }
 }
 
 /* Global Accessible Focus Ring */
