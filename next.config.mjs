@@ -8,9 +8,8 @@ const nextConfig = {
   serverExternalPackages: ['postgres'],
   experimental: {
     serverActions: {
-      // Legacy base64 covers can still arrive through imports/edits, but new
-      // uploads go to R2 (see /api/upload/cover) and are far smaller.
-      bodySizeLimit: '512kb',
+      // Cover images are sent as base64 data URLs (up to ~2 MB per entry).
+      bodySizeLimit: '3mb',
     },
   },
   async headers() {

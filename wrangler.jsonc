@@ -14,12 +14,6 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  "r2_buckets": [
-    {
-      "binding": "MEDIA_BUCKET",
-      "bucket_name": "zedarchive-covers"
-    }
-  ],
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
