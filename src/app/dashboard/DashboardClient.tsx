@@ -23,7 +23,7 @@ import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
 import MediaGrid from '@/components/dashboard/MediaGrid';
 import { useMediaFilters, useModalManager, type DashboardTab } from '@/components/dashboard/hooks';
 import type { Toast } from '@/components/ui/Toast';
-import type { MediaEntry } from '@/types/media';
+import type { MediaEntry, NextAirMap } from '@/types/media';
 import {
   getMediaEntries,
   createMediaEntry,
@@ -89,6 +89,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     Boolean(user?.verificationDismissedAt),
   );
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [nextAirMap, setNextAirMap] = useState<NextAirMap>({});
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,6 +124,34 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
       }
     }
   }, [currentTheme]);
+
+  // Fetch upcoming episode airdates for in-progress shows
+  useEffect(() => {
+    const showSourceIds = entries
+      .filter(
+        (e) =>
+          (e.category === 'show' || e.category === 'anime') &&
+          (e.status === 'in_progress' || !e.status) &&
+          e.sourceId &&
+          e.sourceId.startsWith('tvmaze-'),
+      )
+      .map((e) => e.sourceId as string)
+      .slice(0, 20);
+
+    if (showSourceIds.length === 0) return;
+
+    const url = `/api/shows/airdate?ids=${encodeURIComponent(showSourceIds.join(','))}`;
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: NextAirMap) => {
+        if (data && typeof data === 'object') {
+          setNextAirMap((prev) => ({ ...prev, ...data }));
+        }
+      })
+      .catch((err) => {
+        console.warn('[airdate] Fetch failed:', err);
+      });
+  }, [entries]);
 
   // Derive active detail item dynamically from latest entries state
   const activeDetailItem = detailItem
@@ -472,6 +501,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
               activeTab={activeTab}
               hasActiveFilters={hasActiveFilters}
               onAddClick={() => modals.open('add')}
+              nextAirMap={nextAirMap}
               {...cardHandlers}
             />
           </div>

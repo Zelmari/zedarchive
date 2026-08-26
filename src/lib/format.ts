@@ -33,3 +33,20 @@ export function relativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Format a YYYY-MM-DD airdate string into a short date string ("Aug 30").
+ */
+export function formatAirdate(airdate: string): string {
+  if (!airdate) return '';
+  const parts = airdate.split('-');
+  if (parts.length < 3) return airdate;
+  const monthIdx = parseInt(parts[1] ?? '', 10) - 1;
+  const day = parseInt(parts[2] ?? '', 10);
+  if (monthIdx >= 0 && monthIdx < 12 && !isNaN(day)) {
+    return `${MONTHS[monthIdx]} ${day}`;
+  }
+  return airdate;
+}

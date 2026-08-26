@@ -2,13 +2,14 @@
 
 import { BookOpen, Layers, Plus, Tv } from 'lucide-react';
 import MediaCard, { type MediaCardHandlers } from '@/components/cards/MediaCard';
-import type { MediaEntry } from '@/types/media';
+import type { MediaEntry, NextAirMap } from '@/types/media';
 
 interface MediaGridProps extends MediaCardHandlers {
   entries: MediaEntry[];
   activeTab: 'total' | 'shows' | 'books';
   hasActiveFilters: boolean;
   onAddClick?: () => void;
+  nextAirMap?: NextAirMap;
 }
 
 function EmptyIcon({ tab }: { tab: MediaGridProps['activeTab'] }) {
@@ -23,6 +24,7 @@ export default function MediaGrid({
   activeTab,
   hasActiveFilters,
   onAddClick,
+  nextAirMap,
   onUpdate,
   onDelete,
   onEdit,
@@ -64,6 +66,7 @@ export default function MediaGrid({
         <MediaCard
           key={item.id}
           item={item}
+          nextAir={item.sourceId ? nextAirMap?.[item.sourceId] : undefined}
           onUpdate={onUpdate}
           onDelete={onDelete}
           onEdit={onEdit}
