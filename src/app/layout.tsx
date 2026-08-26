@@ -9,8 +9,13 @@ export const metadata = {
   title: 'zedarchive — Quiet Media Archive',
   description: 'A fast, distraction-free archive for your anime, TV series, novels, and books.',
   icons: {
-    icon: '/zedarchivelogo.png',
+    icon: [
+      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
   },
+  manifest: '/manifest.webmanifest',
 };
 
 // Runs before paint: restores the last known theme from the local cache while

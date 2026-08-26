@@ -113,9 +113,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
               alt=""
               aria-hidden="true"
               className="za-wordmark__mark"
-              height={48}
-              src="/zedarchivelogo.png"
-              width={72}
+              height={30}
+              src="/biglogo.png"
+              width={30}
               unoptimized
             />
             <span className="za-wordmark__text">zedarchive</span>
