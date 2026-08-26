@@ -8,8 +8,9 @@ const nextConfig = {
   serverExternalPackages: ['postgres'],
   experimental: {
     serverActions: {
-      // Cover images are sent as base64 data URLs (up to ~2 MB per entry).
-      bodySizeLimit: '3mb',
+      // Legacy base64 covers can still arrive through imports/edits, but new
+      // uploads go to R2 (see /api/upload/cover) and are far smaller.
+      bodySizeLimit: '512kb',
     },
   },
   async headers() {
@@ -18,9 +19,7 @@ const nextConfig = {
         // Never let browsers or the CDN serve stale HTML for any page.
         // Hashed _next/static assets keep their immutable caching.
         source: '/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
-        ],
+        headers: [{ key: 'Cache-Control', value: 'no-cache, must-revalidate' }],
       },
     ];
   },
@@ -28,4 +27,4 @@ const nextConfig = {
 
 export default nextConfig;
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+import('@opennextjs/cloudflare').then((m) => m.initOpenNextCloudflareForDev());

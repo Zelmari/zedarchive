@@ -28,6 +28,27 @@ const EMPTY_FORM: MediaFormState = {
   coverImage: null,
 };
 
+/** Upload a compressed data URL to R2; returns the object URL or null. */
+async function uploadCoverToR2(dataUrl: string): Promise<string | null> {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    if (!blob.type.startsWith('image/')) return null;
+    const res = await fetch('/api/upload/cover', {
+      method: 'POST',
+      body: (() => {
+        const fd = new FormData();
+        fd.append('file', blob, 'cover');
+        return fd;
+      })(),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url?: string };
+    return data.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface AddMediaModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -236,7 +257,11 @@ export default function AddMediaModal({
     setIsCompressing(true);
     try {
       const compressedDataUrl = await compressImageFile(file, 320, 480, 0.7);
-      setField('coverImage', compressedDataUrl);
+
+      // Prefer object storage when available; silently fall back to the
+      // compressed data URL so offline/local dev keeps working.
+      const remoteUrl = await uploadCoverToR2(compressedDataUrl);
+      setField('coverImage', remoteUrl ?? compressedDataUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process image');
     } finally {
