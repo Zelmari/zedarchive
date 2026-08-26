@@ -51,7 +51,7 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
       labelledBy="stats-modal-title"
       title="Archive Statistics"
       icon={<BarChart2 size={18} />}
-      contentClassName="w-full max-w-[38rem]"
+      contentClassName="max-w-[38rem]"
     >
       <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
         <div className={sectionTitle}>Collection Status</div>

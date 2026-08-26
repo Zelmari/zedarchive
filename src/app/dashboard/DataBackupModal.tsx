@@ -135,7 +135,7 @@ export default function DataBackupModal({
       onClose={onClose}
       labelledBy="data-backup-modal-title"
       title="Data Sovereignty & Backups"
-      contentClassName="w-full max-w-[34rem]"
+      contentClassName="max-w-[34rem]"
     >
       {/* Tab Buttons */}
       <div className="flex border-b border-decorative">

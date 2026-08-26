@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { cn } from '@/lib/cn';
 
 interface ModalProps {
   isOpen: boolean;
@@ -11,11 +12,15 @@ interface ModalProps {
   title?: string;
   icon?: ReactNode;
   header?: ReactNode;
+  /** Extra classes MERGED onto the default panel (widths etc.); conflicts resolve in favor of these. */
   contentClassName?: string;
   contentStyle?: React.CSSProperties;
   closeLabel?: string;
   children: ReactNode;
 }
+
+const DEFAULT_PANEL =
+  'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-layered border border-required bg-surface shadow-layered';
 
 /**
  * Shared modal frame: focus-trapped dialog with backdrop, standard header,
@@ -46,10 +51,7 @@ export default function Modal({
     >
       <div
         ref={modalRef}
-        className={
-          contentClassName ||
-          'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-layered border border-required bg-surface shadow-layered'
-        }
+        className={cn(DEFAULT_PANEL, contentClassName)}
         style={contentStyle}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
