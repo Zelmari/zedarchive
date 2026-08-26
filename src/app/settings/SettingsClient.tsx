@@ -108,7 +108,8 @@ export default function SettingsClient({ profile, authInfo }: SettingsClientProp
       }
 
       await signOut();
-      window.location.href = '/';
+      router.push('/');
+      router.refresh();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       setIsDeleting(false);
