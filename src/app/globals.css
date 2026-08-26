@@ -845,6 +845,7 @@ textarea {
     --radius-layered: var(--za-radius-layered);
 
     --shadow-layered: var(--za-shadow-layered);
+    --shadow-raised: var(--za-shadow-raised);
 
     --animate-fade-in: fadeIn var(--za-motion-fast) ease-out;
     --animate-slide-in-toast: slideInToast var(--za-motion-fast) ease-out;

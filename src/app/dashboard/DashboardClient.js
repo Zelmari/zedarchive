@@ -20,8 +20,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
-import ShowCard from './ShowCard';
-import BookCard from './BookCard';
+import MediaCard from '@/components/cards/MediaCard';
 import AddMediaModal from './AddMediaModal';
 import MediaDetailModal from './MediaDetailModal';
 import ThemeModal from './ThemeModal';
@@ -748,36 +747,16 @@ export default function DashboardClient({ user, initialEntries = [] }) {
                 )}
               </div>
             ) : (
-              displayedEntries.map((item) => {
-                const isBookType =
-                  item.category === 'book' ||
-                  item.category === 'manga' ||
-                  item.type === 'book' ||
-                  item.type === 'novel';
-
-                if (isBookType) {
-                  return (
-                    <BookCard
-                      key={item.id}
-                      item={item}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDeleteClick}
-                      onEdit={handleEditClick}
-                      onOpenDetail={(itemToOpen) => setDetailItem(itemToOpen)}
-                    />
-                  );
-                }
-                return (
-                  <ShowCard
-                    key={item.id}
-                    item={item}
-                    onUpdate={handleUpdate}
-                    onDelete={handleDeleteClick}
-                    onEdit={handleEditClick}
-                    onOpenDetail={(itemToOpen) => setDetailItem(itemToOpen)}
-                  />
-                );
-              })
+              displayedEntries.map((item) => (
+                <MediaCard
+                  key={item.id}
+                  item={item}
+                  onUpdate={handleUpdate}
+                  onDelete={handleDeleteClick}
+                  onEdit={handleEditClick}
+                  onOpenDetail={(itemToOpen) => setDetailItem(itemToOpen)}
+                />
+              ))
             )}
           </div>
         </div>
