@@ -46,9 +46,9 @@ export default function DashboardHeader({
             alt=""
             aria-hidden="true"
             className="za-wordmark__mark"
-            height={48}
-            src="/zedarchivelogo.png"
-            width={72}
+            height={34}
+            src="/biglogo.png"
+            width={34}
             unoptimized
           />
           <span className="za-wordmark__text">zedarchive</span>
