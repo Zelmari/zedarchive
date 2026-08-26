@@ -68,4 +68,55 @@ describe('parseImportFile', () => {
       'No valid entries could be parsed from the file.',
     );
   });
+
+  it('parses MyAnimeList XML export', () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <myinfo>
+          <user_id>12345</user_id>
+          <user_name>Zelmari</user_name>
+        </myinfo>
+        <anime>
+          <series_animedb_id>52991</series_animedb_id>
+          <series_title><![CDATA[Sousou no Frieren]]></series_title>
+          <series_type>TV</series_type>
+          <series_episodes>28</series_episodes>
+          <my_watched_episodes>28</my_watched_episodes>
+          <my_score>10</my_score>
+          <my_status>2</my_status>
+          <my_comments><![CDATA[Peak anime]]></my_comments>
+        </anime>
+        <anime>
+          <series_animedb_id>5114</series_animedb_id>
+          <series_title>Fullmetal Alchemist: Brotherhood</series_title>
+          <series_type>TV</series_type>
+          <series_episodes>64</series_episodes>
+          <my_watched_episodes>12</my_watched_episodes>
+          <my_score>9</my_score>
+          <my_status>watching</my_status>
+        </anime>
+      </myanimelist>`;
+
+    const items = parseImportFile('animelist.xml', malXml);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Sousou no Frieren',
+      category: 'anime',
+      status: 'completed',
+      secondaryUnitCurrent: 28,
+      secondaryUnitTotal: 28,
+      rating: 10,
+      notes: 'Peak anime',
+      sourceId: 'mal-52991',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Fullmetal Alchemist: Brotherhood',
+      category: 'anime',
+      status: 'in_progress',
+      secondaryUnitCurrent: 12,
+      secondaryUnitTotal: 64,
+      rating: 9,
+      sourceId: 'mal-5114',
+    });
+  });
 });
