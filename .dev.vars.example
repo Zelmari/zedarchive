@@ -7,7 +7,3 @@ NEXT_PUBLIC_APP_URL="https://zedarchive.your-subdomain.workers.dev"
 # Optional Integrations
 RESEND_API_KEY=""
 EMAIL_FROM="ZedArchive <noreply@zedarchive.com>"
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GITHUB_CLIENT_ID=""
-GITHUB_CLIENT_SECRET=""

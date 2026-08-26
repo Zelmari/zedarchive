@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getUserProfile } from '@/server/profile';
-import { getAccountAuthType } from '@/server/account';
 import SettingsClient from './SettingsClient';
 import type { UserProfile } from '@/types/user';
 
@@ -21,7 +20,6 @@ export default async function SettingsPage() {
   }
 
   const profile = await getUserProfile();
-  const authInfo = await getAccountAuthType();
 
   if (!profile) {
     redirect('/login');
@@ -42,5 +40,5 @@ export default async function SettingsPage() {
       : null,
   };
 
-  return <SettingsClient profile={userProfile} authInfo={authInfo} />;
+  return <SettingsClient profile={userProfile} />;
 }

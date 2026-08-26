@@ -21,10 +21,6 @@ import Modal from '@/components/ui/Modal';
 
 interface SettingsClientProps {
   profile: UserProfile;
-  authInfo: {
-    hasPassword: boolean;
-    providers: string[];
-  };
 }
 
 const THEMES: Array<{ id: ThemeId; label: string; bg: string; text: string }> = [
@@ -35,7 +31,7 @@ const THEMES: Array<{ id: ThemeId; label: string; bg: string; text: string }> = 
   { id: 'cyber', label: 'Phosphor Cyber', bg: '#090e09', text: '#22c55e' },
 ];
 
-export default function SettingsClient({ profile, authInfo }: SettingsClientProps) {
+export default function SettingsClient({ profile }: SettingsClientProps) {
   const router = useRouter();
 
   // Profile Form State
@@ -52,7 +48,6 @@ export default function SettingsClient({ profile, authInfo }: SettingsClientProp
   // Delete Account Modal & State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -97,8 +92,7 @@ export default function SettingsClient({ profile, authInfo }: SettingsClientProp
 
     try {
       const res = await deleteAccount({
-        password: authInfo.hasPassword ? deletePassword : undefined,
-        confirmation: !authInfo.hasPassword ? deleteConfirmation : undefined,
+        password: deletePassword,
       });
 
       if (!res.success) {
@@ -304,11 +298,8 @@ export default function SettingsClient({ profile, authInfo }: SettingsClientProp
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-ink-muted">Sign-in Methods</span>
-                <span className="font-[var(--za-weight-emphasis)] capitalize text-ink">
-                  {authInfo.providers.join(', ') ||
-                    (authInfo.hasPassword ? 'Email & Password' : 'OAuth')}
-                </span>
+                <span className="text-ink-muted">Sign-in Method</span>
+                <span className="font-[var(--za-weight-emphasis)] text-ink">Email & Password</span>
               </div>
             </div>
           </section>
@@ -370,35 +361,19 @@ export default function SettingsClient({ profile, authInfo }: SettingsClientProp
               </div>
             )}
 
-            {authInfo.hasPassword ? (
-              <div className="mb-4">
-                <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
-                  Enter your current password to confirm:
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  placeholder="Your password"
-                  className="za-field w-full"
-                />
-              </div>
-            ) : (
-              <div className="mb-4">
-                <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
-                  Type <span className="font-mono text-red-600">delete my account</span> to confirm:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder="delete my account"
-                  className="za-field w-full"
-                />
-              </div>
-            )}
+            <div className="mb-4">
+              <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+                Enter your current password to confirm:
+              </label>
+              <input
+                type="password"
+                required
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Your password"
+                className="za-field w-full"
+              />
+            </div>
 
             <div className="mt-6 flex justify-end gap-2">
               <button

@@ -96,17 +96,4 @@ describe('account self-deletion', () => {
     expect(dbState.deletedTables).toContain('session');
     expect(dbState.deletedTables).toContain('user');
   });
-
-  it('handles OAuth-only account with confirmation string', async () => {
-    dbState.accounts = [{ providerId: 'google', password: null }];
-
-    const resBadConfirm = await deleteAccount({ confirmation: 'no' });
-    expect(resBadConfirm.success).toBe(false);
-    expect(resBadConfirm.error).toContain('delete my account');
-    expect(dbState.deletedTables).toHaveLength(0);
-
-    const resGoodConfirm = await deleteAccount({ confirmation: 'delete my account' });
-    expect(resGoodConfirm.success).toBe(true);
-    expect(dbState.deletedTables).toHaveLength(6);
-  });
 });

@@ -211,47 +211,6 @@ export default function LoginForm() {
             </p>
           )}
 
-          <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
-            <button
-              type="button"
-              onClick={() =>
-                authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
-              }
-              className="za-button za-button--secondary"
-              style={{ inlineSize: '100%', justifyContent: 'center' }}
-            >
-              Continue with Google
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                authClient.signIn.social({ provider: 'github', callbackURL: '/dashboard' })
-              }
-              className="za-button za-button--secondary"
-              style={{ inlineSize: '100%', justifyContent: 'center' }}
-            >
-              Continue with GitHub
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--za-space-3)',
-              color: 'var(--za-color-text-muted)',
-              fontSize: 'var(--za-text-fine)',
-            }}
-          >
-            <div
-              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
-            />
-            <span>or sign in with email</span>
-            <div
-              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
-            />
-          </div>
-
           <form onSubmit={handleSignIn} style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
               <label
