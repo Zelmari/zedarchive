@@ -38,3 +38,13 @@ export interface MediaEntry {
 
 export type CreateMediaInput = Omit<MediaEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
 export type UpdateMediaInput = Partial<CreateMediaInput>;
+
+export interface NextAirInfo {
+  season: number;
+  number: number;
+  airdate: string;
+  airstamp?: string | null;
+  status: string;
+}
+
+export type NextAirMap = Record<string, NextAirInfo | null>;
