@@ -12,6 +12,7 @@ export default function SignUpForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,13 +24,21 @@ export default function SignUpForm() {
         name,
         email,
         password,
+        callbackURL: '/dashboard',
       });
 
       if (res?.error) {
         setError(res.error.message || res.error.statusText || 'Failed to create account.');
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        // If Better Auth returned a user without a session (verification required), show verification screen
+        const data = res?.data as
+          { session?: unknown; user?: { emailVerified?: boolean } } | undefined;
+        if (data && !data.session && data.user?.emailVerified === false) {
+          setNeedsVerification(true);
+        } else {
+          router.push('/dashboard');
+          router.refresh();
+        }
       }
     } catch (err) {
       console.error('Sign up caught error:', err);
@@ -39,6 +48,50 @@ export default function SignUpForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (needsVerification) {
+    return (
+      <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
+        <div className="za-container za-container--narrow">
+          <section
+            className="za-card za-card--raised"
+            style={{ display: 'grid', gap: 'var(--za-space-6)' }}
+          >
+            <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
+              <h1
+                style={{
+                  fontSize: 'var(--za-text-heading-lg)',
+                  fontWeight: 'var(--za-weight-heading)',
+                  lineHeight: 'var(--za-leading-compact)',
+                }}
+              >
+                Check your email
+              </h1>
+              <p
+                style={{
+                  fontSize: 'var(--za-text-supporting)',
+                  color: 'var(--za-color-text-muted)',
+                }}
+              >
+                We sent a verification link to <strong>{email}</strong>. Please check your inbox and
+                click the link to activate your account.
+              </p>
+            </header>
+
+            <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
+              <Link
+                href="/login"
+                className="za-button za-button--primary"
+                style={{ textAlign: 'center' }}
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
   }
 
   return (
