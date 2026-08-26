@@ -805,7 +805,41 @@ button, input, select, textarea {
 }
 
 @media (prefers-contrast: more) {
-  :root {
+/* ==========================================================================
+   Tailwind CSS v4 — Design Token Bridge
+   Maps the bespoke `--za-*` editorial tokens into Tailwind utilities
+   (bg-canvas, text-ink, border-decorative, bg-accent, …) so components can
+   adopt utilities without ever hardcoding a color. `inline` keeps the
+   generated utilities referencing the theme-scoped custom properties, so all
+   five palettes keep working with zero duplication.
+   ========================================================================== */
+@theme inline {
+  --color-canvas: var(--za-color-canvas);
+  --color-surface: var(--za-color-surface);
+  --color-surface-subtle: var(--za-color-surface-subtle);
+
+  --color-ink: var(--za-color-text);
+  --color-ink-muted: var(--za-color-text-muted);
+  --color-ink-disabled: var(--za-color-disabled-text);
+  --color-surface-disabled: var(--za-color-disabled-surface);
+
+  --color-required: var(--za-color-border-required);
+  --color-decorative: var(--za-color-border-decorative);
+
+  --color-accent: var(--za-color-accent);
+  --color-accent-hover: var(--za-color-accent-hover);
+  --color-accent-active: var(--za-color-accent-active);
+  --color-accent-soft: var(--za-color-accent-soft);
+  --color-on-accent: var(--za-color-on-accent);
+
+  --color-danger: var(--za-color-danger);
+  --color-danger-surface: var(--za-color-danger-surface);
+
+  --radius-control: var(--za-radius-control);
+  --radius-small: var(--za-radius-small);
+}
+
+:root {
     --za-color-text-muted: var(--za-color-text);
     --za-color-border-decorative: var(--za-color-border-required);
   }
