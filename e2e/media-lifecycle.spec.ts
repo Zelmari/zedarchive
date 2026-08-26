@@ -15,6 +15,13 @@ test.describe('media lifecycle', () => {
   test('search, add, step progress, and switch seasons', async ({ page }) => {
     await registerAndAuthenticate(page, user);
     await page.goto('/dashboard');
+    await expect(page.locator('h1')).toHaveText('Your Media Archive');
+
+    // Prove React handlers are attached before relying on hotkeys.
+    await page.getByRole('button', { name: /Shows \(/ }).click();
+    await expect(page.locator('h1')).toHaveText('Shows & Anime');
+    await page.getByRole('button', { name: /Total \(/ }).click();
+    await expect(page.locator('h1')).toHaveText('Your Media Archive');
 
     // Open Spotlight and search TVMaze for a multi-season show.
     await page.keyboard.press('n');

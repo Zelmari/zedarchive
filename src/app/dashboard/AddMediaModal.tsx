@@ -9,6 +9,7 @@ import SpotlightSearchModal, {
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
 import MediaEditForm, { type MediaFormState } from '@/components/modals/MediaEditForm';
+import type { MediaEntry } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session
 let lastCategory: MediaCategoryChip | null = null;
@@ -32,11 +33,7 @@ interface AddMediaModalProps {
   onClose: () => void;
   type?: MediaCategoryChip;
   onAdd?: (payload: Record<string, unknown>) => Promise<unknown>;
-  editItem?:
-    | ({
-        id: string;
-      } & Record<string, unknown>)
-    | null;
+  editItem?: MediaEntry | null;
   onSave?: ((id: string, payload: Record<string, unknown>) => Promise<unknown>) | null;
 }
 
@@ -81,7 +78,7 @@ export default function AddMediaModal({
 
   const resetForm = useCallback(() => {
     if (editItem) {
-      const legacy = editItem as Record<string, unknown>;
+      const legacy = editItem as unknown as Record<string, unknown>;
       const cat =
         (legacy.category as MediaCategoryChip) ||
         ((legacy.type === 'manga'
