@@ -43,6 +43,13 @@
       "when": 1787697416575,
       "tag": "0005_lean_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787784342517,
+      "tag": "0006_lethal_magdalene",
+      "breakpoints": true
     }
   ]
 }
