@@ -36,7 +36,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
       onClose={onClose}
       labelledBy="shortcuts-modal-title"
       closeLabel="Close shortcuts dialog"
-      contentClassName="w-full max-w-[32rem] overflow-hidden rounded-layered border border-required bg-surface shadow-layered"
+      contentClassName="max-w-[32rem] overflow-hidden"
       header={
         <div className="flex items-center gap-2">
           <span className="flex items-center justify-center text-ink">
