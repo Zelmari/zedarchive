@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { parseImportFile } from '@/lib/backup';
+import { parseImportFile, parseImportBuffer, decompressGzip } from '@/lib/backup';
+
+async function compressToGzip(str: string): Promise<ArrayBuffer> {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(str));
+      controller.close();
+    },
+  });
+  const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+  const response = new Response(compressedStream);
+  return await response.arrayBuffer();
+}
 
 describe('parseImportFile', () => {
   it('accepts a plain ZedArchive JSON array', () => {
@@ -117,6 +129,37 @@ describe('parseImportFile', () => {
       secondaryUnitTotal: 64,
       rating: 9,
       sourceId: 'mal-5114',
+    });
+  });
+
+  it('decompresses and parses .xml.gz MyAnimeList exports', async () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <anime>
+          <series_animedb_id>1</series_animedb_id>
+          <series_title>Cowboy Bebop</series_title>
+          <series_type>TV</series_type>
+          <series_episodes>26</series_episodes>
+          <my_watched_episodes>26</my_watched_episodes>
+          <my_score>10</my_score>
+          <my_status>2</my_status>
+        </anime>
+      </myanimelist>`;
+
+    const gzippedBuffer = await compressToGzip(malXml);
+    const decompressed = await decompressGzip(gzippedBuffer);
+    expect(decompressed).toContain('Cowboy Bebop');
+
+    const items = await parseImportBuffer('animelist.xml.gz', gzippedBuffer);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Cowboy Bebop',
+      category: 'anime',
+      status: 'completed',
+      secondaryUnitCurrent: 26,
+      secondaryUnitTotal: 26,
+      rating: 10,
+      sourceId: 'mal-1',
     });
   });
 });

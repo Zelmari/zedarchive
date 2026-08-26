@@ -188,3 +188,43 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
   }
   return items;
 }
+
+/**
+ * Check if a buffer begins with the gzip magic bytes (0x1f, 0x8b).
+ */
+export function isGzip(buffer: ArrayBuffer | Uint8Array): boolean {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+}
+
+/**
+ * Decompress a gzip ArrayBuffer or Uint8Array using web-standard DecompressionStream.
+ */
+export async function decompressGzip(buffer: ArrayBuffer | Uint8Array): Promise<string> {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
+      controller.close();
+    },
+  });
+  const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+  const response = new Response(decompressedStream);
+  return await response.text();
+}
+
+/**
+ * Parse an import file from raw ArrayBuffer, automatically decompressing .gz payloads.
+ */
+export async function parseImportBuffer(
+  fileName: string,
+  buffer: ArrayBuffer,
+): Promise<ImportDraft[]> {
+  if (fileName.endsWith('.gz') || isGzip(buffer)) {
+    const decompressed = await decompressGzip(buffer);
+    const resolvedName = fileName.replace(/\.gz$/i, '');
+    return parseImportFile(resolvedName, decompressed);
+  }
+
+  const text = new TextDecoder('utf-8').decode(buffer);
+  return parseImportFile(fileName, text);
+}
