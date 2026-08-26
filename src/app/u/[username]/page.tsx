@@ -12,7 +12,9 @@ import { getTileInitials } from '@/lib/format';
 import ProfileComments from './ProfileComments';
 import styles from '@/app/dashboard/dashboard.module.css';
 
-export async function generateMetadata({ params }) {
+type PageParams = { params: Promise<{ username: string }> };
+
+export async function generateMetadata({ params }: PageParams) {
   const { username } = await params;
   const data = await getPublicUserProfile(username);
   if (!data?.user) {
@@ -20,24 +22,41 @@ export async function generateMetadata({ params }) {
   }
   return {
     title: `@${data.user.username}’s Media Archive — zedarchive`,
-    description: data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
+    description:
+      data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
   };
 }
 
-export default async function PublicProfilePage({ params }) {
+export default async function PublicProfilePage({ params }: PageParams) {
   const { username } = await params;
   const data = await getPublicUserProfile(username);
 
   if (!data?.user) {
     return (
-      <div className={styles.dashboardContainer} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className={`za-card ${styles.emptyCard}`} style={{ maxWidth: '28rem', textAlign: 'center' }}>
-          <ShieldAlert size={36} style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }} />
+      <div
+        className={styles.dashboardContainer}
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          className={`za-card ${styles.emptyCard}`}
+          style={{ maxWidth: '28rem', textAlign: 'center' }}
+        >
+          <ShieldAlert
+            size={36}
+            style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }}
+          />
           <h1 className={styles.emptyTitle}>Archive Unavailable</h1>
-          <p className={styles.emptySubtitle}>
-            This archive is either private or does not exist.
-          </p>
-          <Link href="/" className="za-button za-button--primary" style={{ marginTop: 'var(--za-space-3)' }}>
+          <p className={styles.emptySubtitle}>This archive is either private or does not exist.</p>
+          <Link
+            href="/"
+            className="za-button za-button--primary"
+            style={{ marginTop: 'var(--za-space-3)' }}
+          >
             Go to ZedArchive Home
           </Link>
         </div>
@@ -48,7 +67,14 @@ export default async function PublicProfilePage({ params }) {
   const { user, entries = [] } = data;
 
   // Viewer context: who (if anyone) is looking, and may they comment?
-  let viewer = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
+  let viewer: {
+    isLoggedIn: boolean;
+    id: string | null;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    isPublic: boolean;
+  } = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.id) {
     const [meRow] = await db
@@ -104,13 +130,31 @@ export default async function PublicProfilePage({ params }) {
       <main id="main-content" className={styles.mainArea}>
         <div className="za-container">
           {/* Profile Header Masthead */}
-          <div className={styles.pageMasthead} style={{ borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)', paddingBottom: 'var(--za-space-6)' }}>
+          <div
+            className={styles.pageMasthead}
+            style={{
+              borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)',
+              paddingBottom: 'var(--za-space-6)',
+            }}
+          >
             <div className={styles.mastheadText}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                <h1 className={styles.mastheadTitle}>
-                  @{user.username}
-                </h1>
-                <span className={styles.metaBadge} style={{ background: 'rgba(46, 125, 50, 0.1)', color: '#2e7d32', borderColor: 'rgba(46, 125, 50, 0.3)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBottom: '0.25rem',
+                }}
+              >
+                <h1 className={styles.mastheadTitle}>@{user.username}</h1>
+                <span
+                  className={styles.metaBadge}
+                  style={{
+                    background: 'rgba(46, 125, 50, 0.1)',
+                    color: '#2e7d32',
+                    borderColor: 'rgba(46, 125, 50, 0.3)',
+                  }}
+                >
                   Public Archive
                 </span>
               </div>
@@ -128,7 +172,9 @@ export default async function PublicProfilePage({ params }) {
                 <div className={styles.statLabel}>Total Cataloged</div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statValue} style={{ color: '#2e7d32' }}>{completedCount}</div>
+                <div className={styles.statValue} style={{ color: '#2e7d32' }}>
+                  {completedCount}
+                </div>
                 <div className={styles.statLabel}>Completed</div>
               </div>
               <div className={styles.statCard}>
@@ -144,7 +190,13 @@ export default async function PublicProfilePage({ params }) {
 
           {/* Media Grid */}
           <div style={{ marginTop: 'var(--za-space-6)' }}>
-            <div style={{ fontSize: 'var(--za-text-heading-sm)', fontWeight: 'var(--za-weight-heading)', marginBottom: 'var(--za-space-4)' }}>
+            <div
+              style={{
+                fontSize: 'var(--za-text-heading-sm)',
+                fontWeight: 'var(--za-weight-heading)',
+                marginBottom: 'var(--za-space-4)',
+              }}
+            >
               Cataloged Titles ({entries.length})
             </div>
 
@@ -152,7 +204,12 @@ export default async function PublicProfilePage({ params }) {
               {entries.map((item) => {
                 const isBook = item.category === 'book' || item.category === 'manga';
                 const progressPct = item.secondaryUnitTotal
-                  ? Math.min(100, Math.round(((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100))
+                  ? Math.min(
+                      100,
+                      Math.round(
+                        ((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100,
+                      ),
+                    )
                   : 0;
 
                 return (
@@ -160,7 +217,12 @@ export default async function PublicProfilePage({ params }) {
                     <div className={styles.cardTopSection}>
                       <div className={styles.coverWrapper}>
                         {item.coverImage ? (
-                          <img src={item.coverImage} alt={item.title} className={styles.coverImage} loading="lazy" />
+                          <img
+                            src={item.coverImage}
+                            alt={item.title}
+                            className={styles.coverImage}
+                            loading="lazy"
+                          />
                         ) : (
                           <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
                             <span>{getTileInitials(item.title)}</span>
@@ -174,7 +236,10 @@ export default async function PublicProfilePage({ params }) {
                         </h3>
 
                         <div className={styles.badgeRow}>
-                          <span className={styles.metaBadge} style={{ textTransform: 'capitalize' }}>
+                          <span
+                            className={styles.metaBadge}
+                            style={{ textTransform: 'capitalize' }}
+                          >
                             {(item.status || 'in_progress').replace('_', ' ')}
                           </span>
                           {item.rating != null && (
@@ -183,12 +248,24 @@ export default async function PublicProfilePage({ params }) {
                             </span>
                           )}
                           <span className={styles.metaBadge}>
-                            {isBook ? `Vol ${item.primaryUnitCurrent || 1}` : `S${item.primaryUnitCurrent || 1}`}
+                            {isBook
+                              ? `Vol ${item.primaryUnitCurrent || 1}`
+                              : `S${item.primaryUnitCurrent || 1}`}
                           </span>
                         </div>
 
                         {item.notes && (
-                          <p style={{ fontSize: '0.75rem', color: 'var(--za-color-text-muted)', marginTop: 'var(--za-space-2)', lineHeight: 1.4, maxHeight: '3.5rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--za-color-text-muted)',
+                              marginTop: 'var(--za-space-2)',
+                              lineHeight: 1.4,
+                              maxHeight: '3.5rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             &ldquo;{item.notes}&rdquo;
                           </p>
                         )}
@@ -196,15 +273,28 @@ export default async function PublicProfilePage({ params }) {
                     </div>
 
                     <div className={styles.cardActionZone}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--za-text-fine)', color: 'var(--za-color-text-muted)', marginBottom: '0.3rem' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 'var(--za-text-fine)',
+                          color: 'var(--za-color-text-muted)',
+                          marginBottom: '0.3rem',
+                        }}
+                      >
                         <span>Progress</span>
                         <span>
-                          {isBook ? 'Ch ' : 'Ep '}{item.secondaryUnitCurrent || 0}{item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
+                          {isBook ? 'Ch ' : 'Ep '}
+                          {item.secondaryUnitCurrent || 0}
+                          {item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
                         </span>
                       </div>
                       {item.secondaryUnitTotal ? (
                         <div className={styles.progressBarContainer}>
-                          <div className={styles.progressBarFill} style={{ width: `${progressPct}%` }} />
+                          <div
+                            className={styles.progressBarFill}
+                            style={{ width: `${progressPct}%` }}
+                          />
                         </div>
                       ) : null}
                     </div>

@@ -11,14 +11,20 @@ import styles from '@/app/dashboard/dashboard.module.css';
 const MENTION_SPLIT = /(@[a-z0-9_-]{1,30})/gi;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function expiryLabel(iso) {
+function expiryLabel(iso: string) {
   const remaining = new Date(iso).getTime() - Date.now();
   if (remaining <= 0) return 'expired';
   const days = Math.ceil(remaining / DAY_MS);
   return days <= 1 ? 'expires soon' : `expires in ${days}d`;
 }
 
-function MentionText({ body, viewerUsername }) {
+function MentionText({
+  body,
+  viewerUsername,
+}: {
+  body: string;
+  viewerUsername: string | null | undefined;
+}) {
   const parts = String(body || '').split(MENTION_SPLIT);
 
   return (
@@ -28,7 +34,7 @@ function MentionText({ body, viewerUsername }) {
         if (!match) {
           return <span key={index}>{part}</span>;
         }
-        const handle = match[1].toLowerCase();
+        const handle = match[1]?.toLowerCase() ?? '';
         const isSelf = handle === viewerUsername;
         return (
           <Link
@@ -45,12 +51,43 @@ function MentionText({ body, viewerUsername }) {
   );
 }
 
-export default function ProfileComments({ profileUser, initialComments = [], viewer }) {
-  const [comments, setComments] = useState(initialComments);
+interface ProfileCommentRow {
+  id: string;
+  authorUsername: string | null;
+  profileUserId?: string;
+  authorId?: string | null;
+  authorName?: string | null;
+  authorImage?: string | null;
+  body: string;
+  createdAt: string;
+  expiresAt: string;
+  _pending?: boolean;
+}
+
+interface ProfileCommentsProps {
+  profileUser: { id: string; username: string | null; [key: string]: unknown };
+  initialComments?: ProfileCommentRow[];
+  viewer: {
+    isLoggedIn: boolean;
+    id: string | null;
+    username: string | null;
+    name?: string | null;
+    image?: string | null;
+    isPublic: boolean;
+    [key: string]: unknown;
+  };
+}
+
+export default function ProfileComments({
+  profileUser,
+  initialComments = [],
+  viewer,
+}: ProfileCommentsProps) {
+  const [comments, setComments] = useState<ProfileCommentRow[]>(initialComments);
   const [draft, setDraft] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const listRef = useRef(null);
+  const listRef = useRef<HTMLOListElement | null>(null);
   const [, setTick] = useState(0);
 
   // Keep relative timestamps and expiry countdowns fresh.
@@ -72,7 +109,7 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
   const canComment = Boolean(viewer?.isLoggedIn && viewer?.isPublic);
   const isOwner = Boolean(viewer?.isLoggedIn && viewer?.id === profileUser.id);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const body = draft.trim();
     if (!body || isSubmitting) return;
@@ -80,7 +117,7 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
     setError('');
     setIsSubmitting(true);
     const tempId = `temp-${Date.now()}`;
-    const optimistic = {
+    const optimistic: ProfileCommentRow = {
       id: tempId,
       profileUserId: profileUser.id,
       authorId: viewer.id,
@@ -99,27 +136,27 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
     try {
       const saved = await createProfileComment(profileUser.id, body);
       setComments((list) => list.map((c) => (c.id === tempId ? saved : c)));
-    } catch (err) {
+    } catch (err: unknown) {
       setComments((list) => list.filter((c) => c.id !== tempId));
       setDraft(body);
-      setError(err.message || 'Failed to post comment');
+      setError(err instanceof Error ? err.message : 'Failed to post comment');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (commentId) => {
+  const handleDelete = async (commentId: string) => {
     const snapshot = comments;
     setComments((list) => list.filter((c) => c.id !== commentId));
     try {
       await deleteProfileComment(commentId);
-    } catch (err) {
+    } catch (err: unknown) {
       setComments(snapshot);
-      setError(err.message || 'Failed to delete comment');
+      setError(err instanceof Error ? err.message : 'Failed to delete comment');
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -127,7 +164,10 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
   };
 
   return (
-    <section className={`za-card ${styles.guestbookCard}`} aria-label={`Guestbook for @${profileUser.username}`}>
+    <section
+      className={`za-card ${styles.guestbookCard}`}
+      aria-label={`Guestbook for @${profileUser.username}`}
+    >
       <header className={styles.guestbookHeader}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <MessageCircle size={16} aria-hidden="true" />
@@ -155,16 +195,26 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
             return (
               <li key={comment.id} className={styles.commentRow}>
                 {comment.authorImage ? (
-                  <img src={comment.authorImage} alt="" className={styles.commentAvatar} loading="lazy" />
+                  <img
+                    src={comment.authorImage}
+                    alt=""
+                    className={styles.commentAvatar}
+                    loading="lazy"
+                  />
                 ) : (
-                  <span className={styles.commentAvatar} aria-hidden="true">{initials}</span>
+                  <span className={styles.commentAvatar} aria-hidden="true">
+                    {initials}
+                  </span>
                 )}
                 <div className={styles.commentMain}>
                   <div className={styles.commentMetaRow}>
                     <Link href={`/u/${comment.authorUsername}`} className={styles.commentAuthor}>
                       @{comment.authorUsername}
                     </Link>
-                    <span className={styles.commentTime} title={new Date(comment.createdAt).toLocaleString()}>
+                    <span
+                      className={styles.commentTime}
+                      title={new Date(comment.createdAt).toLocaleString()}
+                    >
                       {relativeTime(comment.createdAt)}
                     </span>
                     <span
@@ -182,7 +232,11 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
                     className={styles.commentDeleteBtn}
                     onClick={() => handleDelete(comment.id)}
                     aria-label={`Delete comment by @${comment.authorUsername}`}
-                    title={isOwner && comment.authorId !== viewer.id ? 'Owner: remove comment' : 'Delete comment'}
+                    title={
+                      isOwner && comment.authorId !== viewer.id
+                        ? 'Owner: remove comment'
+                        : 'Delete comment'
+                    }
                   >
                     <Trash2 size={14} />
                   </button>
@@ -198,13 +252,22 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
       <footer className={styles.guestbookComposerZone}>
         {!viewer?.isLoggedIn ? (
           <p className={styles.guestbookNotice}>
-            <Link href="/login" className="za-link">Log in</Link> to join the conversation.
+            <Link href="/login" className="za-link">
+              Log in
+            </Link>{' '}
+            to join the conversation.
           </p>
         ) : !viewer.isPublic ? (
           <p className={styles.guestbookNotice}>
-            <Lock size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '0.3rem' }} />
+            <Lock
+              size={13}
+              aria-hidden="true"
+              style={{ verticalAlign: '-2px', marginRight: '0.3rem' }}
+            />
             Make your own archive{' '}
-            <Link href="/dashboard" className="za-link">public in settings</Link>{' '}
+            <Link href="/dashboard" className="za-link">
+              public in settings
+            </Link>{' '}
             to comment here.
           </p>
         ) : (
@@ -221,9 +284,15 @@ export default function ProfileComments({ profileUser, initialComments = [], vie
               aria-label="Write a comment"
             />
             <div className={styles.commentFormFooter}>
-              <span className={styles.charCounter}>{draft.length}/{MAX_COMMENT_LENGTH}</span>
+              <span className={styles.charCounter}>
+                {draft.length}/{MAX_COMMENT_LENGTH}
+              </span>
               <span className={styles.composerHint}>Enter to post · Shift+Enter for newline</span>
-              <button type="submit" className="za-button za-button--primary" disabled={isSubmitting || !draft.trim()}>
+              <button
+                type="submit"
+                className="za-button za-button--primary"
+                disabled={isSubmitting || !draft.trim()}
+              >
                 {isSubmitting ? 'Posting…' : 'Post'}
               </button>
             </div>

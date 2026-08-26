@@ -1,4 +1,4 @@
-import "./globals.css";
+import './globals.css';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -6,10 +6,10 @@ import { user as userTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const metadata = {
-  title: "zedarchive — Quiet Media Archive",
-  description: "A fast, distraction-free archive for your anime, TV series, novels, and books.",
+  title: 'zedarchive — Quiet Media Archive',
+  description: 'A fast, distraction-free archive for your anime, TV series, novels, and books.',
   icons: {
-    icon: "/zedarchivelogo.png",
+    icon: '/zedarchivelogo.png',
   },
 };
 
@@ -34,7 +34,7 @@ async function getSessionTheme() {
   }
 }
 
-export default async function RootLayout({ children }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const theme = await getSessionTheme();
 
   return (

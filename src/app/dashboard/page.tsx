@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { mediaEntries, user as userTable } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { serializeEntry } from '@/lib/serialize';
+import type { MediaEntry } from '@/types/media';
 import DashboardClient from './DashboardClient';
 
 export default async function DashboardPage() {
@@ -39,7 +40,9 @@ export default async function DashboardPage() {
     .orderBy(desc(mediaEntries.updatedAt));
 
   // Serialize Date objects for React Server Component -> Client Component boundary
-  const initialEntries = rawEntries.map(serializeEntry);
+  const initialEntries = rawEntries
+    .map(serializeEntry)
+    .filter((entry): entry is MediaEntry => entry !== null);
 
   return (
     <DashboardClient

@@ -35,14 +35,7 @@ export default async function HomePage() {
   return (
     <div className="za-landing">
       <div className="za-hero__ghost" aria-hidden="true">
-        <Image
-          alt=""
-          height={1254}
-          priority
-          src="/biglogo.png"
-          width={1254}
-          unoptimized
-        />
+        <Image alt="" height={1254} priority src="/biglogo.png" width={1254} unoptimized />
       </div>
 
       <header className="za-site-header">

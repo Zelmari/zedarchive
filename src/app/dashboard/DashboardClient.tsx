@@ -61,8 +61,14 @@ function isInputFocused(): boolean {
 
 interface DashboardClientProps {
   user: {
+    id?: string;
     name?: string | null;
+    email?: string | null;
+    image?: string | null;
     theme?: string | null;
+    username?: string | null;
+    isPublic?: boolean;
+    bio?: string | null;
   } | null;
   initialEntries?: MediaEntry[];
 }
