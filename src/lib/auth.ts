@@ -96,11 +96,16 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'placeholder_google_client_secret',
       enabled: Boolean(process.env.GOOGLE_CLIENT_ID),
     },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID || 'placeholder_github_client_id',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || 'placeholder_github_client_secret',
+      enabled: Boolean(process.env.GITHUB_CLIENT_ID),
+    },
   },
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ['google'],
+      trustedProviders: ['google', 'github'],
     },
   },
   session: {

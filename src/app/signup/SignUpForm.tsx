@@ -138,6 +138,16 @@ export default function SignUpForm() {
             >
               Continue with Google
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                authClient.signIn.social({ provider: 'github', callbackURL: '/dashboard' })
+              }
+              className="za-button za-button--secondary"
+              style={{ inlineSize: '100%', justifyContent: 'center' }}
+            >
+              Continue with GitHub
+            </button>
           </div>
 
           <div
