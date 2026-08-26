@@ -51,9 +51,9 @@ function parseSetCookies(headerStrings: string[], origin: string): CookieLike[] 
   const { hostname } = new URL(origin);
   return headerStrings
     .map((header) => {
-      const [pair] = header.split(';');
-      const eq = pair.indexOf('=');
-      if (eq < 0) return null;
+      const pair = header.split(';')[0];
+      const eq = pair?.indexOf('=') ?? -1;
+      if (eq < 0 || !pair) return null;
       return { name: pair.slice(0, eq), value: pair.slice(eq + 1), domain: hostname, path: '/' };
     })
     .filter((c): c is CookieLike => c !== null);
