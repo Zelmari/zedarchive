@@ -9,4 +9,6 @@ export interface UserProfile {
   username: string | null;
   isPublic: boolean;
   bio: string | null;
+  emailVerified?: boolean;
+  verificationDismissedAt?: string | null;
 }

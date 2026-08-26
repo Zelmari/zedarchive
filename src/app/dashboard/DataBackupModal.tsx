@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { bulkImportMediaEntries } from '@/server/media';
-import { parseImportFile } from '@/lib/backup';
+import { parseImportBuffer, type ImportDraft } from '@/lib/backup';
 import type { MediaEntry } from '@/types/media';
 
 interface DataBackupModalProps {
@@ -31,6 +31,8 @@ export default function DataBackupModal({
 }: DataBackupModalProps) {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'overwrite'>('skip');
+  const [pendingDrafts, setPendingDrafts] = useState<ImportDraft[] | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState('');
   const [importStatus, setImportStatus] = useState<{
     state: ImportState;
     message: string;
@@ -103,25 +105,23 @@ export default function DataBackupModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportStatus({ state: 'loading', message: `Parsing ${file.name}...` });
+    setImportStatus({ state: 'loading', message: `Importing ${file.name}...` });
+    setSelectedFileName(file.name);
 
     try {
-      const text = await file.text();
-      const parsedItems = parseImportFile(file.name, text);
+      const buffer = await file.arrayBuffer();
+      const parsedItems = await parseImportBuffer(file.name, buffer);
 
-      setImportStatus({
-        state: 'loading',
-        message: `Importing ${parsedItems.length} items to your archive...`,
-      });
       const res = await bulkImportMediaEntries(parsedItems, conflictStrategy);
 
       setImportStatus({
         state: 'success',
         message: `Successfully imported ${res.added} new item(s) and updated ${res.updated} item(s)! (${res.skipped} skipped)`,
       });
-
+      setPendingDrafts(null);
       onImportSuccess?.();
     } catch (err) {
+      setPendingDrafts(null);
       setImportStatus({
         state: 'error',
         message: err instanceof Error ? err.message : 'Failed to process import file',
@@ -198,8 +198,8 @@ export default function DataBackupModal({
         ) : (
           <div>
             <p className="mb-[var(--za-space-3)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink-muted">
-              Restore from a previous ZedArchive JSON backup, or import from AniList, MyAnimeList,
-              or Goodreads.
+              Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json), or
+              Goodreads (.csv).
             </p>
 
             {/* Conflict handling options */}
@@ -235,12 +235,13 @@ export default function DataBackupModal({
             <div className="rounded-layered border-2 border-dashed border-required bg-surface p-[var(--za-space-4)] text-center">
               <Upload size={24} className="mx-auto mb-2 text-ink-muted" />
               <div className="mb-2 text-[length:var(--za-text-fine)]">
-                Select a <strong>.json</strong> or <strong>.csv</strong> file to import
+                Select a <strong>.json</strong>, <strong>.xml</strong>, <strong>.xml.gz</strong>, or{' '}
+                <strong>.csv</strong> file
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json,.csv"
+                accept=".json,.csv,.xml,.gz,.xml.gz"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />

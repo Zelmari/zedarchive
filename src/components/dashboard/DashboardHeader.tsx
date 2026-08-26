@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Layers, Tv, BookOpen, Keyboard, LogOut, Palette } from 'lucide-react';
+import { Layers, Tv, BookOpen, Keyboard, LogOut, Palette, Settings } from 'lucide-react';
 import type { DashboardTab } from './hooks';
 
 interface DashboardHeaderProps {
@@ -93,6 +93,16 @@ export default function DashboardHeader({
             <Keyboard size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Shortcuts</span>
           </button>
+
+          <Link
+            href="/settings"
+            className="za-button za-button--tertiary"
+            title="Account & Settings"
+            aria-label="Settings"
+          >
+            <Settings size={16} strokeWidth={1.75} />
+            <span className="hidden sm:inline">Settings</span>
+          </Link>
 
           <span
             className="za-site-header__identity"

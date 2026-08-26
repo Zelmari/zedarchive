@@ -23,6 +23,9 @@ export const metadata = {
 const THEME_BOOTSTRAP_SCRIPT =
   "try{var t=localStorage.getItem('za-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}";
 
+const SW_REGISTER_SCRIPT =
+  "if('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}";
+
 async function getSessionTheme() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -46,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" data-theme={theme}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
       </head>
       <body>
         <a href="#main-content" className="za-skip-link">

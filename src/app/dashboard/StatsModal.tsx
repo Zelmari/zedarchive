@@ -1,8 +1,10 @@
 'use client';
 
-import { Tv, BookOpen, Star, BarChart2 } from 'lucide-react';
+import Link from 'next/link';
+import { Tv, BookOpen, Star, BarChart2, Sparkles } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { RatingBadge } from '@/components/ui/Badge';
+import { calculateArchiveStats } from '@/lib/stats';
 import type { MediaEntry } from '@/types/media';
 
 interface StatsModalProps {
@@ -22,27 +24,19 @@ const statValue = 'text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] 
 const statLabel = 'mt-1 text-xs leading-[1.3] text-ink-muted';
 
 export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModalProps) {
-  const totalEntries = entries.length;
-  const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
-  const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
-
-  const completedEntries = entries.filter((e) => e.status === 'completed');
-  const inProgressEntries = entries.filter((e) => !e.status || e.status === 'in_progress');
-  const planningEntries = entries.filter((e) => e.status === 'planning');
-
-  const totalEpisodes = showEntries.reduce((sum, e) => sum + (e.secondaryUnitCurrent || 0), 0);
-  const totalChapters = bookEntries.reduce((sum, e) => sum + (e.secondaryUnitCurrent || 0), 0);
-
-  const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
-  const avgRating =
-    ratedEntries.length > 0
-      ? (ratedEntries.reduce((sum, e) => sum + (e.rating ?? 0), 0) / ratedEntries.length).toFixed(1)
-      : '—';
-
-  const completionRate =
-    totalEntries > 0 ? Math.round((completedEntries.length / totalEntries) * 100) : 0;
-
-  const topRated = [...ratedEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 4);
+  const stats = calculateArchiveStats(entries);
+  const {
+    totalEntries,
+    completedCount,
+    inProgressCount,
+    planningCount,
+    totalEpisodes,
+    totalChapters,
+    avgRating,
+    completionRate,
+    ratedCount,
+    topRated,
+  } = stats;
 
   return (
     <Modal
@@ -62,16 +56,16 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
           </div>
           <div className={statCard}>
             <div className={statValue} style={{ color: '#2e7d32' }}>
-              {completedEntries.length}
+              {completedCount}
             </div>
             <div className={statLabel}>Completed ({completionRate}%)</div>
           </div>
           <div className={statCard}>
-            <div className={statValue}>{inProgressEntries.length}</div>
+            <div className={statValue}>{inProgressCount}</div>
             <div className={statLabel}>In Progress</div>
           </div>
           <div className={statCard}>
-            <div className={statValue}>{planningEntries.length}</div>
+            <div className={statValue}>{planningCount}</div>
             <div className={statLabel}>Planning</div>
           </div>
         </div>
@@ -94,7 +88,7 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
             <div className={`${statValue} flex items-center justify-center gap-1.5 text-[#b45309]`}>
               <Star size={16} fill="currentColor" /> {avgRating}
             </div>
-            <div className={statLabel}>Avg Rating ({ratedEntries.length} rated)</div>
+            <div className={statLabel}>Avg Rating ({ratedCount} rated)</div>
           </div>
         </div>
 
@@ -117,7 +111,11 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
           </div>
         )}
 
-        <div className="mt-[var(--za-space-5)] flex justify-end">
+        <div className="mt-[var(--za-space-5)] flex items-center justify-between border-t border-decorative pt-[var(--za-space-3)]">
+          <Link href="/wrapped" className="za-button za-button--primary text-xs" onClick={onClose}>
+            <Sparkles size={14} className="mr-1.5" />
+            <span>Open Yearly Wrapped</span>
+          </Link>
           <button type="button" className="za-button za-button--secondary" onClick={onClose}>
             Close
           </button>

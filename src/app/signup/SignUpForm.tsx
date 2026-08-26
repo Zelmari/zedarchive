@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp } from '@/lib/auth-client';
+import { signUp, signIn, authClient } from '@/lib/auth-client';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -12,6 +12,7 @@ export default function SignUpForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,13 +24,25 @@ export default function SignUpForm() {
         name,
         email,
         password,
+        callbackURL: '/dashboard',
       });
 
       if (res?.error) {
         setError(res.error.message || res.error.statusText || 'Failed to create account.');
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        // Sign in immediately to land on dashboard where verification chip will be shown
+        const signInRes = await signIn.email({
+          email,
+          password,
+          callbackURL: '/dashboard',
+        });
+
+        if (signInRes?.error) {
+          setNeedsVerification(true);
+        } else {
+          router.push('/dashboard');
+          router.refresh();
+        }
       }
     } catch (err) {
       console.error('Sign up caught error:', err);
@@ -39,6 +52,50 @@ export default function SignUpForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (needsVerification) {
+    return (
+      <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
+        <div className="za-container za-container--narrow">
+          <section
+            className="za-card za-card--raised"
+            style={{ display: 'grid', gap: 'var(--za-space-6)' }}
+          >
+            <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
+              <h1
+                style={{
+                  fontSize: 'var(--za-text-heading-lg)',
+                  fontWeight: 'var(--za-weight-heading)',
+                  lineHeight: 'var(--za-leading-compact)',
+                }}
+              >
+                Check your email
+              </h1>
+              <p
+                style={{
+                  fontSize: 'var(--za-text-supporting)',
+                  color: 'var(--za-color-text-muted)',
+                }}
+              >
+                We sent a verification link to <strong>{email}</strong>. Please check your inbox and
+                click the link to activate your account.
+              </p>
+            </header>
+
+            <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
+              <Link
+                href="/login"
+                className="za-button za-button--primary"
+                style={{ textAlign: 'center' }}
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -73,6 +130,47 @@ export default function SignUpForm() {
               {error}
             </p>
           )}
+
+          <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
+            <button
+              type="button"
+              onClick={() =>
+                authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
+              }
+              className="za-button za-button--secondary"
+              style={{ inlineSize: '100%', justifyContent: 'center' }}
+            >
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                authClient.signIn.social({ provider: 'github', callbackURL: '/dashboard' })
+              }
+              className="za-button za-button--secondary"
+              style={{ inlineSize: '100%', justifyContent: 'center' }}
+            >
+              Continue with GitHub
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--za-space-3)',
+              color: 'var(--za-color-text-muted)',
+              fontSize: 'var(--za-text-fine)',
+            }}
+          >
+            <div
+              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
+            />
+            <span>or register with email</span>
+            <div
+              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>

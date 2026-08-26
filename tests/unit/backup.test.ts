@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { parseImportFile } from '@/lib/backup';
+import { parseImportFile, parseImportBuffer, decompressGzip } from '@/lib/backup';
+
+async function compressToGzip(str: string): Promise<ArrayBuffer> {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(str));
+      controller.close();
+    },
+  });
+  const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+  const response = new Response(compressedStream);
+  return await response.arrayBuffer();
+}
 
 describe('parseImportFile', () => {
   it('accepts a plain ZedArchive JSON array', () => {
@@ -67,5 +79,139 @@ describe('parseImportFile', () => {
     expect(() => parseImportFile('other.csv', 'Foo,Bar\n1,2\n')).toThrow(
       'No valid entries could be parsed from the file.',
     );
+  });
+
+  it('parses MyAnimeList XML export', () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <myinfo>
+          <user_id>12345</user_id>
+          <user_name>Zelmari</user_name>
+        </myinfo>
+        <anime>
+          <series_animedb_id>52991</series_animedb_id>
+          <series_title><![CDATA[Sousou no Frieren]]></series_title>
+          <series_type>TV</series_type>
+          <series_episodes>28</series_episodes>
+          <my_watched_episodes>28</my_watched_episodes>
+          <my_score>10</my_score>
+          <my_status>2</my_status>
+          <my_comments><![CDATA[Peak anime]]></my_comments>
+        </anime>
+        <anime>
+          <series_animedb_id>5114</series_animedb_id>
+          <series_title>Fullmetal Alchemist: Brotherhood</series_title>
+          <series_type>TV</series_type>
+          <series_episodes>64</series_episodes>
+          <my_watched_episodes>12</my_watched_episodes>
+          <my_score>9</my_score>
+          <my_status>watching</my_status>
+        </anime>
+      </myanimelist>`;
+
+    const items = parseImportFile('animelist.xml', malXml);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Sousou no Frieren',
+      category: 'anime',
+      status: 'completed',
+      secondaryUnitCurrent: 28,
+      secondaryUnitTotal: 28,
+      rating: 10,
+      notes: 'Peak anime',
+      sourceId: 'mal-52991',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Fullmetal Alchemist: Brotherhood',
+      category: 'anime',
+      status: 'in_progress',
+      secondaryUnitCurrent: 12,
+      secondaryUnitTotal: 64,
+      rating: 9,
+      sourceId: 'mal-5114',
+    });
+  });
+
+  it('decompresses and parses .xml.gz MyAnimeList exports', async () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <anime>
+          <series_animedb_id>1</series_animedb_id>
+          <series_title>Cowboy Bebop</series_title>
+          <series_type>TV</series_type>
+          <series_episodes>26</series_episodes>
+          <my_watched_episodes>26</my_watched_episodes>
+          <my_score>10</my_score>
+          <my_status>2</my_status>
+        </anime>
+      </myanimelist>`;
+
+    const gzippedBuffer = await compressToGzip(malXml);
+    const decompressed = await decompressGzip(gzippedBuffer);
+    expect(decompressed).toContain('Cowboy Bebop');
+
+    const items = await parseImportBuffer('animelist.xml.gz', gzippedBuffer);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Cowboy Bebop',
+      category: 'anime',
+      status: 'completed',
+      secondaryUnitCurrent: 26,
+      secondaryUnitTotal: 26,
+      rating: 10,
+      sourceId: 'mal-1',
+    });
+  });
+
+  it('parses Simkl JSON exports with shows, anime, and movies', () => {
+    const simklPayload = {
+      shows: [
+        {
+          show: {
+            title: 'Severance',
+            year: 2022,
+            ids: { simkl: 123456 },
+            total_episodes: 9,
+          },
+          status: 'completed',
+          user_rating: 10,
+          watched_episodes_count: 9,
+        },
+      ],
+      anime: [
+        {
+          anime: {
+            title: 'Steins;Gate',
+            year: 2011,
+            ids: { simkl: 654321 },
+            total_episodes: 24,
+          },
+          status: 'watching',
+          user_rating: 9,
+          watched_episodes_count: 14,
+        },
+      ],
+    };
+
+    const items = parseImportFile('simkl_backup.json', JSON.stringify(simklPayload));
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Severance',
+      category: 'show',
+      status: 'completed',
+      secondaryUnitCurrent: 9,
+      secondaryUnitTotal: 9,
+      rating: 10,
+      sourceId: 'simkl-123456',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Steins;Gate',
+      category: 'anime',
+      status: 'in_progress',
+      secondaryUnitCurrent: 14,
+      secondaryUnitTotal: 24,
+      rating: 9,
+      sourceId: 'simkl-654321',
+    });
   });
 });

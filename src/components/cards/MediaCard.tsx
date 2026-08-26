@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Trash2, Pencil, FileText } from 'lucide-react';
-import { getInitials } from '@/lib/format';
-import type { MediaEntry } from '@/types/media';
+import { getInitials, formatAirdate } from '@/lib/format';
+import type { MediaEntry, NextAirInfo } from '@/types/media';
 import { Badge, StatusBadge, RatingBadge, type MediaStatusBadge } from '@/components/ui/Badge';
 import ShowStepper from './ShowStepper';
 import BookStepper from './BookStepper';
@@ -25,6 +25,7 @@ export interface MediaCardHandlers {
 
 interface MediaCardProps extends MediaCardHandlers {
   item: CardItem;
+  nextAir?: NextAirInfo | null;
 }
 
 function isBookFamily(category: string): boolean {
@@ -55,6 +56,7 @@ const coverWrapperBase =
  */
 export default function MediaCard({
   item,
+  nextAir,
   onUpdate,
   onDelete,
   onEdit,
@@ -396,6 +398,12 @@ export default function MediaCard({
             </span>
           </div>
         ) : null}
+
+        {nextAir && (
+          <div className="text-[length:var(--za-text-fine)] font-mono text-ink-muted">
+            S{nextAir.season}E{nextAir.number} · airs {formatAirdate(nextAir.airdate)}
+          </div>
+        )}
       </div>
     </article>
   );

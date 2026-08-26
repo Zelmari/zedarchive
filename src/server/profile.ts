@@ -33,11 +33,24 @@ export async function getUserProfile() {
       username: userTable.username,
       isPublic: userTable.isPublic,
       bio: userTable.bio,
+      emailVerified: userTable.emailVerified,
+      verificationDismissedAt: userTable.verificationDismissedAt,
     })
     .from(userTable)
     .where(eq(userTable.id, user.id));
 
   return profile;
+}
+
+export async function dismissVerificationNotice(): Promise<{ ok: boolean }> {
+  const user = await getAuthUser();
+  await db
+    .update(userTable)
+    .set({ verificationDismissedAt: new Date(), updatedAt: new Date() })
+    .where(eq(userTable.id, user.id));
+
+  revalidatePath('/dashboard');
+  return { ok: true };
 }
 
 export async function updateUserProfile(updates: Record<string, unknown>) {
@@ -54,7 +67,10 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   }
 
   if (updates.bio !== undefined) {
-    updateData.bio = String(updates.bio || '').trim().slice(0, MAX_BIO_LENGTH) || null;
+    updateData.bio =
+      String(updates.bio || '')
+        .trim()
+        .slice(0, MAX_BIO_LENGTH) || null;
   }
 
   const [updated] = await db
@@ -114,8 +130,6 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
 
   return {
     user: foundUser,
-    entries: entries
-      .map(serializeEntry)
-      .filter((entry): entry is MediaEntry => entry !== null),
+    entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
   };
 }
