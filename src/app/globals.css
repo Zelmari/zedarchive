@@ -1,3 +1,74 @@
+/* ==========================================================================
+   Tailwind CSS v4 engine — theme + utilities only (no Preflight reset), so
+   the hand-written za-* system keeps control of element defaults.
+   ========================================================================== */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Design Token Bridge: bespoke --za-* tokens exposed as Tailwind utilities
+   (bg-canvas, text-ink, border-decorative, bg-accent, rounded-control, …).
+   `inline` keeps utilities referencing the palette-scoped custom properties,
+   so all five themes work with zero duplication. */
+@theme inline {
+  --color-canvas: var(--za-color-canvas);
+  --color-surface: var(--za-color-surface);
+  --color-surface-subtle: var(--za-color-surface-subtle);
+
+  --color-ink: var(--za-color-text);
+  --color-ink-muted: var(--za-color-text-muted);
+  --color-ink-disabled: var(--za-color-disabled-text);
+  --color-surface-disabled: var(--za-color-disabled-surface);
+
+  --color-required: var(--za-color-border-required);
+  --color-decorative: var(--za-color-border-decorative);
+
+  --color-accent: var(--za-color-accent);
+  --color-accent-hover: var(--za-color-accent-hover);
+  --color-accent-active: var(--za-color-accent-active);
+  --color-accent-soft: var(--za-color-accent-soft);
+  --color-on-accent: var(--za-color-on-accent);
+
+  --color-danger: var(--za-color-danger);
+  --color-danger-surface: var(--za-color-danger-surface);
+  --color-success: var(--za-color-success);
+  --color-success-surface: var(--za-color-success-surface);
+  --color-warning: var(--za-color-warning);
+  --color-warning-surface: var(--za-color-warning-surface);
+  --color-backdrop: var(--za-backdrop-modal);
+
+  --radius-control: var(--za-radius-control);
+  --radius-small: var(--za-radius-small);
+  --radius-layered: var(--za-radius-layered);
+
+  --shadow-layered: var(--za-shadow-layered);
+  --shadow-raised: var(--za-shadow-raised);
+
+  --animate-fade-in: fadeIn var(--za-motion-fast) ease-out;
+  --animate-slide-in-toast: slideInToast var(--za-motion-fast) ease-out;
+}
+
+/* Keyframes backing the token animations above. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 :root {
   /* ==========================================================================
      Canvas, Surfaces & Paper Fills (Warm Linen & Tactile Paper)
@@ -813,65 +884,9 @@ textarea {
    generated utilities referencing the theme-scoped custom properties, so all
    five palettes keep working with zero duplication.
    ========================================================================== */
-  @theme inline {
-    --color-canvas: var(--za-color-canvas);
-    --color-surface: var(--za-color-surface);
-    --color-surface-subtle: var(--za-color-surface-subtle);
-
-    --color-ink: var(--za-color-text);
-    --color-ink-muted: var(--za-color-text-muted);
-    --color-ink-disabled: var(--za-color-disabled-text);
-    --color-surface-disabled: var(--za-color-disabled-surface);
-
-    --color-required: var(--za-color-border-required);
-    --color-decorative: var(--za-color-border-decorative);
-
-    --color-accent: var(--za-color-accent);
-    --color-accent-hover: var(--za-color-accent-hover);
-    --color-accent-active: var(--za-color-accent-active);
-    --color-accent-soft: var(--za-color-accent-soft);
-    --color-on-accent: var(--za-color-on-accent);
-
-    --color-danger: var(--za-color-danger);
-    --color-danger-surface: var(--za-color-danger-surface);
-    --color-success: var(--za-color-success);
-    --color-success-surface: var(--za-color-success-surface);
-    --color-warning: var(--za-color-warning);
-    --color-warning-surface: var(--za-color-warning-surface);
-    --color-backdrop: var(--za-backdrop-modal);
-
-    --radius-control: var(--za-radius-control);
-    --radius-small: var(--za-radius-small);
-    --radius-layered: var(--za-radius-layered);
-
-    --shadow-layered: var(--za-shadow-layered);
-    --shadow-raised: var(--za-shadow-raised);
-
-    --animate-fade-in: fadeIn var(--za-motion-fast) ease-out;
-    --animate-slide-in-toast: slideInToast var(--za-motion-fast) ease-out;
-  }
 
   /* Keyframes backing the token-driven animations above (shared with the
    legacy module until it is deleted). */
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes slideInToast {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
 
   :root {
     --za-color-text-muted: var(--za-color-text);
