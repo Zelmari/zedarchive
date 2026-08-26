@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Share2, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react';
 import ModalShell from './ModalShell';
 import { getUserProfile, updateUserProfile } from '@/server/profile';
@@ -12,12 +12,16 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  // The profile loads async; once the user edits anything, a late fetch
+  // resolution must NOT clobber their in-progress edits.
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
+      dirtyRef.current = false;
       getUserProfile()
         .then((data) => {
-          if (data) {
+          if (data && !dirtyRef.current) {
             setProfile({
               username: data.username || normalizeHandle(data.name) || '',
               isPublic: Boolean(data.isPublic),
@@ -28,6 +32,10 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
         .catch((err) => console.error('Failed to load profile:', err));
     }
   }, [isOpen]);
+
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
 
   if (!isOpen) return null;
 
@@ -101,7 +109,10 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
               <input
                 type="checkbox"
                 checked={profile.isPublic}
-                onChange={(e) => setProfile((p) => ({ ...p, isPublic: e.target.checked }))}
+                onChange={(e) => {
+                  markDirty();
+                  setProfile((p) => ({ ...p, isPublic: e.target.checked }));
+                }}
                 style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
               />
             </label>
@@ -120,7 +131,10 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
                 className={styles.formInput}
                 placeholder="username"
                 value={profile.username}
-                onChange={(e) => setProfile((p) => ({ ...p, username: e.target.value }))}
+                onChange={(e) => {
+                  markDirty();
+                  setProfile((p) => ({ ...p, username: e.target.value }));
+                }}
                 style={{ flex: 1 }}
               />
             </div>
@@ -137,7 +151,10 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }) {
               rows={2}
               placeholder="Avid reader, anime enthusiast..."
               value={profile.bio}
-              onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
+              onChange={(e) => {
+                markDirty();
+                setProfile((p) => ({ ...p, bio: e.target.value }));
+              }}
               style={{ resize: 'vertical' }}
             />
           </div>
