@@ -307,6 +307,10 @@
     box-sizing: border-box;
     padding: 0;
     margin: 0;
+    /* Preflight stand-in: zero-width borders by default so per-side width
+       utilities (border-t, border-b-2, …) reveal exactly one side. Without
+       this, style/color utilities expose the UA's 3px medium border. */
+    border: 0 solid var(--za-color-border-decorative);
   }
 
   html {
