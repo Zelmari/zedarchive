@@ -3,3 +3,11 @@ DATABASE_URL="postgres://postgres:[PASSWORD]@[HOST]:5432/postgres"
 BETTER_AUTH_SECRET="generate-a-32-character-random-secret-key"
 BETTER_AUTH_URL="https://zedarchive.your-subdomain.workers.dev"
 NEXT_PUBLIC_APP_URL="https://zedarchive.your-subdomain.workers.dev"
+
+# Optional Integrations
+RESEND_API_KEY=""
+EMAIL_FROM="ZedArchive <noreply@zedarchive.com>"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
