@@ -105,49 +105,26 @@ export default function DataBackupModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportStatus({ state: 'loading', message: `Parsing ${file.name}...` });
+    setImportStatus({ state: 'loading', message: `Importing ${file.name}...` });
     setSelectedFileName(file.name);
 
     try {
       const buffer = await file.arrayBuffer();
       const parsedItems = await parseImportBuffer(file.name, buffer);
 
-      setPendingDrafts(parsedItems);
-      setImportStatus({
-        state: 'idle',
-        message: `Parsed ${parsedItems.length} items from ${file.name}. Review options below and confirm.`,
-      });
-    } catch (err) {
-      setPendingDrafts(null);
-      setImportStatus({
-        state: 'error',
-        message: err instanceof Error ? err.message : 'Failed to process import file',
-      });
-    }
-  };
-
-  const handleConfirmImport = async () => {
-    if (!pendingDrafts || pendingDrafts.length === 0) return;
-
-    setImportStatus({
-      state: 'loading',
-      message: `Importing ${pendingDrafts.length} items to your archive...`,
-    });
-
-    try {
-      const res = await bulkImportMediaEntries(pendingDrafts, conflictStrategy);
+      const res = await bulkImportMediaEntries(parsedItems, conflictStrategy);
 
       setImportStatus({
         state: 'success',
         message: `Successfully imported ${res.added} new item(s) and updated ${res.updated} item(s)! (${res.skipped} skipped)`,
       });
       setPendingDrafts(null);
-
       onImportSuccess?.();
     } catch (err) {
+      setPendingDrafts(null);
       setImportStatus({
         state: 'error',
-        message: err instanceof Error ? err.message : 'Failed to save imported entries',
+        message: err instanceof Error ? err.message : 'Failed to process import file',
       });
     }
   };
@@ -270,36 +247,13 @@ export default function DataBackupModal({
               />
               <button
                 type="button"
-                className="za-button za-button--secondary"
+                className="za-button za-button--primary"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importStatus.state === 'loading'}
               >
-                {importStatus.state === 'loading' && !pendingDrafts ? 'Parsing...' : 'Choose File'}
+                {importStatus.state === 'loading' ? 'Importing...' : 'Choose File'}
               </button>
             </div>
-
-            {/* Preview and confirmation */}
-            {pendingDrafts && pendingDrafts.length > 0 && (
-              <div className="mt-[var(--za-space-3)] rounded-control border border-decorative bg-surface p-[var(--za-space-3)]">
-                <div className="mb-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)]">
-                  Import Preview ({selectedFileName}):
-                </div>
-                <div className="mb-3 text-[length:var(--za-text-fine)] text-ink-muted">
-                  Ready to import <strong>{pendingDrafts.length}</strong>{' '}
-                  {pendingDrafts.length === 1 ? 'entry' : 'entries'} into your archive.
-                </div>
-                <button
-                  type="button"
-                  className="za-button za-button--primary w-full justify-center"
-                  onClick={handleConfirmImport}
-                  disabled={importStatus.state === 'loading'}
-                >
-                  {importStatus.state === 'loading'
-                    ? 'Importing...'
-                    : `Confirm & Import ${pendingDrafts.length} Titles`}
-                </button>
-              </div>
-            )}
 
             {/* Status feedback */}
             {importStatus.state !== 'idle' && (

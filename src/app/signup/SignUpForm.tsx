@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp, authClient } from '@/lib/auth-client';
+import { signUp, signIn, authClient } from '@/lib/auth-client';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -30,10 +30,14 @@ export default function SignUpForm() {
       if (res?.error) {
         setError(res.error.message || res.error.statusText || 'Failed to create account.');
       } else {
-        // If Better Auth returned a user without a session (verification required), show verification screen
-        const data = res?.data as
-          { session?: unknown; user?: { emailVerified?: boolean } } | undefined;
-        if (data && !data.session && data.user?.emailVerified === false) {
+        // Sign in immediately to land on dashboard where verification chip will be shown
+        const signInRes = await signIn.email({
+          email,
+          password,
+          callbackURL: '/dashboard',
+        });
+
+        if (signInRes?.error) {
           setNeedsVerification(true);
         } else {
           router.push('/dashboard');
