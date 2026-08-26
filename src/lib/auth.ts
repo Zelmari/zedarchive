@@ -4,11 +4,20 @@ import { db } from './db';
 import * as schema from '@/db/schema';
 
 const isDev = process.env.NODE_ENV === 'development';
+// `next build` evaluates this module in production mode without runtime
+// secrets present (CI included), so only hard-fail when actually serving.
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
 
 // In dev, fall back to localhost unless explicitly configured. Production must
 // always resolve to the canonical browsing origin (Cloudflare dashboard vars).
 const fallbackURL = isDev ? 'http://localhost:3000' : 'https://zedarchive.com';
 const baseURL = process.env.BETTER_AUTH_URL || fallbackURL;
+
+if (!process.env.BETTER_AUTH_SECRET && !isDev && !isBuildPhase) {
+  throw new Error(
+    'BETTER_AUTH_SECRET is required in production. Configure it via Cloudflare dashboard vars before deploying.'
+  );
+}
 
 const authSecret =
   process.env.BETTER_AUTH_SECRET ||
@@ -36,9 +45,8 @@ export const auth = betterAuth({
     'http://127.0.0.1:3002',
     'http://127.0.0.1:3003',
     'http://127.0.0.1:8787',
-    // Cloudflare deployment & preview hosts (workers.dev / pages.dev)
-    'https://*.workers.dev',
-    'https://*.pages.dev',
+    // Preview/deployment hosts must be allow-listed explicitly per environment
+    // via BETTER_AUTH_TRUSTED_ORIGINS — never re-enable public wildcards.
     ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS
       ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(',')
           .map((origin) => origin.trim())

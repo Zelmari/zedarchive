@@ -48,10 +48,9 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
       secondaryUnitTotal: nextSeasonTotal,
     };
 
-    onUpdate(item.id, updates);
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, updates);
     } finally {
       setIsUpdating(false);
     }
@@ -63,10 +62,9 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
       const nextProgress = secondaryUnitCurrent - 1;
       const updates = { secondaryUnitCurrent: nextProgress };
 
-      onUpdate(item.id, updates);
       try {
         setIsUpdating(true);
-        await onUpdate(item.id, updates, true);
+        await onUpdate(item.id, updates);
       } finally {
         setIsUpdating(false);
       }
@@ -86,10 +84,9 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
     const nextProgress = secondaryUnitCurrent + 1;
     const updates = { secondaryUnitCurrent: nextProgress };
 
-    onUpdate(item.id, updates);
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, updates);
     } finally {
       setIsUpdating(false);
     }
@@ -112,10 +109,9 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
       secondaryUnitTotal: nextSeasonTotal,
     };
 
-    onUpdate(item.id, updates);
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, updates);
     } finally {
       setIsUpdating(false);
     }
@@ -123,10 +119,9 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
 
   const handleMarkCompleted = async () => {
     const updates = { status: 'completed', completedAt: new Date().toISOString() };
-    onUpdate(item.id, updates);
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, updates);
     } finally {
       setIsUpdating(false);
     }
@@ -170,6 +165,15 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
         <div
           className={styles.coverWrapper}
           onClick={() => onOpenDetail && onOpenDetail(item)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && onOpenDetail) {
+              e.preventDefault();
+              onOpenDetail(item);
+            }
+          }}
+          role={onOpenDetail ? 'button' : undefined}
+          tabIndex={onOpenDetail ? 0 : undefined}
+          aria-label={onOpenDetail ? `Open details for ${item.title}` : undefined}
           style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
           title={onOpenDetail ? `Open details for ${item.title}` : undefined}
         >
@@ -195,6 +199,15 @@ export default function ShowCard({ item, onUpdate, onDelete, onEdit, onOpenDetai
                 className={styles.cardTitle}
                 title={item.title}
                 onClick={() => onOpenDetail && onOpenDetail(item)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && onOpenDetail) {
+                    e.preventDefault();
+                    onOpenDetail(item);
+                  }
+                }}
+                role={onOpenDetail ? 'button' : undefined}
+                tabIndex={onOpenDetail ? 0 : undefined}
+                aria-label={onOpenDetail ? `Open details for ${item.title}` : undefined}
                 style={{ cursor: onOpenDetail ? 'pointer' : 'default' }}
               >
                 {item.title}

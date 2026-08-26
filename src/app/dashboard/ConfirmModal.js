@@ -20,7 +20,7 @@ export default function ConfirmModal({
 
   if (!isOpen) return null;
 
-  const isDanger = variant === 'danger';
+  const isDanger = variant === 'destructive' || variant === 'danger';
 
   return (
     <div className={styles.modalBackdrop} onClick={onCancel}>
