@@ -16,6 +16,13 @@ test.describe('dashboard keyboard shortcuts', () => {
     await registerAndAuthenticate(page, user);
     await page.goto('/dashboard');
     await expect(page.locator('h1')).toHaveText('Your Media Archive');
+
+    // Prove React event handlers are attached before relying on hotkeys:
+    // a successful programmatic tab switch + return means hydration finished.
+    await page.getByRole('button', { name: /Shows \(/ }).click();
+    await expect(page.locator('h1')).toHaveText('Shows & Anime');
+    await page.getByRole('button', { name: /Total \(/ }).click();
+    await expect(page.locator('h1')).toHaveText('Your Media Archive');
   });
 
   test('N opens the spotlight add modal and Escape closes it', async ({ page }) => {
