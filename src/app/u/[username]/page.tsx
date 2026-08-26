@@ -1,0 +1,343 @@
+import Link from 'next/link';
+import Image from 'next/image';
+import { headers } from 'next/headers';
+import { getPublicUserProfile } from '@/server/profile';
+import { getProfileComments } from '@/server/comments';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { user as userTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { Star, ShieldAlert } from 'lucide-react';
+import { getTileInitials } from '@/lib/format';
+import ProfileComments from './ProfileComments';
+
+type PageParams = { params: Promise<{ username: string }> };
+
+export async function generateMetadata({ params }: PageParams) {
+  const { username } = await params;
+  const data = await getPublicUserProfile(username);
+  if (!data?.user) {
+    return { title: 'User Not Found — zedarchive' };
+  }
+  return {
+    title: `@${data.user.username}’s Media Archive — zedarchive`,
+    description:
+      data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
+  };
+}
+
+export default async function PublicProfilePage({ params }: PageParams) {
+  const { username } = await params;
+  const data = await getPublicUserProfile(username);
+
+  if (!data?.user) {
+    return (
+      <div
+        className="flex min-h-screen flex-col bg-canvas text-ink"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          className={`za-card col-span-full flex flex-col items-center justify-center rounded-control border border-dashed border-required px-[var(--za-space-6)] py-[var(--za-space-12)] text-center [box-shadow:none]`}
+          style={{ maxWidth: '28rem', textAlign: 'center' }}
+        >
+          <ShieldAlert
+            size={36}
+            style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }}
+          />
+          <h1 className="mb-[var(--za-space-1)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink">
+            Archive Unavailable
+          </h1>
+          <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            This archive is either private or does not exist.
+          </p>
+          <Link
+            href="/"
+            className="za-button za-button--primary"
+            style={{ marginTop: 'var(--za-space-3)' }}
+          >
+            Go to ZedArchive Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { user, entries = [] } = data;
+
+  // Viewer context: who (if anyone) is looking, and may they comment?
+  let viewer: {
+    isLoggedIn: boolean;
+    id: string | null;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    isPublic: boolean;
+  } = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session?.user?.id) {
+    const [meRow] = await db
+      .select({
+        id: userTable.id,
+        username: userTable.username,
+        name: userTable.name,
+        image: userTable.image,
+        isPublic: userTable.isPublic,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, session.user.id));
+    if (meRow) {
+      viewer = { isLoggedIn: true, ...meRow };
+    }
+  }
+
+  // Guestbook comments (auto-purges expired rows for this profile)
+  const initialComments = await getProfileComments(user.id);
+
+  const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
+  const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
+  const completedCount = entries.filter((e) => e.status === 'completed').length;
+  const topRated = entries.filter((e) => e.rating && e.rating >= 9);
+
+  return (
+    <div className="flex min-h-screen flex-col bg-canvas text-ink" style={{ minHeight: '100vh' }}>
+      {/* Public Header */}
+      <header className="za-site-header">
+        <div className="za-container za-container--wide za-site-header__inner">
+          <Link href="/" className="za-wordmark za-link za-site-header__brand">
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="za-wordmark__mark"
+              height={48}
+              src="/zedarchivelogo.png"
+              width={72}
+              unoptimized
+            />
+            <span className="za-wordmark__text">zedarchive</span>
+          </Link>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--za-space-3)' }}>
+            <Link href="/signup" className="za-button za-button--primary">
+              Create Your Archive
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main id="main-content" className="flex-1 pt-[var(--za-space-6)] pb-[var(--za-space-12)]">
+        <div className="za-container">
+          {/* Profile Header Masthead */}
+          <div
+            className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised"
+            style={{
+              borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)',
+              paddingBottom: 'var(--za-space-6)',
+            }}
+          >
+            <div className="flex flex-col gap-[var(--za-space-1)]">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBottom: '0.25rem',
+                }}
+              >
+                <h1 className="text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
+                  @{user.username}
+                </h1>
+                <span
+                  className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
+                  style={{
+                    background: 'rgba(46, 125, 50, 0.1)',
+                    color: '#2e7d32',
+                    borderColor: 'rgba(46, 125, 50, 0.3)',
+                  }}
+                >
+                  Public Archive
+                </span>
+              </div>
+              {user.bio && (
+                <p
+                  className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
+                  style={{ marginTop: 'var(--za-space-2)' }}
+                >
+                  {user.bio}
+                </p>
+              )}
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div
+              className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-[var(--za-space-3)]"
+              style={{ marginTop: 'var(--za-space-4)' }}
+            >
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {entries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Total Cataloged</div>
+              </div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div
+                  className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
+                  style={{ color: '#2e7d32' }}
+                >
+                  {completedCount}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Completed</div>
+              </div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {showEntries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Shows & Anime</div>
+              </div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+                  {bookEntries.length}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Books & Manga</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Media Grid */}
+          <div style={{ marginTop: 'var(--za-space-6)' }}>
+            <div
+              style={{
+                fontSize: 'var(--za-text-heading-sm)',
+                fontWeight: 'var(--za-weight-heading)',
+                marginBottom: 'var(--za-space-4)',
+              }}
+            >
+              Cataloged Titles ({entries.length})
+            </div>
+
+            <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
+              {entries.map((item) => {
+                const isBook = item.category === 'book' || item.category === 'manga';
+                const progressPct = item.secondaryUnitTotal
+                  ? Math.min(
+                      100,
+                      Math.round(
+                        ((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100,
+                      ),
+                    )
+                  : 0;
+
+                return (
+                  <article
+                    key={item.id}
+                    className={`za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] rounded-control p-[var(--za-space-4)]`}
+                  >
+                    <div className="flex items-start gap-[var(--za-space-4)]">
+                      <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
+                        {item.coverImage ? (
+                          <img
+                            src={item.coverImage}
+                            alt={item.title}
+                            className="block h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
+                            <span>{getTileInitials(item.title)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
+                        <h3
+                          className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+                          title={item.title}
+                        >
+                          {item.title}
+                        </h3>
+
+                        <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
+                          <span
+                            className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
+                            style={{ textTransform: 'capitalize' }}
+                          >
+                            {(item.status || 'in_progress').replace('_', ' ')}
+                          </span>
+                          {item.rating != null && (
+                            <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
+                              <Star size={11} fill="currentColor" /> {item.rating}/10
+                            </span>
+                          )}
+                          <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                            {isBook
+                              ? `Vol ${item.primaryUnitCurrent || 1}`
+                              : `S${item.primaryUnitCurrent || 1}`}
+                          </span>
+                        </div>
+
+                        {item.notes && (
+                          <p
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--za-color-text-muted)',
+                              marginTop: 'var(--za-space-2)',
+                              lineHeight: 1.4,
+                              maxHeight: '3.5rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            &ldquo;{item.notes}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 'var(--za-text-fine)',
+                          color: 'var(--za-color-text-muted)',
+                          marginBottom: '0.3rem',
+                        }}
+                      >
+                        <span>Progress</span>
+                        <span>
+                          {isBook ? 'Ch ' : 'Ep '}
+                          {item.secondaryUnitCurrent || 0}
+                          {item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
+                        </span>
+                      </div>
+                      {item.secondaryUnitTotal ? (
+                        <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
+                          <div
+                            className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Guestbook */}
+          <ProfileComments
+            profileUser={{ id: user.id, username: user.username }}
+            initialComments={initialComments}
+            viewer={viewer}
+          />
+        </div>
+      </main>
+    </div>
+  );
+}

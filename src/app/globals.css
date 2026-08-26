@@ -2,71 +2,70 @@
   /* ==========================================================================
      Canvas, Surfaces & Paper Fills (Warm Linen & Tactile Paper)
      ========================================================================== */
-  --za-color-canvas: #f7f5f0;              /* Warm Linen / Editorial Canvas */
-  --za-color-surface: #ffffff;             /* Crisp White Paper Surface */
-  --za-color-surface-subtle: #f0ede6;      /* Subtle Neutral Surface / Restricted Tile */
+  --za-color-canvas: #f7f5f0; /* Warm Linen / Editorial Canvas */
+  --za-color-surface: #ffffff; /* Crisp White Paper Surface */
+  --za-color-surface-subtle: #f0ede6; /* Subtle Neutral Surface / Restricted Tile */
 
   /* ==========================================================================
      Text & Typography Ink
      ========================================================================== */
-  --za-color-text: #242321;                /* Primary Ink (High Contrast Obsidian) */
-  --za-color-text-muted: #5b5c61;          /* Secondary Muted Ink */
-  --za-color-disabled-text: #64656a;       /* Inactive / Disabled Text */
-  --za-color-disabled-surface: #ece9e2;    /* Inactive / Disabled Surface */
+  --za-color-text: #242321; /* Primary Ink (High Contrast Obsidian) */
+  --za-color-text-muted: #5b5c61; /* Secondary Muted Ink */
+  --za-color-disabled-text: #64656a; /* Inactive / Disabled Text */
+  --za-color-disabled-surface: #ece9e2; /* Inactive / Disabled Surface */
 
   /* ==========================================================================
      Borders & Structural Dividers
      ========================================================================== */
-  --za-color-border-required: #85837c;     /* Controls, Inputs, Active Borders */
-  --za-color-border-decorative: #d6d1c7;   /* Dividers, Subordinate Separators */
+  --za-color-border-required: #85837c; /* Controls, Inputs, Active Borders */
+  --za-color-border-decorative: #d6d1c7; /* Dividers, Subordinate Separators */
 
   /* ==========================================================================
      Interactive Accent (Ink Hierarchy)
      ========================================================================== */
-  --za-color-accent: #242321;              /* Primary Accent Fill */
-  --za-color-accent-hover: #3a3936;        /* Subtle Lightening on Hover */
-  --za-color-accent-active: #171716;       /* Deepened Ink on Active Press */
-  --za-color-accent-soft: #eeece7;         /* Selected / Highlighted Pill Soft Fill */
-  --za-color-on-accent: #ffffff;           /* Pure White Text on Accent Fill */
+  --za-color-accent: #242321; /* Primary Accent Fill */
+  --za-color-accent-hover: #3a3936; /* Subtle Lightening on Hover */
+  --za-color-accent-active: #171716; /* Deepened Ink on Active Press */
+  --za-color-accent-soft: #eeece7; /* Selected / Highlighted Pill Soft Fill */
+  --za-color-on-accent: #ffffff; /* Pure White Text on Accent Fill */
 
   /* ==========================================================================
      Semantic & Destructive States
      ========================================================================== */
-  --za-color-destructive: #b4232e;         /* Crimson Error / Destructive Action */
-  --za-color-destructive-hover: #8f1d26;   /* Darkened Destructive Hover */
-  --za-color-destructive-active: #76151c;  /* Deep Destructive Press */
-  --za-color-on-destructive: #ffffff;      /* Text on Destructive Fills */
-  --za-color-error-surface: #fbecee;       /* Soft Pink Error Notice Background */
+  --za-color-destructive: #b4232e; /* Crimson Error / Destructive Action */
+  --za-color-destructive-hover: #8f1d26; /* Darkened Destructive Hover */
+  --za-color-destructive-active: #76151c; /* Deep Destructive Press */
+  --za-color-on-destructive: #ffffff; /* Text on Destructive Fills */
+  --za-color-error-surface: #fbecee; /* Soft Pink Error Notice Background */
 
-  --za-color-success: #26734d;             /* Botanical Forest Green */
-  --za-color-success-surface: #e9f4ee;     /* Soft Mint Success Background */
+  --za-color-success: #26734d; /* Botanical Forest Green */
+  --za-color-success-surface: #e9f4ee; /* Soft Mint Success Background */
 
-  --za-color-warning: #765a00;             /* Warm Amber / Ochre */
-  --za-color-warning-surface: #f8f0d8;     /* Soft Ochre Warning Background */
+  --za-color-warning: #765a00; /* Warm Amber / Ochre */
+  --za-color-warning-surface: #f8f0d8; /* Soft Ochre Warning Background */
 
-  --za-color-information: #4b4a46;         /* Slate Charcoal Information */
+  --za-color-information: #4b4a46; /* Slate Charcoal Information */
   --za-color-information-surface: #f0ede6; /* Soft Slate Information Background */
 
   /* ==========================================================================
      Title Tile Placeholder
      ========================================================================== */
-  --za-color-title-tile: #ded9cf;          /* 2:3 Initials Tile Background */
-  --za-color-title-tile-text: #30353b;     /* Initials Text Color */
+  --za-color-title-tile: #ded9cf; /* 2:3 Initials Tile Background */
+  --za-color-title-tile-text: #30353b; /* Initials Text Color */
 
   /* ==========================================================================
      Typography & Text Scale
      ========================================================================== */
   --za-font-sans:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --za-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --za-text-fine: 0.75rem;                 /* 12px - Small captions & fine notes */
-  --za-text-supporting: 0.875rem;          /* 14px - Helper text, metadata, labels */
-  --za-text-base: 1rem;                    /* 16px - Standard body & inputs */
-  --za-text-heading-sm: 1.125rem;          /* 18px - Card subheadings, brand */
-  --za-text-heading-md: 1.25rem;           /* 20px - Card titles, section headers */
-  --za-text-heading-lg: 1.5rem;            /* 24px - Page headings, modal titles */
-  --za-text-heading-xl: 2rem;              /* 32px - Hero masthead titles */
+  --za-text-fine: 0.75rem; /* 12px - Small captions & fine notes */
+  --za-text-supporting: 0.875rem; /* 14px - Helper text, metadata, labels */
+  --za-text-base: 1rem; /* 16px - Standard body & inputs */
+  --za-text-heading-sm: 1.125rem; /* 18px - Card subheadings, brand */
+  --za-text-heading-md: 1.25rem; /* 20px - Card titles, section headers */
+  --za-text-heading-lg: 1.5rem; /* 24px - Page headings, modal titles */
+  --za-text-heading-xl: 2rem; /* 32px - Hero masthead titles */
 
   --za-leading-body: 1.6;
   --za-leading-compact: 1.35;
@@ -78,31 +77,31 @@
   /* ==========================================================================
      Spacing & Layout Rhythm
      ========================================================================== */
-  --za-space-unit: 0.25rem;                /* 4px base step */
-  --za-space-1: 0.25rem;                   /* 4px */
-  --za-space-2: 0.5rem;                    /* 8px */
-  --za-space-3: 0.75rem;                   /* 12px */
-  --za-space-4: 1rem;                      /* 16px */
-  --za-space-6: 1.5rem;                    /* 24px */
-  --za-space-8: 2rem;                      /* 32px */
-  --za-space-12: 3rem;                     /* 48px */
-  --za-page-gutter: 1rem;                  /* 16px mobile gutter, 24px desktop */
+  --za-space-unit: 0.25rem; /* 4px base step */
+  --za-space-1: 0.25rem; /* 4px */
+  --za-space-2: 0.5rem; /* 8px */
+  --za-space-3: 0.75rem; /* 12px */
+  --za-space-4: 1rem; /* 16px */
+  --za-space-6: 1.5rem; /* 24px */
+  --za-space-8: 2rem; /* 32px */
+  --za-space-12: 3rem; /* 48px */
+  --za-page-gutter: 1rem; /* 16px mobile gutter, 24px desktop */
 
   /* ==========================================================================
      Container Widths
      ========================================================================== */
-  --za-content-narrow: 28rem;              /* 448px - Auth, Login, Reset Password */
-  --za-content-medium: 48rem;              /* 768px - Settings, Account Deletion */
-  --za-content-wide: 64rem;                /* 1024px - Catalogue & Archive Grids */
+  --za-content-narrow: 28rem; /* 448px - Auth, Login, Reset Password */
+  --za-content-medium: 48rem; /* 768px - Settings, Account Deletion */
+  --za-content-wide: 64rem; /* 1024px - Catalogue & Archive Grids */
 
   /* ==========================================================================
      Radii, Borders & Shadows
      ========================================================================== */
-  --za-radius-small: 0.25rem;              /* 4px - Title tiles, active route pills */
-  --za-radius-control: 0.5rem;             /* 8px - Controls, buttons, fields, notices, cards */
-  --za-radius-layered: 0.75rem;            /* 12px - Modals, dialogs, elevated containers */
+  --za-radius-small: 0.25rem; /* 4px - Title tiles, active route pills */
+  --za-radius-control: 0.5rem; /* 8px - Controls, buttons, fields, notices, cards */
+  --za-radius-layered: 0.75rem; /* 12px - Modals, dialogs, elevated containers */
   --za-border-width: 1px;
-  --za-control-min-block-size: 2.5rem;     /* 40px - Strict touch/click target min-height */
+  --za-control-min-block-size: 2.5rem; /* 40px - Strict touch/click target min-height */
 
   --za-focus-width: 3px;
   --za-focus-offset: 3px;
@@ -131,7 +130,7 @@
    ========================================================================== */
 
 /* 1. Midnight Slate (Dark Mode) */
-[data-theme="midnight"] {
+[data-theme='midnight'] {
   color-scheme: dark;
   --za-color-canvas: #121316;
   --za-color-surface: #1a1c22;
@@ -159,7 +158,7 @@
 }
 
 /* 2. Vintage Sepia */
-[data-theme="sepia"] {
+[data-theme='sepia'] {
   color-scheme: light;
   --za-color-canvas: #f4ebd9;
   --za-color-surface: #fcf8ed;
@@ -183,7 +182,7 @@
 }
 
 /* 3. E-Ink Monochrome */
-[data-theme="e-ink"] {
+[data-theme='e-ink'] {
   color-scheme: light;
   --za-color-canvas: #fcfcfc;
   --za-color-surface: #ffffff;
@@ -204,7 +203,7 @@
 }
 
 /* 4. Phosphor Cyber */
-[data-theme="cyber"] {
+[data-theme='cyber'] {
   color-scheme: dark;
   --za-color-canvas: #090e09;
   --za-color-surface: #0e170f;
@@ -227,7 +226,9 @@
 }
 
 /* Base Reset & Document Typography */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -255,7 +256,10 @@ a {
   text-decoration: none;
 }
 
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
@@ -297,10 +301,7 @@ button, input, select, textarea {
 
 /* 1. Spatial Containers */
 .za-container {
-  inline-size: min(
-    calc(100% - (var(--za-page-gutter) * 2)),
-    var(--za-content-wide)
-  );
+  inline-size: min(calc(100% - (var(--za-page-gutter) * 2)), var(--za-content-wide));
   margin-inline: auto;
 }
 
@@ -602,7 +603,6 @@ button, input, select, textarea {
   padding: var(--za-space-3) var(--za-space-4);
 }
 
-
 .za-notice--error {
   background: var(--za-color-error-surface);
   color: var(--za-color-destructive);
@@ -656,8 +656,8 @@ button, input, select, textarea {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
-  filter: invert(1);          /* white ink -> black ink */
-  mix-blend-mode: multiply;   /* let the linen show through */
+  filter: invert(1); /* white ink -> black ink */
+  mix-blend-mode: multiply; /* let the linen show through */
   opacity: 0.07;
 }
 
@@ -805,7 +805,7 @@ button, input, select, textarea {
 }
 
 @media (prefers-contrast: more) {
-/* ==========================================================================
+  /* ==========================================================================
    Tailwind CSS v4 — Design Token Bridge
    Maps the bespoke `--za-*` editorial tokens into Tailwind utilities
    (bg-canvas, text-ink, border-decorative, bg-accent, …) so components can
@@ -813,33 +813,67 @@ button, input, select, textarea {
    generated utilities referencing the theme-scoped custom properties, so all
    five palettes keep working with zero duplication.
    ========================================================================== */
-@theme inline {
-  --color-canvas: var(--za-color-canvas);
-  --color-surface: var(--za-color-surface);
-  --color-surface-subtle: var(--za-color-surface-subtle);
+  @theme inline {
+    --color-canvas: var(--za-color-canvas);
+    --color-surface: var(--za-color-surface);
+    --color-surface-subtle: var(--za-color-surface-subtle);
 
-  --color-ink: var(--za-color-text);
-  --color-ink-muted: var(--za-color-text-muted);
-  --color-ink-disabled: var(--za-color-disabled-text);
-  --color-surface-disabled: var(--za-color-disabled-surface);
+    --color-ink: var(--za-color-text);
+    --color-ink-muted: var(--za-color-text-muted);
+    --color-ink-disabled: var(--za-color-disabled-text);
+    --color-surface-disabled: var(--za-color-disabled-surface);
 
-  --color-required: var(--za-color-border-required);
-  --color-decorative: var(--za-color-border-decorative);
+    --color-required: var(--za-color-border-required);
+    --color-decorative: var(--za-color-border-decorative);
 
-  --color-accent: var(--za-color-accent);
-  --color-accent-hover: var(--za-color-accent-hover);
-  --color-accent-active: var(--za-color-accent-active);
-  --color-accent-soft: var(--za-color-accent-soft);
-  --color-on-accent: var(--za-color-on-accent);
+    --color-accent: var(--za-color-accent);
+    --color-accent-hover: var(--za-color-accent-hover);
+    --color-accent-active: var(--za-color-accent-active);
+    --color-accent-soft: var(--za-color-accent-soft);
+    --color-on-accent: var(--za-color-on-accent);
 
-  --color-danger: var(--za-color-danger);
-  --color-danger-surface: var(--za-color-danger-surface);
+    --color-danger: var(--za-color-danger);
+    --color-danger-surface: var(--za-color-danger-surface);
+    --color-success: var(--za-color-success);
+    --color-success-surface: var(--za-color-success-surface);
+    --color-warning: var(--za-color-warning);
+    --color-warning-surface: var(--za-color-warning-surface);
+    --color-backdrop: var(--za-backdrop-modal);
 
-  --radius-control: var(--za-radius-control);
-  --radius-small: var(--za-radius-small);
-}
+    --radius-control: var(--za-radius-control);
+    --radius-small: var(--za-radius-small);
+    --radius-layered: var(--za-radius-layered);
 
-:root {
+    --shadow-layered: var(--za-shadow-layered);
+    --shadow-raised: var(--za-shadow-raised);
+
+    --animate-fade-in: fadeIn var(--za-motion-fast) ease-out;
+    --animate-slide-in-toast: slideInToast var(--za-motion-fast) ease-out;
+  }
+
+  /* Keyframes backing the token-driven animations above (shared with the
+   legacy module until it is deleted). */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInToast {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  :root {
     --za-color-text-muted: var(--za-color-text);
     --za-color-border-decorative: var(--za-color-border-required);
   }
