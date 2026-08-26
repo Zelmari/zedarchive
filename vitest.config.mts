@@ -9,5 +9,9 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    env: {
+      BETTER_AUTH_SECRET: 'test_secret_0123456789abcdef0123456789abcdef',
+      BETTER_AUTH_URL: 'http://localhost:3000',
+    },
   },
 });

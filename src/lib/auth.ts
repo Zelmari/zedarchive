@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './db';
 import * as schema from '@/db/schema';
+import { sendEmail, buildPasswordResetEmail } from './email';
 
 const isDev = process.env.NODE_ENV === 'development';
 // `next build` evaluates this module in production mode without runtime
@@ -71,6 +72,13 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        ...buildPasswordResetEmail({ name: user.name, url }),
+      });
+    },
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
   },
   session: {
     // Cache the resolved session in a short-lived cookie so per-request reads
