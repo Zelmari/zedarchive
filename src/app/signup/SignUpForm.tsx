@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp } from '@/lib/auth-client';
+import { signUp, authClient } from '@/lib/auth-client';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -126,6 +126,37 @@ export default function SignUpForm() {
               {error}
             </p>
           )}
+
+          <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
+            <button
+              type="button"
+              onClick={() =>
+                authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
+              }
+              className="za-button za-button--secondary"
+              style={{ inlineSize: '100%', justifyContent: 'center' }}
+            >
+              Continue with Google
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--za-space-3)',
+              color: 'var(--za-color-text-muted)',
+              fontSize: 'var(--za-text-fine)',
+            }}
+          >
+            <div
+              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
+            />
+            <span>or register with email</span>
+            <div
+              style={{ flex: 1, height: '1px', background: 'var(--za-color-border-decorative)' }}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>

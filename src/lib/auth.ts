@@ -90,6 +90,19 @@ export const auth = betterAuth({
     },
     resetPasswordTokenExpiresIn: 3600, // 1 hour
   },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || 'placeholder_google_client_id',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'placeholder_google_client_secret',
+      enabled: Boolean(process.env.GOOGLE_CLIENT_ID),
+    },
+  },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['google'],
+    },
+  },
   session: {
     // Cache the resolved session in a short-lived cookie so per-request reads
     // (root-layout theming, dashboard SSR, public profiles) skip the DB round-trip.
