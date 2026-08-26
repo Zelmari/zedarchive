@@ -162,4 +162,56 @@ describe('parseImportFile', () => {
       sourceId: 'mal-1',
     });
   });
+
+  it('parses Simkl JSON exports with shows, anime, and movies', () => {
+    const simklPayload = {
+      shows: [
+        {
+          show: {
+            title: 'Severance',
+            year: 2022,
+            ids: { simkl: 123456 },
+            total_episodes: 9,
+          },
+          status: 'completed',
+          user_rating: 10,
+          watched_episodes_count: 9,
+        },
+      ],
+      anime: [
+        {
+          anime: {
+            title: 'Steins;Gate',
+            year: 2011,
+            ids: { simkl: 654321 },
+            total_episodes: 24,
+          },
+          status: 'watching',
+          user_rating: 9,
+          watched_episodes_count: 14,
+        },
+      ],
+    };
+
+    const items = parseImportFile('simkl_backup.json', JSON.stringify(simklPayload));
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Severance',
+      category: 'show',
+      status: 'completed',
+      secondaryUnitCurrent: 9,
+      secondaryUnitTotal: 9,
+      rating: 10,
+      sourceId: 'simkl-123456',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Steins;Gate',
+      category: 'anime',
+      status: 'in_progress',
+      secondaryUnitCurrent: 14,
+      secondaryUnitTotal: 24,
+      rating: 9,
+      sourceId: 'simkl-654321',
+    });
+  });
 });
