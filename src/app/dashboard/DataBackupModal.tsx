@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { bulkImportMediaEntries } from '@/server/media';
-import { parseImportFile } from '@/lib/backup';
+import { parseImportBuffer, type ImportDraft } from '@/lib/backup';
 import type { MediaEntry } from '@/types/media';
 
 interface DataBackupModalProps {
@@ -31,6 +31,8 @@ export default function DataBackupModal({
 }: DataBackupModalProps) {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'overwrite'>('skip');
+  const [pendingDrafts, setPendingDrafts] = useState<ImportDraft[] | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState('');
   const [importStatus, setImportStatus] = useState<{
     state: ImportState;
     message: string;
@@ -104,27 +106,48 @@ export default function DataBackupModal({
     if (!file) return;
 
     setImportStatus({ state: 'loading', message: `Parsing ${file.name}...` });
+    setSelectedFileName(file.name);
 
     try {
-      const text = await file.text();
-      const parsedItems = parseImportFile(file.name, text);
+      const buffer = await file.arrayBuffer();
+      const parsedItems = await parseImportBuffer(file.name, buffer);
 
+      setPendingDrafts(parsedItems);
       setImportStatus({
-        state: 'loading',
-        message: `Importing ${parsedItems.length} items to your archive...`,
+        state: 'idle',
+        message: `Parsed ${parsedItems.length} items from ${file.name}. Review options below and confirm.`,
       });
-      const res = await bulkImportMediaEntries(parsedItems, conflictStrategy);
+    } catch (err) {
+      setPendingDrafts(null);
+      setImportStatus({
+        state: 'error',
+        message: err instanceof Error ? err.message : 'Failed to process import file',
+      });
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingDrafts || pendingDrafts.length === 0) return;
+
+    setImportStatus({
+      state: 'loading',
+      message: `Importing ${pendingDrafts.length} items to your archive...`,
+    });
+
+    try {
+      const res = await bulkImportMediaEntries(pendingDrafts, conflictStrategy);
 
       setImportStatus({
         state: 'success',
         message: `Successfully imported ${res.added} new item(s) and updated ${res.updated} item(s)! (${res.skipped} skipped)`,
       });
+      setPendingDrafts(null);
 
       onImportSuccess?.();
     } catch (err) {
       setImportStatus({
         state: 'error',
-        message: err instanceof Error ? err.message : 'Failed to process import file',
+        message: err instanceof Error ? err.message : 'Failed to save imported entries',
       });
     }
   };
@@ -198,8 +221,8 @@ export default function DataBackupModal({
         ) : (
           <div>
             <p className="mb-[var(--za-space-3)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink-muted">
-              Restore from a previous ZedArchive JSON backup, or import from AniList, MyAnimeList,
-              or Goodreads.
+              Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json), or
+              Goodreads (.csv).
             </p>
 
             {/* Conflict handling options */}
@@ -235,24 +258,48 @@ export default function DataBackupModal({
             <div className="rounded-layered border-2 border-dashed border-required bg-surface p-[var(--za-space-4)] text-center">
               <Upload size={24} className="mx-auto mb-2 text-ink-muted" />
               <div className="mb-2 text-[length:var(--za-text-fine)]">
-                Select a <strong>.json</strong> or <strong>.csv</strong> file to import
+                Select a <strong>.json</strong>, <strong>.xml</strong>, <strong>.xml.gz</strong>, or{' '}
+                <strong>.csv</strong> file
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json,.csv"
+                accept=".json,.csv,.xml,.gz,.xml.gz"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
               <button
                 type="button"
-                className="za-button za-button--primary"
+                className="za-button za-button--secondary"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importStatus.state === 'loading'}
               >
-                {importStatus.state === 'loading' ? 'Importing...' : 'Choose File'}
+                {importStatus.state === 'loading' && !pendingDrafts ? 'Parsing...' : 'Choose File'}
               </button>
             </div>
+
+            {/* Preview and confirmation */}
+            {pendingDrafts && pendingDrafts.length > 0 && (
+              <div className="mt-[var(--za-space-3)] rounded-control border border-decorative bg-surface p-[var(--za-space-3)]">
+                <div className="mb-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)]">
+                  Import Preview ({selectedFileName}):
+                </div>
+                <div className="mb-3 text-[length:var(--za-text-fine)] text-ink-muted">
+                  Ready to import <strong>{pendingDrafts.length}</strong>{' '}
+                  {pendingDrafts.length === 1 ? 'entry' : 'entries'} into your archive.
+                </div>
+                <button
+                  type="button"
+                  className="za-button za-button--primary w-full justify-center"
+                  onClick={handleConfirmImport}
+                  disabled={importStatus.state === 'loading'}
+                >
+                  {importStatus.state === 'loading'
+                    ? 'Importing...'
+                    : `Confirm & Import ${pendingDrafts.length} Titles`}
+                </button>
+              </div>
+            )}
 
             {/* Status feedback */}
             {importStatus.state !== 'idle' && (
