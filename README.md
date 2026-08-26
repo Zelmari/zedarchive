@@ -111,6 +111,11 @@ Choose an aesthetic that matches your taste, stored in your database account so 
 
 Set them in the Cloudflare dashboard under the Worker's _Variables & Secrets_; keep secrets out of `.env.local`-style files in CI. Locally, mirror them in `.env.local` for `next dev`.
 
+### Contributing Notes
+
+- **Lockfile discipline:** CI runs Node 22 / npm 10. When dependencies change locally, regenerate the lock with the same major: `npx npm@10 install` — otherwise `npm ci` fails in CI.
+- **Production secrets:** the Worker refuses to boot without `BETTER_AUTH_SECRET` (`npx wrangler secret put BETTER_AUTH_SECRET`). Never rely on the dev fallback in production.
+
 ### Local Quickstart (Docker)
 
 Run the full stack against a disposable local Postgres with one command:
