@@ -296,44 +296,49 @@
   --za-color-success-surface: #0e2a14;
 }
 
-/* Base Reset & Document Typography */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
+/* Base Reset & Document Typography.
+   Layered as `base` so Tailwind utilities (layer: utilities) can always
+   override it — an unlayered universal reset would silently defeat every
+   padding/margin utility. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
 
-html {
-  color-scheme: light;
-  background-color: var(--za-color-canvas);
-  color: var(--za-color-text);
-  font-family: var(--za-font-sans);
-  font-size: var(--za-text-base);
-  line-height: var(--za-leading-body);
-  text-rendering: optimizeLegibility;
-}
+  html {
+    color-scheme: light;
+    background-color: var(--za-color-canvas);
+    color: var(--za-color-text);
+    font-family: var(--za-font-sans);
+    font-size: var(--za-text-base);
+    line-height: var(--za-leading-body);
+    text-rendering: optimizeLegibility;
+  }
 
-body {
-  min-height: 100vh;
-  margin: 0;
-  background-color: var(--za-color-canvas);
-  color: var(--za-color-text);
-}
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--za-color-canvas);
+    color: var(--za-color-text);
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
 }
 
 /* Global Accessible Focus Ring */
