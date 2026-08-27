@@ -48,7 +48,7 @@ export default function MediaGrid({
         <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           {hasActiveFilters
             ? 'Try adjusting your search terms, shelves, or status filter.'
-            : `Press [N] or click below to catalog your first ${noun ?? 'media'} title.`}
+            : `Click below to catalog your first ${noun ?? 'media'} title.`}
         </p>
         {!hasActiveFilters && onAddClick && (
           <button type="button" className="za-button za-button--primary" onClick={onAddClick}>
