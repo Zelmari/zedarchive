@@ -12,6 +12,7 @@ interface DashboardHeaderProps {
   shows: number;
   books: number;
   userName: string;
+  username?: string | null;
   onOpenTheme: () => void;
   onOpenShortcuts: () => void;
   onSignOut: () => void;
@@ -31,6 +32,7 @@ export default function DashboardHeader({
   shows,
   books,
   userName,
+  username,
   onOpenTheme,
   onOpenShortcuts,
   onSignOut,
@@ -111,7 +113,7 @@ export default function DashboardHeader({
               fontWeight: 'var(--za-weight-heading)',
             }}
           >
-            @{userName.toLowerCase().replace(/\s+/g, '') || 'user'}
+            {username ? `@${username}` : userName || 'user'}
           </span>
 
           <button

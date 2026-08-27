@@ -399,6 +399,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         shows={filters.showEntries.length}
         books={filters.bookEntries.length}
         userName={user?.name ?? ''}
+        username={user?.username ?? null}
         onOpenTheme={() => modals.open('theme')}
         onOpenShortcuts={() => modals.open('shortcuts')}
         onSignOut={handleSignOut}
