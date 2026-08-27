@@ -413,7 +413,9 @@ export default function MediaCard({
 
         {nextAir && (
           <div className="text-[length:var(--za-text-fine)] font-mono text-ink-muted">
-            S{nextAir.season}E{nextAir.number} · airs {formatAirdate(nextAir.airdate)}
+            {rawCategory === 'anime'
+              ? `Ep ${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
+              : `S${nextAir.season}E${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`}
           </div>
         )}
       </div>
