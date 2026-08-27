@@ -1,113 +1,22 @@
 export const revalidate = 86400;
 
 import { MAX_QUERY_LENGTH } from '@/lib/constants';
-import type { SearchResult } from '@/types/search';
-
-interface TvmazeImage {
-  medium?: string | null;
-  original?: string | null;
-}
-
-interface TvmazeShow {
-  id: number;
-  name: string;
-  image?: TvmazeImage | null;
-  premiered?: string | null;
-}
-
-interface TvmazeSeason {
-  number?: number | null;
-  name?: string | null;
-  episodeOrder?: number | null;
-}
-
-function parseQuery(request: Request): { query: string; error?: Response } {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q') || searchParams.get('query') || '';
-  const trimmed = query.trim();
-  if (trimmed.length > MAX_QUERY_LENGTH) {
-    return {
-      query: '',
-      error: Response.json({ results: [], error: 'Query too long' }, { status: 400 }),
-    };
-  }
-  return { query: trimmed };
-}
+import { searchTvmazeShows } from '@/lib/services/tvmaze';
 
 export async function GET(request: Request): Promise<Response> {
-  const { query, error } = parseQuery(request);
-  if (error) return error;
+  const { searchParams } = new URL(request.url);
+  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
+  }
 
   if (!query) {
     return Response.json({ results: [] });
   }
 
   try {
-    const searchUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
-    const searchRes = await fetch(searchUrl, {
-      next: { revalidate: 86400 },
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    if (!searchRes.ok) {
-      return Response.json({ results: [], error: 'Search service unavailable' }, { status: 502 });
-    }
-
-    const searchData: unknown = await searchRes.json();
-    const topResults = Array.isArray(searchData)
-      ? (searchData as { show?: TvmazeShow }[]).slice(0, 5)
-      : [];
-
-    const results = await Promise.all(
-      topResults.map(async ({ show }): Promise<SearchResult | null> => {
-        if (!show) return null;
-
-        let seasons: TvmazeSeason[] = [];
-        try {
-          const seasonsRes = await fetch(`https://api.tvmaze.com/shows/${show.id}/seasons`, {
-            next: { revalidate: 86400 },
-            headers: {
-              Accept: 'application/json',
-            },
-          });
-          if (seasonsRes.ok) {
-            seasons = (await seasonsRes.json()) as TvmazeSeason[];
-          }
-        } catch {
-          seasons = [];
-        }
-
-        const structureArray = Array.isArray(seasons)
-          ? seasons
-              .filter((s) => s.number !== null && s.number !== undefined && (s.number ?? 0) > 0)
-              .map((s) => ({
-                number: s.number as number,
-                name: s.name ? s.name : `Season ${s.number}`,
-                total: s.episodeOrder || null,
-              }))
-          : [];
-
-        let coverUrl = show.image?.medium || show.image?.original || null;
-        if (coverUrl && coverUrl.startsWith('http://')) {
-          coverUrl = coverUrl.replace('http://', 'https://');
-        }
-
-        return {
-          sourceId: `tvmaze-${show.id}`,
-          category: 'show',
-          title: show.name,
-          coverUrl,
-          primaryUnitTotal: structureArray.length || 1,
-          structure: structureArray,
-          secondaryUnitTotal: structureArray[0]?.total || null,
-          year: show.premiered ? show.premiered.substring(0, 4) : null,
-        };
-      }),
-    );
-
-    return Response.json({ results: results.filter(Boolean) });
+    const results = await searchTvmazeShows(query);
+    return Response.json({ results });
   } catch (error) {
     console.error('TVMaze search error:', error);
     return Response.json({ results: [], error: 'Failed to fetch TV shows' }, { status: 500 });
