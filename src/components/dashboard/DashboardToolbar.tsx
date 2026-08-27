@@ -130,7 +130,7 @@ export default function DashboardToolbar({
             },
             {
               label: 'Backup',
-              title: 'Export or Import Backups',
+              title: 'Export or Import Backups (Press B)',
               modal: 'data' as const,
               Icon: Database,
             },

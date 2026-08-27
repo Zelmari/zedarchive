@@ -134,7 +134,7 @@ export default function DataBackupModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="data-backup-modal-title"
-      title="Data Sovereignty & Backups"
+      title="Backup & Data Sovereignty"
       contentClassName="max-w-[34rem]"
     >
       {/* Tab Buttons */}
