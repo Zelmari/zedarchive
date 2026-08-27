@@ -23,9 +23,7 @@ interface SpotlightSearchModalProps {
   isOpen: boolean;
   category: MediaCategoryChip;
   onCategoryChange: (category: MediaCategoryChip) => void;
-  /** Esc pressed with empty query → parent decides (close). */
   onClose: () => void;
-  /** Esc pressed with query text → hand off to manual form. */
   onManualEnter: (query: string) => void;
   onSelectResult: (result: SpotlightResult) => void;
 }
@@ -166,11 +164,7 @@ export default function SpotlightSearchModal({
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (searchQuery.trim()) {
-        onManualEnter(searchQuery.trim());
-      } else {
-        onClose();
-      }
+      onClose();
       return;
     }
 
@@ -353,20 +347,16 @@ export default function SpotlightSearchModal({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-[var(--za-space-4)] py-[var(--za-space-3)]">
+        <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
           <span className="text-[length:var(--za-text-fine)] text-ink-muted">
-            Press{' '}
-            <kbd className="rounded-sm border border-decorative bg-surface px-[0.35rem] py-[0.1rem]">
-              Esc
-            </kbd>{' '}
-            to enter manually
+            Can&apos;t find a match?
           </span>
           <button
             type="button"
             className="cursor-pointer border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-accent hover:underline"
             onClick={() => onManualEnter(searchQuery.trim())}
           >
-            Enter manually →
+            Create manually instead →
           </button>
         </div>
       </div>
