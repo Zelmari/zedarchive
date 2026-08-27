@@ -33,6 +33,7 @@ describe('parseImportFile', () => {
                   notes: 'great',
                   score: 90,
                   media: {
+                    id: 30002,
                     type: 'MANGA',
                     episodes: null,
                     chapters: 120,
@@ -54,6 +55,7 @@ describe('parseImportFile', () => {
       secondaryUnitCurrent: 7,
       secondaryUnitTotal: 120,
       rating: 9,
+      sourceId: 'anilist-30002',
     });
   });
 

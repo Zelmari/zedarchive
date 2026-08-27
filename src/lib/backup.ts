@@ -84,6 +84,7 @@ interface AniListNode {
           score?: number;
           notes?: string | null;
           media?: {
+            id?: number;
             type?: string;
             episodes?: number | null;
             chapters?: number | null;
@@ -113,6 +114,7 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
         coverImage: item.media?.coverImage?.large || null,
         notes: item.notes || null,
         rating: item.score ? Math.round(item.score / 10) : null,
+        sourceId: item.media?.id ? `anilist-${item.media.id}` : null,
       });
     });
   });
