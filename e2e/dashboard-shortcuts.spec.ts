@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { uniqueUser, registerAndAuthenticate, cleanupUsers, type E2EUser } from './helpers';
 
-test.describe('dashboard keyboard shortcuts', () => {
+test.describe('mouse-first dashboard navigation & dialogs', () => {
   let user: E2EUser;
 
   test.beforeAll(() => {
-    user = uniqueUser('keys');
+    user = uniqueUser('mouse');
   });
 
   test.afterAll(async () => {
@@ -16,48 +16,69 @@ test.describe('dashboard keyboard shortcuts', () => {
     await registerAndAuthenticate(page, user);
     await page.goto('/dashboard');
     await expect(page.locator('h1')).toHaveText('Your Media Archive');
-
-    // Prove React event handlers are attached before relying on hotkeys:
-    // a successful programmatic tab switch + return means hydration finished.
-    await page.getByRole('button', { name: /Shows \(/ }).click();
-    await expect(page.locator('h1')).toHaveText('Shows & Anime');
-    await page.getByRole('button', { name: /Total \(/ }).click();
-    await expect(page.locator('h1')).toHaveText('Your Media Archive');
   });
 
-  test('N opens the spotlight add modal and Escape closes it', async ({ page }) => {
-    await page.keyboard.press('n');
+  test('mouse clicking Add Media opens spotlight modal and manual entry works', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: 'Add Media' }).click();
     const spotlight = page.getByPlaceholder(/Search TV shows/);
     await expect(spotlight).toBeVisible();
     await expect(spotlight).toBeFocused();
 
+    // Click "Create manually instead →" button
+    await page.getByRole('button', { name: /Create manually instead/i }).click();
+    const titleInput = page.getByPlaceholder(/e\.g\. Frieren: Beyond Journey's End/);
+    await expect(titleInput).toBeVisible();
+
+    // Escape closes the manual form
     await page.keyboard.press('Escape');
-    await expect(spotlight).toBeHidden();
+    await expect(titleInput).toBeHidden();
   });
 
-  test('/ focuses the archive search input', async ({ page }) => {
-    await page.keyboard.press('/');
-    const search = page.getByPlaceholder(/Search archive, tags, notes/);
-    await expect(search).toBeFocused();
-  });
-
-  test('1 / 2 / 3 switch between Total, Shows and Books tabs', async ({ page }) => {
-    await page.keyboard.press('2');
+  test('mouse clicking tabs switches views without relying on hotkeys', async ({ page }) => {
+    await page.getByRole('button', { name: /Shows \(/ }).click();
     await expect(page.locator('h1')).toHaveText('Shows & Anime');
 
-    await page.keyboard.press('3');
+    await page.getByRole('button', { name: /Books \(/ }).click();
     await expect(page.locator('h1')).toHaveText('Books & Manga');
 
-    await page.keyboard.press('1');
+    await page.getByRole('button', { name: /Total \(/ }).click();
     await expect(page.locator('h1')).toHaveText('Your Media Archive');
   });
 
-  test('T switches the active theme immediately on <html>', async ({ page }) => {
+  test('mouse clicking Theme button opens palette and updates data-theme', async ({ page }) => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'parchment');
 
-    await page.keyboard.press('t');
+    await page.getByRole('button', { name: 'Theme' }).click();
     await page.getByRole('button', { name: 'Midnight Slate' }).click();
 
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight');
+  });
+
+  test('mouse clicking Stats and Backup opens their respective modals', async ({ page }) => {
+    await page.getByRole('button', { name: 'Stats' }).click();
+    await expect(page.getByRole('heading', { name: /Archive Statistics/i })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: /Archive Statistics/i })).toBeHidden();
+
+    await page.getByRole('button', { name: 'Backup' }).click();
+    await expect(page.getByRole('heading', { name: /Backup & Data Sovereignty/i })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: /Backup & Data Sovereignty/i })).toBeHidden();
+  });
+
+  test('single-key shortcuts are inactive and do not hijack navigation', async ({ page }) => {
+    // Pressing '2' does not switch to Shows tab
+    await page.keyboard.press('2');
+    await expect(page.locator('h1')).toHaveText('Your Media Archive');
+
+    // Pressing 'n' does not open Add Media modal
+    await page.keyboard.press('n');
+    await expect(page.getByPlaceholder(/Search TV shows/)).toBeHidden();
+
+    // Pressing 't' does not open Theme modal
+    await page.keyboard.press('t');
+    await expect(page.getByRole('heading', { name: /Choose Theme/i })).toBeHidden();
   });
 });

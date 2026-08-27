@@ -23,8 +23,8 @@ test.describe('media lifecycle', () => {
     await page.getByRole('button', { name: /Total \(/ }).click();
     await expect(page.locator('h1')).toHaveText('Your Media Archive');
 
-    // Open Spotlight and search TVMaze for a multi-season show.
-    await page.keyboard.press('n');
+    // Open Spotlight and search TVMaze for a multi-season show via Add Media button.
+    await page.getByRole('button', { name: 'Add Media' }).click();
     const spotlight = page.getByPlaceholder(/Search TV shows/);
     await spotlight.fill('Frieren');
 
