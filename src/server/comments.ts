@@ -22,10 +22,7 @@ interface AuthorInfo {
   image: string | null;
 }
 
-function serializeCommentFlat(
-  row: CommentRow,
-  author: AuthorInfo
-): ProfileComment {
+function serializeCommentFlat(row: CommentRow, author: AuthorInfo): ProfileComment {
   return {
     id: row.id,
     profileUserId: row.profileUserId,
@@ -66,10 +63,7 @@ export async function getProfileComments(profileUserId: unknown): Promise<Profil
   // Lazy cleanup: drop this profile's expired comments while we are here anyway.
   await db
     .delete(profileComments)
-    .where(and(
-      eq(profileComments.profileUserId, target.id),
-      lte(profileComments.expiresAt, now),
-    ));
+    .where(and(eq(profileComments.profileUserId, target.id), lte(profileComments.expiresAt, now)));
 
   const rows = await db
     .select({
@@ -85,13 +79,15 @@ export async function getProfileComments(profileUserId: unknown): Promise<Profil
     })
     .from(profileComments)
     .innerJoin(userTable, eq(profileComments.authorUserId, userTable.id))
-    .where(and(
-      eq(profileComments.profileUserId, target.id),
-      gt(profileComments.expiresAt, now),
-      // Reciprocity rule, enforced retroactively: comments by users whose own
-      // archive is no longer public stop rendering until they go public again.
-      eq(userTable.isPublic, true),
-    ))
+    .where(
+      and(
+        eq(profileComments.profileUserId, target.id),
+        gt(profileComments.expiresAt, now),
+        // Reciprocity rule, enforced retroactively: comments by users whose own
+        // archive is no longer public stop rendering until they go public again.
+        eq(userTable.isPublic, true),
+      ),
+    )
     .orderBy(asc(profileComments.createdAt))
     .limit(200);
 
@@ -110,7 +106,7 @@ export async function getProfileComments(profileUserId: unknown): Promise<Profil
 
 export async function createProfileComment(
   profileUserId: unknown,
-  body: unknown
+  body: unknown,
 ): Promise<ProfileComment> {
   const me = await getAuthUser();
 
@@ -135,11 +131,18 @@ export async function createProfileComment(
     .from(userTable)
     .where(eq(userTable.id, me.id));
 
+  // Reciprocity gate: only members of the public archive community may
+  // comment, and a public archive must have a handle to link back to.
   if (!meRow?.isPublic) {
     throw new Error('Your own archive must be public to comment');
   }
+  if (!meRow.username) {
+    throw new Error('A username handle is required to comment');
+  }
 
-  const clean = String(body || '').trim().slice(0, MAX_COMMENT_LENGTH);
+  const clean = String(body || '')
+    .trim()
+    .slice(0, MAX_COMMENT_LENGTH);
   if (!clean) {
     throw new Error('Comment cannot be empty');
   }
@@ -148,10 +151,9 @@ export async function createProfileComment(
   const [rateRow] = await db
     .select({ value: count() })
     .from(profileComments)
-    .where(and(
-      eq(profileComments.authorUserId, me.id),
-      gt(profileComments.createdAt, windowStart),
-    ));
+    .where(
+      and(eq(profileComments.authorUserId, me.id), gt(profileComments.createdAt, windowStart)),
+    );
 
   if (Number(rateRow?.value ?? 0) >= COMMENT_RATE_LIMIT) {
     throw new Error('You are commenting too fast. Try again in a minute');
@@ -175,7 +177,9 @@ export async function createProfileComment(
     return serializeCommentFlat(inserted, meRow);
   });
 
-  revalidatePath(`/u/${target.username}`);
+  if (target.username) {
+    revalidatePath(`/u/${target.username}`);
+  }
 
   return created;
 }
@@ -184,7 +188,11 @@ export async function deleteProfileComment(commentId: unknown): Promise<{ ok: bo
   const me = await getAuthUser();
 
   const [comment] = await db
-    .select({ id: profileComments.id, profileUserId: profileComments.profileUserId, authorUserId: profileComments.authorUserId })
+    .select({
+      id: profileComments.id,
+      profileUserId: profileComments.profileUserId,
+      authorUserId: profileComments.authorUserId,
+    })
     .from(profileComments)
     .where(eq(profileComments.id, String(commentId)));
 

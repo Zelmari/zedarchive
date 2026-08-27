@@ -58,6 +58,12 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
     setProfileError('');
     setProfileSuccess(false);
 
+    if (isPublic && !username.trim()) {
+      setProfileError('A username handle is required to make your archive public');
+      setSavingProfile(false);
+      return;
+    }
+
     try {
       await updateUserProfile({
         name,

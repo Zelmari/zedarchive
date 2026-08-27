@@ -223,12 +223,18 @@ export default function ProfileComments({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="mb-[0.15rem] flex flex-wrap items-baseline gap-2">
-                    <Link
-                      href={`/u/${comment.authorUsername}`}
-                      className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink hover:underline"
-                    >
-                      @{comment.authorUsername}
-                    </Link>
+                    {comment.authorUsername ? (
+                      <Link
+                        href={`/u/${comment.authorUsername}`}
+                        className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink hover:underline"
+                      >
+                        @{comment.authorUsername}
+                      </Link>
+                    ) : (
+                      <span className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+                        {comment.authorName || 'Anonymous'}
+                      </span>
+                    )}
                     <span
                       className="text-[length:var(--za-text-fine)] text-ink-muted"
                       title={new Date(comment.createdAt).toLocaleString()}
@@ -249,7 +255,7 @@ export default function ProfileComments({
                     type="button"
                     className="shrink-0 cursor-pointer rounded-small border-none bg-transparent p-1 text-ink-muted hover:text-danger"
                     onClick={() => handleDelete(comment.id)}
-                    aria-label={`Delete comment by @${comment.authorUsername}`}
+                    aria-label={`Delete comment by ${comment.authorUsername ? `@${comment.authorUsername}` : comment.authorName || 'Anonymous'}`}
                     title={
                       isOwner && comment.authorId !== viewer.id
                         ? 'Owner: remove comment'

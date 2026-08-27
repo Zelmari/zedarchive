@@ -91,4 +91,30 @@ describe('updateUserProfile display name', () => {
     const paths = revalidatePathMock.mock.calls.map(([p]) => String(p));
     expect(paths.some((p) => p.startsWith('/u/'))).toBe(false);
   });
+
+  it('rejects going public without a handle', async () => {
+    dbState.rows[0] = { ...(dbState.rows[0] as object), username: null, isPublic: false };
+    await expect(updateUserProfile({ isPublic: true })).rejects.toThrow(
+      'A username handle is required to make your archive public',
+    );
+  });
+
+  it('rejects clearing the handle while the archive stays public', async () => {
+    dbState.rows[0] = { ...(dbState.rows[0] as object), username: 'zelmari', isPublic: true };
+    await expect(updateUserProfile({ username: '' })).rejects.toThrow(
+      'A username handle is required to make your archive public',
+    );
+  });
+
+  it('allows going public once a handle exists', async () => {
+    dbState.rows[0] = { ...(dbState.rows[0] as object), username: 'zelmari', isPublic: false };
+    const updated = await updateUserProfile({ isPublic: true });
+    expect(updated?.isPublic).toBe(true);
+  });
+
+  it('allows clearing the handle while the archive is private', async () => {
+    dbState.rows[0] = { ...(dbState.rows[0] as object), username: 'zelmari', isPublic: false };
+    const updated = await updateUserProfile({ username: '' });
+    expect(updated?.username).toBeNull();
+  });
 });

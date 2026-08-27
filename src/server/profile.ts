@@ -112,6 +112,22 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
         .slice(0, MAX_BIO_LENGTH) || null;
   }
 
+  // Public-archive invariant: a public archive must have a resolvable
+  // handle, otherwise comment author links would point at /u/null.
+  if (updateData.isPublic !== undefined || updateData.username !== undefined) {
+    const [existing] = await db
+      .select({ username: userTable.username, isPublic: userTable.isPublic })
+      .from(userTable)
+      .where(eq(userTable.id, user.id));
+    const effectiveUsername =
+      updateData.username !== undefined ? updateData.username : (existing?.username ?? null);
+    const effectiveIsPublic =
+      updateData.isPublic !== undefined ? updateData.isPublic : (existing?.isPublic ?? false);
+    if (effectiveIsPublic && !effectiveUsername) {
+      throw new Error('A username handle is required to make your archive public');
+    }
+  }
+
   const [updated] = await db
     .update(userTable)
     .set(updateData)
