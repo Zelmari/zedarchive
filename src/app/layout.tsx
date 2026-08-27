@@ -2,7 +2,10 @@ import './globals.css';
 import { getSessionTheme } from '@/server/queries/user';
 
 export const metadata = {
-  title: 'zedarchive — Quiet Media Archive',
+  title: {
+    default: 'zedarchive — Quiet Media Archive',
+    template: '%s — zedarchive',
+  },
   description: 'A fast, distraction-free archive for your anime, TV series, novels, and books.',
   icons: {
     icon: [

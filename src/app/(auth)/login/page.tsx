@@ -1,12 +1,17 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import SignUpForm from './SignUpForm';
+import LoginForm from './LoginForm';
 
-export default async function SignUpPage() {
+export const metadata = {
+  title: 'Sign In',
+  description: 'Sign in to your ZedArchive account.',
+};
+
+export default async function LoginPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.id) {
     redirect('/dashboard');
   }
-  return <SignUpForm />;
+  return <LoginForm />;
 }

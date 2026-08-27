@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const metadata = {
-  title: 'Email Verification — zedarchive',
+  title: 'Email Verification',
   description: 'Email verification status for your ZedArchive account.',
 };
 

@@ -6,7 +6,7 @@ import SettingsClient from './SettingsClient';
 import type { UserProfile } from '@/types/user';
 
 export const metadata = {
-  title: 'Settings & Account — zedarchive',
+  title: 'Settings & Account',
   description: 'Manage your ZedArchive account, preferences, profile, and security.',
 };
 

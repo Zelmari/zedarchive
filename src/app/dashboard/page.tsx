@@ -5,6 +5,11 @@ import { getUserProfileById } from '@/server/queries/user';
 import { getMediaEntriesByUserId } from '@/server/queries/media';
 import DashboardClient from './DashboardClient';
 
+export const metadata = {
+  title: 'Dashboard',
+  description: 'Your quiet media collection.',
+};
+
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
     headers: await headers(),

@@ -1,7 +1,7 @@
 import ResetPasswordForm from './ResetPasswordForm';
 
 export const metadata = {
-  title: 'Reset Password — zedarchive',
+  title: 'Reset Password',
   description: 'Choose a new password for your ZedArchive account.',
 };
 
