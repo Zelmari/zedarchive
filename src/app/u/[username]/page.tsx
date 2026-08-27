@@ -3,13 +3,23 @@ import Image from 'next/image';
 import { headers } from 'next/headers';
 import { getPublicUserProfile } from '@/server/profile';
 import { getProfileComments } from '@/server/comments';
+import { calculateArchiveStats } from '@/lib/stats';
+import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { user as userTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { Star, ShieldAlert } from 'lucide-react';
-import { getTileInitials } from '@/lib/format';
 import ProfileComments from './ProfileComments';
+import ShareArchiveButton from './ShareArchiveButton';
+
+const THEME_LABELS: Record<string, string> = {
+  parchment: 'Parchment',
+  midnight: 'Midnight Slate',
+  sepia: 'Vintage Sepia',
+  'e-ink': 'E-Ink',
+  cyber: 'Phosphor Cyber',
+};
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -98,10 +108,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
   // Guestbook comments (auto-purges expired rows for this profile)
   const initialComments = await getProfileComments(user.id);
 
-  const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
-  const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
-  const completedCount = entries.filter((e) => e.status === 'completed').length;
-  const topRated = entries.filter((e) => e.rating && e.rating >= 9);
+  const stats = calculateArchiveStats(entries);
+  const currentYear = new Date().getFullYear();
+  const hostHeaders = await headers();
+  const host = hostHeaders.get('x-forwarded-host') ?? hostHeaders.get('host') ?? 'zedarchive.com';
+  const proto = hostHeaders.get('x-forwarded-proto') ?? 'https';
+  const profileUrl = `${proto}://${host}/u/${user.username}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink" style={{ minHeight: '100vh' }}>
@@ -134,53 +146,94 @@ export default async function PublicProfilePage({ params }: PageParams) {
         <div className="za-container">
           {/* Profile Header Masthead */}
           <div
-            className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised"
+            className="mb-[var(--za-space-6)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-6)] shadow-raised"
             style={{
               borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)',
-              paddingBottom: 'var(--za-space-6)',
             }}
           >
-            <div className="flex flex-col gap-[var(--za-space-1)]">
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  marginBottom: '0.25rem',
-                }}
-              >
-                <h1 className="text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
-                  @{user.username}
-                </h1>
+            {/* Hero Identity Zone */}
+            <div className="flex flex-wrap items-center gap-[var(--za-space-5)]">
+              {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element -- compressed data URL avatars, unoptimized by design
+                <img
+                  src={user.image}
+                  alt={`${user.name}'s avatar`}
+                  className="h-24 w-24 flex-none rounded-full border-[3px] border-accent object-cover shadow-raised"
+                />
+              ) : (
                 <span
-                  className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
-                  style={{
-                    background: 'rgba(46, 125, 50, 0.1)',
-                    color: '#2e7d32',
-                    borderColor: 'rgba(46, 125, 50, 0.3)',
-                  }}
+                  className="flex h-24 w-24 flex-none items-center justify-center rounded-full border-[3px] border-accent bg-[var(--za-color-title-tile)] text-2xl font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)] shadow-raised"
+                  aria-hidden="true"
                 >
-                  Public Archive
+                  {getInitials(user.name)}
                 </span>
-              </div>
-              {user.bio && (
-                <p
-                  className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
-                  style={{ marginTop: 'var(--za-space-2)' }}
-                >
-                  {user.bio}
-                </p>
               )}
+
+              <div className="min-w-0 flex-1 basis-64">
+                <h1 className="text-2xl font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
+                  {user.name}
+                </h1>
+                <div className="mt-1 flex flex-wrap items-center gap-[var(--za-space-2)]">
+                  <span className="font-mono text-[length:var(--za-text-supporting)] text-ink-muted">
+                    @{user.username}
+                  </span>
+                  <span
+                    className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
+                    style={{
+                      background: 'rgba(46, 125, 50, 0.1)',
+                      color: '#2e7d32',
+                      borderColor: 'rgba(46, 125, 50, 0.3)',
+                    }}
+                  >
+                    Public Archive
+                  </span>
+                  {user.theme && (
+                    <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                      {THEME_LABELS[user.theme] ?? user.theme}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                  Archiving since {formatMonthYear(user.createdAt)}
+                </p>
+                {user.bio && (
+                  <p
+                    className="mt-[var(--za-space-3)] border-l-2 border-decorative pl-[var(--za-space-3)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted"
+                    style={{ marginTop: 'var(--za-space-3)' }}
+                  >
+                    {user.bio}
+                  </p>
+                )}
+              </div>
+
+              {/* Quick Action Bar */}
+              <div className="flex flex-none flex-col items-end gap-[var(--za-space-2)]">
+                <ShareArchiveButton url={profileUrl} />
+                <Link
+                  href={`/u/${user.username}/wrapped/${currentYear}`}
+                  className="za-button za-button--secondary inline-flex items-center text-xs"
+                >
+                  View Annual Wrapped
+                </Link>
+                {viewer.isLoggedIn && viewer.id === user.id && (
+                  <Link
+                    href="/settings"
+                    className="za-button za-button--primary inline-flex items-center text-xs"
+                  >
+                    Edit Profile
+                  </Link>
+                )}
+              </div>
             </div>
 
-            {/* Quick Stats Grid */}
+            {/* Enriched Stats & Highlights Bar */}
             <div
               className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-[var(--za-space-3)]"
-              style={{ marginTop: 'var(--za-space-4)' }}
+              style={{ marginTop: 'var(--za-space-5)' }}
             >
               <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
                 <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
-                  {entries.length}
+                  {stats.totalEntries}
                 </div>
                 <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Total Cataloged</div>
               </div>
@@ -189,21 +242,34 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
                   style={{ color: '#2e7d32' }}
                 >
-                  {completedCount}
+                  {stats.completedCount}
+                  <span className="text-xs text-ink-muted"> · {stats.completionRate}%</span>
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Completed</div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">
+                  Completed · Completion Rate
+                </div>
               </div>
               <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
                 <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
-                  {showEntries.length}
+                  {stats.totalEpisodes}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Shows & Anime</div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Episodes Watched</div>
               </div>
               <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
                 <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
-                  {bookEntries.length}
+                  {stats.totalChapters}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Books & Manga</div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Chapters Read</div>
+              </div>
+              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
+                <div
+                  className="inline-flex items-center gap-1 text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
+                  style={{ color: '#b45309' }}
+                >
+                  <Star size={16} fill="currentColor" />
+                  {stats.avgRating}
+                </div>
+                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Avg Rating</div>
               </div>
             </div>
           </div>

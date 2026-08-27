@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { getPublicUserProfile } from '@/server/profile';
 import { calculateArchiveStats } from '@/lib/stats';
+import { getInitials } from '@/lib/format';
 
 export const alt = 'Media Archive on ZedArchive';
 export const size = {
@@ -41,6 +42,11 @@ export default async function OpenGraphImage({ params }: PageParams) {
   }
 
   const stats = calculateArchiveStats(data.entries);
+
+  // Avatars are stored as data: URLs, which satori cannot render. Only
+  // embed an https:// avatar; otherwise fall back to monogram initials.
+  const avatarUrl =
+    data.user.image && /^https:\/\//i.test(data.user.image) ? data.user.image : null;
 
   return new ImageResponse(
     <div
@@ -95,21 +101,49 @@ export default async function OpenGraphImage({ params }: PageParams) {
       </div>
 
       {/* Center Masthead */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div
-          style={{
-            fontSize: '56px',
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            lineHeight: 1.1,
-          }}
-        >
-          {data.user.name}’s Archive
-        </div>
-        <div style={{ fontSize: '24px', color: '#736f64' }}>
-          Tracking {stats.totalEntries} {stats.totalEntries === 1 ? 'title' : 'titles'} ·{' '}
-          {stats.completedCount} completed · {stats.totalEpisodes} episodes · {stats.totalChapters}{' '}
-          chapters
+      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            width={128}
+            height={128}
+            style={{ borderRadius: '9999px', border: '4px solid #1a1917' }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 128,
+              height: 128,
+              borderRadius: '9999px',
+              border: '4px solid #1a1917',
+              backgroundColor: '#1a1917',
+              color: '#f7f4ee',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '40px',
+              fontWeight: 800,
+            }}
+          >
+            {getInitials(data.user.name)}
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div
+            style={{
+              fontSize: '56px',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              lineHeight: 1.1,
+            }}
+          >
+            {data.user.name}’s Archive
+          </div>
+          <div style={{ fontSize: '24px', color: '#736f64' }}>
+            Tracking {stats.totalEntries} {stats.totalEntries === 1 ? 'title' : 'titles'} ·{' '}
+            {stats.completedCount} completed · {stats.totalEpisodes} episodes ·{' '}
+            {stats.totalChapters} chapters
+          </div>
         </div>
       </div>
 
