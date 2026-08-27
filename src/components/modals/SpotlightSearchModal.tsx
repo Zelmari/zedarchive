@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tv, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 export type MediaCategoryChip = 'show' | 'anime' | 'book' | 'manga';
 

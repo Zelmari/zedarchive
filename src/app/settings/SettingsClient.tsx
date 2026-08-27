@@ -16,10 +16,10 @@ import {
 import type { UserProfile, ThemeId } from '@/types/user';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { getInitials } from '@/lib/format';
-import { compressImageFile } from '@/lib/image-utils';
+import { compressImageFile } from '@/lib/client/image-utils';
 import { updateUserProfile, updateUserTheme } from '@/server/profile';
 import { deleteAccount } from '@/server/account';
-import { signOut } from '@/lib/auth-client';
+import { signOut } from '@/lib/client/auth-client';
 import Modal from '@/components/ui/Modal';
 
 interface SettingsClientProps {

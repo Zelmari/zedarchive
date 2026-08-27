@@ -14,7 +14,7 @@ export type SortKey =
 
 export type DashboardTab = 'total' | 'shows' | 'books';
 
-const STATUS_KEYS = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'] as const;
+export const STATUS_KEYS = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'] as const;
 
 /**
  * Search / filter / sort state and derived views for the dashboard grid.
@@ -104,20 +104,4 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
     displayedEntries,
     statusKeys: STATUS_KEYS,
   };
-}
-
-export type ModalName = 'add' | 'theme' | 'activity' | 'share' | 'stats' | 'data';
-
-/**
- * Single source of truth for which dashboard modal is open.
- */
-export function useModalManager() {
-  const [openModal, setOpenModal] = useState<ModalName | null>(null);
-
-  const isOpen = (name: ModalName) => openModal === name;
-  const open = (name: ModalName) => setOpenModal(name);
-  const close = () => setOpenModal(null);
-  const anyOpen = openModal !== null;
-
-  return { openModal, isOpen, open, close, anyOpen };
 }

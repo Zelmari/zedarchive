@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signIn, authClient } from '@/lib/auth-client';
+import { signIn, authClient } from '@/lib/client/auth-client';
 
 export default function LoginForm() {
   const router = useRouter();

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authClient } from '@/lib/auth-client';
+import { authClient } from '@/lib/client/auth-client';
 
 interface ResetPasswordFormProps {
   token: string;

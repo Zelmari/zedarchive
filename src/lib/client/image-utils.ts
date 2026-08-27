@@ -6,7 +6,7 @@ function withTimeout(promise: Promise<string>, ms = FETCH_TIMEOUT_MS): Promise<s
   return Promise.race([
     promise,
     new Promise<string>((_, reject) =>
-      setTimeout(() => reject(new Error('Image load timed out')), ms)
+      setTimeout(() => reject(new Error('Image load timed out')), ms),
     ),
   ]);
 }
@@ -15,7 +15,7 @@ function drawToDataUrl(
   img: HTMLImageElement,
   maxWidth: number,
   maxHeight: number,
-  quality: number
+  quality: number,
 ): string {
   let { width, height } = img;
 
@@ -59,7 +59,7 @@ export function compressImageFile(
   file: File | Blob | null | undefined,
   maxWidth = 320,
   maxHeight = 480,
-  quality = 0.7
+  quality = 0.7,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file) {
@@ -121,7 +121,7 @@ export async function fetchAndCompressRemoteImage(
   imageUrl: string | null | undefined,
   maxWidth = 320,
   maxHeight = 480,
-  quality = 0.7
+  quality = 0.7,
 ): Promise<string> {
   if (!imageUrl || typeof imageUrl !== 'string') {
     return '';

@@ -23,7 +23,7 @@ interface FocusTrapOptions {
 export function useFocusTrap(
   isOpen: boolean,
   onEscape?: (e: globalThis.KeyboardEvent) => void,
-  options: FocusTrapOptions = {}
+  options: FocusTrapOptions = {},
 ): RefObject<HTMLDivElement | null> {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
@@ -83,12 +83,18 @@ export function useFocusTrap(
         if (!firstElement || !lastElement) return;
 
         if (e.shiftKey) {
-          if (document.activeElement === firstElement || !containerRef.current.contains(document.activeElement)) {
+          if (
+            document.activeElement === firstElement ||
+            !containerRef.current.contains(document.activeElement)
+          ) {
             e.preventDefault();
             lastElement.focus();
           }
         } else {
-          if (document.activeElement === lastElement || !containerRef.current.contains(document.activeElement)) {
+          if (
+            document.activeElement === lastElement ||
+            !containerRef.current.contains(document.activeElement)
+          ) {
             e.preventDefault();
             firstElement.focus();
           }
@@ -105,6 +111,6 @@ export function useFocusTrap(
 
 function getVisibleFocusable(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (el) => el.getClientRects().length > 0
+    (el) => el.getClientRects().length > 0,
   );
 }

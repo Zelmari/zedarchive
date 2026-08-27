@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tv, Sparkles, BookOpen, Library, X, ArrowLeft } from 'lucide-react';
-import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/image-utils';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import SpotlightSearchModal, {
   type MediaCategoryChip,
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
-import MediaEditForm, { type MediaFormState } from '@/components/modals/MediaEditForm';
+import MediaEditForm, { type MediaFormState } from '@/components/forms/MediaEditForm';
 import type { MediaEntry } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session

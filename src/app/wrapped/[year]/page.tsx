@@ -7,7 +7,7 @@ import { mediaEntries, user as userTable } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
 import { calculateYearlyStats } from '@/lib/stats';
 import type { MediaEntry } from '@/types/media';
-import WrappedClient from '@/components/wrapped/WrappedClient';
+import WrappedClient from '@/app/wrapped/WrappedClient';
 
 type PageParams = {
   params: Promise<{ year: string }>;

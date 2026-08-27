@@ -1,7 +1,7 @@
 'use client';
 
 import { Tv, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
-import type { MediaCategoryChip } from './SpotlightSearchModal';
+import type { MediaCategoryChip } from '@/components/modals/SpotlightSearchModal';
 
 export interface MediaFormState {
   title: string;

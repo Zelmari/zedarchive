@@ -5,22 +5,23 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, Tv, BookOpen, Plus, AlertTriangle, X } from 'lucide-react';
-import { signOut, authClient } from '@/lib/auth-client';
+import { signOut, authClient } from '@/lib/client/auth-client';
 import { dismissVerificationNotice, resendVerificationEmailAction } from '@/server/profile';
 import MediaCard from '@/components/cards/MediaCard';
-import AddMediaModal from './AddMediaModal';
-import MediaDetailModal from './MediaDetailModal';
-import ThemeModal from './ThemeModal';
-import ActivityTimelineModal from './ActivityTimelineModal';
-import ShareProfileModal from './ShareProfileModal';
-import ConfirmModal from './ConfirmModal';
-import StatsModal from './StatsModal';
-import DataBackupModal from './DataBackupModal';
+import AddMediaModal from '@/components/modals/AddMediaModal';
+import MediaDetailModal from '@/components/modals/MediaDetailModal';
+import ThemeModal from '@/components/modals/ThemeModal';
+import ActivityTimelineModal from '@/components/modals/ActivityTimelineModal';
+import ShareProfileModal from '@/components/modals/ShareProfileModal';
+import ConfirmModal from '@/components/modals/ConfirmModal';
+import StatsModal from '@/components/modals/StatsModal';
+import DataBackupModal from '@/components/modals/DataBackupModal';
 import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
 import MediaGrid from '@/components/dashboard/MediaGrid';
-import { useMediaFilters, useModalManager, type DashboardTab } from '@/components/dashboard/hooks';
+import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
+import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
 import {
   getMediaEntries,
@@ -499,6 +500,3 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     </div>
   );
 }
-
-// Re-exported for convenience in tests/storyless contexts.
-export { MediaCard };

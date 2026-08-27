@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { AlertTriangle, Info } from 'lucide-react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 export type ConfirmVariant = 'primary' | 'destructive' | 'danger' | 'secondary';
 
