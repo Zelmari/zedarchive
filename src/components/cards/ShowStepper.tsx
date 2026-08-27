@@ -7,11 +7,12 @@ interface ShowStepperProps {
   total: number | null;
   hasNextUnit: boolean;
   disabled?: boolean;
+  subtitle?: string | null;
   onStep: (delta: number) => void;
 }
 
 const stepperBtn =
-  'inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Episode control row for shows/anime: [−] Ep 01 / 12 [+] */
 export default function ShowStepper({
@@ -19,6 +20,7 @@ export default function ShowStepper({
   total,
   hasNextUnit,
   disabled = false,
+  subtitle,
   onStep,
 }: ShowStepperProps) {
   const formattedCurrent =
@@ -36,9 +38,16 @@ export default function ShowStepper({
       >
         <Minus size={15} strokeWidth={2.2} />
       </button>
-      <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] text-ink">
-        Ep {formattedCurrent}
-        {total ? ` / ${total}` : ''}
+      <div className="flex min-h-[var(--za-control-min-block-size)] flex-1 flex-col items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[0.25rem] text-center">
+        <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] leading-tight text-ink">
+          Ep {formattedCurrent}
+          {total ? ` / ${total}` : ''}
+        </span>
+        {subtitle && (
+          <span className="mt-0.5 text-[0.68rem] font-normal leading-tight text-ink-muted">
+            {subtitle}
+          </span>
+        )}
       </div>
       <button
         type="button"

@@ -393,6 +393,13 @@ export default function MediaCard({
             total={secondaryUnitTotal}
             hasNextUnit={hasNextSeason}
             disabled={isUpdating}
+            subtitle={
+              nextAir
+                ? rawCategory === 'anime'
+                  ? `Ep ${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
+                  : `S${nextAir.season}E${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
+                : null
+            }
             onStep={handleEpisodeStep}
           />
         )}
@@ -410,14 +417,6 @@ export default function MediaCard({
             </span>
           </div>
         ) : null}
-
-        {nextAir && (
-          <div className="text-[length:var(--za-text-fine)] font-mono text-ink-muted">
-            {rawCategory === 'anime'
-              ? `Ep ${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
-              : `S${nextAir.season}E${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`}
-          </div>
-        )}
       </div>
     </article>
   );
