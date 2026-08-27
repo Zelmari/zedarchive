@@ -14,7 +14,6 @@ import ThemeModal from './ThemeModal';
 import ActivityTimelineModal from './ActivityTimelineModal';
 import ShareProfileModal from './ShareProfileModal';
 import ConfirmModal from './ConfirmModal';
-import ShortcutsModal from './ShortcutsModal';
 import StatsModal from './StatsModal';
 import DataBackupModal from './DataBackupModal';
 import ToastContainer from '@/components/ui/Toast';
@@ -52,13 +51,6 @@ const CONFIRM_CLOSED: ConfirmState = {
   variant: 'primary',
   onConfirm: null,
 };
-
-function isInputFocused(): boolean {
-  const activeEl = document.activeElement as HTMLElement | null;
-  if (!activeEl) return false;
-  const tag = activeEl.tagName?.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || tag === 'select' || activeEl.isContentEditable;
-}
 
 interface DashboardClientProps {
   user: {
@@ -158,78 +150,6 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
   const activeDetailItem = detailItem
     ? entries.find((e) => e.id === detailItem.id) || detailItem
     : null;
-
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        modals.open('add');
-        return;
-      }
-
-      if (
-        e.key === '/' &&
-        !isInputFocused() &&
-        !modals.anyOpen &&
-        !editingItem &&
-        !detailItem &&
-        !confirmModal.isOpen
-      ) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-
-      if (isInputFocused() || modals.anyOpen || editingItem || detailItem || confirmModal.isOpen) {
-        return;
-      }
-
-      switch (e.key) {
-        case '1':
-          e.preventDefault();
-          setActiveTab('total');
-          return;
-        case '2':
-          e.preventDefault();
-          setActiveTab('shows');
-          return;
-        case '3':
-          e.preventDefault();
-          setActiveTab('books');
-          return;
-        case 'n':
-        case 'N':
-          e.preventDefault();
-          modals.open('add');
-          return;
-        case '?':
-          e.preventDefault();
-          modals.open('shortcuts');
-          return;
-        case 's':
-        case 'S':
-          e.preventDefault();
-          modals.open('stats');
-          return;
-        case 'b':
-        case 'B':
-          e.preventDefault();
-          modals.open('data');
-          return;
-        case 't':
-        case 'T':
-          e.preventDefault();
-          modals.open('theme');
-          return;
-        default:
-          return;
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [modals.anyOpen, editingItem, detailItem, confirmModal.isOpen]); // eslint-disable-line react-hooks/exhaustive-deps -- modals object identity changes each render
 
   const handleSignOut = () => {
     setConfirmModal({
@@ -402,7 +322,6 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         userName={user?.name ?? ''}
         username={user?.username ?? null}
         onOpenTheme={() => modals.open('theme')}
-        onOpenShortcuts={() => modals.open('shortcuts')}
         onSignOut={handleSignOut}
         isSigningOut={isSigningOut}
       />
@@ -462,7 +381,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
                 type="button"
                 className="za-button za-button--primary"
                 onClick={() => modals.open('add')}
-                title="Add media (Press N or ⌘K)"
+                title="Add media"
               >
                 <Plus size={16} strokeWidth={2.2} />
                 <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
@@ -576,8 +495,6 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         onConfirm={() => confirmModal.onConfirm?.().finally(() => setConfirmModal(CONFIRM_CLOSED))}
         onCancel={() => setConfirmModal(CONFIRM_CLOSED)}
       />
-
-      <ShortcutsModal isOpen={modals.isOpen('shortcuts')} onClose={modals.close} />
 
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
