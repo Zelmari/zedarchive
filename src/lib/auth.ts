@@ -12,7 +12,13 @@ const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
 // In dev, fall back to localhost unless explicitly configured. Production must
 // always resolve to the canonical browsing origin (Cloudflare dashboard vars).
 const fallbackURL = isDev ? 'http://localhost:3000' : 'https://zedarchive.com';
-const baseURL = process.env.BETTER_AUTH_URL || fallbackURL;
+let baseURL = process.env.BETTER_AUTH_URL || fallbackURL;
+// Never let a dev/local value leak into a production build (e.g. baked from
+// `.env.local`, or a mis-set dashboard variable). Production email links,
+// cookies and callbacks must target the real origin, so force the canonical URL.
+if (!isDev && /localhost|127\.0\.0\.1/.test(baseURL)) {
+  baseURL = fallbackURL;
+}
 
 if (!process.env.BETTER_AUTH_SECRET && !isDev && !isBuildPhase) {
   throw new Error(
