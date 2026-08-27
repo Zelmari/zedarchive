@@ -12,3 +12,11 @@ export interface UserProfile {
   emailVerified?: boolean;
   verificationDismissedAt?: string | null;
 }
+
+export interface UpdateProfileInput {
+  name?: string;
+  username?: string | null;
+  bio?: string | null;
+  isPublic?: boolean;
+  image?: string | null;
+}

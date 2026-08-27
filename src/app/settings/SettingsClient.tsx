@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import type { UserProfile, ThemeId } from '@/types/user';
-import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { MAX_NAME_LENGTH, THEMES } from '@/lib/constants';
 import { getInitials } from '@/lib/format';
 import { compressImageFile } from '@/lib/client/image-utils';
 import { updateUserProfile, updateUserTheme } from '@/server/profile';
@@ -25,14 +25,6 @@ import Modal from '@/components/ui/Modal';
 interface SettingsClientProps {
   profile: UserProfile;
 }
-
-const THEMES: Array<{ id: ThemeId; label: string; bg: string; text: string }> = [
-  { id: 'parchment', label: 'Parchment', bg: '#f7f5f0', text: '#242321' },
-  { id: 'midnight', label: 'Midnight Slate', bg: '#121316', text: '#ededed' },
-  { id: 'sepia', label: 'Vintage Sepia', bg: '#f4ebd9', text: '#382b1d' },
-  { id: 'e-ink', label: 'E-Ink', bg: '#ffffff', text: '#000000' },
-  { id: 'cyber', label: 'Phosphor Cyber', bg: '#090e09', text: '#22c55e' },
-];
 
 function presetAvatarSvg(bg: string, glyph: string, fg: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="${bg}"/><text x="32" y="40" font-size="26" text-anchor="middle" fill="${fg}">${glyph}</text></svg>`;

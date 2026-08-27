@@ -1,7 +1,7 @@
 'use client';
 
 import { Tv, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
-import type { MediaCategoryChip } from '@/components/modals/SpotlightSearchModal';
+import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface MediaFormState {
   title: string;
@@ -11,7 +11,7 @@ export interface MediaFormState {
   primaryUnitCurrent: string;
   secondaryUnitTotal: string;
   secondaryUnitCurrent: string;
-  structure: Array<{ number: number; name: string; total: number | null }>;
+  structure: StructureItem[];
   sourceId: string;
   notes: string;
   coverImage: string | null;
@@ -19,8 +19,8 @@ export interface MediaFormState {
 
 interface MediaEditFormProps {
   isEditMode: boolean;
-  category: MediaCategoryChip;
-  onCategoryChange: (category: MediaCategoryChip) => void;
+  category: MediaCategory;
+  onCategoryChange: (category: MediaCategory) => void;
   form: MediaFormState;
   onFieldChange: <K extends keyof MediaFormState>(field: K, value: MediaFormState[K]) => void;
   /** Category-aware handler for the current-primary-unit field. */
@@ -42,7 +42,7 @@ const STATUS_OPTIONS = [
   { id: 'dropped', label: 'Dropped' },
 ] as const;
 
-const CHIPS: Array<{ id: MediaCategoryChip; label: string; Icon: typeof Tv }> = [
+const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
   { id: 'show', label: 'TV Show', Icon: Tv },
   { id: 'anime', label: 'Anime', Icon: Sparkles },
   { id: 'book', label: 'Book', Icon: BookOpen },

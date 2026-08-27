@@ -1,11 +1,3 @@
-export type CommentActionType =
-  | 'progress_update'
-  | 'status_change'
-  | 'created'
-  | 'completed'
-  | 'rating'
-  | 'rewatch';
-
 export interface ProfileComment {
   id: string;
   profileUserId: string;
@@ -16,13 +8,4 @@ export interface ProfileComment {
   body: string;
   createdAt: string;
   expiresAt: string;
-}
-
-export interface ActivityLog {
-  id: string;
-  userId: string;
-  mediaId: string;
-  actionType: CommentActionType;
-  details: Record<string, unknown>;
-  createdAt: string;
 }

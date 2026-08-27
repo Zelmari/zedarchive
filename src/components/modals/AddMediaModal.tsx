@@ -5,14 +5,13 @@ import { Tv, Sparkles, BookOpen, Library, X, ArrowLeft } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import SpotlightSearchModal, {
-  type MediaCategoryChip,
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
 import MediaEditForm, { type MediaFormState } from '@/components/forms/MediaEditForm';
-import type { MediaEntry } from '@/types/media';
+import type { MediaCategory, MediaEntry } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session
-let lastCategory: MediaCategoryChip | null = null;
+let lastCategory: MediaCategory | null = null;
 
 const EMPTY_FORM: MediaFormState = {
   title: '',
@@ -31,7 +30,7 @@ const EMPTY_FORM: MediaFormState = {
 interface AddMediaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type?: MediaCategoryChip;
+  type?: MediaCategory;
   onAdd?: (payload: Record<string, unknown>) => Promise<unknown>;
   editItem?: MediaEntry | null;
   onSave?: ((id: string, payload: Record<string, unknown>) => Promise<unknown>) | null;
@@ -50,11 +49,9 @@ export default function AddMediaModal({
   onSave = null,
 }: AddMediaModalProps) {
   const isEditMode = !!editItem;
-  const initialCategory: MediaCategoryChip = type === 'book' ? 'book' : 'show';
-  const [category, setCategory] = useState<MediaCategoryChip>(
-    () => lastCategory || initialCategory,
-  );
-  const updateCategory = (next: MediaCategoryChip) => {
+  const initialCategory: MediaCategory = type === 'book' ? 'book' : 'show';
+  const [category, setCategory] = useState<MediaCategory>(() => lastCategory || initialCategory);
+  const updateCategory = (next: MediaCategory) => {
     lastCategory = next;
     setCategory(next);
   };
@@ -78,16 +75,7 @@ export default function AddMediaModal({
 
   const resetForm = useCallback(() => {
     if (editItem) {
-      const legacy = editItem as unknown as Record<string, unknown>;
-      const cat =
-        (legacy.category as MediaCategoryChip) ||
-        ((legacy.type === 'manga'
-          ? 'manga'
-          : legacy.type === 'book'
-            ? 'book'
-            : legacy.type === 'anime'
-              ? 'anime'
-              : 'show') as MediaCategoryChip);
+      const cat = editItem.category || 'show';
       setCategory(cat);
       setForm({
         title: String(editItem.title || ''),

@@ -4,28 +4,21 @@ import { useState } from 'react';
 import { Trash2, Pencil, FileText, Calendar } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
-import type { MediaEntry, NextAirInfo } from '@/types/media';
-import { Badge, StatusBadge, RatingBadge, type MediaStatusBadge } from '@/components/ui/Badge';
+import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
+import { Badge, StatusBadge, RatingBadge } from '@/components/ui/Badge';
 import ShowStepper from './ShowStepper';
 import BookStepper from './BookStepper';
 import UnitStepperRow from './UnitStepperRow';
 
-type CardItem = MediaEntry;
-
-/** Legacy/aliased fields that may appear on client-side payloads. */
-function legacy(item: CardItem): Record<string, unknown> {
-  return item as unknown as Record<string, unknown>;
-}
-
 export interface MediaCardHandlers {
-  onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
+  onUpdate: (id: string, updates: UpdateMediaInput) => Promise<void>;
   onDelete?: (id: string) => void;
-  onEdit?: (item: CardItem) => void;
-  onOpenDetail?: (item: CardItem) => void;
+  onEdit?: (item: MediaEntry) => void;
+  onOpenDetail?: (item: MediaEntry) => void;
 }
 
 interface MediaCardProps extends MediaCardHandlers {
-  item: CardItem;
+  item: MediaEntry;
   nextAir?: NextAirInfo | null;
 }
 
@@ -66,28 +59,17 @@ export default function MediaCard({
   const [showNotes, setShowNotes] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const rawCategory = String(
-    legacy(item).category ??
-      (legacy(item).type === 'manga' || legacy(item).type === 'book' ? legacy(item).type : 'show'),
-  );
+  const rawCategory = item.category || 'show';
   const bookish = isBookFamily(rawCategory);
-  const status = (legacy(item).status as string) || 'in_progress';
+  const status = item.status || 'in_progress';
   const rating = item.rating;
   const tags = Array.isArray(item.tags) ? item.tags : [];
 
-  const primaryUnitCurrent = Number(legacy(item).primaryUnitCurrent ?? 1);
-  const primaryUnitTotal = Number(legacy(item).primaryUnitTotal ?? 1);
-  const secondaryUnitCurrent =
-    (item.secondaryUnitCurrent as number | undefined) ??
-    (legacy(item).currentProgress as number | undefined) ??
-    0;
-  const secondaryUnitTotal =
-    (item.secondaryUnitTotal as number | null | undefined) ??
-    (legacy(item).totalUnits as number | null | undefined) ??
-    null;
-  const structure = Array.isArray(item.structure)
-    ? (item.structure as Array<{ number: number; total: number | null }>)
-    : [];
+  const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
+  const primaryUnitTotal = item.primaryUnitTotal ?? 1;
+  const secondaryUnitCurrent = item.secondaryUnitCurrent ?? 0;
+  const secondaryUnitTotal = item.secondaryUnitTotal ?? null;
+  const structure = Array.isArray(item.structure) ? item.structure : [];
 
   // Season/volume navigation helpers: structure-aware when the entry ships
   // a non-contiguous breakdown, linear fallback otherwise.
@@ -290,7 +272,10 @@ export default function MediaCard({
 
           {/* Badges */}
           <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
-            <StatusBadge status={status as MediaStatusBadge} label={statusLabel(status, bookish)} />
+            <StatusBadge
+              status={status as import('@/types/media').MediaStatus}
+              label={statusLabel(status, bookish)}
+            />
             {rating != null && <RatingBadge rating={rating} />}
             {!bookish && (
               <Badge>

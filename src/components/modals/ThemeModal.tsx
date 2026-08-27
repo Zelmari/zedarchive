@@ -5,48 +5,7 @@ import { Palette, Check } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { updateUserTheme } from '@/server/profile';
 
-const THEMES = [
-  {
-    id: 'parchment',
-    name: 'Parchment (Default)',
-    description: 'Warm linen paper, charcoal ink, subtle slate borders.',
-    bg: '#f7f5f0',
-    fg: '#242321',
-    border: '#85837c',
-  },
-  {
-    id: 'midnight',
-    name: 'Midnight Slate',
-    description: 'Deep obsidian and graphite dark slate with crisp white text.',
-    bg: '#121316',
-    fg: '#ededed',
-    border: '#4b5563',
-  },
-  {
-    id: 'sepia',
-    name: 'Vintage Sepia',
-    description: 'Warm amber tones, aged book paper, and terracotta accents.',
-    bg: '#f4ebd9',
-    fg: '#382b1d',
-    border: '#9c8369',
-  },
-  {
-    id: 'e-ink',
-    name: 'E-Ink Monochrome',
-    description: 'High-contrast pure black and white mimicking physical e-readers.',
-    bg: '#ffffff',
-    fg: '#000000',
-    border: '#000000',
-  },
-  {
-    id: 'cyber',
-    name: 'Phosphor Cyber',
-    description: 'Retro terminal dark mode with glowing green CRT phosphor text.',
-    bg: '#090e09',
-    fg: '#22c55e',
-    border: '#22c55e',
-  },
-] as const;
+import { THEMES } from '@/lib/constants';
 
 interface ThemeModalProps {
   isOpen: boolean;

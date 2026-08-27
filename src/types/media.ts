@@ -1,3 +1,5 @@
+import type { mediaEntries } from '@/db/schema';
+
 export type MediaCategory = 'show' | 'book' | 'anime' | 'manga';
 export type MediaStatus = 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped';
 
@@ -7,31 +9,31 @@ export interface StructureItem {
   total: number | null;
 }
 
+type MediaRow = typeof mediaEntries.$inferSelect;
+
 /**
  * Serialized media entry as exchanged between server actions and the client
  * (dates as ISO strings, JSON-friendly throughout).
  */
-export interface MediaEntry {
-  id: string;
-  userId: string;
-  title: string;
+export interface MediaEntry extends Omit<
+  MediaRow,
+  | 'completedAt'
+  | 'startedAt'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'category'
+  | 'status'
+  | 'structure'
+  | 'tags'
+  | 'genres'
+> {
   category: MediaCategory;
-  primaryUnitCurrent: number;
-  primaryUnitTotal: number | null;
-  secondaryUnitCurrent: number;
-  secondaryUnitTotal: number | null;
-  structure: StructureItem[];
   status: MediaStatus;
-  completedAt: string | null;
-  startedAt: string | null;
-  rewatchCount: number;
-  rating: number | null;
+  structure: StructureItem[];
   tags: string[];
   genres: string[];
-  synopsis: string | null;
-  coverImage: string | null;
-  sourceId: string | null;
-  notes: string | null;
+  completedAt: string | null;
+  startedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,6 +1,7 @@
 export const revalidate = 86400;
 
-const MAX_QUERY_LENGTH = 100;
+import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import type { SearchResult } from '@/types/search';
 
 interface TvmazeImage {
   medium?: string | null;
@@ -18,17 +19,6 @@ interface TvmazeSeason {
   number?: number | null;
   name?: string | null;
   episodeOrder?: number | null;
-}
-
-interface SearchResult {
-  sourceId: string;
-  category: string;
-  title: string;
-  coverUrl: string | null;
-  primaryUnitTotal: number;
-  structure: Array<{ number: number; name: string; total: number | null }>;
-  secondaryUnitTotal: number | null;
-  year: string | null;
 }
 
 function parseQuery(request: Request): { query: string; error?: Response } {
@@ -62,10 +52,7 @@ export async function GET(request: Request): Promise<Response> {
     });
 
     if (!searchRes.ok) {
-      return Response.json(
-        { results: [], error: 'Search service unavailable' },
-        { status: 502 }
-      );
+      return Response.json({ results: [], error: 'Search service unavailable' }, { status: 502 });
     }
 
     const searchData: unknown = await searchRes.json();
@@ -117,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
           secondaryUnitTotal: structureArray[0]?.total || null,
           year: show.premiered ? show.premiered.substring(0, 4) : null,
         };
-      })
+      }),
     );
 
     return Response.json({ results: results.filter(Boolean) });

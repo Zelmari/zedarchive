@@ -5,21 +5,15 @@ import { Flame, CheckCircle, Clock, Activity as ActivityIcon, RotateCcw, Star } 
 import Modal from '@/components/ui/Modal';
 import { getActivityLogs, getUserStreak } from '@/server/activity';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
+import type { ActivityLog } from '@/types/activity';
 
 interface ActivityTimelineModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface LogRow {
-  id: string;
-  actionType: string;
-  details: Record<string, unknown>;
-  createdAt: Date | string;
-}
-
 export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimelineModalProps) {
-  const [logs, setLogs] = useState<LogRow[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +37,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
   // not from the truncated activity window fetched above.
 
   // Group logs by relative date
-  const groupedLogs = logs.reduce<Record<string, LogRow[]>>((groups, log) => {
+  const groupedLogs = logs.reduce<Record<string, ActivityLog[]>>((groups, log) => {
     const logDate = new Date(log.createdAt);
     const today = new Date();
     const yesterday = new Date();
@@ -58,11 +52,11 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
     else if (logDate.toDateString() === yesterday.toDateString()) groupKey = 'Yesterday';
 
     if (!groups[groupKey]) groups[groupKey] = [];
-    (groups[groupKey] as LogRow[]).push(log);
+    (groups[groupKey] as ActivityLog[]).push(log);
     return groups;
   }, {});
 
-  const formatActionMessage = (log: LogRow): string => {
+  const formatActionMessage = (log: ActivityLog): string => {
     const details = log.details || {};
     const title = String(details.title || 'media entry');
     const isBook = details.category === 'book' || details.category === 'manga';

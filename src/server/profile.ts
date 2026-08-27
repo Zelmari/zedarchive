@@ -46,14 +46,16 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
 
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();
-  const safeTheme = VALID_THEMES.includes(theme as string) ? theme : 'parchment';
+  const safeTheme = (VALID_THEMES as readonly string[]).includes(String(theme))
+    ? (theme as string)
+    : 'parchment';
 
   await db
     .update(userTable)
     .set({ theme: safeTheme as never, updatedAt: new Date() })
     .where(eq(userTable.id, user.id));
 
-  return { theme: safeTheme as string };
+  return { theme: safeTheme };
 }
 
 export async function getUserProfile() {

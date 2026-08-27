@@ -2,17 +2,9 @@
 
 import { useState } from 'react';
 import type { MediaEntry } from '@/types/media';
+import type { DashboardTab, SortKey } from '@/types/dashboard';
 
-export type SortKey =
-  | 'updated_desc'
-  | 'created_desc'
-  | 'created_asc'
-  | 'title_asc'
-  | 'title_desc'
-  | 'progress_desc'
-  | 'rating_desc';
-
-export type DashboardTab = 'total' | 'shows' | 'books';
+export type { DashboardTab, SortKey };
 
 export const STATUS_KEYS = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'] as const;
 

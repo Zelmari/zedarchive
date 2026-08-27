@@ -13,13 +13,7 @@ import { Star, ShieldAlert } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 
-const THEME_LABELS: Record<string, string> = {
-  parchment: 'Parchment',
-  midnight: 'Midnight Slate',
-  sepia: 'Vintage Sepia',
-  'e-ink': 'E-Ink',
-  cyber: 'Phosphor Cyber',
-};
+import { THEME_LABELS } from '@/lib/constants';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -189,7 +183,8 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   </span>
                   {user.theme && (
                     <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
-                      {THEME_LABELS[user.theme] ?? user.theme}
+                      {(user.theme && (THEME_LABELS as Record<string, string>)[user.theme]) ??
+                        user.theme}
                     </span>
                   )}
                 </div>

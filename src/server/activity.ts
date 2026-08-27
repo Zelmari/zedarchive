@@ -4,17 +4,11 @@ import { db } from '@/lib/db';
 import { mediaActivityLogs } from '@/db/schema';
 import { eq, desc, sql, type SQL } from 'drizzle-orm';
 import { getAuthUser } from './internal';
+import type { ActivityLog } from '@/types/activity';
 
-export interface ActivityLogRow {
-  id: string;
-  userId: string;
-  mediaId: string;
-  actionType: string;
-  details: Record<string, unknown>;
-  createdAt: Date | string;
-}
+export type { ActivityLog as ActivityLogRow };
 
-export async function getActivityLogs(limit = 40): Promise<ActivityLogRow[]> {
+export async function getActivityLogs(limit = 40): Promise<ActivityLog[]> {
   const user = await getAuthUser();
 
   const logs = await db

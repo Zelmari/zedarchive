@@ -1,6 +1,7 @@
 export const revalidate = 86400;
 
-const MAX_QUERY_LENGTH = 100;
+import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import type { SearchResult } from '@/types/search';
 
 interface AniListMedia {
   id: number;
@@ -23,18 +24,6 @@ interface TvmazeSeasonShape {
   number?: number | null;
   name?: string | null;
   episodeOrder?: number | null;
-}
-
-interface SearchResult {
-  sourceId: string;
-  category: string;
-  title: string;
-  coverUrl: string | null;
-  primaryUnitTotal: number;
-  structure: Array<{ number: number; name: string; total: number | null }>;
-  secondaryUnitTotal: number | null;
-  authors?: string | null;
-  year: string | null;
 }
 
 const ANILIST_QUERY = `
@@ -69,7 +58,11 @@ function httpsCover(url: string | null | undefined): string | null {
   return url ?? null;
 }
 
-function toAnimeResult(item: AniListMedia, isManga: boolean, sourcePrefix = 'anilist'): SearchResult {
+function toAnimeResult(
+  item: AniListMedia,
+  isManga: boolean,
+  sourcePrefix = 'anilist',
+): SearchResult {
   const title = item.title?.english || item.title?.romaji || 'Unknown Title';
   const coverUrl = httpsCover(item.coverImage?.large || item.coverImage?.medium);
 
@@ -142,10 +135,13 @@ async function searchAniList(query: string, isManga: boolean): Promise<SearchRes
 // TVMaze covers most anime series and is reachable from Workers, unlike
 // AniList (403 on datacenter IPs) and Jikan (504 from Workers).
 async function searchTvmazeAnime(query: string): Promise<SearchResult[] | null> {
-  const searchRes = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`, {
-    next: { revalidate: 86400 },
-    headers: { Accept: 'application/json' },
-  });
+  const searchRes = await fetch(
+    `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`,
+    {
+      next: { revalidate: 86400 },
+      headers: { Accept: 'application/json' },
+    },
+  );
 
   if (!searchRes.ok) return null;
 
@@ -193,7 +189,7 @@ async function searchTvmazeAnime(query: string): Promise<SearchResult[] | null> 
         secondaryUnitTotal: structureArray[0]?.total || null,
         year: show.premiered ? show.premiered.substring(0, 4) : null,
       };
-    })
+    }),
   );
 
   const filtered = results.filter((r): r is SearchResult => r !== null);
@@ -219,7 +215,8 @@ async function searchGoogleBooksManga(query: string): Promise<SearchResult[] | n
   return items.map((rawItem): SearchResult => {
     const item = rawItem as { id: number; volumeInfo?: Record<string, unknown> };
     const info = item.volumeInfo || {};
-    const imageLinks = info.imageLinks as { thumbnail?: string; smallThumbnail?: string } | undefined;
+    const imageLinks = info.imageLinks as
+      { thumbnail?: string; smallThumbnail?: string } | undefined;
     const coverUrl = httpsCover(imageLinks?.thumbnail || imageLinks?.smallThumbnail);
 
     return {
@@ -277,7 +274,11 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
   }
 
-  const rawType = (searchParams.get('type') || searchParams.get('category') || 'ANIME').toUpperCase();
+  const rawType = (
+    searchParams.get('type') ||
+    searchParams.get('category') ||
+    'ANIME'
+  ).toUpperCase();
   const isManga = rawType === 'MANGA';
 
   if (!query) {
@@ -298,10 +299,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     if (!results) {
-      return Response.json(
-        { results: [], error: 'Search service unavailable' },
-        { status: 502 }
-      );
+      return Response.json({ results: [], error: 'Search service unavailable' }, { status: 502 });
     }
 
     return Response.json({ results });

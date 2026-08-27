@@ -1,6 +1,14 @@
-export const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'];
-export const VALID_STATUSES = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'];
-export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber'];
+import type { ThemeId } from '@/types/user';
+
+export const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'] as const;
+export const VALID_STATUSES = [
+  'in_progress',
+  'completed',
+  'planning',
+  'on_hold',
+  'dropped',
+] as const;
+export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber'] as const;
 
 export const MAX_TITLE_LENGTH = 500;
 export const MAX_NOTES_LENGTH = 5000;
@@ -9,6 +17,7 @@ export const MAX_SOURCE_ID_LENGTH = 200;
 export const MAX_COVER_IMAGE_LENGTH = 2_000_000;
 export const MAX_STRUCTURE_LENGTH = 500;
 export const MAX_RATING = 10;
+export const MAX_QUERY_LENGTH = 100;
 
 export const MAX_USERNAME_LENGTH = 30;
 export const MAX_NAME_LENGTH = 100;
@@ -22,3 +31,75 @@ export const COMMENT_RATE_WINDOW_MS = 60 * 1000;
 export const ACTIVITY_LOG_FETCH_LIMIT = 50;
 
 export const HANDLE_SANITIZE_PATTERN = /[^a-z0-9_-]/g;
+
+export interface ThemeDefinition {
+  id: ThemeId;
+  name: string;
+  label: string;
+  description: string;
+  bg: string;
+  fg: string;
+  text: string;
+  border: string;
+}
+
+export const THEMES: ThemeDefinition[] = [
+  {
+    id: 'parchment',
+    name: 'Parchment (Default)',
+    label: 'Parchment',
+    description: 'Warm linen paper, charcoal ink, subtle slate borders.',
+    bg: '#f7f5f0',
+    fg: '#242321',
+    text: '#242321',
+    border: '#85837c',
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Slate',
+    label: 'Midnight Slate',
+    description: 'Deep obsidian and graphite dark slate with crisp white text.',
+    bg: '#121316',
+    fg: '#ededed',
+    text: '#ededed',
+    border: '#4b5563',
+  },
+  {
+    id: 'sepia',
+    name: 'Vintage Sepia',
+    label: 'Vintage Sepia',
+    description: 'Warm amber tones, aged book paper, and terracotta accents.',
+    bg: '#f4ebd9',
+    fg: '#382b1d',
+    text: '#382b1d',
+    border: '#9c8369',
+  },
+  {
+    id: 'e-ink',
+    name: 'E-Ink Monochrome',
+    label: 'E-Ink',
+    description: 'High-contrast pure black and white mimicking physical e-readers.',
+    bg: '#ffffff',
+    fg: '#000000',
+    text: '#000000',
+    border: '#000000',
+  },
+  {
+    id: 'cyber',
+    name: 'Phosphor Cyber',
+    label: 'Phosphor Cyber',
+    description: 'Retro terminal dark mode with glowing green CRT phosphor text.',
+    bg: '#090e09',
+    fg: '#22c55e',
+    text: '#22c55e',
+    border: '#15803d',
+  },
+];
+
+export const THEME_LABELS: Record<ThemeId, string> = {
+  parchment: 'Parchment',
+  midnight: 'Midnight Slate',
+  sepia: 'Vintage Sepia',
+  'e-ink': 'E-Ink',
+  cyber: 'Phosphor Cyber',
+};

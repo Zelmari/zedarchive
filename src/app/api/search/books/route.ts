@@ -1,18 +1,7 @@
 export const revalidate = 86400;
 
-const MAX_QUERY_LENGTH = 100;
-
-interface SearchResult {
-  sourceId: string;
-  category: string;
-  title: string;
-  coverUrl: string | null;
-  primaryUnitTotal: number;
-  structure: Array<{ number: number; name: string; total: number | null }>;
-  secondaryUnitTotal: number | null;
-  authors?: string | null;
-  year: string | null;
-}
+import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import type { SearchResult } from '@/types/search';
 
 function httpsCover(url: string | null | undefined): string | null {
   if (url && url.startsWith('http://')) {
@@ -118,17 +107,14 @@ export async function GET(request: Request): Promise<Response> {
     } catch (gbooksErr) {
       console.warn(
         'Google Books failed, falling back to Open Library:',
-        gbooksErr instanceof Error ? gbooksErr.message : gbooksErr
+        gbooksErr instanceof Error ? gbooksErr.message : gbooksErr,
       );
     }
 
     // 2. Fallback to Open Library
     const fallbackResults = await searchOpenLibrary(query);
     if (fallbackResults === null) {
-      return Response.json(
-        { results: [], error: 'Search service unavailable' },
-        { status: 502 }
-      );
+      return Response.json({ results: [], error: 'Search service unavailable' }, { status: 502 });
     }
     return Response.json({ results: fallbackResults });
   } catch (error) {
