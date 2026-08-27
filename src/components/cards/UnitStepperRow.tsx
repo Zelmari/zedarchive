@@ -7,6 +7,9 @@ interface UnitStepperRowProps {
   unitLabel: string;
   current: number;
   total: number;
+  /** Structure-aware navigation flag; falls back to arithmetic bounds when omitted. */
+  canPrev?: boolean;
+  canNext?: boolean;
   disabled?: boolean;
   onChange: (delta: number) => void;
   prevTitle?: string;
@@ -18,6 +21,8 @@ export default function UnitStepperRow({
   unitLabel,
   current,
   total,
+  canPrev,
+  canNext,
   disabled = false,
   onChange,
   prevTitle,
@@ -25,6 +30,9 @@ export default function UnitStepperRow({
 }: UnitStepperRowProps) {
   const miniBtn =
     'inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-small border border-required bg-surface text-ink transition-[all] duration-[var(--za-motion-fast)] hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+
+  const prevDisabled = disabled || (canPrev !== undefined ? !canPrev : current <= 1);
+  const nextDisabled = disabled || (canNext !== undefined ? !canNext : current >= total);
 
   return (
     <div className="flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted">
@@ -36,7 +44,7 @@ export default function UnitStepperRow({
           type="button"
           className={miniBtn}
           onClick={() => onChange(-1)}
-          disabled={current <= 1 || disabled}
+          disabled={prevDisabled}
           title={prevTitle ?? `Previous ${unitLabel.toLowerCase()}`}
           aria-label={prevTitle ?? `Previous ${unitLabel.toLowerCase()}`}
         >
@@ -46,7 +54,7 @@ export default function UnitStepperRow({
           type="button"
           className={miniBtn}
           onClick={() => onChange(1)}
-          disabled={current >= total || disabled}
+          disabled={nextDisabled}
           title={nextTitle ?? `Next ${unitLabel.toLowerCase()}`}
           aria-label={nextTitle ?? `Next ${unitLabel.toLowerCase()}`}
         >

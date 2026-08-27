@@ -78,9 +78,9 @@ export default function MediaDetailModal({
     if (seasonNumber && seasonNumber !== primaryCurrent) {
       updates.primaryUnitCurrent = seasonNumber;
       const seasonObj = structure.find((s) => s.number === seasonNumber);
-      if (seasonObj && seasonObj.total) {
-        updates.secondaryUnitTotal = seasonObj.total;
-      }
+      // Always reset the secondary total on season switches so a season
+      // with an unknown total never inherits the previous season's count.
+      updates.secondaryUnitTotal = seasonObj?.total ?? null;
     }
     updates.secondaryUnitCurrent = epNumber;
     await runUpdate(updates);

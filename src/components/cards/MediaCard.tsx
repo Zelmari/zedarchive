@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Trash2, Pencil, FileText } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
+import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import type { MediaEntry, NextAirInfo } from '@/types/media';
 import { Badge, StatusBadge, RatingBadge, type MediaStatusBadge } from '@/components/ui/Badge';
 import ShowStepper from './ShowStepper';
@@ -88,6 +89,18 @@ export default function MediaCard({
     ? (item.structure as Array<{ number: number; total: number | null }>)
     : [];
 
+  // Season/volume navigation helpers: structure-aware when the entry ships
+  // a non-contiguous breakdown, linear fallback otherwise.
+  const sortedStructure = sortedSeasonStructure(structure);
+  const nextSeason = (current: number) => getNextSeason(current, sortedStructure, primaryUnitTotal);
+  const prevSeason = (current: number) => getPrevSeason(current, sortedStructure, primaryUnitTotal);
+  // Stepper label total: reflect the highest real season number so a
+  // non-contiguous structure never renders "Season 3 of 2".
+  const seasonDisplayTotal =
+    sortedStructure.length > 0
+      ? (sortedStructure[sortedStructure.length - 1]?.number ?? primaryUnitTotal)
+      : primaryUnitTotal;
+
   // Book card keeps its numeric input in sync with external progress updates
   // (render-time derived-state sync, per React docs).
   const [prevProgress, setPrevProgress] = useState(secondaryUnitCurrent);
@@ -97,13 +110,11 @@ export default function MediaCard({
     setInputValue(String(secondaryUnitCurrent));
   }
 
-  const hasNextSeason =
-    primaryUnitCurrent < primaryUnitTotal || structure.some((s) => s.number > primaryUnitCurrent);
+  const hasNextSeason = nextSeason(primaryUnitCurrent) !== null;
+  const hasPrevSeason = prevSeason(primaryUnitCurrent) !== null;
 
   const isAtFinalUnit =
-    primaryUnitCurrent >= primaryUnitTotal &&
-    secondaryUnitTotal !== null &&
-    secondaryUnitCurrent >= secondaryUnitTotal;
+    !hasNextSeason && secondaryUnitTotal !== null && secondaryUnitCurrent >= secondaryUnitTotal;
 
   const canDecrement = secondaryUnitCurrent > 0;
   const canIncrement =
@@ -134,12 +145,12 @@ export default function MediaCard({
 
     const totalKnown = secondaryUnitTotal !== null;
     if (!totalKnown || secondaryUnitCurrent >= (secondaryUnitTotal as number)) {
-      if (hasNextSeason) {
-        const nextSeason = primaryUnitCurrent + 1;
+      const next = nextSeason(primaryUnitCurrent);
+      if (next !== null) {
         void runUpdate({
-          primaryUnitCurrent: nextSeason,
+          primaryUnitCurrent: next,
           secondaryUnitCurrent: 1,
-          secondaryUnitTotal: seasonTotalFor(nextSeason),
+          secondaryUnitTotal: seasonTotalFor(next),
         });
       }
       return;
@@ -149,13 +160,12 @@ export default function MediaCard({
   };
 
   const handleSeasonChange = (delta: number) => {
-    const nextSeason = primaryUnitCurrent + delta;
-    if (nextSeason < 1) return;
-    if (primaryUnitTotal && nextSeason > primaryUnitTotal) return;
+    const next = delta > 0 ? nextSeason(primaryUnitCurrent) : prevSeason(primaryUnitCurrent);
+    if (next === null) return;
     void runUpdate({
-      primaryUnitCurrent: nextSeason,
+      primaryUnitCurrent: next,
       secondaryUnitCurrent: 1,
-      secondaryUnitTotal: seasonTotalFor(nextSeason),
+      secondaryUnitTotal: seasonTotalFor(next),
     });
   };
 
@@ -309,7 +319,9 @@ export default function MediaCard({
             <UnitStepperRow
               unitLabel="Season"
               current={primaryUnitCurrent}
-              total={primaryUnitTotal}
+              total={seasonDisplayTotal}
+              canPrev={hasPrevSeason}
+              canNext={hasNextSeason}
               disabled={isUpdating}
               onChange={handleSeasonChange}
             />

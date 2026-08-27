@@ -265,14 +265,10 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
       prev.map((item) => {
         if (item.id !== id) return item;
         const next: MediaEntry = { ...item, ...updates, updatedAt: new Date().toISOString() };
-        if (
-          updates.primaryUnitCurrent !== undefined &&
-          next.structure &&
-          next.structure.length > 0
-        ) {
-          const seasonObj = next.structure.find((s) => s.number === updates.primaryUnitCurrent);
-          if (seasonObj && seasonObj.total) {
-            next.secondaryUnitTotal = seasonObj.total;
+        if (updates.primaryUnitCurrent !== undefined) {
+          if (next.structure && next.structure.length > 0) {
+            const seasonObj = next.structure.find((s) => s.number === updates.primaryUnitCurrent);
+            next.secondaryUnitTotal = seasonObj?.total ?? null;
           }
         }
         return next;
