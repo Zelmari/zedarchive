@@ -60,7 +60,12 @@ function sanitizeTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
   return tags
     .slice(0, 50)
-    .map((t) => String(t || '').trim().toLowerCase().slice(0, 50))
+    .map((t) =>
+      String(t || '')
+        .trim()
+        .toLowerCase()
+        .slice(0, 50),
+    )
     .filter(Boolean);
 }
 
@@ -84,33 +89,41 @@ export async function getMediaEntries(): Promise<MediaEntry[]> {
     .where(eq(mediaEntries.userId, user.id))
     .orderBy(desc(mediaEntries.updatedAt));
 
-  return entries
-    .map(serializeEntry)
-    .filter((entry): entry is MediaEntry => entry !== null);
+  return entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null);
 }
 
 export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {
   const user = await getAuthUser();
 
-  const title = String(data.title || '').trim().slice(0, MAX_TITLE_LENGTH);
+  const title = String(data.title || '')
+    .trim()
+    .slice(0, MAX_TITLE_LENGTH);
   if (!title) {
     throw new Error('Title is required');
   }
 
   const id = crypto.randomUUID();
   const category = (
-    isInList(VALID_CATEGORIES, data.category) ? data.category : data.type === 'book' ? 'book' : 'show'
+    isInList(VALID_CATEGORIES, data.category)
+      ? data.category
+      : data.type === 'book'
+        ? 'book'
+        : 'show'
   ) as MediaRow['category'];
 
   const primaryUnitCurrent = Math.max(1, toInt(data.primaryUnitCurrent, 1));
   const primaryUnitTotal =
-    data.primaryUnitTotal !== undefined && data.primaryUnitTotal !== null && data.primaryUnitTotal !== ''
+    data.primaryUnitTotal !== undefined &&
+    data.primaryUnitTotal !== null &&
+    data.primaryUnitTotal !== ''
       ? Math.max(1, toInt(data.primaryUnitTotal, 1))
       : null;
 
   const secondaryUnitCurrent = Math.max(0, toInt(data.secondaryUnitCurrent, 0));
   const secondaryUnitTotal =
-    data.secondaryUnitTotal !== undefined && data.secondaryUnitTotal !== null && data.secondaryUnitTotal !== ''
+    data.secondaryUnitTotal !== undefined &&
+    data.secondaryUnitTotal !== null &&
+    data.secondaryUnitTotal !== ''
       ? Math.max(0, toInt(data.secondaryUnitTotal, 0))
       : null;
 
@@ -119,15 +132,19 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
   const rating = sanitizeRating(data.rating);
   const tags = sanitizeTags(data.tags);
   const genres = Array.isArray(data.genres) ? (data.genres as string[]).slice(0, 20) : [];
-  const synopsis = data.synopsis ? String(data.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null;
+  const synopsis = data.synopsis
+    ? String(data.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
+    : null;
   const startedAt = toDateOrNull(data.startedAt) ?? new Date();
-  const completedAt = status === 'completed' ? (toDateOrNull(data.completedAt) ?? new Date()) : null;
+  const completedAt =
+    status === 'completed' ? (toDateOrNull(data.completedAt) ?? new Date()) : null;
 
   const coverImage =
     typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
       ? data.coverImage
       : null;
-  const sourceId = typeof data.sourceId === 'string' ? data.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
+  const sourceId =
+    typeof data.sourceId === 'string' ? data.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
   const notes = data.notes ? String(data.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
 
   const newEntry = await db.transaction(async (tx) => {
@@ -146,9 +163,15 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         tags,
         genres,
         synopsis,
-        primaryUnitCurrent: primaryUnitTotal !== null ? Math.min(primaryUnitCurrent, primaryUnitTotal) : primaryUnitCurrent,
+        primaryUnitCurrent:
+          primaryUnitTotal !== null
+            ? Math.min(primaryUnitCurrent, primaryUnitTotal)
+            : primaryUnitCurrent,
         primaryUnitTotal,
-        secondaryUnitCurrent: secondaryUnitTotal !== null ? Math.min(secondaryUnitCurrent, secondaryUnitTotal) : secondaryUnitCurrent,
+        secondaryUnitCurrent:
+          secondaryUnitTotal !== null
+            ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
+            : secondaryUnitCurrent,
         secondaryUnitTotal,
         structure,
         coverImage,
@@ -158,12 +181,15 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
       })
       .returning();
 
-    await logActivity({
-      userId: user.id,
-      mediaId: id,
-      actionType: 'created',
-      details: { title, category, status },
-    }, tx);
+    await logActivity(
+      {
+        userId: user.id,
+        mediaId: id,
+        actionType: 'created',
+        details: { title, category, status },
+      },
+      tx,
+    );
 
     return inserted;
   });
@@ -174,7 +200,7 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
 
 export async function updateMediaProgress(
   id: string,
-  updates: Record<string, unknown>
+  updates: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
 
@@ -220,7 +246,9 @@ export async function updateMediaProgress(
       : null;
   }
   if (updates.genres !== undefined) {
-    updateFields.genres = Array.isArray(updates.genres) ? (updates.genres as string[]).slice(0, 20) : [];
+    updateFields.genres = Array.isArray(updates.genres)
+      ? (updates.genres as string[]).slice(0, 20)
+      : [];
   }
   if (updates.startedAt !== undefined) {
     updateFields.startedAt = toDateOrNull(updates.startedAt);
@@ -248,17 +276,6 @@ export async function updateMediaProgress(
         : null;
   }
 
-  const nextPrimaryCurrent = updateFields.primaryUnitCurrent;
-  const nextPrimaryTotal = updateFields.primaryUnitTotal;
-  if (nextPrimaryCurrent !== undefined && nextPrimaryTotal != null) {
-    updateFields.primaryUnitCurrent = Math.min(nextPrimaryCurrent, nextPrimaryTotal);
-  }
-  const nextSecondaryCurrent = updateFields.secondaryUnitCurrent;
-  const nextSecondaryTotal = updateFields.secondaryUnitTotal;
-  if (nextSecondaryCurrent !== undefined && nextSecondaryTotal != null) {
-    updateFields.secondaryUnitCurrent = Math.min(nextSecondaryCurrent, nextSecondaryTotal);
-  }
-
   if (updates.structure !== undefined) {
     updateFields.structure = sanitizeStructure(updates.structure);
   }
@@ -273,19 +290,53 @@ export async function updateMediaProgress(
       typeof updates.sourceId === 'string' ? updates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
   }
   if (updates.notes !== undefined) {
-    updateFields.notes = updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+    updateFields.notes =
+      updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
   }
 
   const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
+
+    if (!existing) {
+      throw new Error('Entry not found');
+    }
+
+    // Bidirectional invariant: current <= total whenever the total is known.
+    // Combine the sanitized update fields with the stored row so updates that
+    // only touch one side still clamp against the other side's DB value.
+    const effectivePrimaryTotal =
+      updateFields.primaryUnitTotal !== undefined
+        ? updateFields.primaryUnitTotal
+        : existing.primaryUnitTotal;
+    const rawPrimaryCurrent =
+      updateFields.primaryUnitCurrent !== undefined
+        ? updateFields.primaryUnitCurrent
+        : existing.primaryUnitCurrent;
+    updateFields.primaryUnitCurrent =
+      effectivePrimaryTotal !== null
+        ? Math.min(rawPrimaryCurrent, effectivePrimaryTotal)
+        : rawPrimaryCurrent;
+
+    const effectiveSecondaryTotal =
+      updateFields.secondaryUnitTotal !== undefined
+        ? updateFields.secondaryUnitTotal
+        : existing.secondaryUnitTotal;
+    const rawSecondaryCurrent =
+      updateFields.secondaryUnitCurrent !== undefined
+        ? updateFields.secondaryUnitCurrent
+        : existing.secondaryUnitCurrent;
+    updateFields.secondaryUnitCurrent =
+      effectiveSecondaryTotal !== null
+        ? Math.min(rawSecondaryCurrent, effectiveSecondaryTotal)
+        : rawSecondaryCurrent;
+
     const [row] = await tx
       .update(mediaEntries)
       .set(updateFields)
-      .where(
-        and(
-          eq(mediaEntries.id, id),
-          eq(mediaEntries.userId, user.id)
-        )
-      )
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)))
       .returning();
 
     if (!row) {
@@ -297,20 +348,23 @@ export async function updateMediaProgress(
     else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
     else if (updates.rating !== undefined) actionType = 'rating';
 
-    await logActivity({
-      userId: user.id,
-      mediaId: id,
-      actionType,
-      details: {
-        title: row.title,
-        category: row.category,
-        season: row.primaryUnitCurrent,
-        progress: row.secondaryUnitCurrent,
-        total: row.secondaryUnitTotal,
-        status: row.status,
-        rating: row.rating,
+    await logActivity(
+      {
+        userId: user.id,
+        mediaId: id,
+        actionType,
+        details: {
+          title: row.title,
+          category: row.category,
+          season: row.primaryUnitCurrent,
+          progress: row.secondaryUnitCurrent,
+          total: row.secondaryUnitTotal,
+          status: row.status,
+          rating: row.rating,
+        },
       },
-    }, tx);
+      tx,
+    );
 
     return row;
   });
@@ -327,17 +381,14 @@ interface BulkImportResult {
 
 export async function bulkImportMediaEntries(
   items: unknown,
-  conflictStrategy = 'skip'
+  conflictStrategy = 'skip',
 ): Promise<BulkImportResult> {
   const user = await getAuthUser();
   if (!Array.isArray(items) || items.length === 0) {
     return { added: 0, updated: 0, skipped: 0 };
   }
 
-  const existing = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, user.id));
+  const existing = await db.select().from(mediaEntries).where(eq(mediaEntries.userId, user.id));
 
   const existingBySourceOrTitle = new Map<string, Pick<MediaRow, 'id'>>();
   existing.forEach((e) => {
@@ -350,7 +401,9 @@ export async function bulkImportMediaEntries(
   let skipped = 0;
 
   for (const rawItem of items as Record<string, unknown>[]) {
-    const title = String(rawItem.title || '').trim().slice(0, MAX_TITLE_LENGTH);
+    const title = String(rawItem.title || '')
+      .trim()
+      .slice(0, MAX_TITLE_LENGTH);
     if (!title) continue;
 
     const category = (
@@ -359,12 +412,21 @@ export async function bulkImportMediaEntries(
     const sourceKey = typeof rawItem.sourceId === 'string' ? rawItem.sourceId.toLowerCase() : null;
     const titleKey = `${category}:${title.toLowerCase()}`;
 
-    const match = (sourceKey && existingBySourceOrTitle.get(sourceKey)) || existingBySourceOrTitle.get(titleKey);
+    const match =
+      (sourceKey && existingBySourceOrTitle.get(sourceKey)) ||
+      existingBySourceOrTitle.get(titleKey);
 
     if (match && conflictStrategy === 'skip') {
       skipped++;
       continue;
     }
+
+    const rawPrimaryCurrent = Math.max(1, toInt(rawItem.primaryUnitCurrent, 1));
+    const rawPrimaryTotal =
+      rawItem.primaryUnitTotal != null ? Math.max(1, toInt(rawItem.primaryUnitTotal, 1)) : null;
+    const rawSecondaryCurrent = Math.max(0, toInt(rawItem.secondaryUnitCurrent, 0));
+    const rawSecondaryTotal =
+      rawItem.secondaryUnitTotal != null ? Math.max(0, toInt(rawItem.secondaryUnitTotal, 0)) : null;
 
     const payload = {
       title,
@@ -376,27 +438,34 @@ export async function bulkImportMediaEntries(
         toDateOrNull(rawItem.completedAt) ?? (rawItem.status === 'completed' ? new Date() : null),
       startedAt: toDateOrNull(rawItem.startedAt),
       rewatchCount: Math.max(0, toInt(rawItem.rewatchCount, 0)),
-      synopsis: rawItem.synopsis ? String(rawItem.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null,
+      synopsis: rawItem.synopsis
+        ? String(rawItem.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
+        : null,
       genres: Array.isArray(rawItem.genres) ? (rawItem.genres as string[]).slice(0, 20) : [],
-      primaryUnitCurrent: Math.max(1, toInt(rawItem.primaryUnitCurrent, 1)),
-      primaryUnitTotal: rawItem.primaryUnitTotal != null ? Math.max(1, toInt(rawItem.primaryUnitTotal, 1)) : null,
-      secondaryUnitCurrent: Math.max(0, toInt(rawItem.secondaryUnitCurrent, 0)),
-      secondaryUnitTotal: rawItem.secondaryUnitTotal != null ? Math.max(0, toInt(rawItem.secondaryUnitTotal, 0)) : null,
+      primaryUnitCurrent:
+        rawPrimaryTotal !== null ? Math.min(rawPrimaryCurrent, rawPrimaryTotal) : rawPrimaryCurrent,
+      primaryUnitTotal: rawPrimaryTotal,
+      secondaryUnitCurrent:
+        rawSecondaryTotal !== null
+          ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
+          : rawSecondaryCurrent,
+      secondaryUnitTotal: rawSecondaryTotal,
       structure: sanitizeStructure(rawItem.structure),
       coverImage:
-        typeof rawItem.coverImage === 'string' && rawItem.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+        typeof rawItem.coverImage === 'string' &&
+        rawItem.coverImage.length <= MAX_COVER_IMAGE_LENGTH
           ? rawItem.coverImage
           : null,
-      sourceId: typeof rawItem.sourceId === 'string' ? rawItem.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null,
+      sourceId:
+        typeof rawItem.sourceId === 'string'
+          ? rawItem.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
+          : null,
       notes: rawItem.notes ? String(rawItem.notes).trim().slice(0, MAX_NOTES_LENGTH) : null,
       updatedAt: new Date(),
     };
 
     if (match && conflictStrategy === 'overwrite') {
-      await db
-        .update(mediaEntries)
-        .set(payload)
-        .where(eq(mediaEntries.id, match.id));
+      await db.update(mediaEntries).set(payload).where(eq(mediaEntries.id, match.id));
       if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
       existingBySourceOrTitle.set(titleKey, match);
       updated++;
@@ -424,12 +493,7 @@ export async function deleteMediaEntry(id: string): Promise<{ success: boolean }
 
   await db
     .delete(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.id, id),
-        eq(mediaEntries.userId, user.id)
-      )
-    );
+    .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
 
   revalidatePath('/dashboard');
   return { success: true };

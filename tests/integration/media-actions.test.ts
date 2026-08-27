@@ -39,6 +39,12 @@ vi.mock('@/lib/db', () => {
 
   function makeTx() {
     return {
+      select: () => ({
+        from: () => ({
+          // Fixture-controlled: actions under test operate on the first row.
+          where: () => awaitable(dbState.rows.length ? [dbState.rows[0]] : []),
+        }),
+      }),
       insert: () => ({
         values: (v: Row) => {
           const row = { createdAt: new Date(), updatedAt: new Date(), ...v };
@@ -69,17 +75,12 @@ vi.mock('@/lib/db', () => {
           dbState.rows.length = 0;
         },
       }),
-      transaction: async <T,>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>) =>
-        fn(makeTx()),
+      transaction: async <T>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>) => fn(makeTx()),
     },
   };
 });
 
-import {
-  createMediaEntry,
-  updateMediaProgress,
-  bulkImportMediaEntries,
-} from '@/server/media';
+import { createMediaEntry, updateMediaProgress, bulkImportMediaEntries } from '@/server/media';
 
 describe('createMediaEntry', () => {
   beforeEach(() => {
@@ -139,7 +140,7 @@ describe('updateMediaProgress', () => {
 
   it('throws when the entry does not exist', async () => {
     await expect(updateMediaProgress('missing-id', { rating: 5 })).rejects.toThrow(
-      'Entry not found'
+      'Entry not found',
     );
   });
 
@@ -162,6 +163,42 @@ describe('updateMediaProgress', () => {
     expect(logActivityMock).toHaveBeenCalledTimes(2); // created + rating
     expect(logActivityMock.mock.calls[1]?.[0]?.actionType).toBe('rating');
     expect(logActivityMock.mock.calls[1]?.[0]?.details.rating).toBe(8);
+  });
+
+  it('clamps the stored current when lowering only the primary total', async () => {
+    await seedEntry({ primaryUnitCurrent: 5, primaryUnitTotal: 10 });
+    const updated = await updateMediaProgress('whatever', { primaryUnitTotal: 3 });
+    expect(updated.primaryUnitCurrent).toBe(3);
+    expect(updated.primaryUnitTotal).toBe(3);
+  });
+
+  it('clamps the stored current when lowering only the secondary total', async () => {
+    await seedEntry({ secondaryUnitCurrent: 8, secondaryUnitTotal: 12 });
+    const updated = await updateMediaProgress('whatever', { secondaryUnitTotal: 4 });
+    expect(updated.secondaryUnitCurrent).toBe(4);
+    expect(updated.secondaryUnitTotal).toBe(4);
+  });
+
+  it('clamps a raised current against the stored total', async () => {
+    await seedEntry({ primaryUnitCurrent: 1, primaryUnitTotal: 3 });
+    const updated = await updateMediaProgress('whatever', { primaryUnitCurrent: 10 });
+    expect(updated.primaryUnitCurrent).toBe(3);
+  });
+
+  it('leaves progress unbounded when the total is null', async () => {
+    await seedEntry({ primaryUnitCurrent: 5, primaryUnitTotal: null });
+    const updated = await updateMediaProgress('whatever', { primaryUnitCurrent: 99 });
+    expect(updated.primaryUnitCurrent).toBe(99);
+  });
+
+  it('clamps when current and total update simultaneously', async () => {
+    await seedEntry({ primaryUnitCurrent: 2, primaryUnitTotal: 4 });
+    const updated = await updateMediaProgress('whatever', {
+      primaryUnitCurrent: 9,
+      primaryUnitTotal: 3,
+    });
+    expect(updated.primaryUnitCurrent).toBe(3);
+    expect(updated.primaryUnitTotal).toBe(3);
   });
 });
 
@@ -187,9 +224,9 @@ describe('bulkImportMediaEntries', () => {
     expect(result.added).toBe(1);
     const row = dbState.rows[0];
     expect(row?.rewatchCount).toBe(3);
-    expect(row?.startedAt instanceof Date ? (row.startedAt as Date).toISOString() : row?.startedAt).toBe(
-      '2026-01-15T00:00:00.000Z'
-    );
+    expect(
+      row?.startedAt instanceof Date ? (row.startedAt as Date).toISOString() : row?.startedAt,
+    ).toBe('2026-01-15T00:00:00.000Z');
     expect(row?.synopsis).toBe('The Golden Age arc.');
     expect(row?.genres).toEqual(['seinen', 'dark fantasy']);
   });
@@ -229,12 +266,39 @@ describe('bulkImportMediaEntries', () => {
 
     const result = await bulkImportMediaEntries(
       [{ title: 'New Title', category: 'show', sourceId: 'tvmaze-1', rating: 9 }],
-      'overwrite'
+      'overwrite',
     );
 
     expect(result.updated).toBe(1);
     const row = dbState.rows[0];
     expect(row?.title).toBe('New Title');
     expect(row?.rating).toBe(9);
+  });
+
+  it('clamps imported currents against their non-null totals', async () => {
+    const result = await bulkImportMediaEntries([
+      {
+        title: 'Gap Show',
+        category: 'show',
+        primaryUnitCurrent: 7,
+        primaryUnitTotal: 3,
+        secondaryUnitCurrent: 50,
+        secondaryUnitTotal: 12,
+      },
+    ]);
+
+    expect(result.added).toBe(1);
+    expect(dbState.rows[0]?.primaryUnitCurrent).toBe(3);
+    expect(dbState.rows[0]?.secondaryUnitCurrent).toBe(12);
+  });
+
+  it('leaves imported progress unbounded when totals are absent', async () => {
+    const result = await bulkImportMediaEntries([
+      { title: 'Ongoing', category: 'show', primaryUnitCurrent: 7, secondaryUnitCurrent: 50 },
+    ]);
+
+    expect(result.added).toBe(1);
+    expect(dbState.rows[0]?.primaryUnitCurrent).toBe(7);
+    expect(dbState.rows[0]?.secondaryUnitCurrent).toBe(50);
   });
 });
