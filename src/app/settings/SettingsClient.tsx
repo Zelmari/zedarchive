@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import type { UserProfile, ThemeId } from '@/types/user';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { getInitials } from '@/lib/format';
+import { compressImageFile } from '@/lib/image-utils';
 import { updateUserProfile, updateUserTheme } from '@/server/profile';
 import { deleteAccount } from '@/server/account';
 import { signOut } from '@/lib/auth-client';
@@ -32,6 +34,18 @@ const THEMES: Array<{ id: ThemeId; label: string; bg: string; text: string }> = 
   { id: 'cyber', label: 'Phosphor Cyber', bg: '#090e09', text: '#22c55e' },
 ];
 
+function presetAvatarSvg(bg: string, glyph: string, fg: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="${bg}"/><text x="32" y="40" font-size="26" text-anchor="middle" fill="${fg}">${glyph}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const PRESET_AVATARS: Array<{ id: string; label: string; url: string }> = [
+  { id: 'film', label: 'Film reel', url: presetAvatarSvg('#e8d8b8', '🎬', '#5b4636') },
+  { id: 'book', label: 'Book', url: presetAvatarSvg('#d9e6d4', '📖', '#2e4d33') },
+  { id: 'sparkle', label: 'Sparkle', url: presetAvatarSvg('#e4d8ec', '✨', '#4c3a63') },
+  { id: 'tv', label: 'Television', url: presetAvatarSvg('#d3e0ea', '📺', '#2e4258') },
+];
+
 export default function SettingsClient({ profile }: SettingsClientProps) {
   const router = useRouter();
 
@@ -45,6 +59,10 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileError, setProfileError] = useState('');
+
+  // Avatar state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.image || null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   // Delete Account Modal & State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -91,6 +109,36 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
       console.warn('Failed to save theme preference:', err);
     }
   };
+
+  const applyAvatar = async (image: string | null) => {
+    setAvatarBusy(true);
+    setProfileError('');
+    try {
+      await updateUserProfile({ image });
+      setAvatarPreview(image);
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+      router.refresh();
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Failed to update avatar.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageFile(file, 256, 256, 0.85);
+      await applyAvatar(dataUrl);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Failed to compress avatar image.');
+    }
+  };
+
+  const handleRemoveAvatar = () => void applyAvatar(null);
 
   const handleDeleteAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,6 +212,72 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
             )}
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
+              {/* Avatar & Profile Picture */}
+              <div className="mb-2 flex items-center gap-4 rounded-control border border-decorative bg-surface-subtle p-4">
+                {avatarPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- compressed data URLs / presets, unoptimized by design
+                  <img
+                    src={avatarPreview}
+                    alt="Avatar preview"
+                    className="h-20 w-20 flex-none rounded-full border-2 border-accent object-cover"
+                  />
+                ) : (
+                  <span
+                    className="flex h-20 w-20 flex-none items-center justify-center rounded-full border-2 border-decorative bg-[var(--za-color-title-tile)] text-lg font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
+                    aria-hidden="true"
+                  >
+                    {getInitials(name)}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label
+                      className={`za-button za-button--secondary inline-flex cursor-pointer items-center text-xs ${avatarBusy ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      {avatarBusy ? 'Working…' : avatarPreview ? 'Change Avatar' : 'Upload Avatar'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarFile}
+                        disabled={avatarBusy}
+                      />
+                    </label>
+                    {avatarPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        disabled={avatarBusy}
+                        className="za-button za-button--secondary text-xs"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-ink-muted">Presets:</span>
+                    {PRESET_AVATARS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        disabled={avatarBusy}
+                        onClick={() => void applyAvatar(preset.url)}
+                        title={preset.label}
+                        aria-label={`Use ${preset.label} preset avatar`}
+                        className="h-8 w-8 cursor-pointer overflow-hidden rounded-full border border-decorative transition-transform hover:scale-105 disabled:opacity-60"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG presets */}
+                        <img src={preset.url} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-ink-muted">
+                    PNG, JPG or WebP — compressed to 256×256 on upload. Avatars show up on your
+                    public archive and guestbook comments.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
                   Display Name
