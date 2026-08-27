@@ -69,7 +69,7 @@ describe('sendEmail', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'ZedArchive <noreply@zedarchive.com>',
+          from: 'ZedArchive <noreply@auth.zedarchive.com>',
           to: ['user@example.com'],
           subject: 'Test Subject',
           html: '<p>Hello world</p>',

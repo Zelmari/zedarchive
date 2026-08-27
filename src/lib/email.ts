@@ -1,5 +1,5 @@
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM_ADDRESS = 'ZedArchive <noreply@zedarchive.com>';
+const DEFAULT_FROM_ADDRESS = 'ZedArchive <noreply@auth.zedarchive.com>';
 
 interface SendEmailInput {
   to: string;
@@ -54,7 +54,8 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
   }
 }
 
-function escapeHtml(s: string): string {
+function escapeHtml(s?: string | null): string {
+  if (!s) return '';
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -63,11 +64,11 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-export function buildPasswordResetEmail(args: { name: string; url: string }): {
+export function buildPasswordResetEmail(args: { name?: string | null; url: string }): {
   subject: string;
   html: string;
 } {
-  const safeName = escapeHtml(args.name);
+  const safeName = escapeHtml(args.name) || 'there';
   const subject = 'Reset your ZedArchive password';
   const html = `
     <div style="font-family: Georgia, serif; max-width: 32rem; margin: 0 auto; padding: 1.5rem; color: #242321;">
@@ -82,11 +83,11 @@ export function buildPasswordResetEmail(args: { name: string; url: string }): {
   return { subject, html };
 }
 
-export function buildVerificationEmail(args: { name: string; url: string }): {
+export function buildVerificationEmail(args: { name?: string | null; url: string }): {
   subject: string;
   html: string;
 } {
-  const safeName = escapeHtml(args.name);
+  const safeName = escapeHtml(args.name) || 'there';
   const subject = 'Verify your ZedArchive email';
   const html = `
     <div style="font-family: Georgia, serif; max-width: 32rem; margin: 0 auto; padding: 1.5rem; color: #242321;">

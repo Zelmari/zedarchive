@@ -1,6 +1,8 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { db } from '@/lib/db';
+import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -9,6 +11,33 @@ import type { MediaEntry } from '@/types/media';
 import { normalizeHandle } from '@/lib/handles';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser } from './internal';
+
+export async function resendVerificationEmailAction(): Promise<{ ok: boolean; error?: string }> {
+  const user = await getAuthUser();
+  if (!user.email) {
+    return { ok: false, error: 'No email address found for this user.' };
+  }
+
+  const [dbUser] = await db
+    .select({ emailVerified: userTable.emailVerified })
+    .from(userTable)
+    .where(eq(userTable.id, user.id));
+
+  if (dbUser?.emailVerified) {
+    return { ok: true };
+  }
+
+  try {
+    await auth.api.sendVerificationEmail({
+      body: { email: user.email, callbackURL: '/verified' },
+      headers: await headers(),
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Failed to resend verification email:', err);
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to send email' };
+  }
+}
 
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();

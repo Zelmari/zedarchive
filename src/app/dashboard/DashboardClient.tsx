@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, Tv, BookOpen, Plus, AlertTriangle, X } from 'lucide-react';
 import { signOut, authClient } from '@/lib/auth-client';
-import { dismissVerificationNotice } from '@/server/profile';
+import { dismissVerificationNotice, resendVerificationEmailAction } from '@/server/profile';
 import MediaCard from '@/components/cards/MediaCard';
 import AddMediaModal from './AddMediaModal';
 import MediaDetailModal from './MediaDetailModal';
@@ -371,10 +371,11 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     if (!user?.email) return;
     try {
       setIsSendingVerification(true);
-      await authClient.sendVerificationEmail({
-        email: user.email,
-        callbackURL: '/verified',
-      });
+      const res = await resendVerificationEmailAction();
+      if (!res.ok) {
+        addToast(res.error || 'Failed to send verification email. Try again later.', 'error');
+        return;
+      }
       addToast('Verification email sent! Please check your inbox.', 'success');
     } catch (err) {
       console.error('Failed to send verification email:', err);
