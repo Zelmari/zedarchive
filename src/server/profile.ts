@@ -6,7 +6,12 @@ import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { MAX_BIO_LENGTH, MAX_NAME_LENGTH, VALID_THEMES } from '@/lib/constants';
+import {
+  MAX_BIO_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_COVER_IMAGE_LENGTH,
+  VALID_THEMES,
+} from '@/lib/constants';
 import type { MediaEntry } from '@/types/media';
 import { normalizeHandle } from '@/lib/handles';
 import { serializeEntry } from '@/lib/serialize';
@@ -58,6 +63,7 @@ export async function getUserProfile() {
       id: userTable.id,
       name: userTable.name,
       email: userTable.email,
+      image: userTable.image,
       theme: userTable.theme,
       username: userTable.username,
       isPublic: userTable.isPublic,
@@ -112,6 +118,21 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
         .slice(0, MAX_BIO_LENGTH) || null;
   }
 
+  if (updates.image !== undefined) {
+    const raw = updates.image;
+    if (raw === null || raw === '') {
+      updateData.image = null;
+    } else if (
+      typeof raw === 'string' &&
+      raw.length <= MAX_COVER_IMAGE_LENGTH &&
+      (/^data:image\//i.test(raw) || /^https:\/\//i.test(raw))
+    ) {
+      updateData.image = raw;
+    } else {
+      throw new Error('Invalid avatar. Use a compressed image data URL or an HTTPS image URL.');
+    }
+  }
+
   // Public-archive invariant: a public archive must have a resolvable
   // handle, otherwise comment author links would point at /u/null.
   if (updateData.isPublic !== undefined || updateData.username !== undefined) {
@@ -139,6 +160,7 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
       isPublic: userTable.isPublic,
       bio: userTable.bio,
       theme: userTable.theme,
+      image: userTable.image,
     });
 
   revalidatePath('/dashboard');
@@ -155,6 +177,8 @@ interface PublicProfileResult {
     name: string;
     username: string | null;
     bio: string | null;
+    image: string | null;
+    theme: string;
     isPublic: boolean;
     createdAt: Date;
   };
@@ -171,6 +195,8 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
       name: userTable.name,
       username: userTable.username,
       bio: userTable.bio,
+      image: userTable.image,
+      theme: userTable.theme,
       isPublic: userTable.isPublic,
       createdAt: userTable.createdAt,
     })

@@ -22,6 +22,7 @@ vi.mock('@/lib/db', () => {
   function awaitable<T>(value: T) {
     const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
     p.where = () => p;
+    p.orderBy = () => p;
     p.returning = () => p;
     return p;
   }
@@ -42,7 +43,7 @@ vi.mock('@/lib/db', () => {
   };
 });
 
-import { updateUserProfile } from '@/server/profile';
+import { updateUserProfile, getPublicUserProfile } from '@/server/profile';
 
 describe('updateUserProfile display name', () => {
   beforeEach(() => {
@@ -116,5 +117,67 @@ describe('updateUserProfile display name', () => {
     dbState.rows[0] = { ...(dbState.rows[0] as object), username: 'zelmari', isPublic: false };
     const updated = await updateUserProfile({ username: '' });
     expect(updated?.username).toBeNull();
+  });
+
+  it('stores a valid data-URL avatar', async () => {
+    const updated = await updateUserProfile({ image: 'data:image/png;base64,AAAA' });
+    expect(updated?.image).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('stores a valid HTTPS avatar URL', async () => {
+    const updated = await updateUserProfile({ image: 'https://example.com/avatar.png' });
+    expect(updated?.image).toBe('https://example.com/avatar.png');
+  });
+
+  it('clears the avatar with null or an empty string', async () => {
+    dbState.rows[0] = { ...(dbState.rows[0] as object), image: 'data:image/png;base64,AAAA' };
+    await updateUserProfile({ image: null });
+    expect(dbState.rows[0]?.image).toBeNull();
+    dbState.rows[0] = { ...(dbState.rows[0] as object), image: 'data:image/png;base64,AAAA' };
+    await updateUserProfile({ image: '' });
+    expect(dbState.rows[0]?.image).toBeNull();
+  });
+
+  it('rejects non-image avatar values', async () => {
+    await expect(updateUserProfile({ image: 'javascript:alert(1)' })).rejects.toThrow(
+      'Invalid avatar',
+    );
+    await expect(updateUserProfile({ image: 'https://' + 'x'.repeat(2_000_000) })).rejects.toThrow(
+      'Invalid avatar',
+    );
+  });
+});
+
+describe('getPublicUserProfile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbState.rows.length = 0;
+    getAuthUserMock.mockResolvedValue({ id: 'user-1' });
+  });
+
+  it('includes image and theme in the public profile result', async () => {
+    dbState.rows.push({
+      id: 'user-1',
+      name: 'Zel',
+      username: 'zelmari',
+      bio: 'hello',
+      image: 'data:image/png;base64,AAAA',
+      theme: 'midnight',
+      isPublic: true,
+      createdAt: new Date('2026-01-02T00:00:00Z'),
+    });
+
+    const data = await getPublicUserProfile('Zelmari');
+    expect(data?.user.image).toBe('data:image/png;base64,AAAA');
+    expect(data?.user.theme).toBe('midnight');
+    expect(data?.user.name).toBe('Zel');
+  });
+
+  it('returns null for private or missing profiles', async () => {
+    dbState.rows.push({ id: 'user-1', name: 'Zel', username: 'zelmari', isPublic: false });
+    expect(await getPublicUserProfile('zelmari')).toBeNull();
+
+    dbState.rows.length = 0;
+    expect(await getPublicUserProfile('nobody')).toBeNull();
   });
 });
