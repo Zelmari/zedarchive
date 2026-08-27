@@ -81,6 +81,30 @@ describe('sendEmail', () => {
     process.env.RESEND_API_KEY = originalEnv;
   });
 
+  it('uses custom EMAIL_FROM when configured', async () => {
+    process.env.RESEND_API_KEY = 're_test_12345';
+    process.env.EMAIL_FROM = 'ZedArchive <noreply@auth.zedarchive.com>';
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'msg_123' }), { status: 200 }));
+
+    await sendEmail({
+      to: 'user@example.com',
+      subject: 'Test Subject',
+      html: '<p>Hello world</p>',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.resend.com/emails',
+      expect.objectContaining({
+        body: expect.stringContaining('"from":"ZedArchive <noreply@auth.zedarchive.com>"'),
+      }),
+    );
+
+    delete process.env.EMAIL_FROM;
+    process.env.RESEND_API_KEY = originalEnv;
+  });
+
   it('never throws even if fetch fails or returns non-200', async () => {
     process.env.RESEND_API_KEY = 're_test_12345';
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));

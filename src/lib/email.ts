@@ -1,5 +1,5 @@
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const FROM_ADDRESS = 'ZedArchive <noreply@zedarchive.com>';
+const DEFAULT_FROM_ADDRESS = 'ZedArchive <noreply@zedarchive.com>';
 
 interface SendEmailInput {
   to: string;
@@ -28,6 +28,8 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
     return;
   }
 
+  const from = process.env.EMAIL_FROM || DEFAULT_FROM_ADDRESS;
+
   try {
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
@@ -36,7 +38,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM_ADDRESS,
+        from,
         to: [to],
         subject,
         html,
