@@ -101,7 +101,9 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
   if (!Array.isArray(lists)) return null;
   const items: ImportDraft[] = [];
   lists.forEach((list) => {
+    if (!list || typeof list !== 'object') return;
     (list.entries || []).forEach((item) => {
+      if (!item || typeof item !== 'object') return;
       items.push({
         title: item.media?.title?.english || item.media?.title?.romaji || 'Untitled',
         category: item.media?.type === 'MANGA' ? 'manga' : 'anime',
@@ -230,7 +232,16 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
   if (fileName.endsWith('.json')) {
     const json = JSON.parse(text) as unknown;
     if (Array.isArray(json)) {
-      items = json as ImportDraft[];
+      // Defensive: skip nulls, primitives, and records without a usable
+      // title instead of letting them abort the whole import downstream.
+      items = (json as unknown[]).filter((item): item is ImportDraft =>
+        Boolean(
+          item &&
+          typeof item === 'object' &&
+          typeof (item as Record<string, unknown>).title === 'string' &&
+          ((item as Record<string, unknown>).title as string).trim().length > 0,
+        ),
+      );
     } else {
       const aniListItems = parseAniListList(json as AniListNode);
       const simklItems = parseSimklJson(json);

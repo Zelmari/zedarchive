@@ -163,6 +163,31 @@ describe('parseImportFile', () => {
     });
   });
 
+  it('skips null, primitive, and title-less JSON array items', () => {
+    const payload = [null, 42, 'nope', {}, { title: '   ' }, { title: 'Survivor' }];
+    const items = parseImportFile('backup.json', JSON.stringify(payload));
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe('Survivor');
+  });
+
+  it('tolerates null lists and null entries in AniList exports', () => {
+    const payload = {
+      data: {
+        MediaListCollection: {
+          lists: [
+            null,
+            {
+              entries: [null, { progress: 1, media: { type: 'ANIME', title: { english: 'OK' } } }],
+            },
+          ],
+        },
+      },
+    };
+    const items = parseImportFile('anilist.json', JSON.stringify(payload));
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe('OK');
+  });
+
   it('parses Simkl JSON exports with shows, anime, and movies', () => {
     const simklPayload = {
       shows: [

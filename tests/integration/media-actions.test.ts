@@ -301,4 +301,57 @@ describe('bulkImportMediaEntries', () => {
     expect(dbState.rows[0]?.primaryUnitCurrent).toBe(7);
     expect(dbState.rows[0]?.secondaryUnitCurrent).toBe(50);
   });
+
+  it('normalizes mixed-case statuses and stamps completedAt for them', async () => {
+    await bulkImportMediaEntries([
+      { title: 'Loud Show', status: 'COMPLETED' },
+      { title: 'Quiet Show', status: 'Completed' },
+    ]);
+
+    const first = dbState.rows[0];
+    const second = dbState.rows[1];
+    expect(first?.status).toBe('completed');
+    expect(second?.status).toBe('completed');
+    expect(first?.completedAt).toBeInstanceOf(Date);
+    expect(second?.completedAt).toBeInstanceOf(Date);
+  });
+
+  it('clears completedAt on non-completed imported items even when a date is present', async () => {
+    await bulkImportMediaEntries([
+      { title: 'Not Done', status: 'in_progress', completedAt: '2026-01-01T00:00:00.000Z' },
+      { title: 'Planning', status: 'planning', completedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+
+    expect(dbState.rows[0]?.completedAt).toBeNull();
+    expect(dbState.rows[1]?.completedAt).toBeNull();
+  });
+
+  it('honors an explicit completion date over the fallback timestamp', async () => {
+    await bulkImportMediaEntries([
+      { title: 'Archived Long Ago', status: 'completed', completedAt: '2019-03-14T00:00:00.000Z' },
+    ]);
+
+    expect((dbState.rows[0]?.completedAt as Date).toISOString()).toBe('2019-03-14T00:00:00.000Z');
+  });
+
+  it('skips null, primitive, and title-less array elements instead of aborting', async () => {
+    const result = await bulkImportMediaEntries([
+      null,
+      42,
+      'nope',
+      {},
+      { title: '   ' },
+      { title: 'Survivor' },
+    ]);
+
+    expect(result.added).toBe(1);
+    expect(dbState.rows[0]?.title).toBe('Survivor');
+  });
+
+  it('caps imports at 1,000 items', async () => {
+    const items = Array.from({ length: 1100 }, (_, i) => ({ title: `Show ${i}` }));
+    const result = await bulkImportMediaEntries(items);
+    expect(result.added).toBe(1000);
+    expect(dbState.rows).toHaveLength(1000);
+  });
 });

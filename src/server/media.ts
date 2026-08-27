@@ -77,7 +77,8 @@ function sanitizeRating(rating: unknown): number | null {
 }
 
 function sanitizeStatus(status: unknown): string {
-  return isInList(VALID_STATUSES, status) ? status : 'in_progress';
+  const normalized = typeof status === 'string' ? status.trim().toLowerCase() : '';
+  return isInList(VALID_STATUSES, normalized) ? normalized : 'in_progress';
 }
 
 export async function getMediaEntries(): Promise<MediaEntry[]> {
@@ -388,6 +389,10 @@ export async function bulkImportMediaEntries(
     return { added: 0, updated: 0, skipped: 0 };
   }
 
+  // Serverless guard: cap batch size to protect Worker CPU/memory limits.
+  const MAX_IMPORT_ITEMS = 1000;
+  const batch = (items as unknown[]).slice(0, MAX_IMPORT_ITEMS);
+
   const existing = await db.select().from(mediaEntries).where(eq(mediaEntries.userId, user.id));
 
   const existingBySourceOrTitle = new Map<string, Pick<MediaRow, 'id'>>();
@@ -400,16 +405,18 @@ export async function bulkImportMediaEntries(
   let updated = 0;
   let skipped = 0;
 
-  for (const rawItem of items as Record<string, unknown>[]) {
-    const title = String(rawItem.title || '')
+  for (const rawItem of batch) {
+    if (!rawItem || typeof rawItem !== 'object') continue;
+    const item = rawItem as Record<string, unknown>;
+    const title = String(item.title || '')
       .trim()
       .slice(0, MAX_TITLE_LENGTH);
     if (!title) continue;
 
     const category = (
-      isInList(VALID_CATEGORIES, rawItem.category) ? rawItem.category : 'show'
+      isInList(VALID_CATEGORIES, item.category) ? item.category : 'show'
     ) as MediaRow['category'];
-    const sourceKey = typeof rawItem.sourceId === 'string' ? rawItem.sourceId.toLowerCase() : null;
+    const sourceKey = typeof item.sourceId === 'string' ? item.sourceId.toLowerCase() : null;
     const titleKey = `${category}:${title.toLowerCase()}`;
 
     const match =
@@ -421,27 +428,26 @@ export async function bulkImportMediaEntries(
       continue;
     }
 
-    const rawPrimaryCurrent = Math.max(1, toInt(rawItem.primaryUnitCurrent, 1));
+    const rawPrimaryCurrent = Math.max(1, toInt(item.primaryUnitCurrent, 1));
     const rawPrimaryTotal =
-      rawItem.primaryUnitTotal != null ? Math.max(1, toInt(rawItem.primaryUnitTotal, 1)) : null;
-    const rawSecondaryCurrent = Math.max(0, toInt(rawItem.secondaryUnitCurrent, 0));
+      item.primaryUnitTotal != null ? Math.max(1, toInt(item.primaryUnitTotal, 1)) : null;
+    const rawSecondaryCurrent = Math.max(0, toInt(item.secondaryUnitCurrent, 0));
     const rawSecondaryTotal =
-      rawItem.secondaryUnitTotal != null ? Math.max(0, toInt(rawItem.secondaryUnitTotal, 0)) : null;
+      item.secondaryUnitTotal != null ? Math.max(0, toInt(item.secondaryUnitTotal, 0)) : null;
+
+    const status = sanitizeStatus(item.status);
 
     const payload = {
       title,
       category,
-      status: sanitizeStatus(rawItem.status),
-      rating: sanitizeRating(rawItem.rating),
-      tags: sanitizeTags(rawItem.tags),
-      completedAt:
-        toDateOrNull(rawItem.completedAt) ?? (rawItem.status === 'completed' ? new Date() : null),
-      startedAt: toDateOrNull(rawItem.startedAt),
-      rewatchCount: Math.max(0, toInt(rawItem.rewatchCount, 0)),
-      synopsis: rawItem.synopsis
-        ? String(rawItem.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
-        : null,
-      genres: Array.isArray(rawItem.genres) ? (rawItem.genres as string[]).slice(0, 20) : [],
+      status,
+      rating: sanitizeRating(item.rating),
+      tags: sanitizeTags(item.tags),
+      completedAt: status === 'completed' ? (toDateOrNull(item.completedAt) ?? new Date()) : null,
+      startedAt: toDateOrNull(item.startedAt),
+      rewatchCount: Math.max(0, toInt(item.rewatchCount, 0)),
+      synopsis: item.synopsis ? String(item.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null,
+      genres: Array.isArray(item.genres) ? (item.genres as string[]).slice(0, 20) : [],
       primaryUnitCurrent:
         rawPrimaryTotal !== null ? Math.min(rawPrimaryCurrent, rawPrimaryTotal) : rawPrimaryCurrent,
       primaryUnitTotal: rawPrimaryTotal,
@@ -450,17 +456,14 @@ export async function bulkImportMediaEntries(
           ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
           : rawSecondaryCurrent,
       secondaryUnitTotal: rawSecondaryTotal,
-      structure: sanitizeStructure(rawItem.structure),
+      structure: sanitizeStructure(item.structure),
       coverImage:
-        typeof rawItem.coverImage === 'string' &&
-        rawItem.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-          ? rawItem.coverImage
+        typeof item.coverImage === 'string' && item.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+          ? item.coverImage
           : null,
       sourceId:
-        typeof rawItem.sourceId === 'string'
-          ? rawItem.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
-          : null,
-      notes: rawItem.notes ? String(rawItem.notes).trim().slice(0, MAX_NOTES_LENGTH) : null,
+        typeof item.sourceId === 'string' ? item.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null,
+      notes: item.notes ? String(item.notes).trim().slice(0, MAX_NOTES_LENGTH) : null,
       updatedAt: new Date(),
     };
 
@@ -475,7 +478,7 @@ export async function bulkImportMediaEntries(
         ...payload,
         id: newId,
         userId: user.id,
-        createdAt: toDateOrNull(rawItem.createdAt) ?? new Date(),
+        createdAt: toDateOrNull(item.createdAt) ?? new Date(),
       });
       const inserted = { id: newId };
       if (sourceKey) existingBySourceOrTitle.set(sourceKey, inserted);
