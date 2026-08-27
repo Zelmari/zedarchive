@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import { getActivityLogs, getUserStreak } from '@/server/activity';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import type { ActivityLog } from '@/types/activity';
+import { cn } from '@/lib/utils';
 
 interface ActivityTimelineModalProps {
   isOpen: boolean;
@@ -120,14 +121,13 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
           }}
         >
           <div className="flex items-center gap-2">
-            <Flame
-              size={20}
-              style={{ color: streak > 0 ? '#d97706' : 'var(--za-color-text-muted)' }}
-            />
+            <Flame size={20} className={streak > 0 ? 'text-warning' : 'text-ink-muted'} />
             <div>
               <div
-                className="text-[length:var(--za-text-base)] font-[var(--za-weight-heading)]"
-                style={{ color: streak > 0 ? '#b45309' : 'var(--za-color-text)' }}
+                className={cn(
+                  'text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)]',
+                  streak > 0 ? 'text-warning' : 'text-ink',
+                )}
               >
                 {streak > 0 ? `${streak} Day Active Streak` : 'No active streak'}
               </div>
@@ -139,8 +139,10 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
             </div>
           </div>
           <div
-            className="text-[1.4rem] font-bold"
-            style={{ color: streak > 0 ? '#d97706' : 'var(--za-color-text-muted)' }}
+            className={cn(
+              'text-[1.4rem] font-bold',
+              streak > 0 ? 'text-warning' : 'text-ink-muted',
+            )}
           >
             {streak}
           </div>

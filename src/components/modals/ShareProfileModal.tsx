@@ -110,7 +110,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
         <div className="mb-[var(--za-space-4)] flex items-center justify-between rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[var(--za-space-3)]">
           <div className="flex items-center gap-2">
             {profile.isPublic ? (
-              <Globe size={18} style={{ color: '#2e7d32' }} />
+              <Globe size={18} className="text-success" />
             ) : (
               <Lock size={18} className="text-ink-muted" />
             )}
@@ -132,7 +132,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
               markDirty();
               setProfile((p) => ({ ...p, isPublic: e.target.checked }));
             }}
-            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+            className="h-5 w-5 cursor-pointer"
           />
         </div>
 
@@ -182,8 +182,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
               markDirty();
               setProfile((p) => ({ ...p, bio: e.target.value }));
             }}
-            style={{ resize: 'vertical' }}
-            className="w-full rounded-small border border-required bg-surface px-2 py-1 text-[length:var(--za-text-fine)] text-ink focus:border-accent focus:outline-none"
+            className="w-full resize-y rounded-small border border-required bg-surface px-2 py-1 text-[length:var(--za-text-fine)] text-ink focus:border-accent focus:outline-none"
           />
         </div>
 

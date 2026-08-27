@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import { updateUserTheme } from '@/server/profile';
 
 import { THEMES } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
 interface ThemeModalProps {
   isOpen: boolean;
@@ -67,10 +68,10 @@ export default function ThemeModal({
                 key={t.id}
                 type="button"
                 onClick={() => handleSelect(t.id)}
-                style={{
-                  border: `2px solid ${isActive ? 'var(--za-color-accent)' : 'var(--za-color-border-decorative)'}`,
-                }}
-                className="flex w-full cursor-pointer items-center justify-between rounded-control bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-left transition-[all] duration-[var(--za-motion-fast)] hover:border-accent"
+                className={cn(
+                  'flex w-full cursor-pointer items-center justify-between rounded-control bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-left border-2 transition-all hover:border-accent',
+                  isActive ? 'border-accent' : 'border-decorative',
+                )}
               >
                 <div className="flex items-center gap-[var(--za-space-3)]">
                   <div

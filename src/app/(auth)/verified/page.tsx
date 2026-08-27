@@ -17,66 +17,30 @@ export default async function VerifiedPage({ searchParams }: PageProps) {
   const isExpired = error === 'TOKEN_EXPIRED';
 
   return (
-    <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-8)' }}>
+    <main id="main-content" tabIndex={-1} className="py-8">
       <div className="za-container za-container--narrow">
-        <section
-          className="za-card za-card--raised"
-          style={{ display: 'grid', gap: 'var(--za-space-6)', textAlign: 'center' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <section className="za-card za-card--raised grid gap-6 text-center">
+          <div className="flex justify-center">
             {isError ? (
-              <div
-                style={{
-                  width: '3.5rem',
-                  height: '3.5rem',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'rgba(185, 28, 28, 0.1)',
-                  color: '#b91c1c',
-                }}
-              >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10 text-danger">
                 <AlertCircle size={32} />
               </div>
             ) : (
-              <div
-                style={{
-                  width: '3.5rem',
-                  height: '3.5rem',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'rgba(46, 125, 50, 0.1)',
-                  color: '#2e7d32',
-                }}
-              >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
                 <CheckCircle2 size={32} />
               </div>
             )}
           </div>
 
-          <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
-            <h1
-              style={{
-                fontSize: 'var(--za-text-heading-lg)',
-                fontWeight: 'var(--za-weight-heading)',
-                lineHeight: 'var(--za-leading-compact)',
-              }}
-            >
+          <header className="grid gap-2">
+            <h1 className="text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)]">
               {isError
                 ? isExpired
                   ? 'Verification Link Expired'
                   : 'Verification Failed'
                 : 'Email Verified'}
             </h1>
-            <p
-              style={{
-                fontSize: 'var(--za-text-supporting)',
-                color: 'var(--za-color-text-muted)',
-              }}
-            >
+            <p className="text-[length:var(--za-text-supporting)] text-ink-muted">
               {isError
                 ? isExpired
                   ? 'This email verification link has expired. Please sign in to request a new link.'
@@ -85,7 +49,7 @@ export default async function VerifiedPage({ searchParams }: PageProps) {
             </p>
           </header>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--za-space-3)' }}>
+          <div className="flex justify-center gap-3">
             <Link href="/dashboard" className="za-button za-button--primary">
               Open Dashboard
             </Link>

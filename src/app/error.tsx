@@ -15,40 +15,13 @@ export default function Error({
   }, [error]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--za-color-canvas)',
-        padding: '1rem',
-      }}
-    >
-      <div
-        className="za-card za-card--raised"
-        style={{ maxWidth: '28rem', textAlign: 'center', padding: '2rem' }}
-      >
-        <h1
-          style={{
-            fontSize: '1.5rem',
-            fontWeight: 'bold',
-            marginBottom: '0.5rem',
-            color: 'var(--za-color-text)',
-          }}
-        >
-          Something went wrong
-        </h1>
-        <p
-          style={{
-            fontSize: '0.875rem',
-            color: 'var(--za-color-text-muted)',
-            marginBottom: '1.5rem',
-          }}
-        >
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-4 text-ink">
+      <div className="za-card za-card--raised max-w-md p-8 text-center">
+        <h1 className="mb-2 text-xl font-bold text-ink">Something went wrong</h1>
+        <p className="mb-6 text-sm text-ink-muted">
           An unexpected error occurred while loading this page.
         </p>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+        <div className="flex justify-center gap-2">
           <button type="button" className="za-button za-button--primary" onClick={() => reset()}>
             Try Again
           </button>

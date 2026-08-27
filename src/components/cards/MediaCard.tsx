@@ -344,7 +344,7 @@ export default function MediaCard({
 
       {/* Completion nudge */}
       {isAtFinalUnit && status !== 'completed' && (
-        <div className="mt-2 flex items-center justify-between rounded-control border border-[rgba(46,125,50,0.25)] bg-[rgba(46,125,50,0.08)] px-[var(--za-space-3)] py-[var(--za-space-2)]">
+        <div className="mt-2 flex items-center justify-between rounded-control border border-success/25 bg-success/10 px-[var(--za-space-3)] py-[var(--za-space-2)] text-success">
           <span>{bookish ? 'Finished reading!' : 'Series completed!'}</span>
           <button
             type="button"
