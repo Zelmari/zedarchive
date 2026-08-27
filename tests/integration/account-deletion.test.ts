@@ -94,6 +94,7 @@ describe('account self-deletion', () => {
     expect(dbState.deletedTables).toContain('media_entries');
     expect(dbState.deletedTables).toContain('account');
     expect(dbState.deletedTables).toContain('session');
+    expect(dbState.deletedTables).toContain('verification');
     expect(dbState.deletedTables).toContain('user');
   });
 });

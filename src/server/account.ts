@@ -8,6 +8,7 @@ import {
   user as userTable,
   session as sessionTable,
   account as accountTable,
+  verification as verificationTable,
   mediaEntries,
   mediaActivityLogs,
   profileComments,
@@ -66,7 +67,23 @@ export async function deleteAccount(
     // 5. Delete active sessions
     await tx.delete(sessionTable).where(eq(sessionTable.userId, user.id));
 
-    // 6. Delete user record
+    // 6. Delete Better Auth verification tokens. The verification table is a
+    // polymorphic key-value store without a foreign key to `user`, so the
+    // user-row cascade can never reach it. Password-reset tokens store
+    // user.id in `value`; legacy flows may store the email in either column.
+    const verificationConditions = [
+      eq(verificationTable.value, user.id),
+      eq(verificationTable.identifier, user.id),
+    ];
+    if (user.email) {
+      verificationConditions.push(
+        eq(verificationTable.identifier, user.email),
+        eq(verificationTable.value, user.email),
+      );
+    }
+    await tx.delete(verificationTable).where(or(...verificationConditions));
+
+    // 7. Delete user record
     await tx.delete(userTable).where(eq(userTable.id, user.id));
   });
 
