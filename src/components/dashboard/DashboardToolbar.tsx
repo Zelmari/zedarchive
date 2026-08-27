@@ -74,7 +74,7 @@ export default function DashboardToolbar({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search archive, tags, notes... (Press /)"
+              placeholder="Search archive, tags, notes..."
               className="h-9 w-full rounded-control border border-required bg-surface px-[2.2rem] py-[0.45rem] text-[length:var(--za-text-fine)] text-ink transition-colors duration-[var(--za-motion-fast)] focus:border-accent"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -91,11 +91,7 @@ export default function DashboardToolbar({
               >
                 <X size={14} strokeWidth={2} />
               </button>
-            ) : (
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded-small border border-decorative bg-surface-subtle px-[0.3rem] py-[0.1rem] text-[0.65rem] text-ink-muted">
-                /
-              </kbd>
-            )}
+            ) : null}
           </div>
 
           <select
@@ -128,13 +124,13 @@ export default function DashboardToolbar({
             },
             {
               label: 'Stats',
-              title: 'View Archive Statistics (Press S)',
+              title: 'View Archive Statistics',
               modal: 'stats' as const,
               Icon: BarChart2,
             },
             {
               label: 'Backup',
-              title: 'Export or Import Backups (Press B)',
+              title: 'Export or Import Backups',
               modal: 'data' as const,
               Icon: Database,
             },
