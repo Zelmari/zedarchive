@@ -412,7 +412,7 @@ export default function MediaCard({
         ) : null}
 
         {nextAir && (
-          <div className="flex items-center justify-between rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-2.5)] py-[0.35rem] text-[length:var(--za-text-fine)] text-ink-muted">
+          <div className="flex items-center justify-between rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-3)] py-[0.35rem] text-[length:var(--za-text-fine)] text-ink-muted">
             <span className="flex items-center gap-1.5 font-[var(--za-weight-emphasis)] text-ink">
               <Calendar size={12} className="shrink-0 text-ink-muted" />
               <span>
