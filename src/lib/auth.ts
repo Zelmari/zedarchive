@@ -89,10 +89,17 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    sendResetPassword: async ({ user, url }) => {
+    sendResetPassword: async ({ user, url, token }) => {
+      // Better Auth hands us its API callback URL (/api/auth/reset-password/:token),
+      // which validates the token and then redirects to `callbackURL` — the bare
+      // /reset-password path with no token in it. There is no route there, so that
+      // redirect 404s. Our reset UI lives at /reset-password/[token] and reads the
+      // token from the path, so point the email straight at the page instead.
+      const origin = new URL(url).origin;
+      const pageUrl = `${origin}/reset-password/${token}`;
       await sendEmail({
         to: user.email,
-        ...buildPasswordResetEmail({ name: user.name, url }),
+        ...buildPasswordResetEmail({ name: user.name, url: pageUrl }),
       });
     },
     resetPasswordTokenExpiresIn: 3600, // 1 hour
