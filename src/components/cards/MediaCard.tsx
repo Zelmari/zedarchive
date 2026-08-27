@@ -5,7 +5,8 @@ import { Trash2, Pencil, FileText, Calendar } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
-import { Badge, StatusBadge, RatingBadge } from '@/components/ui/Badge';
+import MediaCover from './MediaCover';
+import MediaBadges from './MediaBadges';
 import ShowStepper from './ShowStepper';
 import BookStepper from './BookStepper';
 import UnitStepperRow from './UnitStepperRow';
@@ -40,9 +41,6 @@ function statusLabel(status: string, bookish: boolean): string {
       return bookish ? 'Reading' : 'In Progress';
   }
 }
-
-const coverWrapperBase =
-  'relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]';
 
 /**
  * Unified media card for all four categories. Renders a show/anime episode
@@ -202,36 +200,13 @@ export default function MediaCard({
     >
       {/* Top: 2:3 cover tile + details */}
       <div className="flex items-start gap-[var(--za-space-4)]">
-        <div
-          className={`${coverWrapperBase} ${onOpenDetail ? 'cursor-pointer' : ''}`}
-          {...openDetailProps}
-          title={onOpenDetail ? `Open details for ${item.title}` : undefined}
-        >
-          {item.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
-            <img
-              src={item.coverImage}
-              alt={item.title}
-              className="block h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="za-title-tile h-full w-full">
-              <span>
-                {getInitials(
-                  item.title,
-                  bookish
-                    ? rawCategory === 'manga'
-                      ? 'MG'
-                      : 'BK'
-                    : rawCategory === 'anime'
-                      ? 'AN'
-                      : 'TV',
-                )}
-              </span>
-            </div>
-          )}
-        </div>
+        <MediaCover
+          title={item.title}
+          coverImage={item.coverImage}
+          category={rawCategory}
+          onOpenDetail={onOpenDetail ? () => onOpenDetail(item) : undefined}
+          openDetailProps={openDetailProps}
+        />
 
         <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
           <div className="flex items-start justify-between gap-2">
@@ -271,33 +246,15 @@ export default function MediaCard({
           </div>
 
           {/* Badges */}
-          <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
-            <StatusBadge
-              status={status as import('@/types/media').MediaStatus}
-              label={statusLabel(status, bookish)}
-            />
-            {rating != null && <RatingBadge rating={rating} />}
-            {!bookish && (
-              <Badge>
-                S{primaryUnitCurrent}
-                {primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
-              </Badge>
-            )}
-            <Badge>
-              {rawCategory === 'anime'
-                ? 'Anime'
-                : rawCategory === 'manga'
-                  ? 'Manga'
-                  : rawCategory === 'book'
-                    ? 'Book'
-                    : 'TV Series'}
-            </Badge>
-            {tags.slice(0, 2).map((t) => (
-              <Badge key={t} className="text-[0.68rem]">
-                #{t}
-              </Badge>
-            ))}
-          </div>
+          <MediaBadges
+            status={status as import('@/types/media').MediaStatus}
+            statusLabel={statusLabel(status, bookish)}
+            rating={rating}
+            category={rawCategory}
+            primaryUnitCurrent={primaryUnitCurrent}
+            primaryUnitTotal={primaryUnitTotal}
+            tags={tags}
+          />
 
           {/* Season / volume row */}
           {!bookish && primaryUnitTotal > 1 && (
