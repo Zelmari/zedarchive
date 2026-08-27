@@ -106,7 +106,7 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
   };
 }
 
-export type ModalName = 'add' | 'theme' | 'activity' | 'share' | 'shortcuts' | 'stats' | 'data';
+export type ModalName = 'add' | 'theme' | 'activity' | 'share' | 'stats' | 'data';
 
 /**
  * Single source of truth for which dashboard modal is open.
