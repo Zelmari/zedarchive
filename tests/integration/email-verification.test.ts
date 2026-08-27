@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockDb } from '../helpers/db-mock';
 
 const sendEmailMock = vi.hoisted(() => vi.fn());
 
@@ -29,31 +30,9 @@ vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
 
 const dbState = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }));
 
-vi.mock('@/lib/db', () => {
-  type Row = Record<string, unknown>;
-
-  function awaitable<T>(value: T) {
-    const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
-    p.where = () => p;
-    p.returning = () => p;
-    return p;
-  }
-
-  return {
-    db: {
-      select: () => ({ from: () => ({ where: () => awaitable(dbState.rows) }) }),
-      update: () => ({
-        set: (fields: Row) => ({
-          where: () => {
-            const target = dbState.rows[0];
-            if (target) Object.assign(target, fields);
-            return awaitable([target]);
-          },
-        }),
-      }),
-    },
-  };
-});
+vi.mock('@/lib/db', () => ({
+  db: createMockDb(dbState),
+}));
 
 import { auth } from '@/lib/auth';
 import { dismissVerificationNotice } from '@/server/profile';
