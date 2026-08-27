@@ -1,5 +1,5 @@
-const CACHE_NAME = 'za-static-v1';
-const STATIC_ASSETS = ['/offline.html', '/favicon.ico'];
+const CACHE_NAME = 'za-static-v2';
+const STATIC_ASSETS = ['/offline.html', '/icons/favicon-32.png', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
