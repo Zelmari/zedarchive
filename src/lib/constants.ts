@@ -11,6 +11,7 @@ export const MAX_STRUCTURE_LENGTH = 500;
 export const MAX_RATING = 10;
 
 export const MAX_USERNAME_LENGTH = 30;
+export const MAX_NAME_LENGTH = 100;
 export const MAX_BIO_LENGTH = 500;
 
 export const MAX_COMMENT_LENGTH = 500;

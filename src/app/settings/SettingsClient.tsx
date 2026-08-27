@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import type { UserProfile, ThemeId } from '@/types/user';
+import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { updateUserProfile, updateUserTheme } from '@/server/profile';
 import { deleteAccount } from '@/server/account';
 import { signOut } from '@/lib/auth-client';
@@ -164,6 +165,7 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
                 <input
                   type="text"
                   required
+                  maxLength={MAX_NAME_LENGTH}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="za-field w-full"

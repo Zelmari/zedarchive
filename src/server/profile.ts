@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { MAX_BIO_LENGTH, VALID_THEMES } from '@/lib/constants';
+import { MAX_BIO_LENGTH, MAX_NAME_LENGTH, VALID_THEMES } from '@/lib/constants';
 import type { MediaEntry } from '@/types/media';
 import { normalizeHandle } from '@/lib/handles';
 import { serializeEntry } from '@/lib/serialize';
@@ -86,6 +86,16 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   const user = await getAuthUser();
   const updateData: Partial<typeof userTable.$inferInsert> = { updatedAt: new Date() };
 
+  if (updates.name !== undefined) {
+    const name = String(updates.name ?? '')
+      .trim()
+      .slice(0, MAX_NAME_LENGTH);
+    if (!name) {
+      throw new Error('Display name cannot be empty');
+    }
+    updateData.name = name;
+  }
+
   if (updates.username !== undefined) {
     const raw = normalizeHandle(updates.username);
     updateData.username = raw || null;
@@ -116,6 +126,10 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
     });
 
   revalidatePath('/dashboard');
+  revalidatePath('/settings');
+  if (updated?.username) {
+    revalidatePath(`/u/${updated.username}`);
+  }
   return updated;
 }
 
