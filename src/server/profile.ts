@@ -58,25 +58,11 @@ export async function updateUserTheme(theme: unknown): Promise<{ theme: string }
   return { theme: safeTheme };
 }
 
+import { getUserProfileById } from './queries/user';
+
 export async function getUserProfile() {
   const user = await getAuthUser();
-  const [profile] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      email: userTable.email,
-      image: userTable.image,
-      theme: userTable.theme,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-      emailVerified: userTable.emailVerified,
-      verificationDismissedAt: userTable.verificationDismissedAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, user.id));
-
-  return profile;
+  return getUserProfileById(user.id);
 }
 
 export async function dismissVerificationNotice(): Promise<{ ok: boolean }> {
@@ -173,50 +159,6 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   return updated;
 }
 
-interface PublicProfileResult {
-  user: {
-    id: string;
-    name: string;
-    username: string | null;
-    bio: string | null;
-    image: string | null;
-    theme: string;
-    isPublic: boolean;
-    createdAt: Date;
-  };
-  entries: MediaEntry[];
-}
-
-export async function getPublicUserProfile(username: unknown): Promise<PublicProfileResult | null> {
-  if (!username) return null;
-  const clean = String(username).trim().toLowerCase();
-
-  const [foundUser] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      bio: userTable.bio,
-      image: userTable.image,
-      theme: userTable.theme,
-      isPublic: userTable.isPublic,
-      createdAt: userTable.createdAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.username, clean));
-
-  if (!foundUser || !foundUser.isPublic) {
-    return null;
-  }
-
-  const entries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, foundUser.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  return {
-    user: foundUser,
-    entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
-  };
-}
+import { getPublicUserProfile, type PublicProfileResult } from './queries/user';
+export { getPublicUserProfile };
+export type { PublicProfileResult };

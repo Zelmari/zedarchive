@@ -1,12 +1,9 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { eq, desc } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { mediaEntries, user as userTable } from '@/db/schema';
-import { serializeEntry } from '@/lib/serialize';
+import { getUserProfileById } from '@/server/queries/user';
+import { getMediaEntriesByUserId } from '@/server/queries/media';
 import { calculateYearlyStats } from '@/lib/stats';
-import type { MediaEntry } from '@/types/media';
 import WrappedClient from '@/app/wrapped/WrappedClient';
 
 type PageParams = {
@@ -33,21 +30,8 @@ export default async function AuthenticatedWrappedPage({ params }: PageParams) {
 
   const targetYear = parseInt(year, 10) || new Date().getFullYear();
 
-  const [dbUser] = await db
-    .select({
-      name: userTable.name,
-      username: userTable.username,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, session.user.id));
-
-  const rawEntries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, session.user.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  const entries = rawEntries.map(serializeEntry).filter((e): e is MediaEntry => e !== null);
+  const dbUser = await getUserProfileById(session.user.id);
+  const entries = await getMediaEntriesByUserId(session.user.id);
 
   const stats = calculateYearlyStats(entries, targetYear);
 

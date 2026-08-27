@@ -1,9 +1,5 @@
 import './globals.css';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { user as userTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getSessionTheme } from '@/server/queries/user';
 
 export const metadata = {
   title: 'zedarchive — Quiet Media Archive',
@@ -25,22 +21,6 @@ const THEME_BOOTSTRAP_SCRIPT =
 
 const SW_REGISTER_SCRIPT =
   "if('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}";
-
-async function getSessionTheme() {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
-      return 'parchment';
-    }
-    const [row] = await db
-      .select({ theme: userTable.theme })
-      .from(userTable)
-      .where(eq(userTable.id, session.user.id));
-    return row?.theme || 'parchment';
-  } catch {
-    return 'parchment';
-  }
-}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const theme = await getSessionTheme();

@@ -1,16 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
-
-async function isAuthenticated() {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    return Boolean(session?.user?.id);
-  } catch {
-    return false;
-  }
-}
+import { isAuthenticated } from '@/server/queries/user';
 
 export default async function HomePage() {
   const signedIn = await isAuthenticated();

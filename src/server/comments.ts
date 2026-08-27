@@ -36,72 +36,11 @@ function serializeCommentFlat(row: CommentRow, author: AuthorInfo): ProfileComme
   };
 }
 
+import { getCommentsByProfileUserId } from './queries/comments';
+
 export async function getProfileComments(profileUserId: unknown): Promise<ProfileComment[]> {
-  if (!profileUserId) return [];
-  const now = new Date();
-
-  // Privacy gate: this server action is publicly invocable, so verify the
-  // target profile is public — or the caller is the profile owner (who may
-  // always read their own guestbook). Anonymous visitors only pass for
-  // public profiles, keeping the /u/[username] page working while signed out.
-  const [target] = await db
-    .select({ id: userTable.id, isPublic: userTable.isPublic })
-    .from(userTable)
-    .where(eq(userTable.id, String(profileUserId)));
-
-  if (!target) {
-    return [];
-  }
-
-  if (!target.isPublic) {
-    const viewer = await getSessionUser();
-    if (viewer?.id !== target.id) {
-      return [];
-    }
-  }
-
-  // Lazy cleanup: drop this profile's expired comments while we are here anyway.
-  await db
-    .delete(profileComments)
-    .where(and(eq(profileComments.profileUserId, target.id), lte(profileComments.expiresAt, now)));
-
-  const rows = await db
-    .select({
-      id: profileComments.id,
-      profileUserId: profileComments.profileUserId,
-      body: profileComments.body,
-      createdAt: profileComments.createdAt,
-      expiresAt: profileComments.expiresAt,
-      authorId: userTable.id,
-      authorUsername: userTable.username,
-      authorName: userTable.name,
-      authorImage: userTable.image,
-    })
-    .from(profileComments)
-    .innerJoin(userTable, eq(profileComments.authorUserId, userTable.id))
-    .where(
-      and(
-        eq(profileComments.profileUserId, target.id),
-        gt(profileComments.expiresAt, now),
-        // Reciprocity rule, enforced retroactively: comments by users whose own
-        // archive is no longer public stop rendering until they go public again.
-        eq(userTable.isPublic, true),
-      ),
-    )
-    .orderBy(asc(profileComments.createdAt))
-    .limit(200);
-
-  return rows.map((row) => ({
-    id: row.id,
-    profileUserId: row.profileUserId,
-    authorId: row.authorId,
-    authorUsername: row.authorUsername,
-    authorName: row.authorName,
-    authorImage: row.authorImage || null,
-    body: row.body,
-    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
-    expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : String(row.expiresAt),
-  }));
+  const viewer = await getSessionUser();
+  return getCommentsByProfileUserId(profileUserId, viewer?.id);
 }
 
 export async function createProfileComment(

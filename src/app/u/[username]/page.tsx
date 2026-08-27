@@ -1,14 +1,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { headers } from 'next/headers';
-import { getPublicUserProfile } from '@/server/profile';
-import { getProfileComments } from '@/server/comments';
+import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
+import { getCommentsByProfileUserId } from '@/server/queries/comments';
 import { calculateArchiveStats } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { user as userTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import { Star, ShieldAlert } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
@@ -84,23 +81,21 @@ export default async function PublicProfilePage({ params }: PageParams) {
   } = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.id) {
-    const [meRow] = await db
-      .select({
-        id: userTable.id,
-        username: userTable.username,
-        name: userTable.name,
-        image: userTable.image,
-        isPublic: userTable.isPublic,
-      })
-      .from(userTable)
-      .where(eq(userTable.id, session.user.id));
+    const meRow = await getUserProfileById(session.user.id);
     if (meRow) {
-      viewer = { isLoggedIn: true, ...meRow };
+      viewer = {
+        isLoggedIn: true,
+        id: meRow.id,
+        username: meRow.username,
+        name: meRow.name,
+        image: meRow.image,
+        isPublic: meRow.isPublic,
+      };
     }
   }
 
   // Guestbook comments (auto-purges expired rows for this profile)
-  const initialComments = await getProfileComments(user.id);
+  const initialComments = await getCommentsByProfileUserId(user.id, session?.user?.id);
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();
