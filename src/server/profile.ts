@@ -44,11 +44,12 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
   }
 }
 
+import { updateProfileSchema, updateThemeSchema } from '@/lib/validations/profile';
+
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();
-  const safeTheme = (VALID_THEMES as readonly string[]).includes(String(theme))
-    ? (theme as string)
-    : 'parchment';
+  const parsed = updateThemeSchema.safeParse({ theme });
+  const safeTheme = parsed.success ? parsed.data.theme : 'parchment';
 
   await db
     .update(userTable)
@@ -78,47 +79,34 @@ export async function dismissVerificationNotice(): Promise<{ ok: boolean }> {
 
 export async function updateUserProfile(updates: Record<string, unknown>) {
   const user = await getAuthUser();
+  const parsed = updateProfileSchema.safeParse(updates);
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message || 'Invalid profile updates';
+    throw new Error(errorMsg);
+  }
+
+  const validated = parsed.data;
   const updateData: Partial<typeof userTable.$inferInsert> = { updatedAt: new Date() };
 
-  if (updates.name !== undefined) {
-    const name = String(updates.name ?? '')
-      .trim()
-      .slice(0, MAX_NAME_LENGTH);
-    if (!name) {
-      throw new Error('Display name cannot be empty');
-    }
-    updateData.name = name;
+  if (validated.name !== undefined) {
+    updateData.name = validated.name;
   }
 
   if (updates.username !== undefined) {
-    const raw = normalizeHandle(updates.username);
+    const raw = normalizeHandle(validated.username);
     updateData.username = raw || null;
   }
 
-  if (updates.isPublic !== undefined) {
-    updateData.isPublic = Boolean(updates.isPublic);
+  if (validated.isPublic !== undefined) {
+    updateData.isPublic = validated.isPublic;
   }
 
   if (updates.bio !== undefined) {
-    updateData.bio =
-      String(updates.bio || '')
-        .trim()
-        .slice(0, MAX_BIO_LENGTH) || null;
+    updateData.bio = validated.bio || null;
   }
 
   if (updates.image !== undefined) {
-    const raw = updates.image;
-    if (raw === null || raw === '') {
-      updateData.image = null;
-    } else if (
-      typeof raw === 'string' &&
-      raw.length <= MAX_COVER_IMAGE_LENGTH &&
-      (/^data:image\//i.test(raw) || /^https:\/\//i.test(raw))
-    ) {
-      updateData.image = raw;
-    } else {
-      throw new Error('Invalid avatar. Use a compressed image data URL or an HTTPS image URL.');
-    }
+    updateData.image = validated.image || null;
   }
 
   // Public-archive invariant: a public archive must have a resolvable

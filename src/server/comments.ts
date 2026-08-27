@@ -11,6 +11,7 @@ import {
   COMMENT_RATE_WINDOW_MS,
 } from '@/lib/constants';
 import type { ProfileComment } from '@/types/comments';
+import { createCommentSchema } from '@/lib/validations/comment';
 import { getAuthUser, getSessionUser } from './internal';
 
 type CommentRow = typeof profileComments.$inferSelect;
@@ -79,12 +80,15 @@ export async function createProfileComment(
     throw new Error('A username handle is required to comment');
   }
 
-  const clean = String(body || '')
-    .trim()
-    .slice(0, MAX_COMMENT_LENGTH);
-  if (!clean) {
-    throw new Error('Comment cannot be empty');
+  const parsed = createCommentSchema.safeParse({
+    profileUserId: String(profileUserId || ''),
+    body,
+  });
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message || 'Invalid comment data';
+    throw new Error(errorMsg);
   }
+  const clean = parsed.data.body;
 
   const windowStart = new Date(Date.now() - COMMENT_RATE_WINDOW_MS);
   const [rateRow] = await db

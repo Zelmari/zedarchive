@@ -14,6 +14,7 @@ import {
   profileComments,
 } from '@/db/schema';
 import { getAuthUser } from './internal';
+import { deleteAccountSchema } from '@/lib/validations/auth';
 
 export interface DeleteAccountInput {
   password?: string;
@@ -25,16 +26,18 @@ export async function deleteAccount(
   const user = await getAuthUser();
   const reqHeaders = await headers();
 
-  if (!input.password) {
+  const parsed = deleteAccountSchema.safeParse(input);
+  if (!parsed.success || !parsed.data.password) {
     return { success: false, error: 'Password is required to delete your account.' };
   }
+  const { password } = parsed.data;
 
   // Verify credential via better-auth signInEmail endpoint
   try {
     const signInRes = await auth.api.signInEmail({
       body: {
         email: user.email || '',
-        password: input.password,
+        password,
       },
       headers: reqHeaders,
     });
