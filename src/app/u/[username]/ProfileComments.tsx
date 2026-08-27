@@ -207,6 +207,7 @@ export default function ProfileComments({
             return (
               <li key={comment.id} className="flex items-start gap-[var(--za-space-3)]">
                 {comment.authorImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL / remote avatars, unoptimized by design
                   <img
                     src={comment.authorImage}
                     alt=""

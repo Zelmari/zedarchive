@@ -275,6 +275,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                     <div className="flex items-start gap-[var(--za-space-4)]">
                       <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
                         {item.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
                           <img
                             src={item.coverImage}
                             alt={item.title}
