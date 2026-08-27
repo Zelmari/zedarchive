@@ -22,8 +22,37 @@ vi.stubGlobal('fetch', fetchMock);
 
 import { GET } from '@/app/api/shows/airdate/route';
 
-function makeRequest(ids: string): Request {
-  return new Request(`http://localhost/api/shows/airdate?ids=${encodeURIComponent(ids)}`);
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function makeRequest(ids: string, titles?: string[]): Request {
+  const url = new URL('http://localhost/api/shows/airdate');
+  url.searchParams.set('ids', ids);
+  if (titles) {
+    url.searchParams.set('titles', JSON.stringify(titles));
+  }
+  return new Request(url.toString());
+}
+
+/** A fake AnimeSchedule search response payload. */
+function animeScheduleResponse(anime: Array<Record<string, unknown>>): Response {
+  return new Response(JSON.stringify({ anime }), { status: 200 });
+}
+
+function scheduleAnime(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    title: 'Villainess',
+    status: 'Ongoing',
+    episodes: 11,
+    premier: '2026-07-12T00:00:00Z',
+    subTime: '2026-07-12T15:45:00Z',
+    episodeOverride: { overrideDate: '0001-01-01T00:00:00Z', overrideEpisode: 0, episodesAired: 0 },
+    delayedUntil: '0001-01-01T00:00:00Z',
+    websites: {
+      aniList: 'anilist.co/anime/188139/Example/',
+      mal: 'myanimelist.net/anime/61240/Example',
+    },
+    ...overrides,
+  };
 }
 
 describe('GET /api/shows/airdate', () => {
@@ -31,10 +60,12 @@ describe('GET /api/shows/airdate', () => {
     vi.clearAllMocks();
     getSessionMock.mockResolvedValue({ user: { id: 'user-1' } });
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-27T12:00:00Z'));
   });
 
   afterEach(() => {
-    fetchMock.mockReset();
+    vi.useRealTimers();
   });
 
   it('rejects unauthenticated requests', async () => {
@@ -70,63 +101,86 @@ describe('GET /api/shows/airdate', () => {
     expect(body['tvmaze-82']).toMatchObject({ season: 2, number: 5, airdate: '2026-09-10' });
   });
 
-  it('resolves anilist and mal sourceIds in one batched AniList request', async () => {
-    const airingAt = 1788099360;
-
-    fetchMock.mockImplementation(async (input: unknown, init?: RequestInit) => {
+  it('computes anime next-episode dates from AnimeSchedule with id cross-checking', async () => {
+    fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
-      if (url === 'https://graphql.anilist.co') {
-        const { query } = JSON.parse(String(init?.body));
-        expect(query).toContain('id: 21');
-        expect(query).toContain('idMal: 52991');
-        const data = {
-          a0: { status: 'RELEASING', nextAiringEpisode: { episode: 1176, airingAt } },
-          a1: { status: 'RELEASING', nextAiringEpisode: { episode: 28, airingAt } },
-        };
-        return new Response(JSON.stringify({ data }), { status: 200 });
+      if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
+        expect(url.toLowerCase()).toContain('inept%20villainess');
+        return animeScheduleResponse([scheduleAnime()]);
       }
       return new Response('{}', { status: 200 });
     });
 
-    const res = await GET(makeRequest('anilist-21,mal-52991'));
+    const res = await GET(
+      makeRequest('anilist-188139,mal-61240', [
+        'Though I Am an Inept Villainess',
+        'Though I Am an Inept Villainess',
+      ]),
+    );
     const body = await res.json();
-    expect(body['anilist-21']).toEqual({
+
+    // Premier/sub anchor 2026-07-12 + 7 weekly steps from 2026-08-27 = ep 8, Aug 30.
+    expect(body['anilist-188139']).toEqual({
       season: 1,
-      number: 1176,
-      airdate: new Date(airingAt * 1000).toISOString().slice(0, 10),
+      number: 8,
+      airdate: '2026-08-30',
       airstamp: null,
       status: 'RELEASING',
     });
-    expect(body['mal-52991']).toEqual({
-      season: 1,
-      number: 28,
-      airdate: new Date(airingAt * 1000).toISOString().slice(0, 10),
-      airstamp: null,
-      status: 'RELEASING',
-    });
+    expect(body['mal-61240']).toMatchObject({ number: 8, airdate: '2026-08-30' });
   });
 
-  it('suppresses dormant AniList statuses and unknown sourceIds', async () => {
-    fetchMock.mockImplementation(async (input: unknown, init?: RequestInit) => {
+  it('rejects AnimeSchedule results whose external ids do not match', async () => {
+    fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
-      if (url === 'https://graphql.anilist.co') {
-        const data = {
-          a0: { status: 'FINISHED', nextAiringEpisode: null },
-          a1: { status: 'RELEASING', nextAiringEpisode: null },
-        };
-        return new Response(JSON.stringify({ data }), { status: 200 });
+      if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
+        // Different anilist id — must not be attributed to our entry.
+        return animeScheduleResponse([
+          scheduleAnime({
+            websites: {
+              aniList: 'anilist.co/anime/999999/Other/',
+              mal: 'myanimelist.net/anime/999999/Other',
+            },
+          }),
+        ]);
       }
       return new Response('{}', { status: 200 });
     });
 
-    const res = await GET(makeRequest('anilist-1,mal-2,simkl-3'));
+    const res = await GET(makeRequest('anilist-188139', ['Villainess']));
     const body = await res.json();
     expect(Object.keys(body)).toHaveLength(0);
-    // simkl-* is not resolvable — no upstream fetch beyond providers is made.
-    const tvmazeCalls = fetchMock.mock.calls.filter(([input]) =>
-      String(input).startsWith('https://api.tvmaze.com/'),
-    );
-    expect(tvmazeCalls).toHaveLength(0);
+  });
+
+  it('suppresses finished anime and unknown providers without upstream fetches', async () => {
+    fetchMock.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
+        return animeScheduleResponse([scheduleAnime({ status: 'Finished' })]);
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    const res = await GET(makeRequest('mal-61240,simkl-3', ['Villainess', 'Unmapped']));
+    const body = await res.json();
+    expect(Object.keys(body)).toHaveLength(0);
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).startsWith('https://api.tvmaze.com/')),
+    ).toHaveLength(0);
+  });
+
+  it('respects a delayedUntil override', async () => {
+    fetchMock.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
+        return animeScheduleResponse([scheduleAnime({ delayedUntil: '2026-09-20T00:00:00Z' })]);
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    const res = await GET(makeRequest('anilist-188139', ['Villainess']));
+    const body = await res.json();
+    expect(body['anilist-188139']?.airdate).toBe('2026-09-20');
   });
 
   it('returns empty results for an empty ids parameter', async () => {

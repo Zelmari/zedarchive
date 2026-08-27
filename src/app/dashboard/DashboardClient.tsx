@@ -127,7 +127,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
   // Fetch upcoming episode airdates for in-progress shows and anime
   useEffect(() => {
-    const trackedSourceIds = entries
+    const tracked = entries
       .filter(
         (e) =>
           (e.category === 'show' || e.category === 'anime') &&
@@ -135,12 +135,13 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
           e.sourceId &&
           /^(tvmaze|anilist|mal)-\d+$/.test(e.sourceId),
       )
-      .map((e) => e.sourceId as string)
       .slice(0, 20);
 
-    if (trackedSourceIds.length === 0) return;
+    if (tracked.length === 0) return;
 
-    const url = `/api/shows/airdate?ids=${encodeURIComponent(trackedSourceIds.join(','))}`;
+    const ids = tracked.map((e) => e.sourceId as string);
+    const titles = tracked.map((e) => e.title);
+    const url = `/api/shows/airdate?ids=${encodeURIComponent(ids.join(','))}&titles=${encodeURIComponent(JSON.stringify(titles))}`;
     fetch(url)
       .then((res) => (res.ok ? res.json() : {}))
       .then((data: NextAirMap) => {
