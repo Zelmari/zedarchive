@@ -8,6 +8,21 @@ interface SendEmailInput {
   text?: string;
 }
 
+function getEnvVar(name: string): string | undefined {
+  if (process.env[name]) return process.env[name];
+  try {
+    const cfContext = (globalThis as Record<string | symbol, unknown>)[
+      Symbol.for('__cloudflare-context__')
+    ] as { env?: Record<string, string> } | undefined;
+    if (cfContext?.env?.[name]) return cfContext.env[name];
+  } catch {}
+  const g = globalThis as Record<string, unknown>;
+  if (typeof g[name] === 'string') return g[name] as string;
+  const gEnv = g.env as Record<string, string> | undefined;
+  if (gEnv && typeof gEnv[name] === 'string') return gEnv[name];
+  return undefined;
+}
+
 /**
  * Send a transactional email via the Resend HTTP API.
  *
@@ -22,13 +37,13 @@ interface SendEmailInput {
  * configured for email yet.
  */
 export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = getEnvVar('RESEND_API_KEY');
   if (!apiKey) {
     console.warn('[email] RESEND_API_KEY not set — skipping send to', to);
     return;
   }
 
-  const from = process.env.EMAIL_FROM || DEFAULT_FROM_ADDRESS;
+  const from = getEnvVar('EMAIL_FROM') || DEFAULT_FROM_ADDRESS;
 
   try {
     const res = await fetch(RESEND_API_URL, {
@@ -47,7 +62,8 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
     });
 
     if (!res.ok) {
-      console.warn('[email] Resend rejected send:', res.status, await res.text().catch(() => ''));
+      const errText = await res.text().catch(() => '');
+      console.warn('[email] Resend rejected send:', res.status, errText);
     }
   } catch (err) {
     console.warn('[email] Resend fetch failed:', err instanceof Error ? err.message : err);
