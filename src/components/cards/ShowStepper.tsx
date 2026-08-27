@@ -38,7 +38,9 @@ export default function ShowStepper({
       >
         <Minus size={15} strokeWidth={2.2} />
       </button>
-      <div className="flex min-h-[var(--za-control-min-block-size)] flex-1 flex-col items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[0.25rem] text-center">
+      <div
+        className={`flex ${subtitle ? 'min-h-[var(--za-control-min-block-size)] flex-col py-[0.25rem]' : 'h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)]'} flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center`}
+      >
         <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] leading-tight text-ink">
           Ep {formattedCurrent}
           {total ? ` / ${total}` : ''}

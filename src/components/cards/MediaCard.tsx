@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText } from 'lucide-react';
+import { Trash2, Pencil, FileText, Calendar } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import type { MediaEntry, NextAirInfo } from '@/types/media';
@@ -393,13 +393,6 @@ export default function MediaCard({
             total={secondaryUnitTotal}
             hasNextUnit={hasNextSeason}
             disabled={isUpdating}
-            subtitle={
-              nextAir
-                ? rawCategory === 'anime'
-                  ? `Ep ${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
-                  : `S${nextAir.season}E${nextAir.number} · airs ${formatAirdate(nextAir.airdate)}`
-                : null
-            }
             onStep={handleEpisodeStep}
           />
         )}
@@ -417,6 +410,20 @@ export default function MediaCard({
             </span>
           </div>
         ) : null}
+
+        {nextAir && (
+          <div className="flex items-center justify-between rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-2.5)] py-[0.35rem] text-[length:var(--za-text-fine)] text-ink-muted">
+            <span className="flex items-center gap-1.5 font-[var(--za-weight-emphasis)] text-ink">
+              <Calendar size={12} className="shrink-0 text-ink-muted" />
+              <span>
+                {rawCategory === 'anime'
+                  ? `Ep ${nextAir.number}`
+                  : `S${nextAir.season}E${nextAir.number}`}
+              </span>
+            </span>
+            <span>airs {formatAirdate(nextAir.airdate)}</span>
+          </div>
+        )}
       </div>
     </article>
   );
