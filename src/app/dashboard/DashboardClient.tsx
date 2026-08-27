@@ -16,12 +16,11 @@ import ShareProfileModal from './ShareProfileModal';
 import ConfirmModal from './ConfirmModal';
 import StatsModal from './StatsModal';
 import DataBackupModal from './DataBackupModal';
-import ToastContainer from '@/components/ui/Toast';
+import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
 import MediaGrid from '@/components/dashboard/MediaGrid';
 import { useMediaFilters, useModalManager, type DashboardTab } from '@/components/dashboard/hooks';
-import type { Toast } from '@/components/ui/Toast';
 import type { MediaEntry, NextAirMap } from '@/types/media';
 import {
   getMediaEntries,
