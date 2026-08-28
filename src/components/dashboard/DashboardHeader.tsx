@@ -47,7 +47,7 @@ export default function DashboardHeader({
             aria-hidden="true"
             className="za-wordmark__mark"
             height={34}
-            src="/biglogo.png"
+            src="/transparentlogo.png"
             width={34}
             unoptimized
           />

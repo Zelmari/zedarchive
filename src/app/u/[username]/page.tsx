@@ -115,7 +115,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
               aria-hidden="true"
               className="za-wordmark__mark"
               height={30}
-              src="/biglogo.png"
+              src="/transparentlogo.png"
               width={30}
               unoptimized
             />
