@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { calculateArchiveStats, calculateYearlyStats, getAvailableYears } from '@/lib/stats';
+import {
+  calculateArchiveStats,
+  calculateYearlyStats,
+  getAvailableYears,
+  calculateReadingGoalProgress,
+} from '@/lib/stats';
 import type { MediaEntry } from '@/types/media';
 
 const sampleEntries: MediaEntry[] = [
@@ -251,5 +256,110 @@ describe('calculateYearlyStats', () => {
     expect(years).toContain(2026);
     expect(years).toContain(2025);
     expect(years[0]).toBeGreaterThanOrEqual(years[1] ?? 0);
+  });
+});
+
+describe('calculateReadingGoalProgress', () => {
+  const goalEntries: MediaEntry[] = [
+    {
+      id: 'b1',
+      userId: 'u1',
+      title: 'Book 1',
+      category: 'book',
+      status: 'completed',
+      dropReason: null,
+      droppedAt: null,
+      droppedProgressPrimary: null,
+      droppedProgressSecondary: null,
+      priorityIndex: null,
+      cycles: [],
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 300,
+      secondaryUnitTotal: 300,
+      structure: [],
+      completedAt: '2026-01-15T12:00:00.000Z',
+      startedAt: null,
+      rewatchCount: 0,
+      rating: 8,
+      tags: [],
+      genres: [],
+      synopsis: null,
+      coverImage: null,
+      sourceId: null,
+      notes: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-15T12:00:00.000Z',
+    },
+    {
+      id: 'b2',
+      userId: 'u1',
+      title: 'Book 2',
+      category: 'book',
+      status: 'completed',
+      dropReason: null,
+      droppedAt: null,
+      droppedProgressPrimary: null,
+      droppedProgressSecondary: null,
+      priorityIndex: null,
+      cycles: [],
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 400,
+      secondaryUnitTotal: 400,
+      structure: [],
+      completedAt: '2026-02-10T12:00:00.000Z',
+      startedAt: null,
+      rewatchCount: 0,
+      rating: 9,
+      tags: [],
+      genres: [],
+      synopsis: null,
+      coverImage: null,
+      sourceId: null,
+      notes: null,
+      createdAt: '2026-02-01T00:00:00.000Z',
+      updatedAt: '2026-02-10T12:00:00.000Z',
+    },
+  ];
+
+  it('calculates progress and ahead-of-schedule pacing accurately', () => {
+    // 2 books completed by mid Feb when expected is ~1.5 books for target of 12
+    const refDate = new Date('2026-02-15T00:00:00.000Z');
+    const progress = calculateReadingGoalProgress(
+      goalEntries,
+      { year: 2026, annualTarget: 12, isPublic: true },
+      refDate,
+    );
+
+    expect(progress.year).toBe(2026);
+    expect(progress.annualTarget).toBe(12);
+    expect(progress.completedCount).toBe(2);
+    expect(progress.percentage).toBe(17); // 2/12 = 16.66% -> 17%
+    expect(progress.status).toBe('on_track'); // 2 completed vs ~1.5 expected (diff = 0.5 < 1)
+  });
+
+  it('detects ahead of schedule when completed count exceeds expected by >= 1', () => {
+    const refDate = new Date('2026-01-20T00:00:00.000Z');
+    const progress = calculateReadingGoalProgress(
+      goalEntries,
+      { year: 2026, annualTarget: 12, isPublic: true },
+      refDate,
+    );
+
+    expect(progress.completedCount).toBe(2);
+    expect(progress.status).toBe('ahead');
+  });
+
+  it('detects behind schedule when completed count lags behind expected by <= -1', () => {
+    const refDate = new Date('2026-08-01T00:00:00.000Z');
+    const progress = calculateReadingGoalProgress(
+      goalEntries,
+      { year: 2026, annualTarget: 12, isPublic: true },
+      refDate,
+    );
+
+    expect(progress.completedCount).toBe(2);
+    expect(progress.status).toBe('behind');
   });
 });

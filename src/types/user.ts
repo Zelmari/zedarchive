@@ -1,5 +1,12 @@
 export type ThemeId = 'parchment' | 'midnight' | 'sepia' | 'e-ink' | 'cyber';
 
+export interface ReadingGoalConfig {
+  year: number;
+  annualTarget: number;
+  monthlyTarget?: number | null;
+  isPublic?: boolean;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -10,6 +17,7 @@ export interface UserProfile {
   isPublic: boolean;
   bio: string | null;
   countryCode: string;
+  readingGoals?: Record<string, ReadingGoalConfig> | null;
   emailVerified?: boolean;
   verificationDismissedAt?: string | null;
 }

@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
 import type { MediaEntry } from '@/types/media';
-import type { UserProfile, PublicUserSearchResult } from '@/types/user';
+import type { UserProfile, PublicUserSearchResult, ReadingGoalConfig } from '@/types/user';
 
 export async function isAuthenticated(): Promise<boolean> {
   try {
@@ -55,6 +55,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
       isPublic: userTable.isPublic,
       bio: userTable.bio,
       countryCode: userTable.countryCode,
+      readingGoals: userTable.readingGoals,
       emailVerified: userTable.emailVerified,
       verificationDismissedAt: userTable.verificationDismissedAt,
     })
@@ -73,6 +74,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
     isPublic: row.isPublic,
     bio: row.bio,
     countryCode: row.countryCode || 'US',
+    readingGoals: row.readingGoals || {},
     emailVerified: row.emailVerified,
     verificationDismissedAt: row.verificationDismissedAt
       ? row.verificationDismissedAt.toISOString()
@@ -89,6 +91,7 @@ export interface PublicProfileResult {
     image: string | null;
     theme: string;
     isPublic: boolean;
+    readingGoals?: Record<string, ReadingGoalConfig> | null;
     createdAt: Date;
   };
   entries: MediaEntry[];
@@ -107,6 +110,7 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
       image: userTable.image,
       theme: userTable.theme,
       isPublic: userTable.isPublic,
+      readingGoals: userTable.readingGoals,
       createdAt: userTable.createdAt,
     })
     .from(userTable)

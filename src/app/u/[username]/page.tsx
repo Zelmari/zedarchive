@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { headers } from 'next/headers';
 import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
 import { getCommentsByProfileUserId } from '@/server/queries/comments';
-import { calculateArchiveStats } from '@/lib/stats';
+import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
 import { Star, ShieldAlert } from 'lucide-react';
@@ -115,6 +115,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();
+  const publicGoal = user.readingGoals?.[String(currentYear)]?.isPublic
+    ? user.readingGoals[String(currentYear)]
+    : null;
+  const publicGoalProgress = publicGoal ? calculateReadingGoalProgress(entries, publicGoal) : null;
+
   const hostHeaders = await headers();
   const host = hostHeaders.get('x-forwarded-host') ?? hostHeaders.get('host') ?? 'zedarchive.com';
   const proto = hostHeaders.get('x-forwarded-proto') ?? 'https';
@@ -194,6 +199,23 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   <p className="mt-3 border-l-2 border-decorative pl-3 text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                     {user.bio}
                   </p>
+                )}
+                {publicGoalProgress && (
+                  <div className="mt-3 inline-flex items-center gap-2 rounded-small border border-decorative bg-surface-subtle px-3 py-1 text-xs text-ink">
+                    <span>📖</span>
+                    <span className="font-[var(--za-weight-emphasis)]">
+                      {currentYear} Reading Challenge:
+                    </span>
+                    <span>
+                      {publicGoalProgress.completedCount} of {publicGoalProgress.annualTarget} books
+                      ({publicGoalProgress.percentage}%)
+                    </span>
+                    {publicGoalProgress.status === 'ahead' && (
+                      <span className="text-[11px] font-[var(--za-weight-emphasis)] text-success">
+                        · {publicGoalProgress.paceDiff} ahead of pace!
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 

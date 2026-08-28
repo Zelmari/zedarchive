@@ -16,6 +16,7 @@ import ShareProfileModal from '@/components/modals/ShareProfileModal';
 import ConfirmModal from '@/components/modals/ConfirmModal';
 import StatsModal from '@/components/modals/StatsModal';
 import DataBackupModal from '@/components/modals/DataBackupModal';
+import ReadingGoalModal from '@/components/modals/ReadingGoalModal';
 import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
@@ -23,6 +24,12 @@ import MediaGrid from '@/components/dashboard/MediaGrid';
 import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
 import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
+import type { ReadingGoalConfig } from '@/types/user';
+import { calculateReadingGoalProgress } from '@/lib/stats';
+import {
+  setReadingGoal as setReadingGoalAction,
+  deleteReadingGoal as deleteReadingGoalAction,
+} from '@/server/profile';
 import {
   getMediaEntries,
   createMediaEntry,
@@ -62,6 +69,7 @@ interface DashboardClientProps {
     username?: string | null;
     isPublic?: boolean;
     bio?: string | null;
+    readingGoals?: Record<string, ReadingGoalConfig> | null;
     emailVerified?: boolean;
     verificationDismissedAt?: string | null;
   } | null;
@@ -73,6 +81,10 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
   const [entries, setEntries] = useState<MediaEntry[]>(initialEntries);
   const [activeTab, setActiveTab] = useState<DashboardTab>('total');
   const [currentTheme, setCurrentTheme] = useState(user?.theme || 'parchment');
+  const [readingGoals, setReadingGoals] = useState<Record<string, ReadingGoalConfig>>(
+    user?.readingGoals || {},
+  );
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CardItem | null>(null);
   const [detailItem, setDetailItem] = useState<CardItem | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -317,6 +329,29 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     }
   };
 
+  const currentYear = new Date().getFullYear();
+  const activeGoal = readingGoals[String(currentYear)] || null;
+  const goalProgress = activeGoal ? calculateReadingGoalProgress(entries, activeGoal) : null;
+
+  const handleSaveGoal = async (year: number, annualTarget: number, isPublic: boolean) => {
+    await setReadingGoalAction(year, annualTarget, isPublic);
+    setReadingGoals((prev) => ({
+      ...prev,
+      [String(year)]: { year, annualTarget, isPublic },
+    }));
+    addToast(`Saved ${year} reading challenge (${annualTarget} books)!`, 'success');
+  };
+
+  const handleDeleteGoal = async (year: number) => {
+    await deleteReadingGoalAction(year);
+    setReadingGoals((prev) => {
+      const copy = { ...prev };
+      delete copy[String(year)];
+      return copy;
+    });
+    addToast(`Removed ${year} reading challenge`, 'info');
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <DashboardHeader
@@ -397,6 +432,76 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
               </button>
             </div>
           </div>
+
+          {/* Reading Goal Banner (shown when on Books tab or when goal exists) */}
+          {(activeTab === 'books' || goalProgress) && (
+            <div className="mb-[var(--za-space-4)] rounded-control border border-required bg-surface p-4 shadow-raised">
+              {goalProgress ? (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📖</span>
+                      <div>
+                        <span className="font-[var(--za-weight-heading)] text-sm text-ink">
+                          {currentYear} Reading Challenge:
+                        </span>
+                        <span className="ml-1.5 text-xs text-ink-muted">
+                          {goalProgress.completedCount} of {goalProgress.annualTarget} books
+                          completed ({goalProgress.percentage}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] ${
+                          goalProgress.status === 'ahead'
+                            ? 'bg-success/15 text-success'
+                            : goalProgress.status === 'behind'
+                              ? 'bg-[rgba(234,179,8,0.15)] text-[#b45309]'
+                              : 'bg-surface-subtle text-ink-muted'
+                        }`}
+                      >
+                        {goalProgress.status === 'ahead'
+                          ? `✦ ${goalProgress.paceDiff} ${goalProgress.paceDiff === 1 ? 'book' : 'books'} ahead of schedule!`
+                          : goalProgress.status === 'behind'
+                            ? `○ ${Math.abs(goalProgress.paceDiff)} ${Math.abs(goalProgress.paceDiff) === 1 ? 'book' : 'books'} behind pace`
+                            : '✓ Right on track!'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsGoalModalOpen(true)}
+                        className="za-button za-button--secondary px-2 py-1 text-xs"
+                      >
+                        Edit Goal
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-surface-subtle">
+                    <div
+                      className="h-full bg-accent transition-[width] duration-300"
+                      style={{ width: `${goalProgress.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-ink-muted">
+                    <span className="text-base">📖</span>
+                    <span>Set your {currentYear} Reading Challenge to track targets & pacing!</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalModalOpen(true)}
+                    className="za-button za-button--secondary px-2.5 py-1 text-xs font-[var(--za-weight-emphasis)] text-accent"
+                  >
+                    Set Reading Goal
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Controls toolbar */}
           <DashboardToolbar
@@ -505,6 +610,15 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         variant={confirmModal.variant}
         onConfirm={() => confirmModal.onConfirm?.().finally(() => setConfirmModal(CONFIRM_CLOSED))}
         onCancel={() => setConfirmModal(CONFIRM_CLOSED)}
+      />
+
+      <ReadingGoalModal
+        isOpen={isGoalModalOpen}
+        year={currentYear}
+        currentGoal={activeGoal}
+        onSave={handleSaveGoal}
+        onDelete={handleDeleteGoal}
+        onClose={() => setIsGoalModalOpen(false)}
       />
 
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

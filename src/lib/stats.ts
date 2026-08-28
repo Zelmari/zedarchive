@@ -1,4 +1,5 @@
 import type { MediaEntry } from '@/types/media';
+import type { ReadingGoalConfig } from '@/types/user';
 
 export interface ArchiveStats {
   totalEntries: number;
@@ -213,5 +214,65 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     completionsByMonth,
     availableYears,
     favoriteCategory: maxCategory,
+  };
+}
+
+export interface ReadingGoalProgress {
+  year: number;
+  annualTarget: number;
+  completedCount: number;
+  percentage: number;
+  expectedCount: number;
+  paceDiff: number;
+  status: 'ahead' | 'on_track' | 'behind';
+  daysRemainingInYear: number;
+  projectedFinishCount: number;
+}
+
+export function calculateReadingGoalProgress(
+  entries: MediaEntry[],
+  goalConfig: ReadingGoalConfig,
+  referenceDate = new Date(),
+): ReadingGoalProgress {
+  const currentYear = goalConfig.year;
+  const startOfYear = new Date(currentYear, 0, 1).getTime();
+  const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59).getTime();
+  const nowTime = Math.min(endOfYear, Math.max(startOfYear, referenceDate.getTime()));
+
+  // Completed books/manga in target year
+  const completedBooks = entries.filter((e) => {
+    if (e.category !== 'book' && e.category !== 'manga') return false;
+    if (e.status !== 'completed') return false;
+    const dateStr = e.completedAt || e.updatedAt || e.createdAt;
+    if (!dateStr) return false;
+    return new Date(dateStr).getFullYear() === currentYear;
+  });
+
+  const completedCount = completedBooks.length;
+  const target = Math.max(1, goalConfig.annualTarget);
+  const percentage = Math.min(100, Math.round((completedCount / target) * 100));
+
+  const yearFraction = (nowTime - startOfYear) / (endOfYear - startOfYear);
+  const expectedCount = Math.round(yearFraction * target * 10) / 10;
+  const paceDiff = Math.round((completedCount - expectedCount) * 10) / 10;
+
+  const status: 'ahead' | 'on_track' | 'behind' =
+    paceDiff >= 1 ? 'ahead' : paceDiff <= -1 ? 'behind' : 'on_track';
+  const totalDaysInYear = (endOfYear - startOfYear) / (1000 * 60 * 60 * 24);
+  const daysPassed = (nowTime - startOfYear) / (1000 * 60 * 60 * 24);
+  const daysRemainingInYear = Math.max(0, Math.ceil(totalDaysInYear - daysPassed));
+  const projectedFinishCount =
+    daysPassed > 0 ? Math.round((completedCount / daysPassed) * totalDaysInYear) : completedCount;
+
+  return {
+    year: currentYear,
+    annualTarget: target,
+    completedCount,
+    percentage,
+    expectedCount,
+    paceDiff,
+    status,
+    daysRemainingInYear,
+    projectedFinishCount,
   };
 }

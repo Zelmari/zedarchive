@@ -37,6 +37,7 @@ export default async function DashboardPage() {
         emailVerified:
           dbUser?.emailVerified ??
           ('emailVerified' in session.user ? Boolean(session.user.emailVerified) : false),
+        readingGoals: dbUser?.readingGoals || {},
         verificationDismissedAt: dbUser?.verificationDismissedAt || null,
       }}
       initialEntries={initialEntries}

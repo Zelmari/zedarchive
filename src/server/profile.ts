@@ -152,6 +152,53 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   return updated;
 }
 
+export async function setReadingGoal(
+  year: number,
+  annualTarget: number,
+  isPublic = false,
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getAuthUser();
+  if (isNaN(year) || year < 2000 || year > 2100) {
+    throw new Error('Invalid year for reading goal');
+  }
+  if (isNaN(annualTarget) || annualTarget < 1 || annualTarget > 10000) {
+    throw new Error('Annual target must be between 1 and 10,000 books');
+  }
+
+  const [existingUser] = await db
+    .select({ readingGoals: userTable.readingGoals })
+    .from(userTable)
+    .where(eq(userTable.id, user.id));
+
+  const goals = { ...(existingUser?.readingGoals || {}) };
+  goals[String(year)] = {
+    year,
+    annualTarget,
+    isPublic,
+  };
+
+  await db.update(userTable).set({ readingGoals: goals }).where(eq(userTable.id, user.id));
+
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
+export async function deleteReadingGoal(year: number): Promise<{ ok: boolean; error?: string }> {
+  const user = await getAuthUser();
+  const [existingUser] = await db
+    .select({ readingGoals: userTable.readingGoals })
+    .from(userTable)
+    .where(eq(userTable.id, user.id));
+
+  const goals = { ...(existingUser?.readingGoals || {}) };
+  delete goals[String(year)];
+
+  await db.update(userTable).set({ readingGoals: goals }).where(eq(userTable.id, user.id));
+
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
 import {
   getPublicUserProfile,
   searchPublicProfiles,
