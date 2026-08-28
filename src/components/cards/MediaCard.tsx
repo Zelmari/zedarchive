@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText, Calendar } from 'lucide-react';
+import { Trash2, Pencil, FileText, Calendar, Bookmark } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
@@ -223,6 +223,35 @@ export default function MediaCard({
               </h3>
             </div>
             <div className="flex shrink-0 items-center gap-[var(--za-space-1)]">
+              <button
+                type="button"
+                className={`${miniActionBtn} ${
+                  item.priorityIndex != null
+                    ? 'border-accent bg-accent/15 text-accent'
+                    : 'text-ink-muted hover:border-required hover:text-ink'
+                }`}
+                onClick={async () => {
+                  await runUpdate({
+                    priorityIndex: item.priorityIndex != null ? null : 9999,
+                  });
+                }}
+                title={
+                  item.priorityIndex != null
+                    ? `Queued #${item.priorityIndex} (Click to remove from Up Next)`
+                    : 'Add to Up Next Queue'
+                }
+                aria-label={
+                  item.priorityIndex != null
+                    ? `Remove ${item.title} from Up Next queue`
+                    : `Add ${item.title} to Up Next queue`
+                }
+              >
+                <Bookmark
+                  size={13}
+                  strokeWidth={1.75}
+                  className={item.priorityIndex != null ? 'fill-accent' : ''}
+                />
+              </button>
               {onEdit && (
                 <button
                   type="button"
@@ -260,6 +289,7 @@ export default function MediaCard({
             dropReason={item.dropReason}
             droppedProgressPrimary={item.droppedProgressPrimary}
             droppedProgressSecondary={item.droppedProgressSecondary}
+            priorityIndex={item.priorityIndex}
           />
 
           {/* Season / volume row */}

@@ -12,6 +12,7 @@ interface MediaBadgesProps {
   dropReason?: string | null;
   droppedProgressPrimary?: number | null;
   droppedProgressSecondary?: number | null;
+  priorityIndex?: number | null;
 }
 
 export default function MediaBadges({
@@ -25,6 +26,7 @@ export default function MediaBadges({
   dropReason,
   droppedProgressPrimary,
   droppedProgressSecondary,
+  priorityIndex,
 }: MediaBadgesProps) {
   const bookish = category === 'book' || category === 'manga';
   const isMovie = category === 'movie';
@@ -44,6 +46,14 @@ export default function MediaBadges({
 
   return (
     <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
+      {priorityIndex != null && (
+        <span
+          title={`Rank #${priorityIndex} in Up Next Queue`}
+          className="inline-flex items-center gap-0.5 rounded-small border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-accent"
+        >
+          ⚡ #{priorityIndex}
+        </span>
+      )}
       <StatusBadge
         status={status}
         label={droppedMilestoneText || statusLabel}

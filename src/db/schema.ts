@@ -125,6 +125,7 @@ export const mediaEntries = pgTable(
     coverImage: text('cover_image'), // Compressed Base64 data URL
     sourceId: text('source_id'), // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
     notes: text('notes'),
+    priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -132,6 +133,7 @@ export const mediaEntries = pgTable(
     index('media_entries_user_id_idx').on(table.userId),
     index('media_entries_user_updated_idx').on(table.userId, table.updatedAt.desc()),
     index('media_entries_user_status_idx').on(table.userId, table.status),
+    index('media_entries_user_priority_idx').on(table.userId, table.priorityIndex),
   ],
 );
 

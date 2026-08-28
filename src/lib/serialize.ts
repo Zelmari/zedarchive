@@ -65,6 +65,7 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
               },
             ]
           : [],
+    priorityIndex: entry.priorityIndex != null ? Number(entry.priorityIndex) : null,
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',
   };

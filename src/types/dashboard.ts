@@ -7,4 +7,5 @@ export type SortKey =
   | 'title_asc'
   | 'title_desc'
   | 'progress_desc'
-  | 'rating_desc';
+  | 'rating_desc'
+  | 'priority_asc';
