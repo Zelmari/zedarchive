@@ -9,15 +9,13 @@ interface SearchPageProps {
   searchParams: Promise<{ q?: string }>;
 }
 
-export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
-  const { q } = await searchParams;
-  const query = q ? q.trim() : '';
-  return {
-    title: query ? `Search: "${query}"` : 'Discover Public Archives',
-    description:
-      'Find and explore public media collections, anime tracking logs, and book lists on ZedArchive.',
-  };
-}
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Discover Public Archives',
+  description:
+    'Find and explore public media collections, anime tracking logs, and book lists on ZedArchive.',
+};
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q } = await searchParams;

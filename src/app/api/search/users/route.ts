@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { MAX_QUERY_LENGTH } from '@/lib/constants';
 import { searchPublicProfiles } from '@/server/queries/user';
 
