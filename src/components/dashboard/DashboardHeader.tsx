@@ -41,7 +41,7 @@ export default function DashboardHeader({
   return (
     <header className="za-site-header">
       <div className="za-container za-container--wide za-site-header__inner">
-        <Link href="/dashboard" className="za-wordmark za-link za-site-header__brand">
+        <Link href="/" className="za-wordmark za-link za-site-header__brand">
           <Image
             alt=""
             aria-hidden="true"
