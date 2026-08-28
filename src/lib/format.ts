@@ -60,3 +60,20 @@ export function formatMonthYear(date: Date | string | null | undefined): string 
   if (isNaN(d.getTime())) return '';
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/**
+ * Converts a raw page count to an exact percentage (0 - 100).
+ */
+export function pageToPercent(current: number, total: number | null | undefined): number {
+  if (!total || total <= 0) return 0;
+  return Math.min(100, Math.max(0, Math.round((current / total) * 100)));
+}
+
+/**
+ * Converts a percentage (0 - 100) to the corresponding page number.
+ */
+export function percentToPage(percent: number, total: number | null | undefined): number {
+  if (!total || total <= 0) return 0;
+  const clampedPercent = Math.min(100, Math.max(0, percent));
+  return Math.min(total, Math.max(0, Math.round((clampedPercent / 100) * total)));
+}

@@ -5,6 +5,8 @@ import {
   relativeTime,
   formatAirdate,
   formatMonthYear,
+  pageToPercent,
+  percentToPage,
 } from '@/lib/format';
 
 describe('getInitials', () => {
@@ -69,5 +71,35 @@ describe('formatMonthYear', () => {
     expect(formatMonthYear(null)).toBe('');
     expect(formatMonthYear(undefined)).toBe('');
     expect(formatMonthYear('not-a-date')).toBe('');
+  });
+});
+
+describe('pageToPercent & percentToPage', () => {
+  it('converts page to percent accurately', () => {
+    expect(pageToPercent(240, 480)).toBe(50);
+    expect(pageToPercent(288, 450)).toBe(64);
+    expect(pageToPercent(0, 450)).toBe(0);
+    expect(pageToPercent(450, 450)).toBe(100);
+    expect(pageToPercent(500, 450)).toBe(100);
+  });
+
+  it('handles null/zero/negative totals gracefully in pageToPercent', () => {
+    expect(pageToPercent(50, null)).toBe(0);
+    expect(pageToPercent(50, 0)).toBe(0);
+    expect(pageToPercent(50, -10)).toBe(0);
+  });
+
+  it('converts percent to page accurately', () => {
+    expect(percentToPage(50, 480)).toBe(240);
+    expect(percentToPage(64, 450)).toBe(288);
+    expect(percentToPage(0, 450)).toBe(0);
+    expect(percentToPage(100, 450)).toBe(450);
+    expect(percentToPage(150, 450)).toBe(450);
+    expect(percentToPage(-10, 450)).toBe(0);
+  });
+
+  it('handles null/zero totals gracefully in percentToPage', () => {
+    expect(percentToPage(50, null)).toBe(0);
+    expect(percentToPage(50, 0)).toBe(0);
   });
 });

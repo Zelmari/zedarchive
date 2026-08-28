@@ -19,7 +19,7 @@ import {
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
-import { getTileInitials } from '@/lib/format';
+import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
 import type { MediaEntry, MediaCycle } from '@/types/media';
 import type { WatchProvidersResult } from '@/lib/services/tmdb';
 
@@ -743,8 +743,41 @@ export default function MediaDetailModal({
             {/* Progress Checklist */}
             <div>
               <div className={`${sectionLabel} mb-[var(--za-space-2)]`}>
-                {isBookLike ? 'CHAPTER / PAGE QUICK JUMP' : 'EPISODE QUICK JUMP'}
+                {isBookLike ? 'READING PROGRESS & QUICK JUMP' : 'EPISODE QUICK JUMP'}
               </div>
+
+              {/* Book / Manga percentage and slider controls */}
+              {isBookLike && secondaryTotal !== null && secondaryTotal > 0 && (
+                <div className="mb-3 rounded-control border border-decorative bg-surface-subtle p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-[var(--za-weight-emphasis)] text-ink">
+                      Page {secondaryCurrent} of {secondaryTotal}
+                    </span>
+                    <span className="font-[var(--za-weight-emphasis)] text-accent">
+                      {pageToPercent(secondaryCurrent, secondaryTotal)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={secondaryTotal}
+                    value={secondaryCurrent}
+                    disabled={isUpdating}
+                    onChange={(e) => {
+                      const newPg = parseInt(e.target.value, 10) || 0;
+                      void runUpdate({ secondaryUnitCurrent: newPg });
+                    }}
+                    className="mt-2 w-full accent-accent cursor-pointer"
+                  />
+                  <div className="mt-1 flex justify-between text-[10px] text-ink-muted">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+              )}
 
               {structure.length > 1 && (
                 <div className="mb-2 flex gap-[0.3rem] overflow-x-auto pb-[0.4rem]">
