@@ -328,3 +328,110 @@ export async function fetchAnimeScheduleAirdates(
     }
   });
 }
+
+export type EpisodeCanonType = 'canon' | 'filler' | 'recap' | 'mixed';
+
+export interface AnimeFillerMap {
+  malId: number;
+  totalEpisodes: number;
+  episodes: Record<number, { type: EpisodeCanonType; title?: string }>;
+}
+
+interface JikanEpisodeItem {
+  mal_id: number;
+  title?: string | null;
+  episode?: string | number;
+  aired?: string | null;
+  filler?: boolean;
+  recap?: boolean;
+  forum_url?: string | null;
+}
+
+export async function fetchAnimeFillerGuide(malId: number): Promise<AnimeFillerMap | null> {
+  const url = `https://api.jikan.moe/v4/anime/${malId}/episodes`;
+  try {
+    const res = await fetch(url, {
+      next: { revalidate: 2592000 }, // 30-day cache
+      headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
+    });
+
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: JikanEpisodeItem[] };
+    const rawList: JikanEpisodeItem[] = json.data || [];
+
+    const episodeMap: Record<number, { type: EpisodeCanonType; title?: string }> = {};
+    for (const ep of rawList) {
+      const epNum =
+        typeof ep.episode === 'number' ? ep.episode : parseInt(String(ep.episode || ep.mal_id), 10);
+      if (isNaN(epNum) || epNum <= 0) continue;
+      let type: EpisodeCanonType = 'canon';
+      if (ep.filler) type = 'filler';
+      else if (ep.recap) type = 'recap';
+
+      episodeMap[epNum] = { type, title: ep.title || undefined };
+    }
+
+    return {
+      malId,
+      totalEpisodes: rawList.length,
+      episodes: episodeMap,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveMalId(
+  sourceId?: string | null,
+  title?: string | null,
+): Promise<number | null> {
+  if (sourceId?.startsWith('mal-')) {
+    const parsed = parseInt(sourceId.replace('mal-', ''), 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+
+  if (sourceId?.startsWith('anilist-')) {
+    const anilistId = parseInt(sourceId.replace('anilist-', ''), 10);
+    if (!isNaN(anilistId) && anilistId > 0) {
+      try {
+        const query = `query ($id: Int) { Media(id: $id, type: ANIME) { idMal } }`;
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'User-Agent': 'zedarchive/0.1',
+          },
+          body: JSON.stringify({ query, variables: { id: anilistId } }),
+          next: { revalidate: 2592000 },
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { data?: { Media?: { idMal?: number | null } } };
+          const idMal = json.data?.Media?.idMal;
+          if (idMal && idMal > 0) return idMal;
+        }
+      } catch {
+        // Fallback to title search
+      }
+    }
+  }
+
+  if (title?.trim()) {
+    try {
+      const searchUrl = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title.trim())}&limit=1`;
+      const searchRes = await fetch(searchUrl, {
+        next: { revalidate: 2592000 },
+        headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
+      });
+      if (searchRes.ok) {
+        const searchJson = (await searchRes.json()) as { data?: Array<{ mal_id: number }> };
+        const match = searchJson.data?.[0]?.mal_id;
+        if (match && match > 0) return match;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}

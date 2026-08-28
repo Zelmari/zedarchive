@@ -22,6 +22,7 @@ import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
 import type { MediaEntry, MediaCycle } from '@/types/media';
 import type { WatchProvidersResult } from '@/lib/services/tmdb';
+import type { AnimeFillerMap } from '@/lib/services/anime';
 
 interface MediaDetailModalProps {
   isOpen: boolean;
@@ -87,6 +88,10 @@ export default function MediaDetailModal({
   const [providersCountry, setProvidersCountry] = useState<string>('US');
   const [providersLoading, setProvidersLoading] = useState(false);
 
+  // Anime filler guide state
+  const [fillerMap, setFillerMap] = useState<AnimeFillerMap | null>(null);
+  const [fillerFilter, setFillerFilter] = useState<'all' | 'canon_only'>('all');
+
   useEffect(() => {
     if (!isOpen || !item) return;
     const cat = item.category || 'movie';
@@ -112,6 +117,30 @@ export default function MediaDetailModal({
       })
       .finally(() => {
         if (isMounted) setProvidersLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, item]);
+
+  useEffect(() => {
+    if (!isOpen || !item) return;
+    const cat = item.category || (item as unknown as Record<string, unknown>).type;
+    if (cat !== 'anime') return;
+
+    let isMounted = true;
+    const params = new URLSearchParams({ title: item.title });
+    if (item.sourceId) params.set('sourceId', item.sourceId);
+
+    fetch(`/api/anime/filler?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data) return;
+        setFillerMap(data.fillerMap ?? null);
+      })
+      .catch(() => {
+        if (isMounted) setFillerMap(null);
       });
 
     return () => {
@@ -779,6 +808,56 @@ export default function MediaDetailModal({
                 </div>
               )}
 
+              {/* Anime Filler / Canon Filter Bar */}
+              {category === 'anime' && fillerMap && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle p-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+                      EPISODE GUIDE:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFillerFilter('all')}
+                      className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+                        fillerFilter === 'all'
+                          ? 'border border-required bg-surface text-ink'
+                          : 'border border-transparent text-ink-muted hover:text-ink'
+                      }`}
+                    >
+                      All ({totalUnitsInSeason})
+                    </button>
+                    {Object.values(fillerMap.episodes).some(
+                      (e) => e.type === 'filler' || e.type === 'recap',
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => setFillerFilter('canon_only')}
+                        className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+                          fillerFilter === 'canon_only'
+                            ? 'border border-accent bg-accent/15 text-accent'
+                            : 'border border-transparent text-ink-muted hover:text-ink'
+                        }`}
+                      >
+                        Canon Only
+                      </button>
+                    )}
+                  </div>
+                  {Object.values(fillerMap.episodes).filter(
+                    (e) => e.type === 'filler' || e.type === 'recap',
+                  ).length > 0 && (
+                    <span className="text-[11px] text-ink-muted">
+                      ✦{' '}
+                      {
+                        Object.values(fillerMap.episodes).filter(
+                          (e) => e.type === 'filler' || e.type === 'recap',
+                        ).length
+                      }{' '}
+                      filler episodes detected
+                    </span>
+                  )}
+                </div>
+              )}
+
               {structure.length > 1 && (
                 <div className="mb-2 flex gap-[0.3rem] overflow-x-auto pb-[0.4rem]">
                   {structure.map((s) => (
@@ -798,6 +877,19 @@ export default function MediaDetailModal({
                 {Array.from({ length: Math.min(100, Math.max(1, totalUnitsInSeason)) }).map(
                   (_, i) => {
                     const unitNum = i + 1;
+                    const epInfo =
+                      category === 'anime' && fillerMap ? fillerMap.episodes[unitNum] : null;
+                    const isFiller = epInfo?.type === 'filler';
+                    const isRecap = epInfo?.type === 'recap';
+
+                    if (
+                      category === 'anime' &&
+                      fillerFilter === 'canon_only' &&
+                      (isFiller || isRecap)
+                    ) {
+                      return null;
+                    }
+
                     const isDone =
                       activeSeason < primaryCurrent ||
                       (activeSeason === primaryCurrent && unitNum <= secondaryCurrent);
@@ -810,27 +902,55 @@ export default function MediaDetailModal({
                         type="button"
                         onClick={() => handleSetEpisode(unitNum, activeSeason)}
                         disabled={isUpdating}
+                        title={
+                          epInfo
+                            ? `Episode ${unitNum}${epInfo.title ? `: ${epInfo.title}` : ''} (${isFiller ? 'Filler' : isRecap ? 'Recap' : 'Canon'})`
+                            : undefined
+                        }
                         style={{
                           background: isCurrent
                             ? 'var(--za-color-accent)'
                             : isDone
                               ? 'rgba(46, 125, 50, 0.15)'
-                              : 'var(--za-color-surface)',
+                              : isFiller
+                                ? 'rgba(234, 179, 8, 0.08)'
+                                : 'var(--za-color-surface)',
                           color: isCurrent
                             ? 'var(--za-color-on-accent)'
                             : isDone
                               ? '#2e7d32'
-                              : 'var(--za-color-text)',
+                              : isFiller
+                                ? '#b45309'
+                                : 'var(--za-color-text)',
                           borderColor: isCurrent
                             ? 'var(--za-color-accent)'
                             : isDone
                               ? 'rgba(46, 125, 50, 0.4)'
-                              : 'var(--za-color-border-decorative)',
+                              : isFiller
+                                ? 'rgba(234, 179, 8, 0.4)'
+                                : 'var(--za-color-border-decorative)',
+                          borderStyle: isFiller ? 'dashed' : 'solid',
                           fontWeight: isCurrent ? 'bold' : 'normal',
                         }}
-                        className="inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
+                        className="relative inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
                       >
                         {unitNum}
+                        {isFiller && (
+                          <span
+                            aria-hidden="true"
+                            className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-[#b45309] text-[8px] font-bold text-white"
+                          >
+                            F
+                          </span>
+                        )}
+                        {isRecap && (
+                          <span
+                            aria-hidden="true"
+                            className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-500 text-[8px] font-bold text-white"
+                          >
+                            R
+                          </span>
+                        )}
                       </button>
                     );
                   },
