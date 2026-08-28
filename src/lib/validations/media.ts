@@ -55,6 +55,13 @@ export const mediaQuoteSchema = z.object({
   createdAt: z.string().optional(),
 });
 
+export const mediaRatingSchema = z.preprocess((val) => {
+  if (val === null || val === undefined || val === '') return null;
+  const parsed = parseInt(String(val), 10);
+  if (isNaN(parsed)) return null;
+  return Math.min(MAX_RATING, Math.max(1, parsed));
+}, z.number().int().min(1).max(MAX_RATING).nullable().optional());
+
 // ─── Create Schema ────────────────────────────────────────────────────────────
 
 export const createMediaSchema = z.object({
@@ -75,7 +82,7 @@ export const createMediaSchema = z.object({
   structure: z.array(structureItemSchema).max(MAX_STRUCTURE_LENGTH).default([]),
   cycles: z.array(mediaCycleSchema).default([]),
   quotes: z.array(mediaQuoteSchema).default([]),
-  rating: z.number().int().min(1).max(MAX_RATING).nullable().optional(),
+  rating: mediaRatingSchema,
   /** Max 50 tags to match the sanitizeTags() slice(0, 50) cap */
   tags: z.array(mediaTagSchema).max(50).default([]),
   genres: z.array(z.string().trim().max(50)).default([]),

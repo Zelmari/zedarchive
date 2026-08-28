@@ -127,7 +127,7 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
   const entries = await db
     .select()
     .from(mediaEntries)
-    .where(eq(mediaEntries.userId, foundUser.id))
+    .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
     .orderBy(desc(mediaEntries.updatedAt));
 
   return {
