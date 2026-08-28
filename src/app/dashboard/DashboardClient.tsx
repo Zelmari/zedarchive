@@ -275,7 +275,13 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
   const hasActiveFilters =
     Boolean(searchQuery.trim()) || statusFilter !== 'all' || selectedTag !== 'all';
   const tabNoun =
-    activeTab === 'total' ? null : activeTab === 'shows' ? 'shows & anime' : 'books & manga';
+    activeTab === 'total'
+      ? null
+      : activeTab === 'shows'
+        ? 'shows & anime'
+        : activeTab === 'movies'
+          ? 'movies & films'
+          : 'books & manga';
 
   const cardHandlers = {
     onUpdate: handleUpdate,
@@ -318,6 +324,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         onTabChange={setActiveTab}
         total={entries.length}
         shows={filters.showEntries.length}
+        movies={filters.movieEntries.length}
         books={filters.bookEntries.length}
         userName={user?.name ?? ''}
         username={user?.username ?? null}
@@ -367,11 +374,13 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
                   ? 'Your Media Archive'
                   : activeTab === 'shows'
                     ? 'Shows & Anime'
-                    : 'Books & Manga'}
+                    : activeTab === 'movies'
+                      ? 'Movies & Films'
+                      : 'Books & Manga'}
               </h1>
               <p className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
                 {activeTab === 'total'
-                  ? `Tracking ${entries.length} items across shows and reading lists`
+                  ? `Tracking ${entries.length} items across shows, movies, and books`
                   : `Tracking ${tabNoun} in your collection`}
               </p>
             </div>

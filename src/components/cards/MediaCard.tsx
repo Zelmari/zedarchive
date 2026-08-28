@@ -9,6 +9,7 @@ import MediaCover from './MediaCover';
 import MediaBadges from './MediaBadges';
 import ShowStepper from './ShowStepper';
 import BookStepper from './BookStepper';
+import MovieStepper from './MovieStepper';
 import UnitStepperRow from './UnitStepperRow';
 
 export interface MediaCardHandlers {
@@ -27,18 +28,20 @@ function isBookFamily(category: string): boolean {
   return category === 'book' || category === 'manga';
 }
 
-function statusLabel(status: string, bookish: boolean): string {
+function statusLabel(status: string, category: string): string {
+  const bookish = isBookFamily(category);
+  const isMovie = category === 'movie';
   switch (status) {
     case 'completed':
-      return 'Completed';
+      return isMovie ? 'Watched' : 'Completed';
     case 'planning':
-      return bookish ? 'Plan to Read' : 'Planning';
+      return isMovie ? 'Plan to Watch' : bookish ? 'Plan to Read' : 'Planning';
     case 'on_hold':
       return 'On Hold';
     case 'dropped':
       return 'Dropped';
     default:
-      return bookish ? 'Reading' : 'In Progress';
+      return isMovie ? 'In Progress' : bookish ? 'Reading' : 'In Progress';
   }
 }
 
@@ -248,7 +251,7 @@ export default function MediaCard({
           {/* Badges */}
           <MediaBadges
             status={status as import('@/types/media').MediaStatus}
-            statusLabel={statusLabel(status, bookish)}
+            statusLabel={statusLabel(status, rawCategory)}
             rating={rating}
             category={rawCategory}
             primaryUnitCurrent={primaryUnitCurrent}
@@ -257,7 +260,7 @@ export default function MediaCard({
           />
 
           {/* Season / volume row */}
-          {!bookish && primaryUnitTotal > 1 && (
+          {!bookish && rawCategory !== 'movie' && primaryUnitTotal > 1 && (
             <UnitStepperRow
               unitLabel="Season"
               current={primaryUnitCurrent}
@@ -300,7 +303,7 @@ export default function MediaCard({
       </div>
 
       {/* Completion nudge */}
-      {isAtFinalUnit && status !== 'completed' && (
+      {isAtFinalUnit && status !== 'completed' && rawCategory !== 'movie' && (
         <div className="mt-2 flex items-center justify-between rounded-control border border-success/25 bg-success/10 px-[var(--za-space-3)] py-[var(--za-space-2)] text-success">
           <span>{bookish ? 'Finished reading!' : 'Series completed!'}</span>
           <button
@@ -318,7 +321,42 @@ export default function MediaCard({
 
       {/* Action zone */}
       <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
-        {bookish ? (
+        {rawCategory === 'movie' ? (
+          <MovieStepper
+            status={status}
+            runtime={secondaryUnitTotal}
+            progressMinutes={secondaryUnitCurrent}
+            rewatchCount={primaryUnitCurrent}
+            disabled={isUpdating}
+            onMarkWatched={() =>
+              runUpdate({
+                status: 'completed',
+                secondaryUnitCurrent: secondaryUnitTotal || 1,
+                completedAt: new Date().toISOString(),
+              })
+            }
+            onRewatch={() =>
+              runUpdate({
+                primaryUnitCurrent: primaryUnitCurrent + 1,
+                status: 'completed',
+                rewatch: true,
+                completedAt: new Date().toISOString(),
+              })
+            }
+            onStepMinutes={(delta) => {
+              const nextMins = Math.max(
+                0,
+                Math.min(secondaryUnitTotal || 9999, secondaryUnitCurrent + delta),
+              );
+              const shouldComplete = secondaryUnitTotal !== null && nextMins >= secondaryUnitTotal;
+              runUpdate({
+                secondaryUnitCurrent: nextMins,
+                status: shouldComplete ? 'completed' : 'in_progress',
+                completedAt: shouldComplete ? new Date().toISOString() : undefined,
+              });
+            }}
+          />
+        ) : bookish ? (
           <BookStepper
             value={inputValue}
             canDecrement={canDecrement}

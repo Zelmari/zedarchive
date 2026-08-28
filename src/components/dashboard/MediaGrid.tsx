@@ -3,10 +3,11 @@
 import MediaCard, { type MediaCardHandlers } from '@/components/cards/MediaCard';
 import EmptyState from '@/components/dashboard/EmptyState';
 import type { MediaEntry, NextAirMap } from '@/types/media';
+import type { DashboardTab } from '@/types/dashboard';
 
 interface MediaGridProps extends MediaCardHandlers {
   entries: MediaEntry[];
-  activeTab: 'total' | 'shows' | 'books';
+  activeTab: DashboardTab;
   hasActiveFilters: boolean;
   onAddClick?: () => void;
   nextAirMap?: NextAirMap;

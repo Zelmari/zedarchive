@@ -20,10 +20,17 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
   const allTags = Array.from(new Set(entries.flatMap((e) => e.tags || []))).filter(Boolean);
 
   const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
+  const movieEntries = entries.filter((e) => e.category === 'movie');
   const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
 
   const tabScopedEntries =
-    activeTab === 'shows' ? showEntries : activeTab === 'books' ? bookEntries : entries;
+    activeTab === 'shows'
+      ? showEntries
+      : activeTab === 'movies'
+        ? movieEntries
+        : activeTab === 'books'
+          ? bookEntries
+          : entries;
 
   const counts = {
     all: tabScopedEntries.length,
@@ -91,6 +98,7 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
     setSortBy,
     allTags,
     showEntries,
+    movieEntries,
     bookEntries,
     counts,
     displayedEntries,
