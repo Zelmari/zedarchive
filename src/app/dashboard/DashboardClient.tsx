@@ -17,6 +17,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal';
 import StatsModal from '@/components/modals/StatsModal';
 import DataBackupModal from '@/components/modals/DataBackupModal';
 import ReadingGoalModal from '@/components/modals/ReadingGoalModal';
+import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
@@ -619,6 +620,15 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         onSave={handleSaveGoal}
         onDelete={handleDeleteGoal}
         onClose={() => setIsGoalModalOpen(false)}
+      />
+
+      <WeeklyCalendarModal
+        isOpen={modals.isOpen('calendar')}
+        onClose={modals.close}
+        entries={entries}
+        nextAirMap={nextAirMap}
+        onUpdateProgress={handleUpdate}
+        onOpenDetail={(item) => setDetailItem(item)}
       />
 
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
