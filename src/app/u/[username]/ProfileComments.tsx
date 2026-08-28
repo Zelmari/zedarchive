@@ -177,7 +177,7 @@ export default function ProfileComments({
             {comments.length}
           </span>
         </div>
-        <span className="mb-2 text-[length:var(--za-text-fine)] text-ink-muted">
+        <span className="text-[length:var(--za-text-fine)] text-ink-muted">
           comments disappear after 7 days
         </span>
       </header>
@@ -195,7 +195,7 @@ export default function ProfileComments({
       {comments.length > 0 ? (
         <ol
           ref={listRef}
-          className="m-0 flex max-h-96 list-none flex-col gap-[var(--za-space-3)] overflow-y-auto px-[var(--za-space-4)] py-[var(--za-space-3)]"
+          className="m-0 flex max-h-96 list-none flex-col gap-[var(--za-space-3)] overflow-y-auto px-[var(--za-space-6)] py-[var(--za-space-4)]"
         >
           {comments.map((comment) => {
             const canDelete = isOwner || comment.authorId === viewer?.id;
@@ -271,7 +271,7 @@ export default function ProfileComments({
           })}
         </ol>
       ) : (
-        <p className="px-[var(--za-space-6)] pb-[var(--za-space-6)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
+        <p className="px-[var(--za-space-6)] py-[var(--za-space-6)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
           No comments yet. Break the silence.
         </p>
       )}

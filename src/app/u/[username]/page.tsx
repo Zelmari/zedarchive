@@ -244,134 +244,142 @@ export default async function PublicProfilePage({ params }: PageParams) {
           </div>
 
           {/* Media Grid */}
-          <div style={{ marginTop: 'var(--za-space-6)' }}>
-            <div
-              style={{
-                fontSize: 'var(--za-text-heading-sm)',
-                fontWeight: 'var(--za-weight-heading)',
-                marginBottom: 'var(--za-space-4)',
-              }}
+          <section aria-labelledby="cataloged-titles-heading" className="mt-8">
+            <h2
+              id="cataloged-titles-heading"
+              className="mb-4 text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink"
             >
               Cataloged Titles ({entries.length})
-            </div>
+            </h2>
 
-            <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
-              {entries.map((item) => {
-                const isBook = item.category === 'book' || item.category === 'manga';
-                const progressPct = item.secondaryUnitTotal
-                  ? Math.min(
-                      100,
-                      Math.round(
-                        ((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100,
-                      ),
-                    )
-                  : 0;
+            {entries.length === 0 ? (
+              <div className="za-card rounded-control border border-decorative bg-surface-subtle p-8 text-center text-[length:var(--za-text-supporting)] text-ink-muted">
+                No titles cataloged yet.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
+                {entries.map((item) => {
+                  const isBook = item.category === 'book' || item.category === 'manga';
+                  const progressPct = item.secondaryUnitTotal
+                    ? Math.min(
+                        100,
+                        Math.round(
+                          ((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100,
+                        ),
+                      )
+                    : 0;
 
-                return (
-                  <article
-                    key={item.id}
-                    className={`za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] rounded-control p-[var(--za-space-4)]`}
-                  >
-                    <div className="flex items-start gap-[var(--za-space-4)]">
-                      <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
-                        {item.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
-                          <img
-                            src={item.coverImage}
-                            alt={item.title}
-                            className="block h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="za-title-tile" style={{ width: '100%', height: '100%' }}>
-                            <span>{getTileInitials(item.title)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
-                        <h3
-                          className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
-                          title={item.title}
-                        >
-                          {item.title}
-                        </h3>
-
-                        <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
-                          <span
-                            className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
-                            style={{ textTransform: 'capitalize' }}
-                          >
-                            {(item.status || 'in_progress').replace('_', ' ')}
-                          </span>
-                          {item.rating != null && (
-                            <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
-                              <Star size={11} fill="currentColor" /> {item.rating}/10
-                            </span>
+                  return (
+                    <article
+                      key={item.id}
+                      className={`za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] rounded-control p-[var(--za-space-4)]`}
+                    >
+                      <div className="flex items-start gap-[var(--za-space-4)]">
+                        <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
+                          {item.coverImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
+                            <img
+                              src={item.coverImage}
+                              alt={item.title}
+                              className="block h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div
+                              className="za-title-tile"
+                              style={{ width: '100%', height: '100%' }}
+                            >
+                              <span>{getTileInitials(item.title)}</span>
+                            </div>
                           )}
-                          <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
-                            {isBook
-                              ? `Vol ${item.primaryUnitCurrent || 1}`
-                              : `S${item.primaryUnitCurrent || 1}`}
+                        </div>
+
+                        <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
+                          <h3
+                            className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+                            title={item.title}
+                          >
+                            {item.title}
+                          </h3>
+
+                          <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
+                            <span
+                              className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
+                              style={{ textTransform: 'capitalize' }}
+                            >
+                              {(item.status || 'in_progress').replace('_', ' ')}
+                            </span>
+                            {item.rating != null && (
+                              <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
+                                <Star size={11} fill="currentColor" /> {item.rating}/10
+                              </span>
+                            )}
+                            <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                              {isBook
+                                ? `Vol ${item.primaryUnitCurrent || 1}`
+                                : `S${item.primaryUnitCurrent || 1}`}
+                            </span>
+                          </div>
+
+                          {item.notes && (
+                            <p
+                              style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--za-color-text-muted)',
+                                marginTop: 'var(--za-space-2)',
+                                lineHeight: 1.4,
+                                maxHeight: '3.5rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              &ldquo;{item.notes}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: 'var(--za-text-fine)',
+                            color: 'var(--za-color-text-muted)',
+                            marginBottom: '0.3rem',
+                          }}
+                        >
+                          <span>Progress</span>
+                          <span>
+                            {isBook ? 'Ch ' : 'Ep '}
+                            {item.secondaryUnitCurrent || 0}
+                            {item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
                           </span>
                         </div>
-
-                        {item.notes && (
-                          <p
-                            style={{
-                              fontSize: '0.75rem',
-                              color: 'var(--za-color-text-muted)',
-                              marginTop: 'var(--za-space-2)',
-                              lineHeight: 1.4,
-                              maxHeight: '3.5rem',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            &ldquo;{item.notes}&rdquo;
-                          </p>
-                        )}
+                        {item.secondaryUnitTotal ? (
+                          <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
+                            <div
+                              className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-
-                    <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          fontSize: 'var(--za-text-fine)',
-                          color: 'var(--za-color-text-muted)',
-                          marginBottom: '0.3rem',
-                        }}
-                      >
-                        <span>Progress</span>
-                        <span>
-                          {isBook ? 'Ch ' : 'Ep '}
-                          {item.secondaryUnitCurrent || 0}
-                          {item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
-                        </span>
-                      </div>
-                      {item.secondaryUnitTotal ? (
-                        <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
-                          <div
-                            className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {/* Guestbook */}
-          <ProfileComments
-            profileUser={{ id: user.id, username: user.username }}
-            initialComments={initialComments}
-            viewer={viewer}
-          />
+          <div className="mt-8">
+            <ProfileComments
+              profileUser={{ id: user.id, username: user.username }}
+              initialComments={initialComments}
+              viewer={viewer}
+            />
+          </div>
         </div>
       </main>
     </div>
