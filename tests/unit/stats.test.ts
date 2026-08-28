@@ -94,6 +94,7 @@ const sampleEntries: MediaEntry[] = [
     genres: [],
     synopsis: null,
     coverImage: null,
+    sourceId: null,
     notes: null,
     createdAt: '2025-01-01T00:00:00.000Z',
     updatedAt: '2025-11-20T12:00:00.000Z',
