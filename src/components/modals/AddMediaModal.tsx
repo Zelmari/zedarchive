@@ -49,7 +49,7 @@ export default function AddMediaModal({
   onSave = null,
 }: AddMediaModalProps) {
   const isEditMode = !!editItem;
-  const initialCategory: MediaCategory = type === 'book' ? 'book' : 'show';
+  const initialCategory: MediaCategory = type ?? 'show';
   const [category, setCategory] = useState<MediaCategory>(() => lastCategory || initialCategory);
   const updateCategory = (next: MediaCategory) => {
     lastCategory = next;
