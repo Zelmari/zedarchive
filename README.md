@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/biglogo.png" alt="ZedArchive Logo" width="120" />
+  <img src="public/transparentlogo.png" alt="ZedArchive Logo" width="120" />
 
 # ZedArchive
 

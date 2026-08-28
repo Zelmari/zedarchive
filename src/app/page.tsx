@@ -35,9 +35,9 @@ export default async function HomePage() {
               alt=""
               aria-hidden="true"
               className="za-wordmark__mark"
-              height={40}
+              height={36}
               src="/transparentlogo.png"
-              width={40}
+              width={36}
               unoptimized
             />
             <span className="za-wordmark__text">zedarchive</span>

@@ -9,6 +9,7 @@ export const metadata = {
   description: 'A fast, distraction-free archive for your anime, TV series, novels, and books.',
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: 'any' },
       { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],

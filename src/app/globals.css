@@ -469,13 +469,16 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  inline-size: 2.5rem;
-  block-size: 2.5rem;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
 }
 
 .za-wordmark__mark img {
   inline-size: 100%;
   block-size: 100%;
+  aspect-ratio: 1 / 1;
   object-fit: contain;
 }
 
@@ -500,13 +503,6 @@
 .za-site-header__identity {
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-@media (min-width: 40rem) {
-  .za-wordmark__mark {
-    inline-size: 4.5rem;
-    block-size: 3rem;
-  }
 }
 
 /* 4. Links */
