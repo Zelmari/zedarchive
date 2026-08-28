@@ -8,7 +8,8 @@ export const VALID_STATUSES = [
   'on_hold',
   'dropped',
 ] as const;
-export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber'] as const;
+import type { CustomThemePalette } from '@/types/user';
+export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber', 'custom'] as const;
 
 export const MAX_TITLE_LENGTH = 500;
 export const MAX_NOTES_LENGTH = 5000;
@@ -128,7 +129,59 @@ export const THEME_LABELS: Record<ThemeId, string> = {
   sepia: 'Vintage Sepia',
   'e-ink': 'E-Ink',
   cyber: 'Phosphor Cyber',
+  custom: 'Custom Palette',
 };
+
+export const CUSTOM_THEME_PRESETS: CustomThemePalette[] = [
+  {
+    name: 'Nordic Sage',
+    canvas: '#1a211e',
+    surface: '#222b27',
+    surfaceSubtle: '#161c19',
+    text: '#e3ece7',
+    textMuted: '#8b9f95',
+    borderRequired: '#44584e',
+    borderDecorative: '#2d3b34',
+    accent: '#52b788',
+    onAccent: '#ffffff',
+  },
+  {
+    name: 'Rosewater Linen',
+    canvas: '#faf4f2',
+    surface: '#ffffff',
+    surfaceSubtle: '#f5ebe6',
+    text: '#3c2a29',
+    textMuted: '#8a7170',
+    borderRequired: '#d3b2af',
+    borderDecorative: '#e8d4d1',
+    accent: '#c05c5c',
+    onAccent: '#ffffff',
+  },
+  {
+    name: 'Solarized Sand',
+    canvas: '#fdf6e3',
+    surface: '#eee8d5',
+    surfaceSubtle: '#e4dcbe',
+    text: '#586e75',
+    textMuted: '#839496',
+    borderRequired: '#93a1a1',
+    borderDecorative: '#cb4b16',
+    accent: '#b58900',
+    onAccent: '#ffffff',
+  },
+  {
+    name: 'Dracula Obsidian',
+    canvas: '#21222c',
+    surface: '#282a36',
+    surfaceSubtle: '#191a21',
+    text: '#f8f8f2',
+    textMuted: '#6272a4',
+    borderRequired: '#44475a',
+    borderDecorative: '#343746',
+    accent: '#bd93f9',
+    onAccent: '#282a36',
+  },
+];
 
 export const STREAMING_COUNTRIES = [
   { code: 'US', name: 'United States' },
