@@ -107,7 +107,10 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         : 'show'
   ) as MediaRow['category'];
 
-  const primaryUnitCurrent = Math.max(1, toInt(data.primaryUnitCurrent, 1));
+  const primaryUnitCurrent =
+    category === 'movie'
+      ? Math.max(0, toInt(data.primaryUnitCurrent, data.status === 'completed' ? 1 : 0))
+      : Math.max(1, toInt(data.primaryUnitCurrent, 1));
   const primaryUnitTotal =
     data.primaryUnitTotal !== undefined &&
     data.primaryUnitTotal !== null &&
@@ -254,7 +257,7 @@ export async function updateMediaProgress(
   }
 
   if (updates.primaryUnitCurrent !== undefined) {
-    updateFields.primaryUnitCurrent = Math.max(1, toInt(updates.primaryUnitCurrent, 1));
+    updateFields.primaryUnitCurrent = Math.max(0, toInt(updates.primaryUnitCurrent, 0));
   }
   if (updates.primaryUnitTotal !== undefined) {
     updateFields.primaryUnitTotal =

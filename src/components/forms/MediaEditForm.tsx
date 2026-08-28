@@ -235,9 +235,15 @@ export default function MediaEditForm({
             <input
               id="primary-unit-current"
               type="number"
-              min="1"
+              min="0"
               className={formInput}
-              value={form.primaryUnitCurrent || '1'}
+              value={
+                form.primaryUnitCurrent !== '' &&
+                form.primaryUnitCurrent !== null &&
+                form.primaryUnitCurrent !== undefined
+                  ? form.primaryUnitCurrent
+                  : '0'
+              }
               onChange={(e) => onPrimaryUnitCurrentChange(e.target.value)}
             />
           </div>

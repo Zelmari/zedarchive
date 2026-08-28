@@ -331,13 +331,14 @@ export default function MediaCard({
             onMarkWatched={() =>
               runUpdate({
                 status: 'completed',
+                primaryUnitCurrent: Math.max(1, primaryUnitCurrent),
                 secondaryUnitCurrent: secondaryUnitTotal || 1,
                 completedAt: new Date().toISOString(),
               })
             }
             onRewatch={() =>
               runUpdate({
-                primaryUnitCurrent: primaryUnitCurrent + 1,
+                primaryUnitCurrent: (primaryUnitCurrent > 0 ? primaryUnitCurrent : 1) + 1,
                 status: 'completed',
                 rewatch: true,
                 completedAt: new Date().toISOString(),
@@ -351,6 +352,9 @@ export default function MediaCard({
               const shouldComplete = secondaryUnitTotal !== null && nextMins >= secondaryUnitTotal;
               runUpdate({
                 secondaryUnitCurrent: nextMins,
+                primaryUnitCurrent: shouldComplete
+                  ? Math.max(1, primaryUnitCurrent)
+                  : primaryUnitCurrent,
                 status: shouldComplete ? 'completed' : 'in_progress',
                 completedAt: shouldComplete ? new Date().toISOString() : undefined,
               });

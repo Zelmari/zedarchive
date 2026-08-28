@@ -84,7 +84,11 @@ export default function AddMediaModal({
         primaryUnitTotal:
           editItem.primaryUnitTotal != null ? String(editItem.primaryUnitTotal) : '',
         primaryUnitCurrent:
-          editItem.primaryUnitCurrent != null ? String(editItem.primaryUnitCurrent) : '1',
+          editItem.primaryUnitCurrent != null
+            ? String(editItem.primaryUnitCurrent)
+            : cat === 'movie'
+              ? '0'
+              : '1',
         secondaryUnitTotal:
           editItem.secondaryUnitTotal != null ? String(editItem.secondaryUnitTotal) : '',
         secondaryUnitCurrent:
@@ -161,8 +165,8 @@ export default function AddMediaModal({
         sourceId: item.sourceId || '',
         structure: itemStructure,
         primaryUnitTotal: String(primTotal),
-        primaryUnitCurrent: '1',
-        secondaryUnitCurrent: isMovie ? String(item.secondaryUnitTotal || '') : '0',
+        primaryUnitCurrent: isMovie ? '0' : '1',
+        secondaryUnitCurrent: '0',
         secondaryUnitTotal: secTotal ? String(secTotal) : '',
       };
     });
@@ -202,8 +206,9 @@ export default function AddMediaModal({
           setForm((prev) => ({
             ...prev,
             title: query || prev.title || '',
-            primaryUnitCurrent: '1',
+            primaryUnitCurrent: category === 'movie' ? '0' : '1',
             primaryUnitTotal: category === 'movie' ? '1' : prev.primaryUnitTotal,
+            secondaryUnitCurrent: '0',
           }));
           setViewMode('manual');
         }}

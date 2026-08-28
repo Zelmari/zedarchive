@@ -21,25 +21,29 @@ export default function MediaBadges({
   tags = [],
 }: MediaBadgesProps) {
   const bookish = category === 'book' || category === 'manga';
+  const isMovie = category === 'movie';
 
   return (
     <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
       <StatusBadge status={status} label={statusLabel} />
       {rating != null && <RatingBadge rating={rating} />}
-      {!bookish && (
+      {!bookish && !isMovie && (
         <Badge>
           S{primaryUnitCurrent}
           {primaryUnitTotal > 1 ? ` / ${primaryUnitTotal}` : ''}
         </Badge>
       )}
+      {isMovie && primaryUnitCurrent > 1 && <Badge>Watched ({primaryUnitCurrent}x)</Badge>}
       <Badge>
-        {category === 'anime'
-          ? 'Anime'
-          : category === 'manga'
-            ? 'Manga'
-            : category === 'book'
-              ? 'Book'
-              : 'TV Series'}
+        {category === 'movie'
+          ? 'Movie'
+          : category === 'anime'
+            ? 'Anime'
+            : category === 'manga'
+              ? 'Manga'
+              : category === 'book'
+                ? 'Book'
+                : 'TV Series'}
       </Badge>
       {tags.slice(0, 2).map((t) => (
         <Badge key={t} className="text-[0.68rem]">
