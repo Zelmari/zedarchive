@@ -1,4 +1,4 @@
-export type DashboardTab = 'total' | 'shows' | 'books';
+export type DashboardTab = 'total' | 'shows' | 'movies' | 'books';
 
 export type SortKey =
   | 'updated_desc'

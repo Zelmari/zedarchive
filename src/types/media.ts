@@ -1,6 +1,6 @@
 import type { mediaEntries } from '@/db/schema';
 
-export type MediaCategory = 'show' | 'book' | 'anime' | 'manga';
+export type MediaCategory = 'show' | 'movie' | 'book' | 'anime' | 'manga';
 export type MediaStatus = 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped';
 
 export interface StructureItem {

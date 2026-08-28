@@ -1,9 +1,10 @@
 'use client';
 
-import { BookOpen, Layers, Plus, Tv } from 'lucide-react';
+import { BookOpen, Film, Layers, Plus, Tv } from 'lucide-react';
+import type { DashboardTab } from '@/types/dashboard';
 
 interface EmptyStateProps {
-  activeTab: 'total' | 'shows' | 'books';
+  activeTab: DashboardTab;
   hasActiveFilters: boolean;
   onAddClick?: () => void;
 }
@@ -11,12 +12,20 @@ interface EmptyStateProps {
 function EmptyIcon({ tab }: { tab: EmptyStateProps['activeTab'] }) {
   const size = { size: 36, strokeWidth: 1.5 } as const;
   if (tab === 'shows') return <Tv {...size} />;
+  if (tab === 'movies') return <Film {...size} />;
   if (tab === 'books') return <BookOpen {...size} />;
   return <Layers {...size} />;
 }
 
 export default function EmptyState({ activeTab, hasActiveFilters, onAddClick }: EmptyStateProps) {
-  const noun = activeTab === 'shows' ? 'show' : activeTab === 'books' ? 'book' : null;
+  const noun =
+    activeTab === 'shows'
+      ? 'show'
+      : activeTab === 'movies'
+        ? 'movie'
+        : activeTab === 'books'
+          ? 'book'
+          : null;
 
   return (
     <div className="za-card za-card--raised col-span-full flex flex-col items-center justify-center rounded-control border border-dashed border-required px-[var(--za-space-6)] py-[var(--za-space-12)] text-center [box-shadow:none]">
@@ -28,7 +37,9 @@ export default function EmptyState({ activeTab, hasActiveFilters, onAddClick }: 
           ? 'No matching entries found'
           : activeTab === 'total'
             ? 'Your archive is currently empty'
-            : `No ${noun}s or ${activeTab === 'shows' ? 'anime' : 'manga'} in your archive yet`}
+            : activeTab === 'movies'
+              ? 'No movies or films in your archive yet'
+              : `No ${noun}s or ${activeTab === 'shows' ? 'anime' : 'manga'} in your archive yet`}
       </h2>
       <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
         {hasActiveFilters

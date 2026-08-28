@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   Tv,
+  Film,
   BookOpen,
   Star,
   Share2,
@@ -199,7 +200,7 @@ export default function WrappedClient({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <div className="rounded-control border border-decorative bg-surface-subtle p-3 text-center">
                 <div className="mb-1 flex items-center justify-center gap-1 text-ink-muted">
                   <Tv size={14} />
@@ -207,6 +208,16 @@ export default function WrappedClient({
                 </div>
                 <div className="text-lg font-[var(--za-weight-heading)] text-ink">
                   {stats.completedShows}
+                </div>
+              </div>
+
+              <div className="rounded-control border border-decorative bg-surface-subtle p-3 text-center">
+                <div className="mb-1 flex items-center justify-center gap-1 text-ink-muted">
+                  <Film size={14} />
+                  <span className="text-xs">Movies</span>
+                </div>
+                <div className="text-lg font-[var(--za-weight-heading)] text-ink">
+                  {stats.completedMovies}
                 </div>
               </div>
 

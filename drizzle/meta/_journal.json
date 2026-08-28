@@ -50,6 +50,13 @@
       "when": 1787784342517,
       "tag": "0006_lethal_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787884468704,
+      "tag": "0007_round_medusa",
+      "breakpoints": true
     }
   ]
 }

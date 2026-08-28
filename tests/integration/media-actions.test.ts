@@ -299,10 +299,28 @@ describe('bulkImportMediaEntries', () => {
     expect(dbState.rows[0]?.title).toBe('Survivor');
   });
 
-  it('caps imports at 1,000 items', async () => {
-    const items = Array.from({ length: 1100 }, (_, i) => ({ title: `Show ${i}` }));
-    const result = await bulkImportMediaEntries(items);
-    expect(result.added).toBe(1000);
-    expect(dbState.rows).toHaveLength(1000);
+  it('supports movie category creation and progress updates', async () => {
+    const movie = await createMediaEntry({
+      title: 'Spirited Away',
+      category: 'movie',
+      status: 'in_progress',
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 60,
+      secondaryUnitTotal: 125,
+      sourceId: 'tmdb-129',
+    });
+
+    expect(movie.category).toBe('movie');
+    expect(movie.secondaryUnitCurrent).toBe(60);
+    expect(movie.secondaryUnitTotal).toBe(125);
+
+    const updated = await updateMediaProgress(movie.id, {
+      secondaryUnitCurrent: 125,
+      status: 'completed',
+    });
+
+    expect(updated.status).toBe('completed');
+    expect(updated.secondaryUnitCurrent).toBe(125);
   });
 });

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Layers, Tv, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
+import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
 interface DashboardHeaderProps {
@@ -10,6 +10,7 @@ interface DashboardHeaderProps {
   onTabChange: (tab: DashboardTab) => void;
   total: number;
   shows: number;
+  movies: number;
   books: number;
   userName: string;
   username?: string | null;
@@ -21,6 +22,7 @@ interface DashboardHeaderProps {
 const TABS: Array<{ id: DashboardTab; icon: typeof Layers; label: string; title: string }> = [
   { id: 'total', icon: Layers, label: 'Total', title: 'Total Archive View' },
   { id: 'shows', icon: Tv, label: 'Shows', title: 'Shows & Anime View' },
+  { id: 'movies', icon: Film, label: 'Movies', title: 'Movies & Films View' },
   { id: 'books', icon: BookOpen, label: 'Books', title: 'Books & Manga View' },
 ];
 
@@ -29,6 +31,7 @@ export default function DashboardHeader({
   onTabChange,
   total,
   shows,
+  movies,
   books,
   userName,
   username,
@@ -36,7 +39,7 @@ export default function DashboardHeader({
   onSignOut,
   isSigningOut,
 }: DashboardHeaderProps) {
-  const counts: Record<DashboardTab, number> = { total, shows, books };
+  const counts: Record<DashboardTab, number> = { total, shows, movies, books };
 
   return (
     <header className="za-site-header">

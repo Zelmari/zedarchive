@@ -275,6 +275,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
             ) : (
               <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
                 {entries.map((item) => {
+                  const isMovie = item.category === 'movie';
                   const isBook = item.category === 'book' || item.category === 'manga';
                   const progressPct = item.secondaryUnitTotal
                     ? Math.min(
@@ -283,7 +284,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           ((item.secondaryUnitCurrent || 0) / item.secondaryUnitTotal) * 100,
                         ),
                       )
-                    : 0;
+                    : item.status === 'completed'
+                      ? 100
+                      : 0;
 
                   return (
                     <article
@@ -330,11 +333,25 @@ export default async function PublicProfilePage({ params }: PageParams) {
                                 <Star size={11} fill="currentColor" /> {item.rating}/10
                               </span>
                             )}
-                            <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
-                              {isBook
-                                ? `Vol ${item.primaryUnitCurrent || 1}`
-                                : `S${item.primaryUnitCurrent || 1}`}
-                            </span>
+                            {isMovie ? (
+                              item.primaryUnitCurrent && item.primaryUnitCurrent > 1 ? (
+                                <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                                  {item.primaryUnitCurrent}x Watched
+                                </span>
+                              ) : item.secondaryUnitTotal ? (
+                                <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                                  {Math.floor(item.secondaryUnitTotal / 60) > 0
+                                    ? `${Math.floor(item.secondaryUnitTotal / 60)}h ${item.secondaryUnitTotal % 60}m`
+                                    : `${item.secondaryUnitTotal}m`}
+                                </span>
+                              ) : null
+                            ) : (
+                              <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                                {isBook
+                                  ? `Vol ${item.primaryUnitCurrent || 1}`
+                                  : `S${item.primaryUnitCurrent || 1}`}
+                              </span>
+                            )}
                           </div>
 
                           {item.notes && (
@@ -367,9 +384,13 @@ export default async function PublicProfilePage({ params }: PageParams) {
                         >
                           <span>Progress</span>
                           <span>
-                            {isBook ? 'Ch ' : 'Ep '}
-                            {item.secondaryUnitCurrent || 0}
-                            {item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}
+                            {isMovie
+                              ? item.status === 'completed'
+                                ? 'Completed'
+                                : `${item.secondaryUnitCurrent || 0}m / ${item.secondaryUnitTotal || 0}m`
+                              : isBook
+                                ? `Ch ${item.secondaryUnitCurrent || 0}${item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}`
+                                : `Ep ${item.secondaryUnitCurrent || 0}${item.secondaryUnitTotal ? ` / ${item.secondaryUnitTotal}` : ''}`}
                           </span>
                         </div>
                         {item.secondaryUnitTotal ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Tv, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
+import { Tv, Film, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import type { MediaCategory, StructureItem } from '@/types/media';
@@ -29,6 +29,7 @@ interface SpotlightSearchModalProps {
 
 const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
   { id: 'show', label: 'TV Show', Icon: Tv },
+  { id: 'movie', label: 'Movie', Icon: Film },
   { id: 'anime', label: 'Anime', Icon: Sparkles },
   { id: 'book', label: 'Book', Icon: BookOpen },
   { id: 'manga', label: 'Manga', Icon: Library },
@@ -36,6 +37,7 @@ const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
 
 const PLACEHOLDERS: Record<MediaCategory, string> = {
   show: 'Search TV shows (e.g. Breaking Bad, The Bear)...',
+  movie: 'Search movies (e.g. Inception, Spirited Away, Dune)...',
   anime: 'Search anime (e.g. Frieren, Horimiya)...',
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
@@ -44,6 +46,8 @@ const PLACEHOLDERS: Record<MediaCategory, string> = {
 function endpointFor(category: MediaCategory, query: string): string {
   const q = encodeURIComponent(query);
   switch (category) {
+    case 'movie':
+      return `/api/search/movies?q=${q}`;
     case 'book':
       return `/api/search/books?q=${q}`;
     case 'anime':
@@ -277,15 +281,24 @@ export default function SpotlightSearchModal({
               const isSelected = idx === highlightedIndex;
               const metaParts: string[] = [];
               if (item.year) metaParts.push(item.year);
-              if (item.primaryUnitTotal) {
-                metaParts.push(
-                  `${item.primaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Volumes' : 'Seasons'}`,
-                );
-              }
-              if (item.secondaryUnitTotal) {
-                metaParts.push(
-                  `${item.secondaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Chapters' : 'Episodes'}`,
-                );
+              if (category === 'movie') {
+                if (item.secondaryUnitTotal) {
+                  const mins = item.secondaryUnitTotal;
+                  const h = Math.floor(mins / 60);
+                  const m = mins % 60;
+                  metaParts.push(h > 0 ? `${h}h ${m}m` : `${mins} min`);
+                }
+              } else {
+                if (item.primaryUnitTotal) {
+                  metaParts.push(
+                    `${item.primaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Volumes' : 'Seasons'}`,
+                  );
+                }
+                if (item.secondaryUnitTotal) {
+                  metaParts.push(
+                    `${item.secondaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Chapters' : 'Episodes'}`,
+                  );
+                }
               }
               if (item.genres && item.genres.length > 0) {
                 metaParts.push(item.genres.slice(0, 2).join(', '));

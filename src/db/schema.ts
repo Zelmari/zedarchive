@@ -80,6 +80,7 @@ export const verification = pgTable('verification', {
 
 export const mediaCategoryEnum = pgEnum('media_category', [
   'show', // TV Shows, Series
+  'movie', // Movies, Films
   'book', // Novels, Physical Books
   'anime', // Anime Series, OVAs
   'manga', // Manga, Manhwa, Light Novels
