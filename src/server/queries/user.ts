@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
 import type { MediaEntry } from '@/types/media';
-import type { UserProfile } from '@/types/user';
+import type { UserProfile, PublicUserSearchResult } from '@/types/user';
 
 export async function isAuthenticated(): Promise<boolean> {
   try {
@@ -126,16 +126,7 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
   };
 }
 
-export interface PublicUserSearchResult {
-  id: string;
-  name: string;
-  username: string;
-  bio: string | null;
-  image: string | null;
-  theme: string;
-  createdAt: Date;
-  totalEntries: number;
-}
+export type { PublicUserSearchResult };
 
 export async function searchPublicProfiles(
   query: unknown,
@@ -169,7 +160,15 @@ export async function searchPublicProfiles(
         or(ilike(userTable.username, `%${clean}%`), ilike(userTable.name, `%${clean}%`)),
       ),
     )
-    .groupBy(userTable.id)
+    .groupBy(
+      userTable.id,
+      userTable.name,
+      userTable.username,
+      userTable.bio,
+      userTable.image,
+      userTable.theme,
+      userTable.createdAt,
+    )
     .orderBy(
       sql`CASE WHEN lower(${userTable.username}) = ${clean} THEN 0 WHEN lower(${userTable.username}) LIKE ${clean + '%'} THEN 1 ELSE 2 END`,
       userTable.username,

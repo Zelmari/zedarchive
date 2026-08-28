@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2, X, ArrowRight, User } from 'lucide-react';
 import { getInitials } from '@/lib/format';
-import type { PublicUserSearchResult } from '@/server/profile';
+import type { PublicUserSearchResult } from '@/types/user';
 
 interface UserSearchComboboxProps {
   onSelectUser?: (username: string) => void;

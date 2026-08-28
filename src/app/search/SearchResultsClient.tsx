@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, ArrowRight, BookOpen, Globe, User } from 'lucide-react';
 import { getInitials, formatMonthYear } from '@/lib/format';
-import type { PublicUserSearchResult } from '@/server/profile';
+import type { PublicUserSearchResult } from '@/types/user';
 import UserSearchCombobox from '@/components/search/UserSearchCombobox';
 
 interface SearchResultsClientProps {

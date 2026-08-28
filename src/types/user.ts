@@ -20,3 +20,14 @@ export interface UpdateProfileInput {
   isPublic?: boolean;
   image?: string | null;
 }
+
+export interface PublicUserSearchResult {
+  id: string;
+  name: string;
+  username: string;
+  bio: string | null;
+  image: string | null;
+  theme: string;
+  createdAt: Date;
+  totalEntries: number;
+}
