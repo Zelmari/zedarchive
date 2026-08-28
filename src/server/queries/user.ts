@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, or, ilike, isNotNull, ne, count, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
@@ -124,4 +124,67 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     user: foundUser,
     entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
   };
+}
+
+export interface PublicUserSearchResult {
+  id: string;
+  name: string;
+  username: string;
+  bio: string | null;
+  image: string | null;
+  theme: string;
+  createdAt: Date;
+  totalEntries: number;
+}
+
+export async function searchPublicProfiles(
+  query: unknown,
+  options?: { limit?: number; offset?: number },
+): Promise<PublicUserSearchResult[]> {
+  if (!query || typeof query !== 'string') return [];
+  const clean = query.trim().toLowerCase().replace(/^@/, '').slice(0, 100);
+  if (!clean) return [];
+
+  const limit = Math.min(Math.max(options?.limit ?? 10, 1), 50);
+  const offset = Math.max(options?.offset ?? 0, 0);
+
+  const rows = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      username: userTable.username,
+      bio: userTable.bio,
+      image: userTable.image,
+      theme: userTable.theme,
+      createdAt: userTable.createdAt,
+      totalEntries: count(mediaEntries.id),
+    })
+    .from(userTable)
+    .leftJoin(mediaEntries, eq(mediaEntries.userId, userTable.id))
+    .where(
+      and(
+        eq(userTable.isPublic, true),
+        isNotNull(userTable.username),
+        ne(userTable.username, ''),
+        or(ilike(userTable.username, `%${clean}%`), ilike(userTable.name, `%${clean}%`)),
+      ),
+    )
+    .groupBy(userTable.id)
+    .orderBy(
+      sql`CASE WHEN lower(${userTable.username}) = ${clean} THEN 0 WHEN lower(${userTable.username}) LIKE ${clean + '%'} THEN 1 ELSE 2 END`,
+      userTable.username,
+    )
+    .limit(limit)
+    .offset(offset);
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    username: r.username!,
+    bio: r.bio,
+    image: r.image,
+    theme: r.theme,
+    createdAt: r.createdAt,
+    totalEntries: Number(r.totalEntries || 0),
+  }));
 }

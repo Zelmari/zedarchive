@@ -7,8 +7,10 @@ export function createAwaitable<T>(value: T) {
   p.where = () => p;
   p.orderBy = () => p;
   p.limit = () => p;
+  p.offset = () => p;
   p.returning = () => p;
   p.groupBy = () => p;
+  p.leftJoin = () => p;
   return p;
 }
 

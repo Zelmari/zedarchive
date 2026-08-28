@@ -147,6 +147,11 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   return updated;
 }
 
-import { getPublicUserProfile, type PublicProfileResult } from './queries/user';
-export { getPublicUserProfile };
-export type { PublicProfileResult };
+import {
+  getPublicUserProfile,
+  searchPublicProfiles,
+  type PublicProfileResult,
+  type PublicUserSearchResult,
+} from './queries/user';
+export { getPublicUserProfile, searchPublicProfiles };
+export type { PublicProfileResult, PublicUserSearchResult };
