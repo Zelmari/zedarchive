@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { eq, desc, and, or, ilike, isNotNull, ne, count, sql } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, isNotNull, ne, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
@@ -169,10 +169,7 @@ export async function searchPublicProfiles(
       userTable.theme,
       userTable.createdAt,
     )
-    .orderBy(
-      sql`CASE WHEN lower(${userTable.username}) = ${clean} THEN 0 WHEN lower(${userTable.username}) LIKE ${clean + '%'} THEN 1 ELSE 2 END`,
-      userTable.username,
-    )
+    .orderBy(asc(userTable.username))
     .limit(limit)
     .offset(offset);
 

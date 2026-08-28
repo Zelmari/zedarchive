@@ -94,7 +94,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="share-profile-title"
-      title="Share & Discover"
+      title="Share Your Archive"
       icon={<Share2 size={18} />}
       contentStyle={{ maxWidth: '34rem' }}
     >
