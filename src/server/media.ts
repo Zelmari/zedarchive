@@ -25,6 +25,7 @@ import type {
 } from '@/types/media';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser, logActivity } from './internal';
+import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
 
 type MediaRow = typeof mediaEntries.$inferSelect;
 
@@ -142,57 +143,70 @@ export async function getMediaEntries(): Promise<MediaEntry[]> {
 export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {
   const user = await getAuthUser();
 
-  const title = String(data.title || '')
-    .trim()
-    .slice(0, MAX_TITLE_LENGTH);
+  // ── Phase 1: Zod validation gate ──────────────────────────────────────────
+  // Zod handles type coercion, string trimming, and basic constraint checks.
+  // Complex business-logic invariants (bidirectional clamping, cycle mgmt,
+  // status-driven field derivation) are handled below by the sanitizer functions
+  // which remain authoritative for those concerns.
+  const parsed = createMediaSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message || 'Invalid input data');
+  }
+
+  // Use Zod-normalised title (trimmed) — still guard against empty after trim
+  const zodData = parsed.data;
+  const title = zodData.title;
   if (!title) {
     throw new Error('Title is required');
   }
 
   const id = crypto.randomUUID();
   const category = (
-    isInList(VALID_CATEGORIES, data.category)
-      ? data.category
+    isInList(VALID_CATEGORIES, zodData.category)
+      ? zodData.category
       : data.type === 'book'
         ? 'book'
         : 'show'
   ) as MediaRow['category'];
 
+  // Business-logic: movie vs non-movie min value for primaryUnitCurrent
   const primaryUnitCurrent =
     category === 'movie'
-      ? Math.max(0, toInt(data.primaryUnitCurrent, data.status === 'completed' ? 1 : 0))
-      : Math.max(1, toInt(data.primaryUnitCurrent, 1));
+      ? Math.max(0, toInt(zodData.primaryUnitCurrent, zodData.status === 'completed' ? 1 : 0))
+      : Math.max(1, toInt(zodData.primaryUnitCurrent, 1));
   const primaryUnitTotal =
-    data.primaryUnitTotal !== undefined &&
-    data.primaryUnitTotal !== null &&
-    data.primaryUnitTotal !== ''
-      ? Math.max(1, toInt(data.primaryUnitTotal, 1))
+    zodData.primaryUnitTotal !== undefined && zodData.primaryUnitTotal !== null
+      ? Math.max(1, toInt(zodData.primaryUnitTotal, 1))
       : null;
 
-  const secondaryUnitCurrent = Math.max(0, toInt(data.secondaryUnitCurrent, 0));
+  const secondaryUnitCurrent = Math.max(0, toInt(zodData.secondaryUnitCurrent, 0));
   const secondaryUnitTotal =
-    data.secondaryUnitTotal !== undefined &&
-    data.secondaryUnitTotal !== null &&
-    data.secondaryUnitTotal !== ''
-      ? Math.max(0, toInt(data.secondaryUnitTotal, 0))
+    zodData.secondaryUnitTotal !== undefined && zodData.secondaryUnitTotal !== null
+      ? Math.max(0, toInt(zodData.secondaryUnitTotal, 0))
       : null;
 
-  const structure = sanitizeStructure(data.structure);
-  const status = sanitizeStatus(data.status);
-  const rating = sanitizeRating(data.rating);
-  const tags = sanitizeTags(data.tags);
-  const genres = Array.isArray(data.genres) ? (data.genres as string[]).slice(0, 20) : [];
-  const synopsis = data.synopsis
-    ? String(data.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
+  // Business-logic sanitizers remain authoritative for complex objects
+  const structure = sanitizeStructure(zodData.structure);
+  const status = sanitizeStatus(zodData.status);
+  const rating = sanitizeRating(zodData.rating);
+  // Tags: Zod already trimmed/lowercased, sanitizeTags handles slice(0,50)
+  const tags = sanitizeTags(zodData.tags);
+  const genres = Array.isArray(zodData.genres) ? (zodData.genres as string[]).slice(0, 20) : [];
+  const synopsis = zodData.synopsis
+    ? String(zodData.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
     : null;
-  const startedAt = toDateOrNull(data.startedAt) ?? new Date();
+
+  // Status-driven date derivation
+  const startedAt = toDateOrNull(zodData.startedAt) ?? new Date();
   const completedAt =
-    status === 'completed' ? (toDateOrNull(data.completedAt) ?? new Date()) : null;
-  const droppedAt = status === 'dropped' ? (toDateOrNull(data.droppedAt) ?? new Date()) : null;
+    status === 'completed' ? (toDateOrNull(zodData.completedAt) ?? new Date()) : null;
+  const droppedAt = status === 'dropped' ? (toDateOrNull(zodData.droppedAt) ?? new Date()) : null;
   const dropReason =
-    status === 'dropped' && data.dropReason
-      ? String(data.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+    status === 'dropped' && zodData.dropReason
+      ? String(zodData.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
       : null;
+
+  // Bidirectional clamping for dropped progress
   const droppedProgressPrimary =
     status === 'dropped'
       ? primaryUnitTotal !== null
@@ -206,15 +220,18 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         : secondaryUnitCurrent
       : null;
 
-  const cycles = sanitizeCycles(data.cycles, startedAt, completedAt);
+  // Cycle management: sanitizeCycles handles UUID generation and fallback
+  const cycles = sanitizeCycles(zodData.cycles ?? [], startedAt, completedAt);
 
   const coverImage =
-    typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-      ? data.coverImage
+    typeof zodData.coverImage === 'string' && zodData.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+      ? zodData.coverImage
       : null;
   const sourceId =
-    typeof data.sourceId === 'string' ? data.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
-  const notes = data.notes ? String(data.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
+    typeof zodData.sourceId === 'string' ? zodData.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
+  const notes = zodData.notes ? String(zodData.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
+  /** Per-title privacy — validated/normalised by Zod */
+  const isPrivate = Boolean(zodData.isPrivate);
 
   const newEntry = await db.transaction(async (tx) => {
     const [inserted] = await tx
@@ -237,6 +254,7 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         tags,
         genres,
         synopsis,
+        isPrivate,
         primaryUnitCurrent:
           primaryUnitTotal !== null
             ? Math.min(primaryUnitCurrent, primaryUnitTotal)
@@ -412,6 +430,10 @@ export async function updateMediaProgress(
   if (updates.notes !== undefined) {
     updateFields.notes =
       updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+  }
+  // Per-title privacy — validated as boolean
+  if (updates.isPrivate !== undefined) {
+    updateFields.isPrivate = Boolean(updates.isPrivate);
   }
 
   const updated = await db.transaction(async (tx) => {
