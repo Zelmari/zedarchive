@@ -6,6 +6,7 @@ import { MessageCircle, Trash2, Lock } from 'lucide-react';
 import { createProfileComment, deleteProfileComment } from '@/server/comments';
 import { MAX_COMMENT_LENGTH, COMMENT_TTL_MS } from '@/lib/constants';
 import { relativeTime } from '@/lib/format';
+import { parseSpoilers } from '@/lib/spoilers';
 
 const MENTION_SPLIT = /(@[a-z0-9_-]{1,30})/gi;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,11 +28,11 @@ function MentionText({
   const parts = String(body || '').split(MENTION_SPLIT);
 
   return (
-    <p className="m-0 [overflow-wrap:anywhere] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
+    <div className="m-0 [overflow-wrap:anywhere] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
       {parts.map((part, index) => {
         const match = part.match(/^@([a-z0-9_-]{1,30})$/i);
         if (!match) {
-          return <span key={index}>{part}</span>;
+          return <span key={index}>{parseSpoilers(part)}</span>;
         }
         const handle = match[1]?.toLowerCase() ?? '';
         const isSelf = handle === viewerUsername;
@@ -46,7 +47,7 @@ function MentionText({
           </Link>
         );
       })}
-    </p>
+    </div>
   );
 }
 
@@ -295,11 +296,23 @@ export default function ProfileComments({
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setDraft((d) => `${d}${d ? ' ' : ''}||spoiler||`)}
+                className="cursor-pointer text-[length:var(--za-text-fine)] text-ink-muted transition-colors hover:text-ink"
+              >
+                ✦ Add spoiler{' '}
+                <code className="rounded-xs bg-surface-subtle px-1 py-0.5 font-mono text-[10px]">
+                  ||...||
+                </code>
+              </button>
+            </div>
             <textarea
               className="w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-2 text-[length:var(--za-text-supporting)] text-ink focus:border-accent focus:outline-none"
               rows={2}
               maxLength={MAX_COMMENT_LENGTH}
-              placeholder={`Leave a note for @${profileUser.username}… use @name to mention someone`}
+              placeholder={`Leave a note for @${profileUser.username}… use @name to mention someone or ||spoiler||`}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
