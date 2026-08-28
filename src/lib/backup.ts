@@ -153,11 +153,116 @@ function parseGoodreadsCsv(text: string): ImportDraft[] {
   return items;
 }
 
+export function looksLikeLetterboxdHeader(header: string): boolean {
+  const h = header.toLowerCase();
+  return (
+    h.includes('letterboxd uri') ||
+    (h.includes('name') &&
+      h.includes('year') &&
+      (h.includes('watched date') ||
+        h.includes('rating') ||
+        h.includes('rewatch') ||
+        h.includes('date')))
+  );
+}
+
+function parseCsvCells(line: string): string[] {
+  const cells: string[] = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      cells.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cells.push(cur.trim());
+  return cells;
+}
+
+export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft[] {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length <= 1) return [];
+
+  const headerLine = lines[0] ?? '';
+  if (!looksLikeLetterboxdHeader(headerLine)) return [];
+
+  const headers = parseCsvCells(headerLine).map((h) => h.toLowerCase());
+  const nameIdx = headers.indexOf('name');
+  if (nameIdx === -1) return [];
+
+  const ratingIdx = headers.indexOf('rating');
+  const rewatchIdx = headers.indexOf('rewatch');
+  const reviewIdx = headers.indexOf('review');
+  const tagsIdx = headers.indexOf('tags');
+  const isWatchlist =
+    Boolean(fileName && fileName.toLowerCase().includes('watchlist')) ||
+    headerLine.toLowerCase().includes('watchlist');
+
+  const items: ImportDraft[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || !line.trim()) continue;
+    const cols = parseCsvCells(line);
+    const rawTitle = cols[nameIdx]?.replace(/^"|"$/g, '').trim();
+    if (!rawTitle) continue;
+
+    let rating: number | null = null;
+    if (ratingIdx !== -1 && cols[ratingIdx]) {
+      const rawRating = parseFloat(cols[ratingIdx]);
+      if (!isNaN(rawRating) && rawRating > 0) {
+        rating = Math.min(10, Math.max(1, Math.round(rawRating * 2)));
+      }
+    }
+
+    const isRewatch =
+      rewatchIdx !== -1 &&
+      (cols[rewatchIdx]?.toLowerCase() === 'yes' || cols[rewatchIdx]?.toLowerCase() === 'true');
+
+    const review =
+      reviewIdx !== -1 && cols[reviewIdx] ? cols[reviewIdx].replace(/^"|"$/g, '').trim() : null;
+
+    const tags =
+      tagsIdx !== -1 && cols[tagsIdx]
+        ? cols[tagsIdx]
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+
+    items.push({
+      title: rawTitle,
+      category: 'movie',
+      status: isWatchlist ? 'planning' : 'completed',
+      primaryUnitCurrent: isRewatch ? 2 : 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 0,
+      secondaryUnitTotal: null,
+      rating,
+      notes: review || null,
+      tags: tags.length > 0 ? tags : undefined,
+    });
+  }
+
+  return items;
+}
+
 /**
  * Parse an uploaded backup/import file into media-entry drafts.
  *
  * Supported formats: ZedArchive JSON backups (plain arrays), AniList list
- * exports, and Goodreads CSV exports.
+ * exports, Goodreads CSV exports, Letterboxd CSV exports, and Simkl JSON exports.
  *
  * @throws {Error} With a user-facing message when nothing can be parsed.
  */
@@ -183,10 +288,10 @@ export function parseSimklJson(json: unknown): ImportDraft[] | null {
 
   const items: ImportDraft[] = [];
 
-  const categories: Array<{ key: string; defaultCategory: 'show' | 'anime' }> = [
+  const categories: Array<{ key: string; defaultCategory: 'show' | 'anime' | 'movie' }> = [
     { key: 'shows', defaultCategory: 'show' },
     { key: 'anime', defaultCategory: 'anime' },
-    { key: 'movies', defaultCategory: 'show' },
+    { key: 'movies', defaultCategory: 'movie' },
   ];
 
   for (const { key, defaultCategory } of categories) {
@@ -196,7 +301,7 @@ export function parseSimklJson(json: unknown): ImportDraft[] | null {
     for (const entry of list) {
       if (!entry || typeof entry !== 'object') continue;
 
-      const mediaObj = (entry.show ?? entry.anime ?? entry.movie ?? entry) as Record<
+      const mediaObj = ((entry.show ?? entry.anime ?? entry.movie ?? entry) || {}) as Record<
         string,
         unknown
       >;
@@ -234,8 +339,6 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
   if (fileName.endsWith('.json')) {
     const json = JSON.parse(text) as unknown;
     if (Array.isArray(json)) {
-      // Defensive: skip nulls, primitives, and records without a usable
-      // title instead of letting them abort the whole import downstream.
       items = (json as unknown[]).filter((item): item is ImportDraft =>
         Boolean(
           item &&
@@ -258,7 +361,12 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
       }
     }
   } else if (fileName.endsWith('.csv')) {
-    items = parseGoodreadsCsv(text);
+    const letterboxdItems = parseLetterboxdCsv(text, fileName);
+    if (letterboxdItems.length > 0) {
+      items = letterboxdItems;
+    } else {
+      items = parseGoodreadsCsv(text);
+    }
   } else if (
     fileName.endsWith('.xml') ||
     text.trim().startsWith('<?xml') ||

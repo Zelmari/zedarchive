@@ -241,4 +241,45 @@ describe('parseImportFile', () => {
       sourceId: 'simkl-654321',
     });
   });
+
+  it('parses Letterboxd CSV exports (diary, ratings, watched, watchlist)', () => {
+    const diaryCsv = `Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date
+2026-01-10,Inception,2010,https://boxd.it/123,4.5,Yes,"sci-fi, thriller",2026-01-10
+2026-02-15,Parasite,2019,https://boxd.it/456,5.0,No,drama,2026-02-15
+`;
+    const items = parseImportFile('diary.csv', diaryCsv);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Inception',
+      category: 'movie',
+      status: 'completed',
+      primaryUnitCurrent: 2, // Rewatch
+      primaryUnitTotal: 1,
+      rating: 9, // 4.5 * 2 = 9
+      tags: ['sci-fi', 'thriller'],
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Parasite',
+      category: 'movie',
+      status: 'completed',
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      rating: 10, // 5.0 * 2 = 10
+      tags: ['drama'],
+    });
+  });
+
+  it('parses Letterboxd watchlist CSV as planning status', () => {
+    const watchlistCsv = `Date,Name,Year,Letterboxd URI
+2026-01-01,Dune: Part Two,2024,https://boxd.it/789
+`;
+    const items = parseImportFile('watchlist.csv', watchlistCsv);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Dune: Part Two',
+      category: 'movie',
+      status: 'planning',
+      primaryUnitCurrent: 1,
+    });
+  });
 });

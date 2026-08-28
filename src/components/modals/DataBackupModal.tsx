@@ -198,8 +198,8 @@ export default function DataBackupModal({
         ) : (
           <div>
             <p className="mb-[var(--za-space-3)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink-muted">
-              Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json), or
-              Goodreads (.csv).
+              Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json),
+              Letterboxd (.csv), or Goodreads (.csv).
             </p>
 
             {/* Conflict handling options */}
