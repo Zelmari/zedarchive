@@ -439,11 +439,13 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
       <AddMediaModal
         isOpen={modals.isOpen('add') || !!editingItem}
         type={
-          editingItem?.category === 'book' || editingItem?.category === 'manga'
-            ? 'book'
+          editingItem?.category
+            ? (editingItem.category as import('@/types/media').MediaCategory)
             : activeTab === 'books'
               ? 'book'
-              : 'show'
+              : activeTab === 'movies'
+                ? 'movie'
+                : 'show'
         }
         onClose={closeAddModal}
         onAdd={handleCreate}

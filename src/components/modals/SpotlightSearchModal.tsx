@@ -77,6 +77,7 @@ export default function SpotlightSearchModal({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [isServiceConfigured, setIsServiceConfigured] = useState(true);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
@@ -114,6 +115,7 @@ export default function SpotlightSearchModal({
       setIsSearching(false);
       setSearchError('');
       setHasSearched(false);
+      setIsServiceConfigured(true);
       return;
     }
 
@@ -134,6 +136,12 @@ export default function SpotlightSearchModal({
           setSearchError(String(data?.error || 'Search service unavailable'));
           setHasSearched(true);
           return;
+        }
+
+        if (data && typeof data === 'object' && 'configured' in data && data.configured === false) {
+          setIsServiceConfigured(false);
+        } else {
+          setIsServiceConfigured(true);
         }
 
         const results = data?.results || (Array.isArray(data) ? data : []);
@@ -183,9 +191,13 @@ export default function SpotlightSearchModal({
       return;
     }
 
-    if (e.key === 'Enter' && highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      onSelectResult(searchResults[highlightedIndex] as SpotlightResult);
+      if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+        onSelectResult(searchResults[highlightedIndex] as SpotlightResult);
+      } else if (searchQuery.trim()) {
+        onManualEnter(searchQuery.trim());
+      }
     }
   };
 
@@ -270,6 +282,29 @@ export default function SpotlightSearchModal({
           )}
         </div>
 
+        {/* Unconfigured API Notice for Movies */}
+        {!isServiceConfigured && category === 'movie' && !isSearching && (
+          <div className="mx-[var(--za-space-4)] my-3 rounded-control border border-decorative bg-surface-subtle p-3 text-center text-[length:var(--za-text-fine)]">
+            <div className="font-[var(--za-weight-emphasis)] text-ink">
+              TMDB movie search API key not configured
+            </div>
+            <div className="mt-1 text-ink-muted">
+              Add <code className="rounded bg-surface px-1 text-xs">TMDB_API_READ_TOKEN</code> to{' '}
+              <code className="rounded bg-surface px-1 text-xs">.env.local</code> for auto-poster
+              lookup, or catalog this movie manually.
+            </div>
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => onManualEnter(searchQuery.trim())}
+                className="za-button za-button--primary mt-2.5 inline-flex items-center gap-1 text-xs"
+              >
+                <span>Add &ldquo;{searchQuery.trim()}&rdquo; as Movie</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Results List */}
         {searchResults.length > 0 && (
           <div
@@ -280,33 +315,30 @@ export default function SpotlightSearchModal({
             {searchResults.map((item, idx) => {
               const isSelected = idx === highlightedIndex;
               const metaParts: string[] = [];
-              if (item.year) metaParts.push(item.year);
-              if (category === 'movie') {
+              if (item.year) metaParts.push(String(item.year));
+
+              if (category === 'movie' || item.category === 'movie') {
                 if (item.secondaryUnitTotal) {
-                  const mins = item.secondaryUnitTotal;
+                  const mins = Number(item.secondaryUnitTotal);
                   const h = Math.floor(mins / 60);
                   const m = mins % 60;
-                  metaParts.push(h > 0 ? `${h}h ${m}m` : `${mins} min`);
+                  const durationStr = h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m} min`;
+                  metaParts.push(durationStr);
+                } else {
+                  metaParts.push('Feature Film');
                 }
-              } else {
-                if (item.primaryUnitTotal) {
-                  metaParts.push(
-                    `${item.primaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Volumes' : 'Seasons'}`,
-                  );
-                }
-                if (item.secondaryUnitTotal) {
-                  metaParts.push(
-                    `${item.secondaryUnitTotal} ${category === 'book' || category === 'manga' ? 'Chapters' : 'Episodes'}`,
-                  );
-                }
+              } else if (item.primaryUnitTotal) {
+                metaParts.push(
+                  `${item.primaryUnitTotal} ${item.primaryUnitTotal === 1 ? 'Season' : 'Seasons'}`,
+                );
               }
-              if (item.genres && item.genres.length > 0) {
+              if (Array.isArray(item.genres) && item.genres.length > 0) {
                 metaParts.push(item.genres.slice(0, 2).join(', '));
               }
 
               return (
                 <div
-                  key={item.sourceId || idx}
+                  key={item.sourceId || `${item.title}-${idx}`}
                   ref={(el) => {
                     dropdownItemsRef.current[idx] = el;
                   }}
@@ -347,9 +379,17 @@ export default function SpotlightSearchModal({
         {hasSearched &&
           searchResults.length === 0 &&
           !isSearching &&
-          searchQuery.trim().length >= 2 && (
+          searchQuery.trim().length >= 2 &&
+          isServiceConfigured && (
             <div className="p-[var(--za-space-4)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
-              No catalogue matches found for &ldquo;{searchQuery}&rdquo;.
+              <div>No catalogue matches found for &ldquo;{searchQuery}&rdquo;.</div>
+              <button
+                type="button"
+                onClick={() => onManualEnter(searchQuery.trim())}
+                className="za-button za-button--secondary mt-2 inline-flex items-center text-xs font-[var(--za-weight-emphasis)]"
+              >
+                Add &ldquo;{searchQuery.trim()}&rdquo; manually →
+              </button>
             </div>
           )}
         {searchError && (

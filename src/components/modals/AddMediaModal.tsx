@@ -97,7 +97,7 @@ export default function AddMediaModal({
       setViewMode('manual');
     } else {
       setForm(EMPTY_FORM);
-      setCategory(lastCategory || (type === 'book' ? 'book' : 'show'));
+      setCategory(lastCategory || type || 'show');
       setViewMode('search');
     }
     setError('');
@@ -139,13 +139,22 @@ export default function AddMediaModal({
 
   const handleSelectResult = async (item: SpotlightResult) => {
     const requestId = ++coverRequestRef.current;
-    const itemStructure = item.structure || [];
+    const selectedCategory = (item.category as MediaCategory) || category;
+    if (item.category) {
+      updateCategory(item.category as MediaCategory);
+    }
+
+    const isMovie = selectedCategory === 'movie';
+    const itemStructure = isMovie ? [] : item.structure || [];
 
     setForm((prev) => {
-      const primTotal =
-        item.primaryUnitTotal || (itemStructure.length > 0 ? itemStructure.length : 1);
+      const primTotal = isMovie
+        ? 1
+        : item.primaryUnitTotal || (itemStructure.length > 0 ? itemStructure.length : 1);
       const season1 = itemStructure.find((s) => s.number === 1);
-      const secTotal = season1?.total ?? item.secondaryUnitTotal ?? '';
+      const secTotal = isMovie
+        ? (item.secondaryUnitTotal ?? '')
+        : (season1?.total ?? item.secondaryUnitTotal ?? '');
       return {
         ...prev,
         title: item.title || '',
@@ -153,7 +162,7 @@ export default function AddMediaModal({
         structure: itemStructure,
         primaryUnitTotal: String(primTotal),
         primaryUnitCurrent: '1',
-        secondaryUnitCurrent: '0',
+        secondaryUnitCurrent: isMovie ? String(item.secondaryUnitTotal || '') : '0',
         secondaryUnitTotal: secTotal ? String(secTotal) : '',
       };
     });
@@ -190,9 +199,12 @@ export default function AddMediaModal({
         onCategoryChange={updateCategory}
         onClose={resetAndClose}
         onManualEnter={(query) => {
-          if (query && !form.title) {
-            setField('title', query);
-          }
+          setForm((prev) => ({
+            ...prev,
+            title: query || prev.title || '',
+            primaryUnitCurrent: '1',
+            primaryUnitTotal: category === 'movie' ? '1' : prev.primaryUnitTotal,
+          }));
           setViewMode('manual');
         }}
         onSelectResult={handleSelectResult}
