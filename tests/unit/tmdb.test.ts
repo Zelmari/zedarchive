@@ -84,3 +84,83 @@ describe('searchTmdbMovies', () => {
     });
   });
 });
+
+describe('fetchWatchProviders & resolveTmdbId', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it('fetches watch providers for a country code', async () => {
+    process.env.TMDB_API_READ_TOKEN = 'mock-bearer-token-1234567890123456789012345678901234567890';
+
+    const mockProvidersResponse = {
+      results: {
+        US: {
+          link: 'https://www.themoviedb.org/movie/27205/watch?locale=US',
+          flatrate: [
+            {
+              provider_id: 8,
+              provider_name: 'Netflix',
+              logo_path: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg',
+            },
+          ],
+          rent: [
+            {
+              provider_id: 2,
+              provider_name: 'Apple TV',
+              logo_path: '/peURlLlr8jggOwK53fJ5wdQl05y.jpg',
+            },
+          ],
+        },
+      },
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockProvidersResponse,
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const { fetchWatchProviders } = await import('@/lib/services/tmdb');
+    const providers = await fetchWatchProviders(27205, 'movie', 'US');
+
+    expect(providers).not.toBeNull();
+    expect(providers?.flatrate).toHaveLength(1);
+    expect(providers?.flatrate?.[0]?.name).toBe('Netflix');
+    expect(providers?.rent).toHaveLength(1);
+    expect(providers?.rent?.[0]?.name).toBe('Apple TV');
+  });
+
+  it('resolves TMDB IDs from sourceId or title search', async () => {
+    process.env.TMDB_API_READ_TOKEN = 'mock-bearer-token-1234567890123456789012345678901234567890';
+
+    const { resolveTmdbId } = await import('@/lib/services/tmdb');
+
+    // 1. Direct TMDB ID
+    const fromDirect = await resolveTmdbId('tmdb-27205');
+    expect(fromDirect).toBe(27205);
+
+    // 2. Title fallback search
+    const mockSearchResponse = {
+      results: [{ id: 9999, title: 'Severance' }],
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSearchResponse,
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const fromTitle = await resolveTmdbId(null, 'Severance', 'show');
+    expect(fromTitle).toBe(9999);
+  });
+});

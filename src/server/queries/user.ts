@@ -54,6 +54,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
       username: userTable.username,
       isPublic: userTable.isPublic,
       bio: userTable.bio,
+      countryCode: userTable.countryCode,
       emailVerified: userTable.emailVerified,
       verificationDismissedAt: userTable.verificationDismissedAt,
     })
@@ -71,6 +72,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
     username: row.username,
     isPublic: row.isPublic,
     bio: row.bio,
+    countryCode: row.countryCode || 'US',
     emailVerified: row.emailVerified,
     verificationDismissedAt: row.verificationDismissedAt
       ? row.verificationDismissedAt.toISOString()

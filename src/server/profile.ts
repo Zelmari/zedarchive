@@ -109,6 +109,10 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
     updateData.image = validated.image || null;
   }
 
+  if (validated.countryCode !== undefined) {
+    updateData.countryCode = validated.countryCode;
+  }
+
   // Public-archive invariant: a public archive must have a resolvable
   // handle, otherwise comment author links would point at /u/null.
   if (updateData.isPublic !== undefined || updateData.username !== undefined) {
@@ -137,6 +141,7 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
       bio: userTable.bio,
       theme: userTable.theme,
       image: userTable.image,
+      countryCode: userTable.countryCode,
     });
 
   revalidatePath('/dashboard');

@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "country_code" text DEFAULT 'US' NOT NULL;

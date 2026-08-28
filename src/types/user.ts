@@ -9,6 +9,7 @@ export interface UserProfile {
   username: string | null;
   isPublic: boolean;
   bio: string | null;
+  countryCode: string;
   emailVerified?: boolean;
   verificationDismissedAt?: string | null;
 }
@@ -19,6 +20,7 @@ export interface UpdateProfileInput {
   bio?: string | null;
   isPublic?: boolean;
   image?: string | null;
+  countryCode?: string;
 }
 
 export interface PublicUserSearchResult {

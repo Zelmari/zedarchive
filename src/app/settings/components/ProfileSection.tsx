@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Check, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { UserProfile } from '@/types/user';
-import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { MAX_NAME_LENGTH, STREAMING_COUNTRIES } from '@/lib/constants';
 import { getInitials } from '@/lib/format';
 import { compressImageFile } from '@/lib/client/image-utils';
 import { updateUserProfile } from '@/server/profile';
@@ -32,6 +32,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
   const [name, setName] = useState(profile.name);
   const [username, setUsername] = useState(profile.username || '');
   const [bio, setBio] = useState(profile.bio || '');
+  const [countryCode, setCountryCode] = useState(profile.countryCode || 'US');
   const [isPublic, setIsPublic] = useState(Boolean(profile.isPublic));
 
   const [savingProfile, setSavingProfile] = useState(false);
@@ -58,6 +59,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
         name,
         username: username.trim() || null,
         bio: bio.trim() || null,
+        countryCode,
         isPublic,
       });
       setProfileSuccess(true);
@@ -233,6 +235,26 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
             placeholder="Brief note about your tastes or reading lists..."
             className="za-field w-full resize-none"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+            Streaming Region (Watch Providers)
+          </label>
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+            className="za-field w-full cursor-pointer"
+          >
+            {STREAMING_COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name} ({c.code})
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-ink-muted">
+            Used to show legal where-to-watch and streaming availability badges on shows and movies.
+          </p>
         </div>
 
         <div className="flex items-center gap-3 pt-2">

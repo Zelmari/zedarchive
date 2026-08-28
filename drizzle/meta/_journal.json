@@ -78,6 +78,13 @@
       "when": 1787894979091,
       "tag": "0010_absent_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787895267293,
+      "tag": "0011_lowly_annihilus",
+      "breakpoints": true
     }
   ]
 }

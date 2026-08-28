@@ -29,11 +29,12 @@ export default async function SettingsPage() {
     id: profile.id,
     name: profile.name,
     email: profile.email,
-    image: null,
+    image: profile.image || null,
     theme: profile.theme,
     username: profile.username,
     isPublic: profile.isPublic,
     bio: profile.bio,
+    countryCode: profile.countryCode || 'US',
     emailVerified: profile.emailVerified,
     verificationDismissedAt: profile.verificationDismissedAt || null,
   };
