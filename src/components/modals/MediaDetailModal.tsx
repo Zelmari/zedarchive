@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Pencil,
   Star,
@@ -14,12 +14,14 @@ import {
   Trash2,
   Calendar,
   Check,
+  ExternalLink,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials } from '@/lib/format';
 import type { MediaEntry, MediaCycle } from '@/types/media';
+import type { WatchProvidersResult } from '@/lib/services/tmdb';
 
 interface MediaDetailModalProps {
   isOpen: boolean;
@@ -79,6 +81,43 @@ export default function MediaDetailModal({
     rating: null,
     notes: '',
   });
+
+  // Streaming availability state
+  const [watchProviders, setWatchProviders] = useState<WatchProvidersResult | null>(null);
+  const [providersCountry, setProvidersCountry] = useState<string>('US');
+  const [providersLoading, setProvidersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !item) return;
+    const cat = item.category || 'movie';
+    if (cat === 'book' || cat === 'manga') return;
+
+    let isMounted = true;
+
+    const params = new URLSearchParams({
+      category: cat,
+      title: item.title,
+    });
+    if (item.sourceId) params.set('sourceId', item.sourceId);
+
+    fetch(`/api/media/providers?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data) return;
+        setWatchProviders(data.providers ?? null);
+        if (data.country) setProvidersCountry(data.country);
+      })
+      .catch(() => {
+        if (isMounted) setWatchProviders(null);
+      })
+      .finally(() => {
+        if (isMounted) setProvidersLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, item]);
 
   if (!isOpen || !item) return null;
 
@@ -596,6 +635,108 @@ export default function MediaDetailModal({
                 <p className="text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink">
                   {item.synopsis}
                 </p>
+              </div>
+            )}
+
+            {/* Where to Watch / Streaming Availability */}
+            {!isBookLike && (
+              <div className="mb-[var(--za-space-4)] rounded-control bg-surface-subtle p-[var(--za-space-3)]">
+                <div className="flex items-center justify-between">
+                  <div className={sectionLabel}>
+                    STREAMING AVAILABILITY {providersCountry ? `(${providersCountry})` : ''}
+                  </div>
+                  {providersLoading && (
+                    <span className="text-[10px] text-ink-muted">Checking providers…</span>
+                  )}
+                </div>
+
+                {!providersLoading &&
+                (!watchProviders ||
+                  (!watchProviders.flatrate?.length &&
+                    !watchProviders.free?.length &&
+                    !watchProviders.rent?.length &&
+                    !watchProviders.buy?.length)) ? (
+                  <p className="mt-1 text-xs text-ink-muted">
+                    No streaming providers detected for this title in {providersCountry}.
+                  </p>
+                ) : null}
+
+                {/* Subscription Streaming (Flatrate) */}
+                {watchProviders?.flatrate && watchProviders.flatrate.length > 0 && (
+                  <div className="mt-2">
+                    <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+                      STREAM ON SUBSCRIPTION:
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {watchProviders.flatrate.map((prov) => (
+                        <a
+                          key={prov.id}
+                          href={watchProviders.link || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Stream on ${prov.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-small border border-decorative bg-surface px-2 py-1 text-xs font-[var(--za-weight-emphasis)] text-ink transition-[border-color,transform] hover:border-required hover:scale-105"
+                        >
+                          {prov.logoPath && (
+                            // eslint-disable-next-line @next/next/no-img-element -- external provider logos
+                            <img
+                              src={prov.logoPath}
+                              alt=""
+                              className="h-4 w-4 rounded-sm object-cover"
+                            />
+                          )}
+                          <span>{prov.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Free / Ads Streaming */}
+                {watchProviders?.free && watchProviders.free.length > 0 && (
+                  <div className="mt-2">
+                    <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+                      FREE / WITH ADS:
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {watchProviders.free.map((prov) => (
+                        <a
+                          key={prov.id}
+                          href={watchProviders.link || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Watch free on ${prov.name}`}
+                          className="inline-flex items-center gap-1.5 rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink"
+                        >
+                          {prov.logoPath && (
+                            // eslint-disable-next-line @next/next/no-img-element -- external provider logos
+                            <img
+                              src={prov.logoPath}
+                              alt=""
+                              className="h-3.5 w-3.5 rounded-sm object-cover"
+                            />
+                          )}
+                          <span>{prov.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* JustWatch attribution and deep link */}
+                {watchProviders?.link && (
+                  <div className="mt-2.5 flex items-center justify-between text-[10px] text-ink-muted">
+                    <span>Powered by JustWatch</span>
+                    <a
+                      href={watchProviders.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="za-link inline-flex items-center gap-0.5"
+                    >
+                      View all rent & buy options <ExternalLink size={10} />
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

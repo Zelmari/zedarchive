@@ -42,6 +42,12 @@ export const updateProfileSchema = z.object({
     )
     .nullable()
     .optional(),
+  countryCode: z
+    .string()
+    .trim()
+    .length(2, 'Country code must be a 2-letter ISO code')
+    .toUpperCase()
+    .optional(),
 });
 
 export const updateThemeSchema = z.object({

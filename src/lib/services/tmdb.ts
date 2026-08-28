@@ -125,3 +125,148 @@ export async function searchTmdbMovies(query: string): Promise<SearchResult[] | 
     .filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === 'fulfilled')
     .map((r) => r.value);
 }
+
+export interface WatchProviderItem {
+  id: number;
+  name: string;
+  logoPath: string;
+}
+
+export interface WatchProvidersResult {
+  link?: string;
+  flatrate?: WatchProviderItem[];
+  rent?: WatchProviderItem[];
+  buy?: WatchProviderItem[];
+  free?: WatchProviderItem[];
+}
+
+export async function fetchWatchProviders(
+  tmdbId: number,
+  category: 'movie' | 'show' | 'anime' = 'movie',
+  countryCode = 'US',
+): Promise<WatchProvidersResult | null> {
+  const token = process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY;
+  if (!token) {
+    return null;
+  }
+
+  const endpoint = category === 'movie' ? 'movie' : 'tv';
+  const base = `https://api.themoviedb.org/3/${endpoint}/${tmdbId}/watch/providers`;
+  const params = new URLSearchParams();
+  if (token.length <= 40) {
+    params.set('api_key', token);
+  }
+  const url = params.toString() ? `${base}?${params.toString()}` : base;
+
+  try {
+    const res = await fetch(url, {
+      next: { revalidate: 86400 },
+      headers: getAuthHeaders(token),
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = (await res.json()) as { results?: Record<string, Record<string, unknown>> };
+    const countryData = data.results?.[countryCode.toUpperCase()];
+    if (!countryData) {
+      return null;
+    }
+
+    const mapProviders = (items?: unknown): WatchProviderItem[] => {
+      if (!Array.isArray(items)) return [];
+      return items.map((item: Record<string, unknown>) => ({
+        id: Number(item.provider_id || 0),
+        name: String(item.provider_name || ''),
+        logoPath: item.logo_path ? `https://image.tmdb.org/t/p/original${item.logo_path}` : '',
+      }));
+    };
+
+    return {
+      link: typeof countryData.link === 'string' ? countryData.link : undefined,
+      flatrate: mapProviders(countryData.flatrate),
+      rent: mapProviders(countryData.rent),
+      buy: mapProviders(countryData.buy),
+      free: mapProviders(countryData.free ?? countryData.ads),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveTmdbId(
+  sourceId?: string | null,
+  title?: string | null,
+  category: 'movie' | 'show' | 'anime' = 'movie',
+): Promise<number | null> {
+  const token = process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY;
+  if (!token) return null;
+
+  // 1. Direct TMDB source ID
+  if (sourceId?.startsWith('tmdb-')) {
+    const rawId = parseInt(sourceId.replace('tmdb-', ''), 10);
+    if (!isNaN(rawId) && rawId > 0) return rawId;
+  }
+
+  // 2. TVMaze external lookup to IMDb -> TMDB Find
+  if (sourceId?.startsWith('tvmaze-')) {
+    const tvmazeId = sourceId.replace('tvmaze-', '');
+    try {
+      const tvmRes = await fetch(`https://api.tvmaze.com/shows/${tvmazeId}`, {
+        next: { revalidate: 86400 },
+        headers: { Accept: 'application/json' },
+      });
+      if (tvmRes.ok) {
+        const tvmData = (await tvmRes.json()) as { externals?: { imdb?: string | null } };
+        const imdbId = tvmData.externals?.imdb;
+        if (imdbId) {
+          const findUrl = `https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id${
+            token.length <= 40 ? `&api_key=${token}` : ''
+          }`;
+          const findRes = await fetch(findUrl, {
+            next: { revalidate: 86400 },
+            headers: getAuthHeaders(token),
+          });
+          if (findRes.ok) {
+            const findData = (await findRes.json()) as {
+              movie_results?: Array<{ id: number }>;
+              tv_results?: Array<{ id: number }>;
+            };
+            const match =
+              category === 'movie'
+                ? findData.movie_results?.[0]?.id
+                : (findData.tv_results?.[0]?.id ?? findData.movie_results?.[0]?.id);
+            if (match) return match;
+          }
+        }
+      }
+    } catch {
+      // Continue to title search fallback
+    }
+  }
+
+  // 3. Fallback search by title
+  if (title?.trim()) {
+    try {
+      const endpoint = category === 'movie' ? 'movie' : 'tv';
+      const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(
+        title.trim(),
+      )}&include_adult=false&language=en-US&page=1${token.length <= 40 ? `&api_key=${token}` : ''}`;
+      const searchRes = await fetch(searchUrl, {
+        next: { revalidate: 86400 },
+        headers: getAuthHeaders(token),
+      });
+      if (searchRes.ok) {
+        const searchData = (await searchRes.json()) as { results?: Array<{ id: number }> };
+        if (searchData.results && searchData.results.length > 0 && searchData.results[0]?.id) {
+          return searchData.results[0].id;
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}

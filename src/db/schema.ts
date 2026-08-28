@@ -22,6 +22,7 @@ export const user = pgTable('user', {
   username: text('username').unique(),
   isPublic: boolean('is_public').notNull().default(false),
   bio: text('bio'),
+  countryCode: text('country_code').notNull().default('US'),
   verificationDismissedAt: timestamp('verification_dismissed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
