@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "reading_goals" jsonb DEFAULT '{}'::jsonb;

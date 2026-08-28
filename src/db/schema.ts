@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import type { StructureItem, MediaCycle } from '@/types/media';
-import type { ThemeId } from '@/types/user';
+import type { ThemeId, ReadingGoalConfig } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
 export const user = pgTable('user', {
@@ -23,6 +23,7 @@ export const user = pgTable('user', {
   isPublic: boolean('is_public').notNull().default(false),
   bio: text('bio'),
   countryCode: text('country_code').notNull().default('US'),
+  readingGoals: jsonb('reading_goals').$type<Record<string, ReadingGoalConfig>>().default({}),
   verificationDismissedAt: timestamp('verification_dismissed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
