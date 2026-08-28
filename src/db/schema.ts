@@ -8,7 +8,7 @@ import {
   pgEnum,
   index,
 } from 'drizzle-orm/pg-core';
-import type { StructureItem, MediaCycle } from '@/types/media';
+import type { StructureItem, MediaCycle, MediaQuote } from '@/types/media';
 import type { ThemeId, ReadingGoalConfig } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
@@ -127,6 +127,7 @@ export const mediaEntries = pgTable(
     coverImage: text('cover_image'), // Compressed Base64 data URL
     sourceId: text('source_id'), // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
     notes: text('notes'),
+    quotes: jsonb('quotes').$type<MediaQuote[]>().default([]),
     priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -16,7 +16,13 @@ import {
   MAX_STRUCTURE_LENGTH,
   MAX_RATING,
 } from '@/lib/constants';
-import type { MediaEntry, StructureItem, MediaCycle, MediaCycleInput } from '@/types/media';
+import type {
+  MediaEntry,
+  StructureItem,
+  MediaCycle,
+  MediaCycleInput,
+  MediaQuote,
+} from '@/types/media';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser, logActivity } from './internal';
 
@@ -1006,4 +1012,122 @@ export async function deleteMediaEntry(id: string): Promise<{ success: boolean }
 
   revalidatePath('/dashboard');
   return { success: true };
+}
+
+export async function addMediaQuote(
+  mediaId: string,
+  quote: { text: string; speaker?: string | null; citation?: string | null; isFavorite?: boolean },
+): Promise<MediaEntry> {
+  const user = await getAuthUser();
+  const trimmedText = quote.text?.trim().slice(0, 2000);
+  if (!trimmedText) {
+    throw new Error('Quote text is required.');
+  }
+
+  const [row] = await db
+    .select()
+    .from(mediaEntries)
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('Media entry not found.');
+  }
+
+  const newQuote: MediaQuote = {
+    id: crypto.randomUUID(),
+    text: trimmedText,
+    speaker: quote.speaker?.trim().slice(0, 100) || null,
+    citation: quote.citation?.trim().slice(0, 100) || null,
+    isFavorite: Boolean(quote.isFavorite),
+    createdAt: new Date().toISOString(),
+  };
+
+  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
+  const updatedQuotes = [...existingQuotes, newQuote];
+
+  const [updated] = await db
+    .update(mediaEntries)
+    .set({
+      quotes: updatedQuotes,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .returning();
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
+}
+
+export async function updateMediaQuote(
+  mediaId: string,
+  quoteId: string,
+  updates: Partial<MediaQuote>,
+): Promise<MediaEntry> {
+  const user = await getAuthUser();
+  const [row] = await db
+    .select()
+    .from(mediaEntries)
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('Media entry not found.');
+  }
+
+  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
+  const updatedQuotes = existingQuotes.map((q) => {
+    if (q.id !== quoteId) return q;
+    return {
+      ...q,
+      text: updates.text !== undefined ? updates.text.trim().slice(0, 2000) : q.text,
+      speaker:
+        updates.speaker !== undefined ? updates.speaker?.trim().slice(0, 100) || null : q.speaker,
+      citation:
+        updates.citation !== undefined
+          ? updates.citation?.trim().slice(0, 100) || null
+          : q.citation,
+      isFavorite: updates.isFavorite !== undefined ? Boolean(updates.isFavorite) : q.isFavorite,
+    };
+  });
+
+  const [updated] = await db
+    .update(mediaEntries)
+    .set({
+      quotes: updatedQuotes,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .returning();
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
+}
+
+export async function deleteMediaQuote(mediaId: string, quoteId: string): Promise<MediaEntry> {
+  const user = await getAuthUser();
+  const [row] = await db
+    .select()
+    .from(mediaEntries)
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('Media entry not found.');
+  }
+
+  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
+  const updatedQuotes = existingQuotes.filter((q) => q.id !== quoteId);
+
+  const [updated] = await db
+    .update(mediaEntries)
+    .set({
+      quotes: updatedQuotes,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .returning();
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
 }

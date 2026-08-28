@@ -25,6 +25,22 @@ export interface MediaCycleInput {
   notes?: string | null;
 }
 
+export interface MediaQuote {
+  id: string;
+  text: string;
+  speaker?: string | null;
+  citation?: string | null;
+  isFavorite?: boolean;
+  createdAt: string;
+}
+
+export interface MediaQuoteInput {
+  text: string;
+  speaker?: string | null;
+  citation?: string | null;
+  isFavorite?: boolean;
+}
+
 type MediaRow = typeof mediaEntries.$inferSelect;
 
 /**
@@ -44,6 +60,7 @@ export interface MediaEntry extends Omit<
   | 'tags'
   | 'genres'
   | 'cycles'
+  | 'quotes'
 > {
   category: MediaCategory;
   status: MediaStatus;
@@ -51,6 +68,7 @@ export interface MediaEntry extends Omit<
   tags: string[];
   genres: string[];
   cycles: MediaCycle[];
+  quotes: MediaQuote[];
   completedAt: string | null;
   startedAt: string | null;
   droppedAt: string | null;
