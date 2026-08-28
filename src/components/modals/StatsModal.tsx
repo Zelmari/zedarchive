@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Tv, BookOpen, Star, BarChart2, Sparkles } from 'lucide-react';
+import { Tv, Film, BookOpen, Star, BarChart2, Sparkles } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { RatingBadge } from '@/components/ui/Badge';
 import { calculateArchiveStats } from '@/lib/stats';
@@ -30,6 +30,7 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
     completedCount,
     inProgressCount,
     planningCount,
+    movieCount,
     totalEpisodes,
     totalChapters,
     avgRating,
@@ -71,13 +72,21 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
         </div>
 
         <div className={`${sectionTitle} mt-[var(--za-space-3)]`}>Activity & Ratings</div>
-        <div className="mb-[var(--za-space-4)] grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-[var(--za-space-3)]">
+        <div className="mb-[var(--za-space-4)] grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-[var(--za-space-3)]">
           <div className={statCard}>
             <div className={`${statValue} flex items-center justify-center gap-1.5`}>
               <Tv size={16} /> {totalEpisodes}
             </div>
             <div className={statLabel}>Episodes Watched</div>
           </div>
+          {movieCount > 0 && (
+            <div className={statCard}>
+              <div className={`${statValue} flex items-center justify-center gap-1.5`}>
+                <Film size={16} /> {movieCount}
+              </div>
+              <div className={statLabel}>Movies Logged</div>
+            </div>
+          )}
           <div className={statCard}>
             <div className={`${statValue} flex items-center justify-center gap-1.5`}>
               <BookOpen size={16} /> {totalChapters}

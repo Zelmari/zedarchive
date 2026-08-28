@@ -94,10 +94,33 @@ const sampleEntries: MediaEntry[] = [
     genres: [],
     synopsis: null,
     coverImage: null,
-    sourceId: null,
     notes: null,
     createdAt: '2025-01-01T00:00:00.000Z',
     updatedAt: '2025-11-20T12:00:00.000Z',
+  },
+  {
+    id: '5',
+    userId: 'u1',
+    title: 'Inception',
+    category: 'movie',
+    status: 'completed',
+    primaryUnitCurrent: 2, // Watched twice
+    primaryUnitTotal: 1,
+    secondaryUnitCurrent: 148,
+    secondaryUnitTotal: 148,
+    structure: [],
+    completedAt: '2026-06-15T12:00:00.000Z',
+    startedAt: null,
+    rewatchCount: 1,
+    rating: 9,
+    tags: ['sci-fi'],
+    genres: ['Action', 'Sci-Fi'],
+    synopsis: null,
+    coverImage: null,
+    sourceId: 'tmdb-27205',
+    notes: null,
+    createdAt: '2026-06-15T00:00:00.000Z',
+    updatedAt: '2026-06-15T12:00:00.000Z',
   },
 ];
 
@@ -105,18 +128,20 @@ describe('calculateArchiveStats', () => {
   it('aggregates total counts, category breakdowns, and ratings accurately', () => {
     const stats = calculateArchiveStats(sampleEntries);
 
-    expect(stats.totalEntries).toBe(4);
-    expect(stats.completedCount).toBe(3);
+    expect(stats.totalEntries).toBe(5);
+    expect(stats.completedCount).toBe(4);
     expect(stats.inProgressCount).toBe(1);
     expect(stats.showCount).toBe(1);
+    expect(stats.movieCount).toBe(1);
     expect(stats.animeCount).toBe(1);
     expect(stats.bookCount).toBe(1);
     expect(stats.mangaCount).toBe(1);
     expect(stats.totalEpisodes).toBe(37); // 28 + 9
     expect(stats.totalChapters).toBe(714); // 350 + 364
-    expect(stats.avgRating).toBe('9.7'); // (10 + 9 + 10) / 3 = 9.666... -> 9.7
-    expect(stats.completionRate).toBe(75); // 3/4 = 75%
-    expect(stats.topRated).toHaveLength(3);
+    expect(stats.totalMovieMinutes).toBe(148);
+    expect(stats.avgRating).toBe('9.5'); // (10 + 9 + 10 + 9) / 4 = 9.5
+    expect(stats.completionRate).toBe(80); // 4/5 = 80%
+    expect(stats.topRated).toHaveLength(4);
   });
 });
 
@@ -125,14 +150,17 @@ describe('calculateYearlyStats', () => {
     const yearly = calculateYearlyStats(sampleEntries, 2026);
 
     expect(yearly.year).toBe(2026);
-    expect(yearly.totalCompleted).toBe(2);
+    expect(yearly.totalCompleted).toBe(3);
     expect(yearly.completedAnime).toBe(1);
     expect(yearly.completedShows).toBe(1);
+    expect(yearly.completedMovies).toBe(1);
+    expect(yearly.movieMinutesWatched).toBe(148);
     expect(yearly.completedBooks).toBe(0);
     expect(yearly.episodesWatched).toBe(37); // 28 + 9
-    expect(yearly.avgRating).toBe('9.5'); // (10 + 9) / 2
+    expect(yearly.avgRating).toBe('9.3'); // (10 + 9 + 9) / 3 = 9.333 -> 9.3
     expect(yearly.completionsByMonth[2]).toBe(1); // March
     expect(yearly.completionsByMonth[3]).toBe(1); // April
+    expect(yearly.completionsByMonth[5]).toBe(1); // June
   });
 
   it('filters and computes annual report for 2025', () => {

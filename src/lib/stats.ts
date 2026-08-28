@@ -8,11 +8,13 @@ export interface ArchiveStats {
   onHoldCount: number;
   droppedCount: number;
   showCount: number;
+  movieCount: number;
   animeCount: number;
   bookCount: number;
   mangaCount: number;
   totalEpisodes: number;
   totalChapters: number;
+  totalMovieMinutes: number;
   avgRating: string;
   completionRate: number;
   ratedCount: number;
@@ -23,11 +25,13 @@ export interface YearlyStats {
   year: number;
   totalCompleted: number;
   completedShows: number;
+  completedMovies: number;
   completedAnime: number;
   completedBooks: number;
   completedManga: number;
   episodesWatched: number;
   chaptersRead: number;
+  movieMinutesWatched: number;
   avgRating: string;
   ratedCount: number;
   topRated: MediaEntry[];
@@ -39,6 +43,7 @@ export interface YearlyStats {
 export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
   const totalEntries = entries.length;
   const showEntries = entries.filter((e) => e.category === 'show');
+  const movieEntries = entries.filter((e) => e.category === 'movie');
   const animeEntries = entries.filter((e) => e.category === 'anime');
   const bookEntries = entries.filter((e) => e.category === 'book');
   const mangaEntries = entries.filter((e) => e.category === 'manga');
@@ -56,6 +61,11 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
   const totalChapters = entries
     .filter((e) => e.category === 'book' || e.category === 'manga')
     .reduce((sum, e) => sum + (e.secondaryUnitCurrent || 0), 0);
+
+  const totalMovieMinutes = movieEntries.reduce(
+    (sum, e) => sum + (e.secondaryUnitCurrent || e.secondaryUnitTotal || 0),
+    0,
+  );
 
   const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
   const avgRating =
@@ -76,11 +86,13 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
     onHoldCount: onHoldEntries.length,
     droppedCount: droppedEntries.length,
     showCount: showEntries.length,
+    movieCount: movieEntries.length,
     animeCount: animeEntries.length,
     bookCount: bookEntries.length,
     mangaCount: mangaEntries.length,
     totalEpisodes,
     totalChapters,
+    totalMovieMinutes,
     avgRating,
     completionRate,
     ratedCount: ratedEntries.length,
@@ -124,24 +136,29 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
 
   // Category counts
   let completedShows = 0;
+  let completedMovies = 0;
   let completedAnime = 0;
   let completedBooks = 0;
   let completedManga = 0;
 
   let episodesWatched = 0;
   let chaptersRead = 0;
+  let movieMinutesWatched = 0;
 
   const completionsByMonth = new Array<number>(12).fill(0);
 
   for (const entry of completedInYear) {
     if (entry.category === 'show') completedShows++;
-    else if (entry.category === 'anime') completedAnime++;
+    else if (entry.category === 'movie') {
+      completedMovies++;
+      movieMinutesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+    } else if (entry.category === 'anime') completedAnime++;
     else if (entry.category === 'book') completedBooks++;
     else if (entry.category === 'manga') completedManga++;
 
     if (entry.category === 'show' || entry.category === 'anime') {
       episodesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
-    } else {
+    } else if (entry.category === 'book' || entry.category === 'manga') {
       chaptersRead += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
     }
 
@@ -164,6 +181,7 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
 
   const categoryTotals: Record<string, number> = {
     Shows: completedShows,
+    Movies: completedMovies,
     Anime: completedAnime,
     Books: completedBooks,
     Manga: completedManga,
@@ -182,11 +200,13 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     year,
     totalCompleted: completedInYear.length,
     completedShows,
+    completedMovies,
     completedAnime,
     completedBooks,
     completedManga,
     episodesWatched,
     chaptersRead,
+    movieMinutesWatched,
     avgRating,
     ratedCount: ratedInYear.length,
     topRated,
