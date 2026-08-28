@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, ArrowRight, BookOpen, Globe, User } from 'lucide-react';
+import { ArrowRight, BookOpen, Globe, User } from 'lucide-react';
 import { getInitials, formatMonthYear } from '@/lib/format';
 import type { PublicUserSearchResult } from '@/types/user';
 import UserSearchCombobox from '@/components/search/UserSearchCombobox';
@@ -18,7 +17,6 @@ export default function SearchResultsClient({
   initialResults,
 }: SearchResultsClientProps) {
   const router = useRouter();
-  const [query, setQuery] = useState(initialQuery);
 
   return (
     <div className="space-y-6">
