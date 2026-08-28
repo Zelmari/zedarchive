@@ -11,6 +11,7 @@ import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 
 import { THEME_LABELS } from '@/lib/constants';
+import { MarkdownNotes } from '@/lib/markdown';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -377,19 +378,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           </div>
 
                           {item.notes && (
-                            <p
-                              style={{
-                                fontSize: '0.75rem',
-                                color: 'var(--za-color-text-muted)',
-                                marginTop: 'var(--za-space-2)',
-                                lineHeight: 1.4,
-                                maxHeight: '3.5rem',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              &ldquo;{item.notes}&rdquo;
-                            </p>
+                            <div className="mt-2 max-h-16 overflow-hidden text-ellipsis text-xs text-ink-muted">
+                              <MarkdownNotes content={item.notes} />
+                            </div>
                           )}
                         </div>
                       </div>

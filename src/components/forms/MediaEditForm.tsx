@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { Tv, Film, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
 import { PRESET_DROP_REASONS, MAX_DROP_REASON_LENGTH } from '@/lib/constants';
+import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface MediaFormState {
@@ -78,6 +80,7 @@ export default function MediaEditForm({
   onSubmit,
   onCancel,
 }: MediaEditFormProps) {
+  const [notesTab, setNotesTab] = useState<'write' | 'preview'>('write');
   const isMovie = category === 'movie';
   const isShowLike = category === 'show' || category === 'anime';
   const unitLabels = isMovie
@@ -435,21 +438,58 @@ export default function MediaEditForm({
 
       {/* Notes */}
       <div className="mb-[var(--za-space-5)]">
-        <label
-          htmlFor="media-notes"
-          className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-        >
-          Personal Notes & Review
-        </label>
-        <textarea
-          id="media-notes"
-          rows={3}
-          placeholder="Thoughts, quotes, or reminders..."
-          value={form.notes}
-          onChange={(e) => onFieldChange('notes', e.target.value)}
-          style={{ resize: 'vertical', minHeight: '4.5rem' }}
-          className={formInput}
-        />
+        <div className="mb-1.5 flex items-center justify-between">
+          <label
+            htmlFor="media-notes"
+            className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
+          >
+            Personal Notes & Review
+          </label>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setNotesTab('write')}
+              className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+                notesTab === 'write'
+                  ? 'border border-required bg-surface-subtle text-ink'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              Write
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotesTab('preview')}
+              className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+                notesTab === 'preview'
+                  ? 'border border-accent bg-accent/15 text-accent'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+
+        {notesTab === 'write' ? (
+          <textarea
+            id="media-notes"
+            rows={3}
+            placeholder="Thoughts, quotes, or markdown notes (supports **bold**, *italic*, > quotes, - lists)..."
+            value={form.notes}
+            onChange={(e) => onFieldChange('notes', e.target.value)}
+            style={{ resize: 'vertical', minHeight: '5rem' }}
+            className={formInput}
+          />
+        ) : (
+          <div className="min-h-[5rem] rounded-control border border-decorative bg-surface-subtle p-3 text-xs">
+            {form.notes.trim() ? (
+              <MarkdownNotes content={form.notes} />
+            ) : (
+              <span className="italic text-ink-muted">Nothing to preview yet.</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex justify-end gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-4)]">

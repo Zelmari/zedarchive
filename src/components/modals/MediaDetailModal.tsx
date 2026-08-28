@@ -20,6 +20,7 @@ import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
+import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, MediaCycle } from '@/types/media';
 import type { WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
@@ -964,8 +965,8 @@ export default function MediaDetailModal({
                 <div className={sectionLabel}>
                   <FileText size={12} /> PERSONAL NOTES
                 </div>
-                <div className="whitespace-pre-wrap rounded-control border border-decorative bg-surface-subtle p-[var(--za-space-3)] text-[length:var(--za-text-fine)]">
-                  {item.notes}
+                <div className="rounded-control border border-decorative bg-surface-subtle p-[var(--za-space-3)] text-[length:var(--za-text-fine)]">
+                  <MarkdownNotes content={item.notes} />
                 </div>
               </div>
             )}
