@@ -25,7 +25,7 @@ interface WrappedClientProps {
   userName: string;
   userHandle?: string | null;
   isPublicView?: boolean;
-  basePath: string; // e.g. "/wrapped" or "/u/zelmari/wrapped"
+  basePath: string; // e.g. "/wrapped" or "/u/johnsmith/wrapped"
 }
 
 const MONTH_NAMES = [

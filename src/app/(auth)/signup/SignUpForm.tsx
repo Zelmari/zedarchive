@@ -149,7 +149,7 @@ export default function SignUpForm() {
                 className="za-field"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Zelmari"
+                placeholder="e.g. John Smith"
               />
             </div>
 

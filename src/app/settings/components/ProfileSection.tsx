@@ -212,7 +212,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
           </label>
           <input
             type="text"
-            placeholder="e.g. zelmari"
+            placeholder="e.g. johnsmith"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="za-field w-full"

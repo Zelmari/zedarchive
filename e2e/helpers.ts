@@ -97,7 +97,7 @@ export async function registerAndAuthenticate(page: Page, user: E2EUser): Promis
 export async function signUp(page: Page, user: E2EUser): Promise<void> {
   for (let attempt = 0; attempt < 6; attempt++) {
     await page.goto('/signup');
-    await page.getByPlaceholder('e.g. Zelmari').fill(user.name);
+    await page.getByPlaceholder('e.g. John Smith').fill(user.name);
     await page.getByPlaceholder('name@example.com').fill(user.email);
     const password = page.getByPlaceholder('At least 8 characters');
     await password.fill(user.password);

@@ -108,7 +108,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
             Search usernames to explore other members&rsquo; public collections and guestbooks.
           </p>
           <UserSearchCombobox
-            placeholder="Search by username or name (e.g. zelmari)…"
+            placeholder="Search by username or name (e.g. John Smith)…"
             onSelectUser={(username) => {
               onClose();
               router.push(`/u/${username}`);
