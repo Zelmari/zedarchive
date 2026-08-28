@@ -1,0 +1,1 @@
+ALTER TABLE "media_entries" ADD COLUMN "quotes" jsonb DEFAULT '[]'::jsonb;

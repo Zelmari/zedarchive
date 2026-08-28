@@ -15,15 +15,18 @@ import {
   Calendar,
   Check,
   ExternalLink,
+  Quote,
+  Copy,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
 import { MarkdownNotes } from '@/lib/markdown';
-import type { MediaEntry, MediaCycle } from '@/types/media';
+import type { MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
 import type { WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
+import { addMediaQuote, updateMediaQuote, deleteMediaQuote } from '@/server/media';
 
 interface MediaDetailModalProps {
   isOpen: boolean;
@@ -92,6 +95,21 @@ export default function MediaDetailModal({
   // Anime filler guide state
   const [fillerMap, setFillerMap] = useState<AnimeFillerMap | null>(null);
   const [fillerFilter, setFillerFilter] = useState<'all' | 'canon_only'>('all');
+
+  // Quotes state
+  const [editingQuoteId, setEditingQuoteId] = useState<string | 'new' | null>(null);
+  const [quoteForm, setQuoteForm] = useState<{
+    text: string;
+    speaker: string;
+    citation: string;
+    isFavorite: boolean;
+  }>({
+    text: '',
+    speaker: '',
+    citation: '',
+    isFavorite: false,
+  });
+  const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !item) return;
@@ -275,6 +293,60 @@ export default function MediaDetailModal({
     if (editingCycleId === cycleId) {
       setEditingCycleId(null);
     }
+  };
+
+  // Quotes handlers
+  const handleOpenAddQuote = () => {
+    setQuoteForm({ text: '', speaker: '', citation: '', isFavorite: false });
+    setEditingQuoteId('new');
+  };
+
+  const handleOpenEditQuote = (quote: MediaQuote) => {
+    setQuoteForm({
+      text: quote.text,
+      speaker: quote.speaker || '',
+      citation: quote.citation || '',
+      isFavorite: Boolean(quote.isFavorite),
+    });
+    setEditingQuoteId(quote.id);
+  };
+
+  const handleSaveQuote = async () => {
+    if (!item || !quoteForm.text.trim()) return;
+    setIsUpdating(true);
+    try {
+      if (editingQuoteId === 'new') {
+        const updated = await addMediaQuote(item.id, quoteForm);
+        await onUpdate(item.id, { quotes: updated.quotes });
+      } else if (editingQuoteId) {
+        const updated = await updateMediaQuote(item.id, editingQuoteId, quoteForm);
+        await onUpdate(item.id, { quotes: updated.quotes });
+      }
+      setEditingQuoteId(null);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteQuote = async (quoteId: string) => {
+    if (!item) return;
+    setIsUpdating(true);
+    try {
+      const updated = await deleteMediaQuote(item.id, quoteId);
+      await onUpdate(item.id, { quotes: updated.quotes });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCopyQuote = (quote: MediaQuote) => {
+    const speakerPart = quote.speaker ? ` — ${quote.speaker}` : '';
+    const titlePart = `, ${item?.title || ''}`;
+    const citationPart = quote.citation ? ` (${quote.citation})` : '';
+    const textToCopy = `“${quote.text}”${speakerPart}${titlePart}${citationPart}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedQuoteId(quote.id);
+    setTimeout(() => setCopiedQuoteId(null), 2000);
   };
 
   const handleSetEpisode = async (epNumber: number, seasonNumber: number) => {
@@ -970,6 +1042,163 @@ export default function MediaDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Quotes & Excerpts */}
+            <div className="mt-[var(--za-space-4)]">
+              <div className="mb-1.5 flex items-center justify-between">
+                <div className={sectionLabel}>
+                  <Quote size={12} /> QUOTES & EXCERPTS ({(item.quotes || []).length})
+                </div>
+                {!editingQuoteId && (
+                  <button
+                    type="button"
+                    onClick={handleOpenAddQuote}
+                    className="cursor-pointer text-xs font-[var(--za-weight-emphasis)] text-accent hover:underline"
+                  >
+                    + Add Quote
+                  </button>
+                )}
+              </div>
+
+              {/* Inline Quote Add/Edit Form */}
+              {editingQuoteId && (
+                <div className="mb-3 rounded-control border border-required bg-surface p-3 text-xs">
+                  <div className="mb-2 font-[var(--za-weight-emphasis)] text-ink">
+                    {editingQuoteId === 'new' ? 'Add Memorable Quote' : 'Edit Quote'}
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-muted">
+                        Quote Text *
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="“Fear is the mind-killer...”"
+                        className="w-full rounded-small border border-decorative bg-surface p-2 text-xs text-ink focus:border-accent focus:outline-none"
+                        value={quoteForm.text}
+                        onChange={(e) => setQuoteForm((p) => ({ ...p, text: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-ink-muted">
+                          Speaker / Character (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Paul Atreides"
+                          className="w-full rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink focus:border-accent focus:outline-none"
+                          value={quoteForm.speaker}
+                          onChange={(e) => setQuoteForm((p) => ({ ...p, speaker: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-ink-muted">
+                          Citation / Page / Timestamp (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Chapter 1, p. 8"
+                          className="w-full rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink focus:border-accent focus:outline-none"
+                          value={quoteForm.citation}
+                          onChange={(e) =>
+                            setQuoteForm((p) => ({ ...p, citation: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted">
+                        <input
+                          type="checkbox"
+                          checked={quoteForm.isFavorite}
+                          onChange={(e) =>
+                            setQuoteForm((p) => ({ ...p, isFavorite: e.target.checked }))
+                          }
+                          className="h-3.5 w-3.5 rounded border-decorative"
+                        />
+                        <span>Favorite Quote</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingQuoteId(null)}
+                          className="za-button za-button--secondary px-2.5 py-1 text-xs"
+                          disabled={isUpdating}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveQuote}
+                          className="za-button za-button--primary px-2.5 py-1 text-xs"
+                          disabled={isUpdating || !quoteForm.text.trim()}
+                        >
+                          Save Quote
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Quotes List */}
+              {(item.quotes || []).length > 0 ? (
+                <div className="space-y-2">
+                  {(item.quotes || []).map((q) => (
+                    <div
+                      key={q.id}
+                      className="group relative rounded-control border border-decorative bg-surface-subtle p-3 text-xs transition-colors hover:border-required"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="italic leading-relaxed text-ink">&ldquo;{q.text}&rdquo;</p>
+                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyQuote(q)}
+                            title="Copy formatted quote"
+                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
+                          >
+                            {copiedQuoteId === q.id ? (
+                              <Check size={11} className="text-success" />
+                            ) : (
+                              <Copy size={11} />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditQuote(q)}
+                            title="Edit quote"
+                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
+                          >
+                            <Pencil size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuote(q.id)}
+                            title="Delete quote"
+                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-danger hover:text-danger"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </div>
+                      {(q.speaker || q.citation) && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                          {q.isFavorite && <Star size={10} className="fill-accent text-accent" />}
+                          <span>— {q.speaker || 'Unknown'}</span>
+                          {q.citation && <span>· {q.citation}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : !editingQuoteId ? (
+                <div className="rounded-control border border-dashed border-decorative p-3 text-center text-xs text-ink-muted">
+                  No quotes saved yet. Click &ldquo;+ Add Quote&rdquo; to save memorable lines.
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 

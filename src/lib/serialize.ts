@@ -65,6 +65,16 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
               },
             ]
           : [],
+    quotes: Array.isArray(entry.quotes)
+      ? (entry.quotes as Record<string, unknown>[]).map((q) => ({
+          id: typeof q.id === 'string' && q.id ? q.id : crypto.randomUUID(),
+          text: typeof q.text === 'string' ? q.text : '',
+          speaker: typeof q.speaker === 'string' ? q.speaker : null,
+          citation: typeof q.citation === 'string' ? q.citation : null,
+          isFavorite: Boolean(q.isFavorite),
+          createdAt: typeof q.createdAt === 'string' ? q.createdAt : new Date().toISOString(),
+        }))
+      : [],
     priorityIndex: entry.priorityIndex != null ? Number(entry.priorityIndex) : null,
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',

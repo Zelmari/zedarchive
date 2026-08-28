@@ -382,6 +382,22 @@ export default async function PublicProfilePage({ params }: PageParams) {
                               <MarkdownNotes content={item.notes} />
                             </div>
                           )}
+
+                          {item.quotes && item.quotes.length > 0 && (
+                            <div className="mt-2 rounded-small border border-decorative bg-surface-subtle p-2 text-xs italic text-ink-muted">
+                              &ldquo;
+                              {item.quotes.find((q) => q.isFavorite)?.text || item.quotes[0]?.text}
+                              &rdquo;
+                              {(item.quotes.find((q) => q.isFavorite)?.speaker ||
+                                item.quotes[0]?.speaker) && (
+                                <span className="block not-italic text-[10px] text-ink-muted mt-0.5">
+                                  —{' '}
+                                  {item.quotes.find((q) => q.isFavorite)?.speaker ||
+                                    item.quotes[0]?.speaker}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
