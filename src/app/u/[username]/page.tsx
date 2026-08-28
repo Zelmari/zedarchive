@@ -3,12 +3,14 @@ import Image from 'next/image';
 import { headers } from 'next/headers';
 import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
 import { getCommentsByProfileUserId } from '@/server/queries/comments';
+import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
 import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
 import { Star, ShieldAlert } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
+import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
 
 import { THEME_LABELS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
@@ -113,6 +115,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   // Guestbook comments (auto-purges expired rows for this profile)
   const initialComments = await getCommentsByProfileUserId(user.id, session?.user?.id);
+  const activityHeatmap = await getYearlyActivityHeatmapForUser(user.id);
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();
@@ -280,6 +283,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Avg Rating</div>
               </div>
             </div>
+
+            {/* Yearly Contribution Heatmap */}
+            <ActivityHeatmap activityMap={activityHeatmap} className="mt-5" />
           </div>
 
           {/* Media Grid */}

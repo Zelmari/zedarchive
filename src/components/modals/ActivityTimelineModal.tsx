@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Flame, CheckCircle, Clock, Activity as ActivityIcon, RotateCcw, Star } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
-import { getActivityLogs, getUserStreak } from '@/server/activity';
+import { getActivityLogs, getUserStreak, getActivityHeatmap } from '@/server/activity';
+import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import type { ActivityLog } from '@/types/activity';
 import { cn } from '@/lib/utils';
@@ -16,16 +17,22 @@ interface ActivityTimelineModalProps {
 export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimelineModalProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [streak, setStreak] = useState(0);
+  const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset + load pattern for modal open
       setLoading(true);
-      Promise.all([getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT), getUserStreak()])
-        .then(([logData, streakData]) => {
+      Promise.all([
+        getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT),
+        getUserStreak(),
+        getActivityHeatmap(),
+      ])
+        .then(([logData, streakData, heatmap]) => {
           setLogs(logData || []);
           setStreak(streakData?.streak ?? 0);
+          setHeatmapData(heatmap || {});
         })
         .catch((e) => console.error('Failed to load activity logs:', e))
         .finally(() => setLoading(false));
@@ -109,6 +116,9 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
       }}
     >
       <div className="flex-1 overflow-y-auto px-[var(--za-space-6)] py-[var(--za-space-4)]">
+        {/* Yearly Activity Heatmap */}
+        <ActivityHeatmap activityMap={heatmapData} className="mb-[var(--za-space-4)]" />
+
         {/* Streak Banner */}
         <div
           className="mb-[var(--za-space-4)] flex items-center justify-between rounded-control border p-[var(--za-space-4)]"

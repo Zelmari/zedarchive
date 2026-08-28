@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { mediaActivityLogs } from '@/db/schema';
-import { eq, desc, sql, type SQL } from 'drizzle-orm';
+import { eq, desc, sql, and, gte, type SQL } from 'drizzle-orm';
 import type { ActivityLog } from '@/types/activity';
 
 export async function getActivityLogsByUserId(userId: string, limit = 40): Promise<ActivityLog[]> {
@@ -60,4 +60,33 @@ export async function getUserStreakForUser(userId: string): Promise<{ streak: nu
   }
 
   return { streak };
+}
+
+export async function getYearlyActivityHeatmapForUser(
+  userId: string,
+): Promise<Record<string, number>> {
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  oneYearAgo.setHours(0, 0, 0, 0);
+
+  const dayExpr: SQL = sql`DATE(created_at AT TIME ZONE 'UTC')`;
+  const countExpr: SQL = sql`COUNT(*)::int`;
+
+  const rows = await db
+    .select({
+      day: dayExpr.as('day'),
+      count: countExpr.as('count'),
+    })
+    .from(mediaActivityLogs)
+    .where(and(eq(mediaActivityLogs.userId, userId), gte(mediaActivityLogs.createdAt, oneYearAgo)))
+    .groupBy(sql`day`);
+
+  const activityMap: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.day) {
+      activityMap[String(row.day).slice(0, 10)] = Number(row.count) || 0;
+    }
+  }
+
+  return activityMap;
 }
