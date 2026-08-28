@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen } from 'lucide-react';
+import { Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen, BookmarkX } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
+import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials } from '@/lib/format';
 import type { MediaEntry } from '@/types/media';
 
@@ -36,6 +37,7 @@ export default function MediaDetailModal({
   const [activeSeason, setActiveSeason] = useState(1);
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDropReasonOpen, setIsDropReasonOpen] = useState(false);
 
   if (!isOpen || !item) return null;
 
@@ -222,6 +224,62 @@ export default function MediaDetailModal({
 
           {/* Right Column */}
           <div>
+            {status === 'dropped' && (
+              <div className="mb-[var(--za-space-4)] rounded-control border border-danger/30 bg-danger/5 p-[var(--za-space-3)]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <BookmarkX size={16} className="mt-0.5 shrink-0 text-danger" />
+                    <div>
+                      <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger">
+                        Dropped
+                        {item.droppedAt
+                          ? ` on ${new Date(item.droppedAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}`
+                          : ''}
+                        {(() => {
+                          const pri = item.droppedProgressPrimary ?? primaryCurrent;
+                          const sec = item.droppedProgressSecondary ?? secondaryCurrent;
+                          if (category === 'movie') return '';
+                          if (isBookLike) {
+                            return sec != null && sec > 0
+                              ? ` at Vol ${pri}, Ch ${sec}`
+                              : ` at Vol ${pri}`;
+                          }
+                          return sec != null && sec > 0
+                            ? ` at Season ${pri}, Ep ${sec}`
+                            : ` at Season ${pri}`;
+                        })()}
+                      </div>
+                      {item.dropReason && (
+                        <p className="mt-1 text-[length:var(--za-text-fine)] text-ink italic">
+                          Reason: &ldquo;{item.dropReason}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsDropReasonOpen(true)}
+                      className="cursor-pointer rounded-small border border-decorative bg-surface px-2 py-0.5 text-xs text-ink-muted hover:border-required hover:text-ink"
+                    >
+                      Edit Reason
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runUpdate({ status: 'in_progress' })}
+                      className="cursor-pointer rounded-small border border-required bg-surface px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] text-ink hover:bg-surface-hover"
+                    >
+                      Resume
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {item.synopsis && (
               <div className="mb-[var(--za-space-4)]">
                 <div className={sectionLabel}>SYNOPSIS</div>
@@ -328,6 +386,17 @@ export default function MediaDetailModal({
           </button>
         </div>
       </div>
+
+      <DropReasonModal
+        isOpen={isDropReasonOpen}
+        itemTitle={item.title}
+        initialReason={item.dropReason}
+        onConfirm={async (reason) => {
+          setIsDropReasonOpen(false);
+          await runUpdate({ dropReason: reason });
+        }}
+        onCancel={() => setIsDropReasonOpen(false)}
+      />
     </Modal>
   );
 }

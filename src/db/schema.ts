@@ -110,6 +110,10 @@ export const mediaEntries = pgTable(
 
     // Media & Metadata
     status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped'
+    dropReason: text('drop_reason'), // Short explanation or preset category (max 500 chars)
+    droppedAt: timestamp('dropped_at'), // Exact date/time the title was dropped
+    droppedProgressPrimary: integer('dropped_progress_primary'), // Season/Volume when dropped
+    droppedProgressSecondary: integer('dropped_progress_secondary'), // Episode/Chapter/Page when dropped
     completedAt: timestamp('completed_at'),
     startedAt: timestamp('started_at'),
     rewatchCount: integer('rewatch_count').notNull().default(0),
@@ -126,6 +130,7 @@ export const mediaEntries = pgTable(
   (table) => [
     index('media_entries_user_id_idx').on(table.userId),
     index('media_entries_user_updated_idx').on(table.userId, table.updatedAt.desc()),
+    index('media_entries_user_status_idx').on(table.userId, table.status),
   ],
 );
 

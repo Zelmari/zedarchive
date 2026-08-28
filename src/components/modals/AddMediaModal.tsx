@@ -16,6 +16,7 @@ let lastCategory: MediaCategory | null = null;
 const EMPTY_FORM: MediaFormState = {
   title: '',
   status: 'in_progress',
+  dropReason: '',
   rating: null,
   primaryUnitTotal: '1',
   primaryUnitCurrent: '1',
@@ -71,8 +72,6 @@ export default function AddMediaModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverRequestRef = useRef(0);
 
-  const isShowLike = category === 'show' || category === 'anime';
-
   const resetForm = useCallback(() => {
     if (editItem) {
       const cat = editItem.category || 'show';
@@ -80,6 +79,7 @@ export default function AddMediaModal({
       setForm({
         title: String(editItem.title || ''),
         status: String(editItem.status || 'in_progress'),
+        dropReason: String(editItem.dropReason || ''),
         rating: editItem.rating != null ? Number(editItem.rating) : null,
         primaryUnitTotal:
           editItem.primaryUnitTotal != null ? String(editItem.primaryUnitTotal) : '',
@@ -98,21 +98,26 @@ export default function AddMediaModal({
         notes: String(editItem.notes || ''),
         coverImage: (editItem.coverImage as string | null) || null,
       });
-      setViewMode('manual');
     } else {
+      setCategory(initialCategory);
       setForm(EMPTY_FORM);
-      setCategory(lastCategory || type || 'show');
-      setViewMode('search');
     }
-    setError('');
-    coverRequestRef.current += 1;
-  }, [editItem, type]);
+  }, [editItem, initialCategory]);
+
+  useEffect(() => {
+    if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
+      resetForm();
+      setViewMode(isEditMode ? 'manual' : 'search');
+      setError('');
+    }
+  }, [isOpen, resetForm, isEditMode]);
 
   const resetAndClose = useCallback(() => {
     if (isSubmitting || isCompressing) return;
-    resetForm();
+    setError('');
     onClose();
-  }, [resetForm, onClose, isSubmitting, isCompressing]);
+  }, [onClose, isSubmitting, isCompressing]);
 
   // Escape in search view → manual; in manual view → close.
   const handleEscape = useCallback(() => {
@@ -127,14 +132,6 @@ export default function AddMediaModal({
     initialFocusRef: titleInputRef,
   });
 
-  // Sync form when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
-      resetForm();
-    }
-  }, [isOpen, resetForm]);
-
   if (!isOpen) return null;
 
   const setField = <K extends keyof MediaFormState>(field: K, value: MediaFormState[K]) => {
@@ -142,39 +139,27 @@ export default function AddMediaModal({
   };
 
   const handleSelectResult = async (item: SpotlightResult) => {
-    const requestId = ++coverRequestRef.current;
-    const selectedCategory = (item.category as MediaCategory) || category;
-    if (item.category) {
-      updateCategory(item.category as MediaCategory);
-    }
+    const isMovie = category === 'movie';
 
-    const isMovie = selectedCategory === 'movie';
-    const itemStructure = isMovie ? [] : item.structure || [];
-
-    setForm((prev) => {
-      const primTotal = isMovie
-        ? 1
-        : item.primaryUnitTotal || (itemStructure.length > 0 ? itemStructure.length : 1);
-      const season1 = itemStructure.find((s) => s.number === 1);
-      const secTotal = isMovie
-        ? (item.secondaryUnitTotal ?? '')
-        : (season1?.total ?? item.secondaryUnitTotal ?? '');
-      return {
-        ...prev,
-        title: item.title || '',
-        sourceId: item.sourceId || '',
-        structure: itemStructure,
-        primaryUnitTotal: String(primTotal),
-        primaryUnitCurrent: isMovie ? '0' : '1',
-        secondaryUnitCurrent: '0',
-        secondaryUnitTotal: secTotal ? String(secTotal) : '',
-      };
+    setForm({
+      title: item.title || '',
+      status: 'in_progress',
+      dropReason: '',
+      rating: null,
+      primaryUnitTotal: String(item.primaryUnitTotal || 1),
+      primaryUnitCurrent: isMovie ? '0' : '1',
+      secondaryUnitTotal: item.secondaryUnitTotal ? String(item.secondaryUnitTotal) : '',
+      secondaryUnitCurrent: '0',
+      structure: item.structure || [],
+      sourceId: item.sourceId || '',
+      notes: '',
+      coverImage: item.coverUrl || null,
     });
-
     setViewMode('manual');
 
     // Fetch and compress remote poster
     if (item.coverUrl) {
+      const requestId = ++coverRequestRef.current;
       setIsCompressing(true);
       try {
         const compressedBase64 = await fetchAndCompressRemoteImage(item.coverUrl, 320, 480, 0.7);
@@ -271,6 +256,8 @@ export default function AddMediaModal({
         title: form.title.trim(),
         category,
         status: form.status,
+        dropReason:
+          form.status === 'dropped' && form.dropReason?.trim() ? form.dropReason.trim() : null,
         rating: form.rating != null ? parseInt(String(form.rating), 10) : null,
         primaryUnitCurrent: parseInt(form.primaryUnitCurrent, 10) || 1,
         primaryUnitTotal: form.primaryUnitTotal ? parseInt(form.primaryUnitTotal, 10) : 1,

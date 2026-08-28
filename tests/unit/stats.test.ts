@@ -9,6 +9,10 @@ const sampleEntries: MediaEntry[] = [
     title: "Frieren: Beyond Journey's End",
     category: 'anime',
     status: 'completed',
+    dropReason: null,
+    droppedAt: null,
+    droppedProgressPrimary: null,
+    droppedProgressSecondary: null,
     primaryUnitCurrent: 1,
     primaryUnitTotal: 1,
     secondaryUnitCurrent: 28,
@@ -33,6 +37,10 @@ const sampleEntries: MediaEntry[] = [
     title: 'Severance',
     category: 'show',
     status: 'completed',
+    dropReason: null,
+    droppedAt: null,
+    droppedProgressPrimary: null,
+    droppedProgressSecondary: null,
     primaryUnitCurrent: 1,
     primaryUnitTotal: 1,
     secondaryUnitCurrent: 9,
@@ -57,6 +65,10 @@ const sampleEntries: MediaEntry[] = [
     title: 'Dune',
     category: 'book',
     status: 'in_progress',
+    dropReason: null,
+    droppedAt: null,
+    droppedProgressPrimary: null,
+    droppedProgressSecondary: null,
     primaryUnitCurrent: 1,
     primaryUnitTotal: 1,
     secondaryUnitCurrent: 350,
@@ -81,6 +93,10 @@ const sampleEntries: MediaEntry[] = [
     title: 'Berserk',
     category: 'manga',
     status: 'completed',
+    dropReason: null,
+    droppedAt: null,
+    droppedProgressPrimary: null,
+    droppedProgressSecondary: null,
     primaryUnitCurrent: 1,
     primaryUnitTotal: 1,
     secondaryUnitCurrent: 364,
@@ -105,6 +121,10 @@ const sampleEntries: MediaEntry[] = [
     title: 'Inception',
     category: 'movie',
     status: 'completed',
+    dropReason: null,
+    droppedAt: null,
+    droppedProgressPrimary: null,
+    droppedProgressSecondary: null,
     primaryUnitCurrent: 2, // Watched twice
     primaryUnitTotal: 1,
     secondaryUnitCurrent: 148,
@@ -143,6 +163,45 @@ describe('calculateArchiveStats', () => {
     expect(stats.avgRating).toBe('9.5'); // (10 + 9 + 10 + 9) / 4 = 9.5
     expect(stats.completionRate).toBe(80); // 4/5 = 80%
     expect(stats.topRated).toHaveLength(4);
+  });
+
+  it('preserves progress units from dropped titles in cumulative consumption counts', () => {
+    const withDropped: MediaEntry[] = [
+      ...sampleEntries,
+      {
+        id: '6',
+        userId: 'u1',
+        title: 'Dropped Show',
+        category: 'show',
+        status: 'dropped',
+        dropReason: 'Lost interest after season 2',
+        droppedAt: '2026-07-01T00:00:00.000Z',
+        droppedProgressPrimary: 2,
+        droppedProgressSecondary: 5,
+        primaryUnitCurrent: 2,
+        primaryUnitTotal: 5,
+        secondaryUnitCurrent: 5,
+        secondaryUnitTotal: 10,
+        structure: [],
+        completedAt: null,
+        startedAt: '2026-06-01T00:00:00.000Z',
+        rewatchCount: 0,
+        rating: 5,
+        tags: [],
+        genres: [],
+        synopsis: null,
+        coverImage: null,
+        sourceId: null,
+        notes: null,
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+      },
+    ];
+
+    const stats = calculateArchiveStats(withDropped);
+    expect(stats.totalEntries).toBe(6);
+    expect(stats.droppedCount).toBe(1);
+    expect(stats.totalEpisodes).toBe(42); // 37 + 5 episodes watched before drop
   });
 });
 

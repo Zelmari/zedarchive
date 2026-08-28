@@ -9,6 +9,10 @@ type SerializedEntryInput = {
   synopsis?: string | null;
   startedAt?: Date | string | null;
   completedAt?: Date | string | null;
+  droppedAt?: Date | string | null;
+  dropReason?: string | null;
+  droppedProgressPrimary?: number | null;
+  droppedProgressSecondary?: number | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 } & Record<string, unknown>;
@@ -33,6 +37,12 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
     synopsis: entry.synopsis || null,
     startedAt: toIso(entry.startedAt),
     completedAt: toIso(entry.completedAt),
+    droppedAt: toIso(entry.droppedAt),
+    dropReason: typeof entry.dropReason === 'string' ? entry.dropReason : null,
+    droppedProgressPrimary:
+      entry.droppedProgressPrimary != null ? Number(entry.droppedProgressPrimary) : null,
+    droppedProgressSecondary:
+      entry.droppedProgressSecondary != null ? Number(entry.droppedProgressSecondary) : null,
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',
   };
