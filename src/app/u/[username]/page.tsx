@@ -1,25 +1,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { headers } from 'next/headers';
-import { getPublicUserProfile } from '@/server/profile';
-import { getProfileComments } from '@/server/comments';
+import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
+import { getCommentsByProfileUserId } from '@/server/queries/comments';
 import { calculateArchiveStats } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { user as userTable } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import { Star, ShieldAlert } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 
-const THEME_LABELS: Record<string, string> = {
-  parchment: 'Parchment',
-  midnight: 'Midnight Slate',
-  sepia: 'Vintage Sepia',
-  'e-ink': 'E-Ink',
-  cyber: 'Phosphor Cyber',
-};
+import { THEME_LABELS } from '@/lib/constants';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -90,23 +81,21 @@ export default async function PublicProfilePage({ params }: PageParams) {
   } = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.id) {
-    const [meRow] = await db
-      .select({
-        id: userTable.id,
-        username: userTable.username,
-        name: userTable.name,
-        image: userTable.image,
-        isPublic: userTable.isPublic,
-      })
-      .from(userTable)
-      .where(eq(userTable.id, session.user.id));
+    const meRow = await getUserProfileById(session.user.id);
     if (meRow) {
-      viewer = { isLoggedIn: true, ...meRow };
+      viewer = {
+        isLoggedIn: true,
+        id: meRow.id,
+        username: meRow.username,
+        name: meRow.name,
+        image: meRow.image,
+        isPublic: meRow.isPublic,
+      };
     }
   }
 
   // Guestbook comments (auto-purges expired rows for this profile)
-  const initialComments = await getProfileComments(user.id);
+  const initialComments = await getCommentsByProfileUserId(user.id, session?.user?.id);
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();
@@ -145,14 +134,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
       <main id="main-content" className="flex-1 pt-[var(--za-space-6)] pb-[var(--za-space-12)]">
         <div className="za-container">
           {/* Profile Header Masthead */}
-          <div
-            className="mb-[var(--za-space-6)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-6)] shadow-raised"
-            style={{
-              borderBottom: 'var(--za-border-width) solid var(--za-color-border-decorative)',
-            }}
-          >
+          <div className="mb-6 rounded-control border border-required border-b-decorative bg-surface p-6 shadow-raised">
             {/* Hero Identity Zone */}
-            <div className="flex flex-wrap items-center gap-[var(--za-space-5)]">
+            <div className="flex flex-wrap items-center gap-5">
               {user.image ? (
                 // eslint-disable-next-line @next/next/no-img-element -- compressed data URL avatars, unoptimized by design
                 <img
@@ -173,23 +157,17 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 <h1 className="text-2xl font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
                   {user.name}
                 </h1>
-                <div className="mt-1 flex flex-wrap items-center gap-[var(--za-space-2)]">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[length:var(--za-text-supporting)] text-ink-muted">
                     @{user.username}
                   </span>
-                  <span
-                    className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
-                    style={{
-                      background: 'rgba(46, 125, 50, 0.1)',
-                      color: '#2e7d32',
-                      borderColor: 'rgba(46, 125, 50, 0.3)',
-                    }}
-                  >
+                  <span className="inline-block rounded-small border border-success/30 bg-success/10 px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-success">
                     Public Archive
                   </span>
                   {user.theme && (
                     <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
-                      {THEME_LABELS[user.theme] ?? user.theme}
+                      {(user.theme && (THEME_LABELS as Record<string, string>)[user.theme]) ??
+                        user.theme}
                     </span>
                   )}
                 </div>
@@ -197,17 +175,14 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   Archiving since {formatMonthYear(user.createdAt)}
                 </p>
                 {user.bio && (
-                  <p
-                    className="mt-[var(--za-space-3)] border-l-2 border-decorative pl-[var(--za-space-3)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted"
-                    style={{ marginTop: 'var(--za-space-3)' }}
-                  >
+                  <p className="mt-3 border-l-2 border-decorative pl-3 text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                     {user.bio}
                   </p>
                 )}
               </div>
 
               {/* Quick Action Bar */}
-              <div className="flex flex-none flex-col items-end gap-[var(--za-space-2)]">
+              <div className="flex flex-none flex-col items-end gap-2">
                 <ShareArchiveButton url={profileUrl} />
                 <Link
                   href={`/u/${user.username}/wrapped/${currentYear}`}
@@ -227,10 +202,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
             </div>
 
             {/* Enriched Stats & Highlights Bar */}
-            <div
-              className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-[var(--za-space-3)]"
-              style={{ marginTop: 'var(--za-space-5)' }}
-            >
+            <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3">
               <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
                 <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
                   {stats.totalEntries}
@@ -238,10 +210,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Total Cataloged</div>
               </div>
               <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div
-                  className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
-                  style={{ color: '#2e7d32' }}
-                >
+                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-success">
                   {stats.completedCount}
                   <span className="text-xs text-ink-muted"> · {stats.completionRate}%</span>
                 </div>
@@ -306,6 +275,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                     <div className="flex items-start gap-[var(--za-space-4)]">
                       <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
                         {item.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
                           <img
                             src={item.coverImage}
                             alt={item.title}

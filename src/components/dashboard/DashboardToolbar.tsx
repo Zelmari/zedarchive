@@ -1,7 +1,7 @@
 'use client';
-import { Activity, BarChart2, Database, Search, Share2, Tag, X } from 'lucide-react';
 import type { RefObject } from 'react';
-import type { SortKey } from './hooks';
+import { Activity, BarChart2, Database, Search, Share2, Tag, X } from 'lucide-react';
+import type { SortKey } from '@/hooks/use-media-filters';
 
 interface DashboardToolbarProps {
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -130,7 +130,7 @@ export default function DashboardToolbar({
             },
             {
               label: 'Backup',
-              title: 'Export or Import Backups',
+              title: 'Export or Import Backups (Press B)',
               modal: 'data' as const,
               Icon: Database,
             },

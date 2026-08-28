@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { Star } from 'lucide-react';
+import type { MediaStatus } from '@/types/media';
 
-export type MediaStatusBadge = 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped';
-
-const STATUS_BADGE_CLASSES: Record<MediaStatusBadge, string> = {
+const STATUS_BADGE_CLASSES: Record<MediaStatus, string> = {
   in_progress: 'bg-surface-subtle border-decorative text-ink',
   completed: 'bg-[rgba(46,125,50,0.12)] border-[rgba(46,125,50,0.35)] text-[#2e7d32]',
   planning: 'bg-[rgba(100,116,139,0.12)] border-[rgba(100,116,139,0.35)] text-ink-muted',
@@ -28,7 +27,7 @@ export function Badge({ children, className = '' }: BadgeProps) {
 }
 
 interface StatusBadgeProps {
-  status: MediaStatusBadge;
+  status: MediaStatus;
   label: string;
 }
 

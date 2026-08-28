@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/zedarchivelogo.png" alt="ZedArchive Logo" width="120" />
+  <img src="public/biglogo.png" alt="ZedArchive Logo" width="120" />
 
 # ZedArchive
 
@@ -75,15 +75,12 @@ Choose an aesthetic that matches your taste, stored in your database account so 
 - **1-Click Export:** Download your entire library anytime as standard **JSON** or spreadsheet-ready **CSV**.
 - **Multi-Platform Importer:** Seamlessly import backups from **ZedArchive**, **AniList JSON**, and **Goodreads CSV** with automatic conflict resolution (_Skip_ vs _Overwrite_).
 
-### ⌨️ Keyboard-First Power Shortcuts
+### ⌨️ Keyboard & Interaction Shortcuts
 
-- <kbd>N</kbd> or <kbd>⌘K</kbd> — Open Add Media Spotlight
-- <kbd>/</kbd> — Instant focus archive search
-- <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Switch between Total, Shows, and Books tabs
-- <kbd>T</kbd> — Open Theme & Aesthetic switcher
-- <kbd>S</kbd> — Open Archive Statistics
-- <kbd>B</kbd> — Open Backup & Import dialog
-- <kbd>?</kbd> — View Keyboard Shortcuts cheat sheet
+- <kbd>↑</kbd> / <kbd>↓</kbd> — Navigate results in Spotlight search
+- <kbd>Enter</kbd> — Select highlighted search result
+- <kbd>Esc</kbd> — Dismiss active modal or switch to manual entry form
+- <kbd>⌘</kbd>+<kbd>Enter</kbd> / <kbd>Ctrl</kbd>+<kbd>Enter</kbd> — Submit profile comments
 
 ---
 
@@ -102,12 +99,15 @@ Choose an aesthetic that matches your taste, stored in your database account so 
 
 ### Environment Contract
 
-| Variable              | Scope                      | Example                                                             |
-| --------------------- | -------------------------- | ------------------------------------------------------------------- |
-| `DATABASE_URL`        | Runtime secret             | `postgres://…@host:6543/postgres`                                   |
-| `BETTER_AUTH_SECRET`  | Runtime secret             | 32+ char random string                                              |
-| `BETTER_AUTH_URL`     | Runtime + build            | `https://zedarchive.com` (must match the canonical browsing origin) |
-| `NEXT_PUBLIC_APP_URL` | Build (+ runtime harmless) | `https://zedarchive.com`                                            |
+| Variable                      | Scope                      | Example                                                             |
+| ----------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `DATABASE_URL`                | Runtime secret             | `postgres://…@host:6543/postgres`                                   |
+| `BETTER_AUTH_SECRET`          | Runtime secret             | 32+ char random string                                              |
+| `BETTER_AUTH_URL`             | Runtime + build            | `https://zedarchive.com` (must match the canonical browsing origin) |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Runtime (optional)         | `https://zedarchive.com,https://preview.zedarchive.com`             |
+| `NEXT_PUBLIC_APP_URL`         | Build (+ runtime harmless) | `https://zedarchive.com`                                            |
+| `RESEND_API_KEY`              | Runtime secret (optional)  | `re_123456789...`                                                   |
+| `EMAIL_FROM`                  | Runtime (optional)         | `ZedArchive <noreply@zedarchive.com>`                               |
 
 Set them in the Cloudflare dashboard under the Worker's _Variables & Secrets_; keep secrets out of `.env.local`-style files in CI. Locally, mirror them in `.env.local` for `next dev`.
 

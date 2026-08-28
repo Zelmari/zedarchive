@@ -16,32 +16,11 @@ vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
 
 const dbState = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }));
 
-vi.mock('@/lib/db', () => {
-  type Row = Record<string, unknown>;
+import { createMockDb } from '../helpers/db-mock';
 
-  function awaitable<T>(value: T) {
-    const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
-    p.where = () => p;
-    p.orderBy = () => p;
-    p.returning = () => p;
-    return p;
-  }
-
-  return {
-    db: {
-      select: () => ({ from: () => ({ where: () => awaitable(dbState.rows) }) }),
-      update: () => ({
-        set: (fields: Row) => ({
-          where: () => {
-            const target = dbState.rows[0];
-            if (target) Object.assign(target, fields);
-            return awaitable([target]);
-          },
-        }),
-      }),
-    },
-  };
-});
+vi.mock('@/lib/db', () => ({
+  db: createMockDb(dbState),
+}));
 
 import { updateUserProfile, getPublicUserProfile } from '@/server/profile';
 

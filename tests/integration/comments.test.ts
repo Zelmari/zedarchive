@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockDb } from '../helpers/db-mock';
 
 const { getAuthUserMock, revalidatePathMock } = vi.hoisted(() => ({
   getAuthUserMock: vi.fn(),
@@ -18,34 +19,9 @@ const dbState = vi.hoisted(() => ({
   inserted: [] as Array<Record<string, unknown>>,
 }));
 
-vi.mock('@/lib/db', () => {
-  function awaitable<T>(value: T) {
-    const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
-    p.where = () => p;
-    p.returning = () => p;
-    return p;
-  }
-
-  return {
-    db: {
-      // Fixture-driven: each db.select() consumes the next queued result.
-      select: () => ({
-        from: () => ({
-          where: () => awaitable(dbState.selectQueue.shift() ?? []),
-        }),
-      }),
-      transaction: async <T>(fn: (tx: unknown) => Promise<T>) =>
-        fn({
-          insert: () => ({
-            values: (v: Record<string, unknown>) => {
-              dbState.inserted.push(v);
-              return awaitable([v]);
-            },
-          }),
-        }),
-    },
-  };
-});
+vi.mock('@/lib/db', () => ({
+  db: createMockDb(dbState),
+}));
 
 import { createProfileComment } from '@/server/comments';
 

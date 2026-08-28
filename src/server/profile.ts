@@ -44,37 +44,26 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
   }
 }
 
+import { updateProfileSchema, updateThemeSchema } from '@/lib/validations/profile';
+
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();
-  const safeTheme = VALID_THEMES.includes(theme as string) ? theme : 'parchment';
+  const parsed = updateThemeSchema.safeParse({ theme });
+  const safeTheme = parsed.success ? parsed.data.theme : 'parchment';
 
   await db
     .update(userTable)
     .set({ theme: safeTheme as never, updatedAt: new Date() })
     .where(eq(userTable.id, user.id));
 
-  return { theme: safeTheme as string };
+  return { theme: safeTheme };
 }
+
+import { getUserProfileById } from './queries/user';
 
 export async function getUserProfile() {
   const user = await getAuthUser();
-  const [profile] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      email: userTable.email,
-      image: userTable.image,
-      theme: userTable.theme,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-      emailVerified: userTable.emailVerified,
-      verificationDismissedAt: userTable.verificationDismissedAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, user.id));
-
-  return profile;
+  return getUserProfileById(user.id);
 }
 
 export async function dismissVerificationNotice(): Promise<{ ok: boolean }> {
@@ -90,47 +79,34 @@ export async function dismissVerificationNotice(): Promise<{ ok: boolean }> {
 
 export async function updateUserProfile(updates: Record<string, unknown>) {
   const user = await getAuthUser();
+  const parsed = updateProfileSchema.safeParse(updates);
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message || 'Invalid profile updates';
+    throw new Error(errorMsg);
+  }
+
+  const validated = parsed.data;
   const updateData: Partial<typeof userTable.$inferInsert> = { updatedAt: new Date() };
 
-  if (updates.name !== undefined) {
-    const name = String(updates.name ?? '')
-      .trim()
-      .slice(0, MAX_NAME_LENGTH);
-    if (!name) {
-      throw new Error('Display name cannot be empty');
-    }
-    updateData.name = name;
+  if (validated.name !== undefined) {
+    updateData.name = validated.name;
   }
 
   if (updates.username !== undefined) {
-    const raw = normalizeHandle(updates.username);
+    const raw = normalizeHandle(validated.username);
     updateData.username = raw || null;
   }
 
-  if (updates.isPublic !== undefined) {
-    updateData.isPublic = Boolean(updates.isPublic);
+  if (validated.isPublic !== undefined) {
+    updateData.isPublic = validated.isPublic;
   }
 
   if (updates.bio !== undefined) {
-    updateData.bio =
-      String(updates.bio || '')
-        .trim()
-        .slice(0, MAX_BIO_LENGTH) || null;
+    updateData.bio = validated.bio || null;
   }
 
   if (updates.image !== undefined) {
-    const raw = updates.image;
-    if (raw === null || raw === '') {
-      updateData.image = null;
-    } else if (
-      typeof raw === 'string' &&
-      raw.length <= MAX_COVER_IMAGE_LENGTH &&
-      (/^data:image\//i.test(raw) || /^https:\/\//i.test(raw))
-    ) {
-      updateData.image = raw;
-    } else {
-      throw new Error('Invalid avatar. Use a compressed image data URL or an HTTPS image URL.');
-    }
+    updateData.image = validated.image || null;
   }
 
   // Public-archive invariant: a public archive must have a resolvable
@@ -171,50 +147,6 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   return updated;
 }
 
-interface PublicProfileResult {
-  user: {
-    id: string;
-    name: string;
-    username: string | null;
-    bio: string | null;
-    image: string | null;
-    theme: string;
-    isPublic: boolean;
-    createdAt: Date;
-  };
-  entries: MediaEntry[];
-}
-
-export async function getPublicUserProfile(username: unknown): Promise<PublicProfileResult | null> {
-  if (!username) return null;
-  const clean = String(username).trim().toLowerCase();
-
-  const [foundUser] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      bio: userTable.bio,
-      image: userTable.image,
-      theme: userTable.theme,
-      isPublic: userTable.isPublic,
-      createdAt: userTable.createdAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.username, clean));
-
-  if (!foundUser || !foundUser.isPublic) {
-    return null;
-  }
-
-  const entries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, foundUser.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  return {
-    user: foundUser,
-    entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
-  };
-}
+import { getPublicUserProfile, type PublicProfileResult } from './queries/user';
+export { getPublicUserProfile };
+export type { PublicProfileResult };

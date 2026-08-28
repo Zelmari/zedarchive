@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockDb } from '../helpers/db-mock';
 
 const { getAuthUserMock, signInEmailMock } = vi.hoisted(() => ({
   getAuthUserMock: vi.fn(),
@@ -28,36 +29,9 @@ const dbState = vi.hoisted(() => ({
   deletedTables: [] as string[],
 }));
 
-import { getTableName } from 'drizzle-orm';
-
-vi.mock('@/lib/db', () => {
-  function awaitable<T>(val: T) {
-    const p = Promise.resolve(val) as Promise<T> & Record<string, unknown>;
-    p.where = () => p;
-    return p;
-  }
-
-  const makeTx = () => ({
-    delete: (table: any) => {
-      const name = getTableName(table) || 'unknown';
-      dbState.deletedTables.push(name);
-      return {
-        where: () => Promise.resolve(),
-      };
-    },
-  });
-
-  return {
-    db: {
-      select: () => ({
-        from: () => ({
-          where: () => awaitable(dbState.accounts),
-        }),
-      }),
-      transaction: async (fn: (tx: ReturnType<typeof makeTx>) => Promise<unknown>) => fn(makeTx()),
-    },
-  };
-});
+vi.mock('@/lib/db', () => ({
+  db: createMockDb(dbState),
+}));
 
 import { deleteAccount } from '@/server/account';
 

@@ -1,12 +1,14 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { mediaEntries, user as userTable } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { serializeEntry } from '@/lib/serialize';
-import type { MediaEntry } from '@/types/media';
+import { getUserProfileById } from '@/server/queries/user';
+import { getMediaEntriesByUserId } from '@/server/queries/media';
 import DashboardClient from './DashboardClient';
+
+export const metadata = {
+  title: 'Dashboard',
+  description: 'Your quiet media collection.',
+};
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -17,34 +19,9 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  // Fetch user profile and preferences
-  const [dbUser] = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      email: userTable.email,
-      image: userTable.image,
-      theme: userTable.theme,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-      emailVerified: userTable.emailVerified,
-      verificationDismissedAt: userTable.verificationDismissedAt,
-    })
-    .from(userTable)
-    .where(eq(userTable.id, session.user.id));
-
-  // Fetch initial media entries for authenticated user
-  const rawEntries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, session.user.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  // Serialize Date objects for React Server Component -> Client Component boundary
-  const initialEntries = rawEntries
-    .map(serializeEntry)
-    .filter((entry): entry is MediaEntry => entry !== null);
+  // Fetch user profile and initial media entries via DAL queries
+  const dbUser = await getUserProfileById(session.user.id);
+  const initialEntries = await getMediaEntriesByUserId(session.user.id);
 
   return (
     <DashboardClient
@@ -60,9 +37,7 @@ export default async function DashboardPage() {
         emailVerified:
           dbUser?.emailVerified ??
           ('emailVerified' in session.user ? Boolean(session.user.emailVerified) : false),
-        verificationDismissedAt: dbUser?.verificationDismissedAt
-          ? dbUser.verificationDismissedAt.toISOString()
-          : null,
+        verificationDismissedAt: dbUser?.verificationDismissedAt || null,
       }}
       initialEntries={initialEntries}
     />

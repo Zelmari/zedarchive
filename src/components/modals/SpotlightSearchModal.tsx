@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tv, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
-
-export type MediaCategoryChip = 'show' | 'anime' | 'book' | 'manga';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
+import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface SpotlightResult {
   sourceId?: string;
@@ -13,7 +12,7 @@ export interface SpotlightResult {
   coverUrl?: string | null;
   primaryUnitTotal?: number;
   secondaryUnitTotal?: number | null;
-  structure?: Array<{ number: number; name: string; total: number | null }>;
+  structure?: StructureItem[];
   year?: string | null;
   genres?: string[];
   [key: string]: unknown;
@@ -21,28 +20,28 @@ export interface SpotlightResult {
 
 interface SpotlightSearchModalProps {
   isOpen: boolean;
-  category: MediaCategoryChip;
-  onCategoryChange: (category: MediaCategoryChip) => void;
+  category: MediaCategory;
+  onCategoryChange: (category: MediaCategory) => void;
   onClose: () => void;
   onManualEnter: (query: string) => void;
   onSelectResult: (result: SpotlightResult) => void;
 }
 
-const CHIPS: Array<{ id: MediaCategoryChip; label: string; Icon: typeof Tv }> = [
+const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
   { id: 'show', label: 'TV Show', Icon: Tv },
   { id: 'anime', label: 'Anime', Icon: Sparkles },
   { id: 'book', label: 'Book', Icon: BookOpen },
   { id: 'manga', label: 'Manga', Icon: Library },
 ];
 
-const PLACEHOLDERS: Record<MediaCategoryChip, string> = {
+const PLACEHOLDERS: Record<MediaCategory, string> = {
   show: 'Search TV shows (e.g. Breaking Bad, The Bear)...',
   anime: 'Search anime (e.g. Frieren, Horimiya)...',
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
 };
 
-function endpointFor(category: MediaCategoryChip, query: string): string {
+function endpointFor(category: MediaCategory, query: string): string {
   const q = encodeURIComponent(query);
   switch (category) {
     case 'book':

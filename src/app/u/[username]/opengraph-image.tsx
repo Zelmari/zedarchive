@@ -105,6 +105,7 @@ export default async function OpenGraphImage({ params }: PageParams) {
         {avatarUrl ? (
           <img
             src={avatarUrl}
+            alt=""
             width={128}
             height={128}
             style={{ borderRadius: '9999px', border: '4px solid #1a1917' }}

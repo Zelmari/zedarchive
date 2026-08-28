@@ -25,60 +25,11 @@ vi.mock('@/server/internal', () => ({
 
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
 
-vi.mock('@/lib/db', () => {
-  type Row = Record<string, unknown>;
+import { createMockDb } from '../helpers/db-mock';
 
-  function awaitable<T>(value: T) {
-    const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
-    p.where = () => p;
-    p.orderBy = () => p;
-    p.limit = () => p;
-    p.returning = () => p;
-    return p;
-  }
-
-  function makeTx() {
-    return {
-      select: () => ({
-        from: () => ({
-          // Fixture-controlled: actions under test operate on the first row.
-          where: () => awaitable(dbState.rows.length ? [dbState.rows[0]] : []),
-        }),
-      }),
-      insert: () => ({
-        values: (v: Row) => {
-          const row = { createdAt: new Date(), updatedAt: new Date(), ...v };
-          dbState.rows.push(row);
-          return awaitable([row]);
-        },
-      }),
-      update: () => ({
-        set: (fields: Row) => ({
-          // Fixture-controlled: single-row tables under test.
-          where: () => {
-            const target = dbState.rows[0];
-            if (target) Object.assign(target, fields);
-            return awaitable([target]);
-          },
-        }),
-      }),
-    };
-  }
-
-  return {
-    db: {
-      select: () => ({ from: () => awaitable(dbState.rows) }),
-      insert: () => makeTx().insert(),
-      update: () => makeTx().update(),
-      delete: () => ({
-        where: async () => {
-          dbState.rows.length = 0;
-        },
-      }),
-      transaction: async <T>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>) => fn(makeTx()),
-    },
-  };
-});
+vi.mock('@/lib/db', () => ({
+  db: createMockDb(dbState),
+}));
 
 import { createMediaEntry, updateMediaProgress, bulkImportMediaEntries } from '@/server/media';
 

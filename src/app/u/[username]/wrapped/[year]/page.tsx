@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
-import { getPublicUserProfile } from '@/server/profile';
+import { getPublicUserProfile } from '@/server/queries/user';
 import { calculateYearlyStats } from '@/lib/stats';
-import WrappedClient from '@/components/wrapped/WrappedClient';
+import WrappedClient from '@/app/wrapped/WrappedClient';
 
 type PageParams = {
   params: Promise<{ username: string; year: string }>;

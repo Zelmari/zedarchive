@@ -81,16 +81,11 @@ function sanitizeStatus(status: unknown): string {
   return isInList(VALID_STATUSES, normalized) ? normalized : 'in_progress';
 }
 
+import { getMediaEntriesByUserId } from './queries/media';
+
 export async function getMediaEntries(): Promise<MediaEntry[]> {
   const user = await getAuthUser();
-
-  const entries = await db
-    .select()
-    .from(mediaEntries)
-    .where(eq(mediaEntries.userId, user.id))
-    .orderBy(desc(mediaEntries.updatedAt));
-
-  return entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null);
+  return getMediaEntriesByUserId(user.id);
 }
 
 export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {

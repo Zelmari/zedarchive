@@ -207,6 +207,7 @@ export default function ProfileComments({
             return (
               <li key={comment.id} className="flex items-start gap-[var(--za-space-3)]">
                 {comment.authorImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL / remote avatars, unoptimized by design
                   <img
                     src={comment.authorImage}
                     alt=""
@@ -285,11 +286,7 @@ export default function ProfileComments({
           </p>
         ) : !viewer.isPublic ? (
           <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 text-[length:var(--za-text-fine)] text-ink-muted">
-            <Lock
-              size={13}
-              aria-hidden="true"
-              style={{ verticalAlign: '-2px', marginRight: '0.3rem' }}
-            />
+            <Lock size={13} aria-hidden="true" className="-mb-0.5 mr-1 inline-block" />
             Make your own archive{' '}
             <Link href="/dashboard" className="za-link">
               public in settings

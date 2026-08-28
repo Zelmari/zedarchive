@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, Tv, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
-import type { DashboardTab } from './hooks';
+import type { DashboardTab } from '@/hooks/use-media-filters';
 
 interface DashboardHeaderProps {
   activeTab: DashboardTab;

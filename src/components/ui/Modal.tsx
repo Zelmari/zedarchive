@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { cn } from '@/lib/cn';
 
 interface ModalProps {
