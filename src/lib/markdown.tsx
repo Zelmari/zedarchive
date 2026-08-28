@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { SpoilerSpan } from './spoilers';
 
 /**
  * Validates URLs to prevent XSS via javascript: or data: schemes.
@@ -14,24 +15,38 @@ function sanitizeUrl(url: string): string | null {
 }
 
 /**
- * Parses inline markdown tokens (bold, italic, code, strikethrough, links).
+ * Parses inline markdown tokens (bold, italic, code, strikethrough, links, spoilers).
  */
 export function renderInlineMarkdown(text: string): React.ReactNode[] {
   // Regex to match:
   // 1. Links: [text](url)
-  // 2. Bold: **text** or __text__
-  // 3. Strikethrough: ~~text~~
-  // 4. Italic: *text* or _text_
-  // 5. Inline code: `code`
+  // 2. Spoilers: ||text|| or >!text!<
+  // 3. Bold: **text** or __text__
+  // 4. Strikethrough: ~~text~~
+  // 5. Italic: *text* or _text_
+  // 6. Inline code: `code`
   const tokenRegex =
-    /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_|`([^`]+)`)/g;
+    /(\[([^\]]+)\]\(([^)]+)\)|\|\|([\s\S]+?)\|\||>!([\s\S]+?)!<|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_|`([^`]+)`)/g;
 
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = tokenRegex.exec(text)) !== null) {
-    const [fullMatch, , linkText, linkUrl, bold1, bold2, strike, italic1, italic2, code] = match;
+    const [
+      fullMatch,
+      ,
+      linkText,
+      linkUrl,
+      spoiler1,
+      spoiler2,
+      bold1,
+      bold2,
+      strike,
+      italic1,
+      italic2,
+      code,
+    ] = match;
     const startIndex = match.index;
 
     // Text before match
@@ -58,6 +73,9 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
       } else {
         parts.push(linkText);
       }
+    } else if (spoiler1 || spoiler2) {
+      const spoilerText = spoiler1 ?? spoiler2 ?? '';
+      parts.push(<SpoilerSpan key={key}>{renderInlineMarkdown(spoilerText)}</SpoilerSpan>);
     } else if (bold1 || bold2) {
       const boldText = bold1 ?? bold2 ?? '';
       parts.push(
