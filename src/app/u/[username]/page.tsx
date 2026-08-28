@@ -24,6 +24,22 @@ export async function generateMetadata({ params }: PageParams) {
     title: `@${data.user.username}’s Media Archive — zedarchive`,
     description:
       data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
+    openGraph: {
+      title: `${data.user.name} (@${data.user.username})’s Media Archive`,
+      description:
+        data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
+      images: [
+        {
+          url:
+            data.user.image && /^https:\/\//i.test(data.user.image)
+              ? data.user.image
+              : '/icon-512.png',
+          width: 512,
+          height: 512,
+          alt: `${data.user.name}’s Profile`,
+        },
+      ],
+    },
   };
 }
 
