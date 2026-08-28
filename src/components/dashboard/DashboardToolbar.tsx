@@ -1,6 +1,6 @@
 'use client';
 import type { RefObject } from 'react';
-import { Activity, BarChart2, Database, Search, Share2, Tag, X } from 'lucide-react';
+import { Activity, BarChart2, Calendar, Database, Search, Share2, Tag, X } from 'lucide-react';
 import type { SortKey } from '@/hooks/use-media-filters';
 
 interface DashboardToolbarProps {
@@ -15,7 +15,7 @@ interface DashboardToolbarProps {
   onTagChange: (tag: string) => void;
   tags: string[];
   counts: Record<string, number>;
-  onOpenModal: (modal: 'activity' | 'share' | 'stats' | 'data') => void;
+  onOpenModal: (modal: 'activity' | 'share' | 'stats' | 'data' | 'calendar') => void;
 }
 
 const SORT_OPTIONS: Array<[SortKey, string]> = [
@@ -112,6 +112,12 @@ export default function DashboardToolbar({
 
         <div className="flex flex-wrap items-center gap-2">
           {[
+            {
+              label: 'Calendar',
+              title: 'View Weekly Airing Schedule',
+              modal: 'calendar' as const,
+              Icon: Calendar,
+            },
             {
               label: 'Activity',
               title: 'View Activity Log & Streaks',
