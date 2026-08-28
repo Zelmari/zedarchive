@@ -78,6 +78,16 @@ export default async function HomePage() {
       <footer className="za-site-footer">
         <div className="za-container za-container--wide za-site-footer__inner">
           <small>episodes · chapters · volumes</small>
+          <small>
+            <a
+              className="za-site-footer__link"
+              href="https://discord.gg/q6U9m4WZUh"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Updates posted regularly on Discord
+            </a>
+          </small>
           <small>no feeds · no noise</small>
         </div>
       </footer>

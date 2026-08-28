@@ -817,6 +817,21 @@
   color: var(--za-color-text-muted);
 }
 
+.za-site-footer__link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--za-color-border-decorative);
+  text-underline-offset: 0.2em;
+  transition:
+    color var(--za-motion-fast) var(--za-ease-standard),
+    text-decoration-color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-site-footer__link:hover {
+  color: var(--za-color-text);
+  text-decoration-color: var(--za-color-text);
+}
+
 /* Landing-page overrides — emblem-centered front page */
 .za-landing .za-site-header {
   background: transparent;
