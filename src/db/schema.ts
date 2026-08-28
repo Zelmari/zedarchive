@@ -8,7 +8,7 @@ import {
   pgEnum,
   index,
 } from 'drizzle-orm/pg-core';
-import type { StructureItem } from '@/types/media';
+import type { StructureItem, MediaCycle } from '@/types/media';
 import type { ThemeId } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
@@ -117,6 +117,7 @@ export const mediaEntries = pgTable(
     completedAt: timestamp('completed_at'),
     startedAt: timestamp('started_at'),
     rewatchCount: integer('rewatch_count').notNull().default(0),
+    cycles: jsonb('cycles').$type<MediaCycle[]>().default([]),
     rating: integer('rating'), // 1 to 10 scale
     tags: jsonb('tags').$type<string[]>().default([]), // e.g. ["favorites", "cozy", "summer-2026"]
     synopsis: text('synopsis'),

@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import type { MediaCycle } from '@/types/media';
 
 export interface ImportDraft {
   title: string;
@@ -8,6 +9,7 @@ export interface ImportDraft {
   droppedAt?: string | null;
   droppedProgressPrimary?: number | null;
   droppedProgressSecondary?: number | null;
+  cycles?: MediaCycle[];
   secondaryUnitCurrent?: number;
   secondaryUnitTotal?: number | null;
   primaryUnitCurrent?: number;

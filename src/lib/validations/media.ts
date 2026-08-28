@@ -17,6 +17,15 @@ export const structureItemSchema = z.object({
   total: z.number().int().min(1).nullable().optional(),
 });
 
+export const mediaCycleSchema = z.object({
+  id: z.string().optional(),
+  cycleNumber: z.number().int().min(1).optional(),
+  startedAt: z.string().nullable().optional(),
+  completedAt: z.string().nullable().optional(),
+  rating: z.number().min(1).max(MAX_RATING).nullable().optional(),
+  notes: z.string().max(MAX_NOTES_LENGTH).nullable().optional(),
+});
+
 export const createMediaSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(MAX_TITLE_LENGTH),
   category: z.enum(VALID_CATEGORIES).default('show'),
@@ -25,6 +34,7 @@ export const createMediaSchema = z.object({
   droppedAt: z.string().nullable().optional(),
   droppedProgressPrimary: z.number().int().nullable().optional(),
   droppedProgressSecondary: z.number().int().nullable().optional(),
+  cycles: z.array(mediaCycleSchema).optional(),
   primaryUnitCurrent: z.number().int().min(1).default(1),
   primaryUnitTotal: z.number().int().min(1).nullable().optional(),
   secondaryUnitCurrent: z.number().int().min(0).default(0),
@@ -52,6 +62,7 @@ export const bulkImportItemSchema = z.object({
   droppedAt: z.string().nullable().optional(),
   droppedProgressPrimary: z.number().nullable().optional(),
   droppedProgressSecondary: z.number().nullable().optional(),
+  cycles: z.array(mediaCycleSchema).optional(),
   primaryUnitCurrent: z.number().optional(),
   primaryUnitTotal: z.number().nullable().optional(),
   secondaryUnitCurrent: z.number().optional(),

@@ -31,7 +31,14 @@ vi.mock('@/lib/db', () => ({
   db: createMockDb(dbState),
 }));
 
-import { createMediaEntry, updateMediaProgress, bulkImportMediaEntries } from '@/server/media';
+import {
+  createMediaEntry,
+  updateMediaProgress,
+  bulkImportMediaEntries,
+  addMediaCycle,
+  updateMediaCycle,
+  deleteMediaCycle,
+} from '@/server/media';
 
 describe('createMediaEntry', () => {
   beforeEach(() => {
@@ -402,5 +409,71 @@ describe('bulkImportMediaEntries', () => {
     expect(dbState.rows[0]?.droppedProgressPrimary).toBe(3);
     expect(dbState.rows[0]?.droppedProgressSecondary).toBe(4);
     expect((dbState.rows[0]?.droppedAt as Date).toISOString()).toBe('2026-05-01T00:00:00.000Z');
+  });
+
+  it('initializes cycle 1 on entry creation and supports rewatch cycles and CRUD', async () => {
+    // 1. Creation automatically creates Cycle 1
+    const entry = await createMediaEntry({
+      title: 'Steins;Gate',
+      category: 'anime',
+      status: 'completed',
+      primaryUnitCurrent: 1,
+      secondaryUnitCurrent: 24,
+      startedAt: '2023-01-01T00:00:00.000Z',
+      completedAt: '2023-01-10T00:00:00.000Z',
+      rating: 10,
+    });
+
+    expect(entry.cycles).toHaveLength(1);
+    expect(entry.cycles[0]?.cycleNumber).toBe(1);
+    expect(entry.cycles[0]?.startedAt).toBe('2023-01-01T00:00:00.000Z');
+    expect(entry.cycles[0]?.completedAt).toBe('2023-01-10T00:00:00.000Z');
+
+    // 2. Start a rewatch -> appends cycle 2, resets progress to 0, status to in_progress
+    const rewatch = await updateMediaProgress(entry.id, {
+      rewatch: true,
+    });
+
+    expect(rewatch.rewatchCount).toBe(1);
+    expect(rewatch.status).toBe('in_progress');
+    expect(rewatch.secondaryUnitCurrent).toBe(0);
+    expect(rewatch.cycles).toHaveLength(2);
+    expect(rewatch.cycles[1]?.cycleNumber).toBe(2);
+    expect(rewatch.cycles[1]?.completedAt).toBeNull();
+
+    // 3. Complete rewatch -> cycle 2 completedAt is recorded
+    const completedRewatch = await updateMediaProgress(entry.id, {
+      status: 'completed',
+      completedAt: '2026-08-01T00:00:00.000Z',
+    });
+
+    expect(completedRewatch.cycles[1]?.completedAt).toBe('2026-08-01T00:00:00.000Z');
+
+    // 4. Add a past cycle manually
+    const withLoggedCycle = await addMediaCycle(entry.id, {
+      startedAt: '2024-05-01T00:00:00.000Z',
+      completedAt: '2024-05-15T00:00:00.000Z',
+      rating: 9,
+      notes: 'Summer rewatch',
+    });
+
+    expect(withLoggedCycle.cycles).toHaveLength(3);
+    expect(withLoggedCycle.rewatchCount).toBe(2);
+    expect(withLoggedCycle.cycles[2]?.notes).toBe('Summer rewatch');
+
+    // 5. Update a cycle
+    const cycleToUpdate = withLoggedCycle.cycles[2]!;
+    const updatedCycle = await updateMediaCycle(entry.id, cycleToUpdate.id, {
+      notes: 'Updated notes',
+      rating: 10,
+    });
+
+    expect(updatedCycle.cycles[2]?.notes).toBe('Updated notes');
+    expect(updatedCycle.cycles[2]?.rating).toBe(10);
+
+    // 6. Delete a cycle
+    const afterDelete = await deleteMediaCycle(entry.id, cycleToUpdate.id);
+    expect(afterDelete.cycles).toHaveLength(2);
+    expect(afterDelete.rewatchCount).toBe(1);
   });
 });
