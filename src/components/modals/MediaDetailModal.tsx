@@ -283,6 +283,26 @@ export default function MediaDetailModal({
 
             {/* Status & Rating Pills */}
             <div className="mt-[var(--za-space-3)] flex flex-wrap justify-center gap-[0.4rem]">
+              <button
+                type="button"
+                onClick={() =>
+                  runUpdate({ priorityIndex: item.priorityIndex != null ? null : 9999 })
+                }
+                className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] duration-[var(--za-motion-fast)] ${
+                  item.priorityIndex != null
+                    ? 'border-accent bg-accent/20 font-[var(--za-weight-emphasis)] text-accent'
+                    : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
+                }`}
+                title={
+                  item.priorityIndex != null
+                    ? `Rank #${item.priorityIndex} in Up Next (Click to remove)`
+                    : 'Pin to Up Next Queue'
+                }
+              >
+                {item.priorityIndex != null
+                  ? `⚡ Up Next #${item.priorityIndex}`
+                  : '+ Add to Up Next'}
+              </button>
               <Badge className="capitalize">{status.replace('_', ' ')}</Badge>
               {rating != null && (
                 <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">

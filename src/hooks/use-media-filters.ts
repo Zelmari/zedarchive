@@ -34,6 +34,7 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
 
   const counts = {
     all: tabScopedEntries.length,
+    queue: tabScopedEntries.filter((e) => e.priorityIndex != null).length,
     in_progress: tabScopedEntries.filter((e) => (e.status || 'in_progress') === 'in_progress')
       .length,
     completed: tabScopedEntries.filter((e) => e.status === 'completed').length,
@@ -44,8 +45,12 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
 
   const filteredEntries = tabScopedEntries.filter((item) => {
     if (statusFilter !== 'all') {
-      const itemStatus = item.status || 'in_progress';
-      if (itemStatus !== statusFilter) return false;
+      if (statusFilter === 'queue') {
+        if (item.priorityIndex == null) return false;
+      } else {
+        const itemStatus = item.status || 'in_progress';
+        if (itemStatus !== statusFilter) return false;
+      }
     }
 
     if (selectedTag !== 'all') {
@@ -66,6 +71,12 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
 
   const displayedEntries = [...filteredEntries].sort((a, b) => {
     switch (sortBy) {
+      case 'priority_asc': {
+        const pA = a.priorityIndex ?? Infinity;
+        const pB = b.priorityIndex ?? Infinity;
+        if (pA !== pB) return pA - pB;
+        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+      }
       case 'title_asc':
         return (a.title || '').localeCompare(b.title || '');
       case 'title_desc':

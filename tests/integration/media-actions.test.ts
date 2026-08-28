@@ -38,6 +38,8 @@ import {
   addMediaCycle,
   updateMediaCycle,
   deleteMediaCycle,
+  togglePriorityQueue,
+  reorderPriorityQueue,
 } from '@/server/media';
 
 describe('createMediaEntry', () => {
@@ -475,5 +477,37 @@ describe('bulkImportMediaEntries', () => {
     const afterDelete = await deleteMediaCycle(entry.id, cycleToUpdate.id);
     expect(afterDelete.cycles).toHaveLength(2);
     expect(afterDelete.rewatchCount).toBe(1);
+  });
+
+  it('supports priority queue toggling, reordering, and retirement on completion', async () => {
+    // 1. Create an entry not in queue
+    const entry1 = await createMediaEntry({
+      title: 'Chainsaw Man',
+      category: 'anime',
+      status: 'in_progress',
+    });
+    expect(entry1.priorityIndex).toBeNull();
+
+    // 2. Toggle into queue -> assigned rank 1
+    const queued1 = await togglePriorityQueue(entry1.id);
+    expect(queued1.priorityIndex).toBe(1);
+
+    // 3. Reorder queue
+    await reorderPriorityQueue([entry1.id]);
+    expect(dbState.rows[0]?.priorityIndex).toBe(1);
+
+    // 4. Marking completed removes item from priority queue
+    const completed = await updateMediaProgress(entry1.id, {
+      status: 'completed',
+    });
+    expect(completed.priorityIndex).toBeNull();
+
+    // 5. Toggle back into queue
+    const requeued = await togglePriorityQueue(entry1.id);
+    expect(requeued.priorityIndex).toBe(1);
+
+    // 6. Toggle out of queue
+    const unqueued = await togglePriorityQueue(entry1.id);
+    expect(unqueued.priorityIndex).toBeNull();
   });
 });

@@ -48,6 +48,7 @@ export const createMediaSchema = z.object({
   coverImage: z.string().max(MAX_COVER_IMAGE_LENGTH).nullable().optional(),
   startedAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  priorityIndex: z.number().int().min(1).nullable().optional(),
 });
 
 export const updateMediaSchema = createMediaSchema.partial().extend({
@@ -63,6 +64,7 @@ export const bulkImportItemSchema = z.object({
   droppedProgressPrimary: z.number().nullable().optional(),
   droppedProgressSecondary: z.number().nullable().optional(),
   cycles: z.array(mediaCycleSchema).optional(),
+  priorityIndex: z.number().int().nullable().optional(),
   primaryUnitCurrent: z.number().optional(),
   primaryUnitTotal: z.number().nullable().optional(),
   secondaryUnitCurrent: z.number().optional(),

@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { mediaEntries } from '@/db/schema';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, isNotNull, ne, asc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
   VALID_CATEGORIES,
@@ -397,6 +397,12 @@ export async function updateMediaProgress(
     updateFields.sourceId =
       typeof updates.sourceId === 'string' ? updates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
   }
+  if (updates.priorityIndex !== undefined) {
+    updateFields.priorityIndex =
+      updates.priorityIndex !== null && updates.priorityIndex !== ''
+        ? Math.max(1, toInt(updates.priorityIndex, 1))
+        : null;
+  }
   if (updates.notes !== undefined) {
     updateFields.notes =
       updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
@@ -410,6 +416,34 @@ export async function updateMediaProgress(
 
     if (!existing) {
       throw new Error('Entry not found');
+    }
+
+    if (updateFields.status === 'completed' && updates.priorityIndex === undefined) {
+      updateFields.priorityIndex = null;
+    }
+
+    if (existing.priorityIndex != null && updateFields.priorityIndex === null) {
+      const otherQueued = await tx
+        .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
+        .from(mediaEntries)
+        .where(
+          and(
+            eq(mediaEntries.userId, user.id),
+            isNotNull(mediaEntries.priorityIndex),
+            ne(mediaEntries.id, id),
+          ),
+        )
+        .orderBy(asc(mediaEntries.priorityIndex));
+
+      for (let i = 0; i < otherQueued.length; i++) {
+        const qItem = otherQueued[i]!;
+        if (qItem.id !== id && qItem.priorityIndex != null && qItem.priorityIndex !== i + 1) {
+          await tx
+            .update(mediaEntries)
+            .set({ priorityIndex: i + 1 })
+            .where(eq(mediaEntries.id, qItem.id));
+        }
+      }
     }
 
     if (updates.rewatch === true) {
@@ -875,6 +909,92 @@ export async function deleteMediaCycle(mediaId: string, cycleId: string): Promis
 
   revalidatePath('/dashboard');
   return serializeEntry(updated) as MediaEntry;
+}
+
+export async function togglePriorityQueue(id: string): Promise<MediaEntry> {
+  const user = await getAuthUser();
+
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
+
+    if (!existing) {
+      throw new Error('Entry not found');
+    }
+
+    if (existing.priorityIndex != null) {
+      // Remove from queue and compact remaining
+      const [row] = await tx
+        .update(mediaEntries)
+        .set({ priorityIndex: null, updatedAt: new Date() })
+        .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)))
+        .returning();
+
+      const remaining = await tx
+        .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
+        .from(mediaEntries)
+        .where(
+          and(
+            eq(mediaEntries.userId, user.id),
+            isNotNull(mediaEntries.priorityIndex),
+            ne(mediaEntries.id, id),
+          ),
+        )
+        .orderBy(asc(mediaEntries.priorityIndex));
+
+      for (let i = 0; i < remaining.length; i++) {
+        const item = remaining[i]!;
+        if (item.id !== id && item.priorityIndex != null && item.priorityIndex !== i + 1) {
+          await tx
+            .update(mediaEntries)
+            .set({ priorityIndex: i + 1 })
+            .where(eq(mediaEntries.id, item.id));
+        }
+      }
+
+      return row;
+    } else {
+      // Add to end of queue
+      const queued = await tx
+        .select({ priorityIndex: mediaEntries.priorityIndex })
+        .from(mediaEntries)
+        .where(and(eq(mediaEntries.userId, user.id), isNotNull(mediaEntries.priorityIndex)))
+        .orderBy(desc(mediaEntries.priorityIndex));
+
+      const nextRank =
+        queued.length > 0 && queued[0]?.priorityIndex != null ? queued[0].priorityIndex + 1 : 1;
+
+      const [row] = await tx
+        .update(mediaEntries)
+        .set({ priorityIndex: nextRank, updatedAt: new Date() })
+        .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)))
+        .returning();
+
+      return row;
+    }
+  });
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
+}
+
+export async function reorderPriorityQueue(orderedIds: string[]): Promise<void> {
+  const user = await getAuthUser();
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const mediaId = orderedIds[i]!;
+      await tx
+        .update(mediaEntries)
+        .set({ priorityIndex: i + 1, updatedAt: new Date() })
+        .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+    }
+  });
+
+  revalidatePath('/dashboard');
 }
 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
