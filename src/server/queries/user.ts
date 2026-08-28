@@ -51,6 +51,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
       email: userTable.email,
       image: userTable.image,
       theme: userTable.theme,
+      customTheme: userTable.customTheme,
       username: userTable.username,
       isPublic: userTable.isPublic,
       bio: userTable.bio,
@@ -70,6 +71,7 @@ export async function getUserProfileById(id: string): Promise<UserProfile | null
     email: row.email,
     image: row.image,
     theme: row.theme,
+    customTheme: row.customTheme,
     username: row.username,
     isPublic: row.isPublic,
     bio: row.bio,
@@ -90,6 +92,7 @@ export interface PublicProfileResult {
     bio: string | null;
     image: string | null;
     theme: string;
+    customTheme?: import('@/types/user').CustomThemePalette | null;
     isPublic: boolean;
     readingGoals?: Record<string, ReadingGoalConfig> | null;
     createdAt: Date;
@@ -109,6 +112,7 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
       bio: userTable.bio,
       image: userTable.image,
       theme: userTable.theme,
+      customTheme: userTable.customTheme,
       isPublic: userTable.isPublic,
       readingGoals: userTable.readingGoals,
       createdAt: userTable.createdAt,

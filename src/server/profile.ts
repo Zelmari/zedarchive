@@ -45,6 +45,7 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
 }
 
 import { updateProfileSchema, updateThemeSchema } from '@/lib/validations/profile';
+import type { CustomThemePalette } from '@/types/user';
 
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();
@@ -57,6 +58,25 @@ export async function updateUserTheme(theme: unknown): Promise<{ theme: string }
     .where(eq(userTable.id, user.id));
 
   return { theme: safeTheme };
+}
+
+export async function saveCustomThemeAction(
+  palette: CustomThemePalette,
+): Promise<{ success: boolean; theme: string }> {
+  const user = await getAuthUser();
+
+  await db
+    .update(userTable)
+    .set({
+      theme: 'custom',
+      customTheme: palette,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTable.id, user.id));
+
+  revalidatePath('/dashboard');
+  revalidatePath('/settings');
+  return { success: true, theme: 'custom' };
 }
 
 import { getUserProfileById } from './queries/user';

@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import type { StructureItem, MediaCycle, MediaQuote } from '@/types/media';
-import type { ThemeId, ReadingGoalConfig } from '@/types/user';
+import type { ThemeId, ReadingGoalConfig, CustomThemePalette } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
 export const user = pgTable('user', {
@@ -19,6 +19,7 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   theme: text('theme').$type<ThemeId>().notNull().default('parchment'),
+  customTheme: jsonb('custom_theme').$type<CustomThemePalette | null>(),
   username: text('username').unique(),
   isPublic: boolean('is_public').notNull().default(false),
   bio: text('bio'),

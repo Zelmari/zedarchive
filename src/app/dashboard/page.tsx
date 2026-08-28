@@ -31,6 +31,7 @@ export default async function DashboardPage() {
         email: dbUser?.email || session.user.email,
         image: dbUser?.image || session.user.image,
         theme: dbUser?.theme || 'parchment',
+        customTheme: dbUser?.customTheme || null,
         username: dbUser?.username || null,
         isPublic: Boolean(dbUser?.isPublic),
         bio: dbUser?.bio || null,

@@ -25,7 +25,8 @@ import MediaGrid from '@/components/dashboard/MediaGrid';
 import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
 import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
-import type { ReadingGoalConfig } from '@/types/user';
+import type { ReadingGoalConfig, CustomThemePalette } from '@/types/user';
+import { applyCustomThemeTokens } from '@/lib/theme';
 import { calculateReadingGoalProgress } from '@/lib/stats';
 import {
   setReadingGoal as setReadingGoalAction,
@@ -67,6 +68,7 @@ interface DashboardClientProps {
     email?: string | null;
     image?: string | null;
     theme?: string | null;
+    customTheme?: CustomThemePalette | null;
     username?: string | null;
     isPublic?: boolean;
     bio?: string | null;
@@ -120,7 +122,10 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
   // Theme synchronization on mount and when theme changes
   useEffect(() => {
-    if (typeof document !== 'undefined') {
+    if (currentTheme === 'custom' && user?.customTheme) {
+      applyCustomThemeTokens(user.customTheme);
+    } else if (typeof document !== 'undefined') {
+      applyCustomThemeTokens(null);
       document.documentElement.setAttribute('data-theme', currentTheme);
       try {
         localStorage.setItem('za-theme', currentTheme);
@@ -128,7 +133,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         // Storage unavailable (private mode etc.) — attribute is still set above.
       }
     }
-  }, [currentTheme]);
+  }, [currentTheme, user?.customTheme]);
 
   // Fetch upcoming episode airdates for in-progress shows and anime
   useEffect(() => {
@@ -574,6 +579,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         isOpen={modals.isOpen('theme')}
         onClose={modals.close}
         currentTheme={currentTheme}
+        customTheme={user?.customTheme}
         onThemeChange={(newTheme: string) => setCurrentTheme(newTheme)}
       />
 

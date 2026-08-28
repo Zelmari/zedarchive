@@ -129,8 +129,28 @@ export default async function PublicProfilePage({ params }: PageParams) {
   const proto = hostHeaders.get('x-forwarded-proto') ?? 'https';
   const profileUrl = `${proto}://${host}/u/${user.username}`;
 
+  const customStyles =
+    user.theme === 'custom' && user.customTheme
+      ? ({
+          '--za-color-canvas': user.customTheme.canvas,
+          '--za-color-surface': user.customTheme.surface,
+          '--za-color-surface-subtle': user.customTheme.surfaceSubtle,
+          '--za-color-text': user.customTheme.text,
+          '--za-color-text-muted': user.customTheme.textMuted,
+          '--za-color-border-required': user.customTheme.borderRequired,
+          '--za-color-border-decorative': user.customTheme.borderDecorative,
+          '--za-color-accent': user.customTheme.accent,
+          '--za-color-accent-hover': user.customTheme.accent,
+          '--za-color-on-accent': user.customTheme.onAccent,
+        } as React.CSSProperties)
+      : {};
+
   return (
-    <div className="flex min-h-screen flex-col bg-canvas text-ink" style={{ minHeight: '100vh' }}>
+    <div
+      className="flex min-h-screen flex-col bg-canvas text-ink"
+      data-theme={user.theme || 'parchment'}
+      style={{ minHeight: '100vh', ...customStyles }}
+    >
       {/* Public Header */}
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">
