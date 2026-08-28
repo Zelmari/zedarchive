@@ -6,6 +6,7 @@ import {
   MAX_COVER_IMAGE_LENGTH,
   VALID_THEMES,
 } from '@/lib/constants';
+import { isReservedHandle } from '@/lib/handles';
 
 export const updateProfileSchema = z.object({
   name: z
@@ -14,7 +15,16 @@ export const updateProfileSchema = z.object({
     .refine((val) => val.length > 0, 'Display name cannot be empty')
     .transform((val) => val.slice(0, MAX_NAME_LENGTH))
     .optional(),
-  username: z.string().trim().max(MAX_USERNAME_LENGTH).nullable().optional(),
+  username: z
+    .string()
+    .trim()
+    .max(MAX_USERNAME_LENGTH)
+    .refine(
+      (val) => !val || !isReservedHandle(val),
+      'This handle is reserved by the system. Please choose another username.',
+    )
+    .nullable()
+    .optional(),
   bio: z
     .string()
     .transform((val) => val.trim().slice(0, MAX_BIO_LENGTH))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeHandle } from '@/lib/handles';
+import { normalizeHandle, isReservedHandle } from '@/lib/handles';
 
 describe('normalizeHandle', () => {
   it('lowercases and strips invalid characters', () => {
@@ -16,5 +16,20 @@ describe('normalizeHandle', () => {
 
   it('returns an empty string for nullish input', () => {
     expect(normalizeHandle(null)).toBe('');
+  });
+});
+
+describe('isReservedHandle', () => {
+  it('identifies system reserved handles', () => {
+    expect(isReservedHandle('search')).toBe(true);
+    expect(isReservedHandle('Search')).toBe(true);
+    expect(isReservedHandle('  DASHBOARD  ')).toBe(true);
+    expect(isReservedHandle('settings')).toBe(true);
+    expect(isReservedHandle('u')).toBe(true);
+  });
+
+  it('allows normal handles', () => {
+    expect(isReservedHandle('zelmari')).toBe(false);
+    expect(isReservedHandle('alex_reads')).toBe(false);
   });
 });

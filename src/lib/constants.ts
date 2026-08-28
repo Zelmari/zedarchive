@@ -32,6 +32,22 @@ export const ACTIVITY_LOG_FETCH_LIMIT = 50;
 
 export const HANDLE_SANITIZE_PATTERN = /[^a-z0-9_-]/g;
 
+export const RESERVED_HANDLES = [
+  'search',
+  'explore',
+  'dashboard',
+  'settings',
+  'wrapped',
+  'login',
+  'signup',
+  'api',
+  'admin',
+  'u',
+  'offline',
+  'verified',
+  'reset-password',
+] as const;
+
 export interface ThemeDefinition {
   id: ThemeId;
   name: string;
