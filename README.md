@@ -3,7 +3,7 @@
 
 # ZedArchive
 
-**A quiet, distraction-free media archive for your TV series, anime, novels, and books.**
+**A quiet, distraction-free media archive for your TV series, movies, anime, novels, and books.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=flat-square&logo=cloudflare)](https://workers.cloudflare.com/)
@@ -20,7 +20,7 @@
 
 **ZedArchive** is an editorial, tactile personal media tracker designed for people who appreciate calm, intentional software. Built with physical paper and bookish aesthetics, it replaces noisy, social-heavy trackers with a private, edge-fast, and keyboard-first cataloging experience.
 
-Whether you're bingeing a multi-season show, following seasonal anime, reading multi-volume light novels, or pacing through classic literature, ZedArchive keeps your progress in sync without distractions.
+Whether you're bingeing a multi-season show, tracking feature films, following seasonal anime, reading multi-volume light novels, or pacing through classic literature, ZedArchive keeps your progress in sync without distractions.
 
 ---
 
@@ -28,8 +28,8 @@ Whether you're bingeing a multi-season show, following seasonal anime, reading m
 
 ### 🔍 Spotlight Search-First Add Flow
 
-- **Instant Catalogue Autofill:** Search TV series via TVMaze, Anime & Manga via AniList, and Books via Google Books.
-- **Auto Structure & Metadata:** Automatically fetches season-by-season episode breakdowns, volume counts, release years, genres, and compressed cover art.
+- **Instant Catalogue Autofill:** Search TV series via TVMaze, Movies & Films via TMDB, Anime & Manga via AniList, and Books via OpenLibrary.
+- **Auto Structure & Metadata:** Automatically fetches season-by-season episode breakdowns, movie runtimes, volume counts, release years, genres, and compressed cover art.
 - **Pre-Save Review:** Expand into a full detail form to customize starting progress, select status, set personal ratings, and add review notes before saving.
 - **Manual Entry Escape:** Press <kbd>Esc</kbd> anytime in the search window to transition directly to manual creation.
 
