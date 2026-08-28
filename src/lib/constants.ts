@@ -12,12 +12,22 @@ export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber']
 
 export const MAX_TITLE_LENGTH = 500;
 export const MAX_NOTES_LENGTH = 5000;
+export const MAX_DROP_REASON_LENGTH = 500;
 export const MAX_SYNOPSIS_LENGTH = 5000;
 export const MAX_SOURCE_ID_LENGTH = 200;
 export const MAX_COVER_IMAGE_LENGTH = 2_000_000;
 export const MAX_STRUCTURE_LENGTH = 500;
 export const MAX_RATING = 10;
 export const MAX_QUERY_LENGTH = 100;
+
+export const PRESET_DROP_REASONS = [
+  'Lost interest / Bored',
+  'Poor pacing / Plot decline',
+  'Disliked characters',
+  'Not for me / Tone shift',
+  'Adapted poorly from source',
+  'Will revisit in the future',
+] as const;
 
 export const MAX_USERNAME_LENGTH = 30;
 export const MAX_NAME_LENGTH = 100;

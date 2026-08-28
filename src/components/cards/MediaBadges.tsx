@@ -9,6 +9,9 @@ interface MediaBadgesProps {
   primaryUnitCurrent: number;
   primaryUnitTotal: number;
   tags?: string[];
+  dropReason?: string | null;
+  droppedProgressPrimary?: number | null;
+  droppedProgressSecondary?: number | null;
 }
 
 export default function MediaBadges({
@@ -19,13 +22,33 @@ export default function MediaBadges({
   primaryUnitCurrent,
   primaryUnitTotal,
   tags = [],
+  dropReason,
+  droppedProgressPrimary,
+  droppedProgressSecondary,
 }: MediaBadgesProps) {
   const bookish = category === 'book' || category === 'manga';
   const isMovie = category === 'movie';
 
+  const droppedMilestoneText = (() => {
+    if (status !== 'dropped') return null;
+    const pri = droppedProgressPrimary ?? primaryUnitCurrent;
+    const sec = droppedProgressSecondary;
+    if (isMovie) return null;
+    if (bookish) {
+      if (sec != null && sec > 0) return `Dropped at Vol ${pri}, Ch ${sec}`;
+      return `Dropped at Vol ${pri}`;
+    }
+    if (sec != null && sec > 0) return `Dropped at S${pri}E${sec}`;
+    return `Dropped at S${pri}`;
+  })();
+
   return (
     <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
-      <StatusBadge status={status} label={statusLabel} />
+      <StatusBadge
+        status={status}
+        label={droppedMilestoneText || statusLabel}
+        title={status === 'dropped' && dropReason ? `Reason: "${dropReason}"` : undefined}
+      />
       {rating != null && <RatingBadge rating={rating} />}
       {!bookish && !isMovie && (
         <Badge>

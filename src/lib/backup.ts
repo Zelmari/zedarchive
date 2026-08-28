@@ -4,6 +4,10 @@ export interface ImportDraft {
   title: string;
   category?: string;
   status?: string;
+  dropReason?: string | null;
+  droppedAt?: string | null;
+  droppedProgressPrimary?: number | null;
+  droppedProgressSecondary?: number | null;
   secondaryUnitCurrent?: number;
   secondaryUnitTotal?: number | null;
   primaryUnitCurrent?: number;

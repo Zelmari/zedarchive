@@ -19,6 +19,7 @@ export interface MediaEntry extends Omit<
   MediaRow,
   | 'completedAt'
   | 'startedAt'
+  | 'droppedAt'
   | 'createdAt'
   | 'updatedAt'
   | 'category'
@@ -34,6 +35,10 @@ export interface MediaEntry extends Omit<
   genres: string[];
   completedAt: string | null;
   startedAt: string | null;
+  droppedAt: string | null;
+  dropReason: string | null;
+  droppedProgressPrimary: number | null;
+  droppedProgressSecondary: number | null;
   createdAt: string;
   updatedAt: string;
 }

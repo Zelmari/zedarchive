@@ -257,6 +257,9 @@ export default function MediaCard({
             primaryUnitCurrent={primaryUnitCurrent}
             primaryUnitTotal={primaryUnitTotal}
             tags={tags}
+            dropReason={item.dropReason}
+            droppedProgressPrimary={item.droppedProgressPrimary}
+            droppedProgressSecondary={item.droppedProgressSecondary}
           />
 
           {/* Season / volume row */}

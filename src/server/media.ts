@@ -9,6 +9,7 @@ import {
   VALID_STATUSES,
   MAX_TITLE_LENGTH,
   MAX_NOTES_LENGTH,
+  MAX_DROP_REASON_LENGTH,
   MAX_SYNOPSIS_LENGTH,
   MAX_SOURCE_ID_LENGTH,
   MAX_COVER_IMAGE_LENGTH,
@@ -137,6 +138,23 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
   const startedAt = toDateOrNull(data.startedAt) ?? new Date();
   const completedAt =
     status === 'completed' ? (toDateOrNull(data.completedAt) ?? new Date()) : null;
+  const droppedAt = status === 'dropped' ? (toDateOrNull(data.droppedAt) ?? new Date()) : null;
+  const dropReason =
+    status === 'dropped' && data.dropReason
+      ? String(data.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+      : null;
+  const droppedProgressPrimary =
+    status === 'dropped'
+      ? primaryUnitTotal !== null
+        ? Math.min(primaryUnitCurrent, primaryUnitTotal)
+        : primaryUnitCurrent
+      : null;
+  const droppedProgressSecondary =
+    status === 'dropped'
+      ? secondaryUnitTotal !== null
+        ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
+        : secondaryUnitCurrent
+      : null;
 
   const coverImage =
     typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
@@ -155,6 +173,10 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         title,
         category,
         status,
+        dropReason,
+        droppedAt,
+        droppedProgressPrimary,
+        droppedProgressSecondary,
         completedAt,
         startedAt,
         rewatchCount: 0,
@@ -185,7 +207,12 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         userId: user.id,
         mediaId: id,
         actionType: 'created',
-        details: { title, category, status },
+        details: {
+          title,
+          category,
+          status,
+          ...(status === 'dropped' ? { dropReason, droppedAt } : {}),
+        },
       },
       tx,
     );
@@ -227,9 +254,41 @@ export async function updateMediaProgress(
     updateFields.status = status;
     if (status === 'completed') {
       updateFields.completedAt = toDateOrNull(updates.completedAt) ?? new Date();
+      updateFields.droppedAt = null;
+      updateFields.dropReason = null;
+      updateFields.droppedProgressPrimary = null;
+      updateFields.droppedProgressSecondary = null;
+    } else if (status === 'dropped') {
+      updateFields.completedAt = null;
+      updateFields.droppedAt = toDateOrNull(updates.droppedAt) ?? new Date();
+      if (updates.dropReason !== undefined) {
+        updateFields.dropReason = updates.dropReason
+          ? String(updates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+          : null;
+      }
+      if (updates.droppedProgressPrimary !== undefined) {
+        updateFields.droppedProgressPrimary =
+          updates.droppedProgressPrimary !== null
+            ? toInt(updates.droppedProgressPrimary, null)
+            : null;
+      }
+      if (updates.droppedProgressSecondary !== undefined) {
+        updateFields.droppedProgressSecondary =
+          updates.droppedProgressSecondary !== null
+            ? toInt(updates.droppedProgressSecondary, null)
+            : null;
+      }
     } else {
       updateFields.completedAt = null;
+      updateFields.droppedAt = null;
+      updateFields.dropReason = null;
+      updateFields.droppedProgressPrimary = null;
+      updateFields.droppedProgressSecondary = null;
     }
+  } else if (updates.dropReason !== undefined) {
+    updateFields.dropReason = updates.dropReason
+      ? String(updates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+      : null;
   }
 
   if (updates.rating !== undefined) {
@@ -332,6 +391,24 @@ export async function updateMediaProgress(
         ? Math.min(rawSecondaryCurrent, effectiveSecondaryTotal)
         : rawSecondaryCurrent;
 
+    if (updateFields.status === 'dropped') {
+      if (
+        updateFields.droppedProgressPrimary === undefined ||
+        updateFields.droppedProgressPrimary === null
+      ) {
+        updateFields.droppedProgressPrimary = updateFields.primaryUnitCurrent;
+      }
+      if (
+        updateFields.droppedProgressSecondary === undefined ||
+        updateFields.droppedProgressSecondary === null
+      ) {
+        updateFields.droppedProgressSecondary = updateFields.secondaryUnitCurrent;
+      }
+      if (updateFields.dropReason === undefined) {
+        updateFields.dropReason = existing.dropReason ?? null;
+      }
+    }
+
     const [row] = await tx
       .update(mediaEntries)
       .set(updateFields)
@@ -342,8 +419,14 @@ export async function updateMediaProgress(
       throw new Error('Entry not found');
     }
 
-    let actionType: 'progress_update' | 'completed' | 'rewatch' | 'rating' = 'progress_update';
+    let actionType: 'progress_update' | 'completed' | 'rewatch' | 'rating' | 'status_change' =
+      'progress_update';
     if (updates.status === 'completed') actionType = 'completed';
+    else if (
+      updates.status === 'dropped' ||
+      (updates.status !== undefined && updates.status !== existing.status)
+    )
+      actionType = 'status_change';
     else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
     else if (updates.rating !== undefined) actionType = 'rating';
 
@@ -360,6 +443,8 @@ export async function updateMediaProgress(
           total: row.secondaryUnitTotal,
           status: row.status,
           rating: row.rating,
+          dropReason: row.dropReason,
+          droppedAt: row.droppedAt,
         },
       },
       tx,
@@ -434,11 +519,36 @@ export async function bulkImportMediaEntries(
       item.secondaryUnitTotal != null ? Math.max(0, toInt(item.secondaryUnitTotal, 0)) : null;
 
     const status = sanitizeStatus(item.status);
+    const dropReason =
+      status === 'dropped' && item.dropReason
+        ? String(item.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+        : null;
+    const droppedAt = status === 'dropped' ? (toDateOrNull(item.droppedAt) ?? new Date()) : null;
+    const droppedProgressPrimary =
+      status === 'dropped'
+        ? item.droppedProgressPrimary != null
+          ? toInt(item.droppedProgressPrimary, null)
+          : rawPrimaryTotal !== null
+            ? Math.min(rawPrimaryCurrent, rawPrimaryTotal)
+            : rawPrimaryCurrent
+        : null;
+    const droppedProgressSecondary =
+      status === 'dropped'
+        ? item.droppedProgressSecondary != null
+          ? toInt(item.droppedProgressSecondary, null)
+          : rawSecondaryTotal !== null
+            ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
+            : rawSecondaryCurrent
+        : null;
 
     const payload = {
       title,
       category,
       status,
+      dropReason,
+      droppedAt,
+      droppedProgressPrimary,
+      droppedProgressSecondary,
       rating: sanitizeRating(item.rating),
       tags: sanitizeTags(item.tags),
       completedAt: status === 'completed' ? (toDateOrNull(item.completedAt) ?? new Date()) : null,

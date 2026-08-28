@@ -1,11 +1,13 @@
 'use client';
 
 import { Tv, Film, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
+import { PRESET_DROP_REASONS, MAX_DROP_REASON_LENGTH } from '@/lib/constants';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface MediaFormState {
   title: string;
   status: string;
+  dropReason?: string;
   rating: number | null;
   primaryUnitTotal: string;
   primaryUnitCurrent: string;
@@ -343,6 +345,53 @@ export default function MediaEditForm({
           ))}
         </div>
       </div>
+
+      {/* Drop Reason (Only visible when status is 'dropped') */}
+      {form.status === 'dropped' && (
+        <div className="mb-[var(--za-space-4)] rounded-control border border-danger/25 bg-danger/5 p-[var(--za-space-3)]">
+          <div className="mb-1.5 flex items-center justify-between">
+            <label
+              htmlFor="edit-drop-reason"
+              className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger"
+            >
+              Drop Reason (Optional)
+            </label>
+            <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+              {(form.dropReason || '').length}/{MAX_DROP_REASON_LENGTH}
+            </span>
+          </div>
+
+          <div className="mb-2 flex flex-wrap gap-1">
+            {PRESET_DROP_REASONS.map((preset) => {
+              const isSelected = form.dropReason === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onFieldChange('dropReason', preset)}
+                  className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] duration-[var(--za-motion-fast)] ${
+                    isSelected
+                      ? 'border-danger bg-danger/20 font-[var(--za-weight-emphasis)] text-ink'
+                      : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
+                  }`}
+                >
+                  {preset}
+                </button>
+              );
+            })}
+          </div>
+
+          <input
+            id="edit-drop-reason"
+            type="text"
+            maxLength={MAX_DROP_REASON_LENGTH}
+            className={formInput}
+            placeholder="e.g. Lost interest after season 2..."
+            value={form.dropReason || ''}
+            onChange={(e) => onFieldChange('dropReason', e.target.value)}
+          />
+        </div>
+      )}
 
       {/* Rating */}
       <div className="mb-[var(--za-space-4)]">

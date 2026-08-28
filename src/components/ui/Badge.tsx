@@ -29,12 +29,14 @@ export function Badge({ children, className = '' }: BadgeProps) {
 interface StatusBadgeProps {
   status: MediaStatus;
   label: string;
+  title?: string;
 }
 
 /** Status-tinted badge (completed/planning/on-hold/dropped/in-progress). */
-export function StatusBadge({ status, label }: StatusBadgeProps) {
+export function StatusBadge({ status, label, title }: StatusBadgeProps) {
   return (
     <span
+      title={title}
       className={`inline-block rounded-small border px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] ${STATUS_BADGE_CLASSES[status]}`}
     >
       {label}

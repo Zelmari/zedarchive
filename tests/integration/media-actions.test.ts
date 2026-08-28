@@ -323,4 +323,84 @@ describe('bulkImportMediaEntries', () => {
     expect(updated.status).toBe('completed');
     expect(updated.secondaryUnitCurrent).toBe(125);
   });
+
+  it('tracks dropped status, reason, and milestones during creation and updates', async () => {
+    // 1. Create dropped item directly
+    const dropped = await createMediaEntry({
+      title: 'Dropped Manga',
+      category: 'manga',
+      status: 'dropped',
+      dropReason: 'Pacing issues in arc 2',
+      primaryUnitCurrent: 2,
+      secondaryUnitCurrent: 15,
+    });
+
+    expect(dropped.status).toBe('dropped');
+    expect(dropped.dropReason).toBe('Pacing issues in arc 2');
+    expect(dropped.droppedProgressPrimary).toBe(2);
+    expect(dropped.droppedProgressSecondary).toBe(15);
+    expect(typeof dropped.droppedAt).toBe('string');
+
+    // 2. Transition in_progress -> dropped
+    dbState.rows.length = 0;
+    const show = await createMediaEntry({
+      title: 'Slow Anime',
+      category: 'anime',
+      status: 'in_progress',
+      primaryUnitCurrent: 1,
+      secondaryUnitCurrent: 6,
+    });
+
+    const markDropped = await updateMediaProgress(show.id, {
+      status: 'dropped',
+      dropReason: 'Lost interest / Bored',
+    });
+
+    expect(markDropped.status).toBe('dropped');
+    expect(markDropped.dropReason).toBe('Lost interest / Bored');
+    expect(markDropped.droppedProgressPrimary).toBe(1);
+    expect(markDropped.droppedProgressSecondary).toBe(6);
+    expect(typeof markDropped.droppedAt).toBe('string');
+    expect(logActivityMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        actionType: 'status_change',
+        details: expect.objectContaining({
+          status: 'dropped',
+          dropReason: 'Lost interest / Bored',
+        }),
+      }),
+      expect.anything(),
+    );
+
+    // 3. Resume dropped -> in_progress (clears drop fields)
+    const resumed = await updateMediaProgress(show.id, {
+      status: 'in_progress',
+    });
+
+    expect(resumed.status).toBe('in_progress');
+    expect(resumed.dropReason).toBeNull();
+    expect(resumed.droppedAt).toBeNull();
+    expect(resumed.droppedProgressPrimary).toBeNull();
+    expect(resumed.droppedProgressSecondary).toBeNull();
+  });
+
+  it('imports dropped entries and preserves reason and dropped timestamps', async () => {
+    const result = await bulkImportMediaEntries([
+      {
+        title: 'Legacy Dropped',
+        category: 'show',
+        status: 'dropped',
+        dropReason: 'Disliked characters',
+        droppedAt: '2026-05-01T00:00:00.000Z',
+        primaryUnitCurrent: 3,
+        secondaryUnitCurrent: 4,
+      },
+    ]);
+
+    expect(result.added).toBe(1);
+    expect(dbState.rows[0]?.dropReason).toBe('Disliked characters');
+    expect(dbState.rows[0]?.droppedProgressPrimary).toBe(3);
+    expect(dbState.rows[0]?.droppedProgressSecondary).toBe(4);
+    expect((dbState.rows[0]?.droppedAt as Date).toISOString()).toBe('2026-05-01T00:00:00.000Z');
+  });
 });
