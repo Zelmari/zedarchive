@@ -1,6 +1,6 @@
 import type { ThemeId } from '@/types/user';
 
-export const VALID_CATEGORIES = ['show', 'book', 'anime', 'manga'] as const;
+export const VALID_CATEGORIES = ['show', 'movie', 'book', 'anime', 'manga'] as const;
 export const VALID_STATUSES = [
   'in_progress',
   'completed',

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."media_category" ADD VALUE 'movie' BEFORE 'book';
