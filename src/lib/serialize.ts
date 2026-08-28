@@ -43,6 +43,28 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
       entry.droppedProgressPrimary != null ? Number(entry.droppedProgressPrimary) : null,
     droppedProgressSecondary:
       entry.droppedProgressSecondary != null ? Number(entry.droppedProgressSecondary) : null,
+    cycles:
+      Array.isArray(entry.cycles) && entry.cycles.length > 0
+        ? (entry.cycles as Record<string, unknown>[]).map((c, i) => ({
+            id: typeof c.id === 'string' && c.id ? c.id : crypto.randomUUID(),
+            cycleNumber: typeof c.cycleNumber === 'number' ? c.cycleNumber : i + 1,
+            startedAt: toIso(c.startedAt as Date | string),
+            completedAt: toIso(c.completedAt as Date | string),
+            rating: c.rating != null ? Number(c.rating) : null,
+            notes: typeof c.notes === 'string' ? c.notes : null,
+          }))
+        : toIso(entry.startedAt) || toIso(entry.completedAt)
+          ? [
+              {
+                id: crypto.randomUUID(),
+                cycleNumber: 1,
+                startedAt: toIso(entry.startedAt),
+                completedAt: toIso(entry.completedAt),
+                rating: entry.rating != null ? Number(entry.rating) : null,
+                notes: null,
+              },
+            ]
+          : [],
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',
   };

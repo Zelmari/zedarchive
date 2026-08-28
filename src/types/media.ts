@@ -9,6 +9,22 @@ export interface StructureItem {
   total: number | null;
 }
 
+export interface MediaCycle {
+  id: string; // UUID for deterministic updates/deletes
+  cycleNumber: number; // 1 = Original run, 2 = 1st rewatch, etc.
+  startedAt: string | null; // ISO 8601 string
+  completedAt: string | null; // ISO 8601 string
+  rating?: number | null; // Optional cycle-specific rating (1-10)
+  notes?: string | null; // Optional notes specific to this rewatch
+}
+
+export interface MediaCycleInput {
+  startedAt?: string | null;
+  completedAt?: string | null;
+  rating?: number | null;
+  notes?: string | null;
+}
+
 type MediaRow = typeof mediaEntries.$inferSelect;
 
 /**
@@ -27,12 +43,14 @@ export interface MediaEntry extends Omit<
   | 'structure'
   | 'tags'
   | 'genres'
+  | 'cycles'
 > {
   category: MediaCategory;
   status: MediaStatus;
   structure: StructureItem[];
   tags: string[];
   genres: string[];
+  cycles: MediaCycle[];
   completedAt: string | null;
   startedAt: string | null;
   droppedAt: string | null;

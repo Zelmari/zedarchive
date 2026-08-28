@@ -1,12 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Star, RotateCcw, Tag, FileText, Tv, BookOpen, BookmarkX } from 'lucide-react';
+import {
+  Pencil,
+  Star,
+  RotateCcw,
+  Tag,
+  FileText,
+  Tv,
+  BookOpen,
+  BookmarkX,
+  Plus,
+  Trash2,
+  Calendar,
+  Check,
+} from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { getTileInitials } from '@/lib/format';
-import type { MediaEntry } from '@/types/media';
+import type { MediaEntry, MediaCycle } from '@/types/media';
 
 interface MediaDetailModalProps {
   isOpen: boolean;
@@ -27,6 +40,20 @@ function pillActive(): string {
   return ' border-required bg-surface-subtle font-[var(--za-weight-emphasis)] text-ink';
 }
 
+function formatDisplayDate(iso: string | null | undefined): string {
+  if (!iso) return 'Present';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Present';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function toDateInputVal(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
 export default function MediaDetailModal({
   isOpen,
   onClose,
@@ -39,6 +66,20 @@ export default function MediaDetailModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDropReasonOpen, setIsDropReasonOpen] = useState(false);
 
+  // Cycle management state
+  const [editingCycleId, setEditingCycleId] = useState<string | 'new' | null>(null);
+  const [cycleForm, setCycleForm] = useState<{
+    startedAt: string;
+    completedAt: string;
+    rating: number | null;
+    notes: string;
+  }>({
+    startedAt: '',
+    completedAt: '',
+    rating: null,
+    notes: '',
+  });
+
   if (!isOpen || !item) return null;
 
   const legacy = item as unknown as Record<string, unknown>;
@@ -49,6 +90,19 @@ export default function MediaDetailModal({
   const status = item.status || 'in_progress';
   const rating = item.rating;
   const tags = Array.isArray(item.tags) ? item.tags : [];
+  const cycles: MediaCycle[] =
+    Array.isArray(item.cycles) && item.cycles.length > 0
+      ? item.cycles
+      : [
+          {
+            id: 'initial',
+            cycleNumber: 1,
+            startedAt: item.startedAt,
+            completedAt: item.completedAt,
+            rating: item.rating,
+            notes: null,
+          },
+        ];
 
   const primaryCurrent = item.primaryUnitCurrent ?? 1;
   const primaryTotal = item.primaryUnitTotal ?? 1;
@@ -67,12 +121,91 @@ export default function MediaDetailModal({
 
   const handleStartRewatch = async () => {
     await runUpdate({
-      rewatchCount: (item.rewatchCount || 0) + 1,
-      primaryUnitCurrent: 1,
-      secondaryUnitCurrent: 0,
-      status: 'in_progress',
-      startedAt: new Date().toISOString(),
+      rewatch: true,
     });
+  };
+
+  const handleOpenAddCycle = () => {
+    setEditingCycleId('new');
+    setCycleForm({
+      startedAt: toDateInputVal(new Date().toISOString()),
+      completedAt: toDateInputVal(new Date().toISOString()),
+      rating: null,
+      notes: '',
+    });
+  };
+
+  const handleOpenEditCycle = (cycle: MediaCycle) => {
+    setEditingCycleId(cycle.id);
+    setCycleForm({
+      startedAt: toDateInputVal(cycle.startedAt),
+      completedAt: toDateInputVal(cycle.completedAt),
+      rating: cycle.rating ?? null,
+      notes: cycle.notes || '',
+    });
+  };
+
+  const handleSaveCycle = async () => {
+    const startIso = cycleForm.startedAt ? new Date(cycleForm.startedAt).toISOString() : null;
+    const endIso = cycleForm.completedAt ? new Date(cycleForm.completedAt).toISOString() : null;
+
+    if (editingCycleId === 'new') {
+      const nextCycleNumber = cycles.length + 1;
+      const newCycle: MediaCycle = {
+        id: crypto.randomUUID(),
+        cycleNumber: nextCycleNumber,
+        startedAt: startIso,
+        completedAt: endIso,
+        rating: cycleForm.rating,
+        notes: cycleForm.notes.trim() || null,
+      };
+      const nextCycles = [...cycles, newCycle];
+      await runUpdate({
+        cycles: nextCycles,
+        rewatchCount: Math.max(0, nextCycles.length - 1),
+      });
+    } else {
+      const nextCycles = cycles.map((c) => {
+        if (c.id !== editingCycleId) return c;
+        return {
+          ...c,
+          startedAt: startIso,
+          completedAt: endIso,
+          rating: cycleForm.rating,
+          notes: cycleForm.notes.trim() || null,
+        };
+      });
+      await runUpdate({
+        cycles: nextCycles,
+      });
+    }
+    setEditingCycleId(null);
+  };
+
+  const handleDeleteCycle = async (cycleId: string) => {
+    const filtered = cycles.filter((c) => c.id !== cycleId);
+    const renumbered = (
+      filtered.length > 0
+        ? filtered
+        : [
+            {
+              id: crypto.randomUUID(),
+              cycleNumber: 1,
+              startedAt: item.startedAt,
+              completedAt: item.completedAt,
+              rating: null,
+              notes: null,
+            },
+          ]
+    ).map((c, i) => ({ ...c, cycleNumber: i + 1 }));
+
+    await runUpdate({
+      cycles: renumbered,
+      rewatchCount: Math.max(0, renumbered.length - 1),
+    });
+    if (editingCycleId === cycleId) {
+      setEditingCycleId(null);
+    }
   };
 
   const handleSetEpisode = async (epNumber: number, seasonNumber: number) => {
@@ -163,23 +296,180 @@ export default function MediaDetailModal({
               </Badge>
             </div>
 
-            {/* Rewatch / Reread Tracker */}
-            <div className="mt-[var(--za-space-4)] rounded-control bg-surface-subtle p-[var(--za-space-3)] text-center">
-              <div className="text-[length:var(--za-text-fine)] text-ink-muted">
-                {isBookLike ? 'Reread History' : 'Rewatch History'}
+            {/* Rewatch / Reread Tracker & Timeline */}
+            <div className="mt-[var(--za-space-4)] rounded-control bg-surface-subtle p-[var(--za-space-3)]">
+              <div className="flex items-center justify-between">
+                <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted">
+                  {isBookLike ? 'REREAD HISTORY' : 'REWATCH HISTORY'}
+                </div>
+                <span className="text-xs font-[var(--za-weight-emphasis)] text-ink">
+                  {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'}
+                </span>
               </div>
-              <div className="my-[0.2rem] text-[1.1rem] font-[var(--za-weight-heading)]">
-                {item.rewatchCount || 0} {item.rewatchCount === 1 ? 'time' : 'times'}
+
+              {/* Cycle Timeline List */}
+              <div className="mt-2 space-y-1.5 text-left">
+                {cycles.map((c) => {
+                  const isOriginal = c.cycleNumber === 1;
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded-small border border-decorative bg-surface p-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-[var(--za-weight-emphasis)] text-ink">
+                          {isOriginal
+                            ? 'Cycle 1 (Original)'
+                            : `Cycle ${c.cycleNumber} (${isBookLike ? 'Reread' : 'Rewatch'} ${c.cycleNumber - 1})`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {c.rating != null && (
+                            <span className="text-[10px] font-bold text-[#b45309]">
+                              ★ {c.rating}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditCycle(c)}
+                            title="Edit cycle"
+                            className="cursor-pointer rounded p-0.5 text-ink-muted hover:text-ink"
+                          >
+                            <Pencil size={11} />
+                          </button>
+                          {cycles.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCycle(c.id)}
+                              title="Delete cycle"
+                              className="cursor-pointer rounded p-0.5 text-danger/70 hover:text-danger"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-0.5 text-[11px] text-ink-muted">
+                        {formatDisplayDate(c.startedAt)} →{' '}
+                        {c.completedAt ? (
+                          formatDisplayDate(c.completedAt)
+                        ) : (
+                          <span className="font-[var(--za-weight-emphasis)] text-accent">
+                            In Progress
+                          </span>
+                        )}
+                      </div>
+
+                      {c.notes && (
+                        <p className="mt-1 text-[11px] text-ink-muted italic">
+                          &ldquo;{c.notes}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <button
-                type="button"
-                className="za-button za-button--secondary mt-[0.4rem] w-full text-[length:var(--za-text-fine)]"
-                onClick={handleStartRewatch}
-                disabled={isUpdating}
-              >
-                <RotateCcw size={12} className="mr-1" />
-                {isBookLike ? 'Start Reread' : 'Start Rewatch'}
-              </button>
+
+              {/* Inline Cycle Editor Form */}
+              {editingCycleId && (
+                <div className="mt-2 rounded-small border border-required bg-surface p-2 text-left text-xs">
+                  <div className="mb-1.5 font-[var(--za-weight-emphasis)] text-ink">
+                    {editingCycleId === 'new' ? 'Log Past Cycle' : 'Edit Cycle'}
+                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <label className="block text-[10px] text-ink-muted">Start Date</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
+                        value={cycleForm.startedAt}
+                        onChange={(e) => setCycleForm((p) => ({ ...p, startedAt: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-ink-muted">
+                        Finish Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
+                        value={cycleForm.completedAt}
+                        onChange={(e) =>
+                          setCycleForm((p) => ({ ...p, completedAt: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-ink-muted">
+                        Rating (1–10, Optional)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        placeholder="e.g. 9"
+                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
+                        value={cycleForm.rating ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                          setCycleForm((p) => ({ ...p, rating: val }));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-ink-muted">Notes (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rewatched with friends"
+                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
+                        value={cycleForm.notes}
+                        onChange={(e) => setCycleForm((p) => ({ ...p, notes: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingCycleId(null)}
+                        className="cursor-pointer rounded-small border border-decorative px-2 py-0.5 text-xs text-ink-muted hover:text-ink"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveCycle}
+                        disabled={isUpdating}
+                        className="cursor-pointer rounded-small border border-required bg-surface px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] text-ink hover:bg-surface-hover"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="mt-2.5 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  className="za-button za-button--secondary w-full text-xs"
+                  onClick={handleStartRewatch}
+                  disabled={isUpdating}
+                >
+                  <RotateCcw size={12} className="mr-1" />
+                  {isBookLike ? 'Start New Reread' : 'Start New Rewatch'}
+                </button>
+                {!editingCycleId && (
+                  <button
+                    type="button"
+                    className="cursor-pointer rounded-small border border-decorative bg-surface py-1 text-xs text-ink-muted hover:border-required hover:text-ink"
+                    onClick={handleOpenAddCycle}
+                    disabled={isUpdating}
+                  >
+                    + Log Past Cycle Date
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tags / Shelves */}

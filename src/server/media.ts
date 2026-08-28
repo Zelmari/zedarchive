@@ -16,7 +16,7 @@ import {
   MAX_STRUCTURE_LENGTH,
   MAX_RATING,
 } from '@/lib/constants';
-import type { MediaEntry, StructureItem } from '@/types/media';
+import type { MediaEntry, StructureItem, MediaCycle, MediaCycleInput } from '@/types/media';
 import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser, logActivity } from './internal';
 
@@ -80,6 +80,50 @@ function sanitizeRating(rating: unknown): number | null {
 function sanitizeStatus(status: unknown): string {
   const normalized = typeof status === 'string' ? status.trim().toLowerCase() : '';
   return isInList(VALID_STATUSES, normalized) ? normalized : 'in_progress';
+}
+
+function sanitizeCycles(
+  cycles: unknown,
+  fallbackStart?: Date | string | null,
+  fallbackEnd?: Date | string | null,
+): MediaCycle[] {
+  if (Array.isArray(cycles) && cycles.length > 0) {
+    const list = (cycles as Record<string, unknown>[])
+      .filter((c) => c && typeof c === 'object')
+      .map((c, i) => {
+        const id = typeof c.id === 'string' && c.id ? c.id : crypto.randomUUID();
+        const cycleNumber = typeof c.cycleNumber === 'number' ? c.cycleNumber : i + 1;
+        const startedAt = toDateOrNull(c.startedAt);
+        const completedAt = toDateOrNull(c.completedAt);
+        const rating = sanitizeRating(c.rating);
+        const notes =
+          typeof c.notes === 'string' ? c.notes.trim().slice(0, MAX_NOTES_LENGTH) : null;
+        return {
+          id,
+          cycleNumber,
+          startedAt: startedAt ? startedAt.toISOString() : null,
+          completedAt: completedAt ? completedAt.toISOString() : null,
+          rating,
+          notes,
+        };
+      });
+    if (list.length > 0) return list;
+  }
+
+  const startIso = fallbackStart
+    ? (toDateOrNull(fallbackStart)?.toISOString() ?? null)
+    : new Date().toISOString();
+  const endIso = fallbackEnd ? (toDateOrNull(fallbackEnd)?.toISOString() ?? null) : null;
+  return [
+    {
+      id: crypto.randomUUID(),
+      cycleNumber: 1,
+      startedAt: startIso,
+      completedAt: endIso,
+      rating: null,
+      notes: null,
+    },
+  ];
 }
 
 import { getMediaEntriesByUserId } from './queries/media';
@@ -156,6 +200,8 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         : secondaryUnitCurrent
       : null;
 
+  const cycles = sanitizeCycles(data.cycles, startedAt, completedAt);
+
   const coverImage =
     typeof data.coverImage === 'string' && data.coverImage.length <= MAX_COVER_IMAGE_LENGTH
       ? data.coverImage
@@ -179,7 +225,8 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         droppedProgressSecondary,
         completedAt,
         startedAt,
-        rewatchCount: 0,
+        rewatchCount: Math.max(0, cycles.length - 1),
+        cycles,
         rating,
         tags,
         genres,
@@ -295,6 +342,9 @@ export async function updateMediaProgress(
     updateFields.rating = sanitizeRating(updates.rating);
   }
 
+  if (updates.cycles !== undefined) {
+    updateFields.cycles = sanitizeCycles(updates.cycles);
+  }
   if (updates.tags !== undefined) {
     updateFields.tags = sanitizeTags(updates.tags);
   }
@@ -362,6 +412,42 @@ export async function updateMediaProgress(
       throw new Error('Entry not found');
     }
 
+    if (updates.rewatch === true) {
+      const existingCycles = sanitizeCycles(
+        existing.cycles,
+        existing.startedAt,
+        existing.completedAt,
+      );
+      const nextCycleNumber = existingCycles.length + 1;
+      const newCycle: MediaCycle = {
+        id: crypto.randomUUID(),
+        cycleNumber: nextCycleNumber,
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        rating: null,
+        notes: null,
+      };
+      updateFields.cycles = [...existingCycles, newCycle];
+      updateFields.rewatchCount = Math.max(0, (existing.rewatchCount || 0) + 1);
+      updateFields.status = 'in_progress';
+      updateFields.completedAt = null;
+      updateFields.droppedAt = null;
+      updateFields.dropReason = null;
+      updateFields.droppedProgressPrimary = null;
+      updateFields.droppedProgressSecondary = null;
+      updateFields.primaryUnitCurrent = 1;
+      updateFields.secondaryUnitCurrent = 0;
+    } else if (updateFields.status === 'completed') {
+      const currentCycles =
+        updateFields.cycles ??
+        sanitizeCycles(existing.cycles, existing.startedAt, existing.completedAt);
+      const latestCycle = currentCycles[currentCycles.length - 1];
+      if (latestCycle && !latestCycle.completedAt) {
+        latestCycle.completedAt = (updateFields.completedAt ?? new Date()).toISOString();
+        updateFields.cycles = [...currentCycles];
+      }
+    }
+
     // Bidirectional invariant: current <= total whenever the total is known.
     // Combine the sanitized update fields with the stored row so updates that
     // only touch one side still clamp against the other side's DB value.
@@ -421,13 +507,13 @@ export async function updateMediaProgress(
 
     let actionType: 'progress_update' | 'completed' | 'rewatch' | 'rating' | 'status_change' =
       'progress_update';
-    if (updates.status === 'completed') actionType = 'completed';
+    if (updates.rewatch === true || updates.rewatchCount !== undefined) actionType = 'rewatch';
+    else if (updates.status === 'completed') actionType = 'completed';
     else if (
       updates.status === 'dropped' ||
       (updates.status !== undefined && updates.status !== existing.status)
     )
       actionType = 'status_change';
-    else if (updates.rewatchCount !== undefined) actionType = 'rewatch';
     else if (updates.rating !== undefined) actionType = 'rating';
 
     await logActivity(
@@ -540,6 +626,14 @@ export async function bulkImportMediaEntries(
             ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
             : rawSecondaryCurrent
         : null;
+    const startedAt = toDateOrNull(item.startedAt);
+    const completedAt =
+      status === 'completed' ? (toDateOrNull(item.completedAt) ?? new Date()) : null;
+    const cycles = sanitizeCycles(item.cycles, startedAt, completedAt);
+    const rewatchCount =
+      item.rewatchCount != null
+        ? Math.max(0, toInt(item.rewatchCount, 0))
+        : Math.max(0, cycles.length - 1);
 
     const payload = {
       title,
@@ -551,9 +645,10 @@ export async function bulkImportMediaEntries(
       droppedProgressSecondary,
       rating: sanitizeRating(item.rating),
       tags: sanitizeTags(item.tags),
-      completedAt: status === 'completed' ? (toDateOrNull(item.completedAt) ?? new Date()) : null,
-      startedAt: toDateOrNull(item.startedAt),
-      rewatchCount: Math.max(0, toInt(item.rewatchCount, 0)),
+      completedAt,
+      startedAt,
+      rewatchCount,
+      cycles,
       synopsis: item.synopsis ? String(item.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null,
       genres: Array.isArray(item.genres) ? (item.genres as string[]).slice(0, 20) : [],
       primaryUnitCurrent:
@@ -597,6 +692,189 @@ export async function bulkImportMediaEntries(
 
   revalidatePath('/dashboard');
   return { added, updated, skipped };
+}
+
+export async function addMediaCycle(mediaId: string, input: MediaCycleInput): Promise<MediaEntry> {
+  const user = await getAuthUser();
+
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+
+    if (!existing) {
+      throw new Error('Entry not found');
+    }
+
+    const existingCycles = sanitizeCycles(
+      existing.cycles,
+      existing.startedAt,
+      existing.completedAt,
+    );
+    const cycleNumber = existingCycles.length + 1;
+    const startedAt = input.startedAt ? toDateOrNull(input.startedAt) : new Date();
+    const completedAt = input.completedAt ? toDateOrNull(input.completedAt) : null;
+    const rating = sanitizeRating(input.rating);
+    const notes = input.notes ? String(input.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
+
+    const newCycle: MediaCycle = {
+      id: crypto.randomUUID(),
+      cycleNumber,
+      startedAt: startedAt ? startedAt.toISOString() : null,
+      completedAt: completedAt ? completedAt.toISOString() : null,
+      rating,
+      notes,
+    };
+
+    const newCycles = [...existingCycles, newCycle];
+    const newRewatchCount = Math.max(0, newCycles.length - 1);
+
+    const [row] = await tx
+      .update(mediaEntries)
+      .set({
+        cycles: newCycles,
+        rewatchCount: newRewatchCount,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+      .returning();
+
+    return row;
+  });
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
+}
+
+export async function updateMediaCycle(
+  mediaId: string,
+  cycleId: string,
+  updates: MediaCycleInput,
+): Promise<MediaEntry> {
+  const user = await getAuthUser();
+
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+
+    if (!existing) {
+      throw new Error('Entry not found');
+    }
+
+    const existingCycles = sanitizeCycles(
+      existing.cycles,
+      existing.startedAt,
+      existing.completedAt,
+    );
+    const cycleIndex = existingCycles.findIndex((c) => c.id === cycleId);
+    if (cycleIndex === -1) {
+      throw new Error('Cycle not found');
+    }
+
+    const targetCycle = existingCycles[cycleIndex]!;
+    if (updates.startedAt !== undefined) {
+      const parsed = toDateOrNull(updates.startedAt);
+      targetCycle.startedAt = parsed ? parsed.toISOString() : null;
+    }
+    if (updates.completedAt !== undefined) {
+      const parsed = toDateOrNull(updates.completedAt);
+      targetCycle.completedAt = parsed ? parsed.toISOString() : null;
+    }
+    if (updates.rating !== undefined) {
+      targetCycle.rating = sanitizeRating(updates.rating);
+    }
+    if (updates.notes !== undefined) {
+      targetCycle.notes =
+        updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+    }
+
+    const setFields: Partial<MediaRow> = {
+      cycles: existingCycles,
+      updatedAt: new Date(),
+    };
+
+    // If cycle 1 startedAt changed, sync root startedAt
+    if (cycleIndex === 0 && targetCycle.startedAt) {
+      setFields.startedAt = new Date(targetCycle.startedAt);
+    }
+    // If latest cycle completedAt changed, sync root completedAt
+    if (cycleIndex === existingCycles.length - 1 && targetCycle.completedAt) {
+      setFields.completedAt = new Date(targetCycle.completedAt);
+    }
+
+    const [row] = await tx
+      .update(mediaEntries)
+      .set(setFields)
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+      .returning();
+
+    return row;
+  });
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
+}
+
+export async function deleteMediaCycle(mediaId: string, cycleId: string): Promise<MediaEntry> {
+  const user = await getAuthUser();
+
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+
+    if (!existing) {
+      throw new Error('Entry not found');
+    }
+
+    const existingCycles = sanitizeCycles(
+      existing.cycles,
+      existing.startedAt,
+      existing.completedAt,
+    );
+    const filteredCycles = existingCycles.filter((c) => c.id !== cycleId);
+
+    const renumberedCycles = (
+      filteredCycles.length > 0
+        ? filteredCycles
+        : [
+            {
+              id: crypto.randomUUID(),
+              cycleNumber: 1,
+              startedAt: existing.startedAt
+                ? existing.startedAt.toISOString()
+                : new Date().toISOString(),
+              completedAt: existing.completedAt ? existing.completedAt.toISOString() : null,
+              rating: null,
+              notes: null,
+            },
+          ]
+    ).map((c, i) => ({
+      ...c,
+      cycleNumber: i + 1,
+    }));
+
+    const newRewatchCount = Math.max(0, renumberedCycles.length - 1);
+
+    const [row] = await tx
+      .update(mediaEntries)
+      .set({
+        cycles: renumberedCycles,
+        rewatchCount: newRewatchCount,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+      .returning();
+
+    return row;
+  });
+
+  revalidatePath('/dashboard');
+  return serializeEntry(updated) as MediaEntry;
 }
 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
