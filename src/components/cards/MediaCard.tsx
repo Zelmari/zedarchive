@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Trash2, Pencil, FileText, Calendar, Bookmark } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
+import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
 import MediaCover from './MediaCover';
 import MediaBadges from './MediaBadges';
@@ -327,7 +328,7 @@ export default function MediaCard({
               </button>
               {showNotes && (
                 <div className="mt-2 rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink">
-                  {item.notes}
+                  <MarkdownNotes content={item.notes} />
                 </div>
               )}
             </div>
