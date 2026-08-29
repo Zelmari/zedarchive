@@ -317,6 +317,8 @@ export async function sendGroupMessageAction(input: { groupId: string; body: str
     })
     .returning();
 
+  if (!inserted) throw new Error('Failed to create message');
+
   revalidatePath(`/groups/${groupId}`);
 
   // Return serialized for optimistic update
@@ -326,21 +328,21 @@ export async function sendGroupMessageAction(input: { groupId: string; body: str
     .where(eq(userTable.id, me.id))
     .limit(1);
   return {
-    id: inserted.id,
-    groupId: inserted.groupId,
-    senderId: inserted.senderId,
+    id: inserted!.id,
+    groupId: inserted!.groupId,
+    senderId: inserted!.senderId,
     senderName: sender?.name || 'You',
     senderUsername: sender?.username || null,
     senderImage: sender?.image || null,
-    body: inserted.body,
+    body: inserted!.body,
     createdAt:
-      inserted.createdAt instanceof Date
-        ? inserted.createdAt.toISOString()
-        : String(inserted.createdAt),
+      inserted!.createdAt instanceof Date
+        ? inserted!.createdAt.toISOString()
+        : String(inserted!.createdAt),
     expiresAt:
-      inserted.expiresAt instanceof Date
-        ? inserted.expiresAt.toISOString()
-        : String(inserted.expiresAt),
+      inserted!.expiresAt instanceof Date
+        ? inserted!.expiresAt.toISOString()
+        : String(inserted!.expiresAt),
     isOwn: true,
   };
 }
