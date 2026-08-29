@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { eq, desc, asc, and, or, ilike, isNotNull, ne, count } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, isNotNull, isNull, ne, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
@@ -127,7 +127,13 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
   const entries = await db
     .select()
     .from(mediaEntries)
-    .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
+    .where(
+      and(
+        eq(mediaEntries.userId, foundUser.id),
+        eq(mediaEntries.isPrivate, false),
+        isNull(mediaEntries.groupId),
+      ),
+    )
     .orderBy(desc(mediaEntries.updatedAt));
 
   return {

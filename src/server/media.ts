@@ -134,13 +134,17 @@ function sanitizeCycles(
 }
 
 import { getMediaEntriesByUserId } from './queries/media';
+import { groupMembers } from '@/db/schema';
+import { isNull } from 'drizzle-orm';
 
 export async function getMediaEntries(): Promise<MediaEntry[]> {
   const user = await getAuthUser();
   return getMediaEntriesByUserId(user.id);
 }
 
-export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {
+export async function createMediaEntry(
+  data: Record<string, unknown> & { groupId?: string | null },
+): Promise<MediaEntry> {
   const user = await getAuthUser();
 
   // ── Phase 1: Zod validation gate ──────────────────────────────────────────
@@ -231,7 +235,20 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
     typeof zodData.sourceId === 'string' ? zodData.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
   const notes = zodData.notes ? String(zodData.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
   /** Per-title privacy — validated/normalised by Zod */
-  const isPrivate = Boolean(zodData.isPrivate);
+  const rawIsPrivate = Boolean(zodData.isPrivate);
+
+  // ── Group archive handling ────────────────────────────────────────────────
+  const rawGroupId = (data as Record<string, unknown>).groupId;
+  const groupId = typeof rawGroupId === 'string' && rawGroupId.trim() ? rawGroupId.trim() : null;
+  if (groupId) {
+    const [membership] = await db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, user.id)))
+      .limit(1);
+    if (!membership) throw new Error('You are not a member of this group');
+  }
+  const isPrivate = groupId ? false : rawIsPrivate;
 
   const newEntry = await db.transaction(async (tx) => {
     const [inserted] = await tx
@@ -255,6 +272,7 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
         genres,
         synopsis,
         isPrivate,
+        groupId,
         primaryUnitCurrent:
           primaryUnitTotal !== null
             ? Math.min(primaryUnitCurrent, primaryUnitTotal)
@@ -292,12 +310,13 @@ export async function createMediaEntry(data: Record<string, unknown>): Promise<M
   });
 
   revalidatePath('/dashboard');
+  if (groupId) revalidatePath(`/groups/${groupId}`);
   return serializeEntry(newEntry) as MediaEntry;
 }
 
 export async function updateMediaProgress(
   id: string,
-  updates: Record<string, unknown>,
+  updates: Record<string, unknown> & { groupId?: string | null },
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
 
@@ -431,19 +450,42 @@ export async function updateMediaProgress(
     updateFields.notes =
       updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
   }
-  // Per-title privacy — validated as boolean
-  if (updates.isPrivate !== undefined) {
+  // Per-title privacy — validated as boolean (group entries forced false)
+  const incomingGroupId =
+    typeof (updates as Record<string, unknown>).groupId === 'string'
+      ? ((updates as Record<string, unknown>).groupId as string)
+      : null;
+  // isPrivate ignored for group entries
+  if (updates.isPrivate !== undefined && !incomingGroupId) {
     updateFields.isPrivate = Boolean(updates.isPrivate);
   }
 
   const updated = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
+    // Fetch existing without user filter to detect group entries
+    const [existing] = await tx.select().from(mediaEntries).where(eq(mediaEntries.id, id));
+    if (!existing) throw new Error('Entry not found');
 
-    if (!existing) {
-      throw new Error('Entry not found');
+    const isGroupEntry = Boolean(existing.groupId);
+    if (isGroupEntry) {
+      const groupIdToCheck = (existing.groupId as string) || incomingGroupId;
+      if (!groupIdToCheck) throw new Error('Group entry missing groupId');
+      const [membership] = await tx
+        .select({ id: groupMembers.id })
+        .from(groupMembers)
+        .where(and(eq(groupMembers.groupId, groupIdToCheck), eq(groupMembers.userId, user.id)))
+        .limit(1);
+      if (!membership) throw new Error('You are not a member of this group');
+      // Force isPrivate false for group entries
+      updateFields.isPrivate = false;
+      // Prevent groupId changes via update
+      if (incomingGroupId && incomingGroupId !== existing.groupId) {
+        throw new Error('Cannot change groupId of an entry');
+      }
+    } else {
+      // Personal entry — must be owner
+      if (existing.userId !== user.id) throw new Error('Entry not found');
+      if (incomingGroupId) throw new Error('Cannot move personal entry to group via update');
+      if (existing.groupId) throw new Error('Unexpected groupId');
     }
 
     if (updateFields.status === 'completed' && updates.priorityIndex === undefined) {
@@ -557,11 +599,10 @@ export async function updateMediaProgress(
       }
     }
 
-    const [row] = await tx
-      .update(mediaEntries)
-      .set(updateFields)
-      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)))
-      .returning();
+    const whereCond = isGroupEntry
+      ? eq(mediaEntries.id, id)
+      : and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id));
+    const [row] = await tx.update(mediaEntries).set(updateFields).where(whereCond).returning();
 
     if (!row) {
       throw new Error('Entry not found');
@@ -602,6 +643,7 @@ export async function updateMediaProgress(
   });
 
   revalidatePath('/dashboard');
+  if (updated.groupId) revalidatePath(`/groups/${updated.groupId}`);
   return serializeEntry(updated) as MediaEntry;
 }
 
@@ -1028,9 +1070,23 @@ export async function reorderPriorityQueue(orderedIds: string[]): Promise<void> 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
   const user = await getAuthUser();
 
-  await db
-    .delete(mediaEntries)
-    .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
+  const [existing] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, id)).limit(1);
+  if (!existing) throw new Error('Entry not found');
+  if (existing.groupId) {
+    const [membership] = await db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, existing.groupId), eq(groupMembers.userId, user.id)))
+      .limit(1);
+    if (!membership) throw new Error('You are not a member of this group');
+    await db.delete(mediaEntries).where(eq(mediaEntries.id, id));
+    revalidatePath(`/groups/${existing.groupId}`);
+  } else {
+    if (existing.userId !== user.id) throw new Error('Entry not found');
+    await db
+      .delete(mediaEntries)
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
+  }
 
   revalidatePath('/dashboard');
   return { success: true };
@@ -1046,13 +1102,16 @@ export async function addMediaQuote(
     throw new Error('Quote text is required.');
   }
 
-  const [row] = await db
-    .select()
-    .from(mediaEntries)
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-    .limit(1);
-
-  if (!row) {
+  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
+  if (!row) throw new Error('Media entry not found.');
+  if (row.groupId) {
+    const [membership] = await db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
+      .limit(1);
+    if (!membership) throw new Error('You are not a member of this group');
+  } else if (row.userId !== user.id) {
     throw new Error('Media entry not found.');
   }
 
@@ -1068,16 +1127,20 @@ export async function addMediaQuote(
   const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
   const updatedQuotes = [...existingQuotes, newQuote];
 
+  const whereCond = row.groupId
+    ? eq(mediaEntries.id, mediaId)
+    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
   const [updated] = await db
     .update(mediaEntries)
     .set({
       quotes: updatedQuotes,
       updatedAt: new Date(),
     })
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .where(whereCond)
     .returning();
 
   revalidatePath('/dashboard');
+  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
   return serializeEntry(updated) as MediaEntry;
 }
 
@@ -1087,13 +1150,16 @@ export async function updateMediaQuote(
   updates: Partial<MediaQuote>,
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
-  const [row] = await db
-    .select()
-    .from(mediaEntries)
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-    .limit(1);
-
-  if (!row) {
+  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
+  if (!row) throw new Error('Media entry not found.');
+  if (row.groupId) {
+    const [membership] = await db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
+      .limit(1);
+    if (!membership) throw new Error('You are not a member of this group');
+  } else if (row.userId !== user.id) {
     throw new Error('Media entry not found.');
   }
 
@@ -1113,43 +1179,54 @@ export async function updateMediaQuote(
     };
   });
 
+  const whereCond2 = row.groupId
+    ? eq(mediaEntries.id, mediaId)
+    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
   const [updated] = await db
     .update(mediaEntries)
     .set({
       quotes: updatedQuotes,
       updatedAt: new Date(),
     })
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .where(whereCond2)
     .returning();
 
   revalidatePath('/dashboard');
+  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
   return serializeEntry(updated) as MediaEntry;
 }
 
 export async function deleteMediaQuote(mediaId: string, quoteId: string): Promise<MediaEntry> {
   const user = await getAuthUser();
-  const [row] = await db
-    .select()
-    .from(mediaEntries)
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-    .limit(1);
-
-  if (!row) {
+  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
+  if (!row) throw new Error('Media entry not found.');
+  if (row.groupId) {
+    const [membership] = await db
+      .select({ id: groupMembers.id })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
+      .limit(1);
+    if (!membership) throw new Error('You are not a member of this group');
+  } else if (row.userId !== user.id) {
     throw new Error('Media entry not found.');
   }
 
   const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
   const updatedQuotes = existingQuotes.filter((q) => q.id !== quoteId);
 
+  const whereCond3 = row.groupId
+    ? eq(mediaEntries.id, mediaId)
+    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
   const [updated] = await db
     .update(mediaEntries)
     .set({
       quotes: updatedQuotes,
       updatedAt: new Date(),
     })
-    .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
+    .where(whereCond3)
     .returning();
 
   revalidatePath('/dashboard');
+  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
   return serializeEntry(updated) as MediaEntry;
 }
