@@ -79,6 +79,8 @@ export interface MediaEntry extends Omit<
   updatedAt: string;
   /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
   isPrivate: boolean;
+  /** Null = personal archive, set = group archive */
+  groupId: string | null;
 }
 
 export type CreateMediaInput = Omit<MediaEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;

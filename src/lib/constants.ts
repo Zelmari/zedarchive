@@ -43,6 +43,12 @@ export const ACTIVITY_LOG_FETCH_LIMIT = 50;
 
 export const HANDLE_SANITIZE_PATTERN = /[^a-z0-9_-]/g;
 
+export const GROUP_MESSAGE_MAX_LENGTH = 2000;
+export const GROUP_MESSAGE_RATE_LIMIT = 10;
+export const GROUP_MESSAGE_WINDOW_MS = 60_000;
+export const FRIEND_REQUEST_RATE_LIMIT = 20;
+export const FRIEND_REQUEST_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
 export const RESERVED_HANDLES = [
   'search',
   'explore',
@@ -57,6 +63,8 @@ export const RESERVED_HANDLES = [
   'offline',
   'verified',
   'reset-password',
+  'friends',
+  'groups',
 ] as const;
 
 export interface ThemeDefinition {

@@ -21,6 +21,10 @@ function toIso(value: Date | string | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : (value ?? null);
 }
 
+function toGroupId(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
+}
+
 /**
  * Normalize a raw database row (or API payload) into the canonical serialized
  * media-entry shape shared by server actions and RSC->client boundaries.
@@ -76,6 +80,7 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
         }))
       : [],
     priorityIndex: entry.priorityIndex != null ? Number(entry.priorityIndex) : null,
+    groupId: toGroupId((entry as Record<string, unknown>).groupId),
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',
   };
