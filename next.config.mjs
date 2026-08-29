@@ -6,10 +6,12 @@ const nextConfig = {
   // request hangs on a dead connection until the runtime cancels it
   // (opennextjs-cloudflare#548).
   serverExternalPackages: ['postgres'],
+  serverActions: {
+    bodySizeLimit: '10mb',
+  },
   experimental: {
     serverActions: {
-      // Cover images are sent as base64 data URLs (up to ~2 MB per entry).
-      bodySizeLimit: '3mb',
+      bodySizeLimit: '10mb',
     },
   },
   async headers() {
