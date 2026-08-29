@@ -347,25 +347,3 @@ export const stackItems = pgTable('stack_items', {
   orderIndex: integer('order_index').notNull().default(0),
   annotation: text('annotation'), // User essay/note on why this item belongs in the stack
 });
-
-// ─── Phase 8.5: Third-Party Auto-Sync Integrations ───────────────────────────
-
-export const userIntegrations = pgTable(
-  'user_integrations',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    /** Integration provider: 'trakt' | 'anilist' | 'storygraph' */
-    provider: text('provider').notNull(),
-    accessToken: text('access_token'),
-    refreshToken: text('refresh_token'),
-    /** Opaque JSON for provider-specific metadata (scopes, userId, etc.) */
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
-    lastSyncedAt: timestamp('last_synced_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [index('integrations_user_provider_idx').on(table.userId, table.provider)],
-);

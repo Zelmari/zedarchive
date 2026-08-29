@@ -108,7 +108,6 @@ Recently implemented in Project Unlimit:
 
 - [x] **Curated Stacks & Anthologies** — Thematic user-created collections (e.g. _"Spooky Autumn Reads"_) with intro essays and shareable cards (`/stacks` & `/u/[username]/stacks/[slug]`).
 - [x] **Command Palette (`Cmd + K`)** — Global keyboard spotlight for instant title search, quick +1 logging, and quick jumping.
-- [x] **Third-Party Auto-Sync Integrations** — Automatic sync webhooks with Trakt, AniList, and StoryGraph.
 - [x] **RSS / Atom Feeds for Public Profiles** — Subscribe to any public archive's logs via standard RSS readers (`/u/[username]/rss.xml` & `/u/[username]/atom.xml`).
 - [x] **Taste Match & Archive Comparison** — Non-algorithmic side-by-side comparison between two public archives to find shared favorites (`/u/[username]/compare/[targetUser]`).
 
