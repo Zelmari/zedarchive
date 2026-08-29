@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { getGroupDetails, getGroupMessages } from '@/server/queries/groups';
 import { getGroupMediaEntries } from '@/server/queries/media';
+import { getUserProfileById } from '@/server/queries/user';
 import GroupWorkspaceClient from './GroupWorkspaceClient';
 
 export default async function GroupWorkspacePage({
@@ -56,6 +57,25 @@ export default async function GroupWorkspacePage({
     mediaEntries = [];
   }
 
+  const dbUser = await getUserProfileById(session.user.id);
+
+  const currentUser = {
+    id: session.user.id,
+    name: dbUser?.name || session.user.name,
+    email: dbUser?.email || session.user.email,
+    image: dbUser?.image || session.user.image,
+    theme: dbUser?.theme || 'parchment',
+    customTheme: dbUser?.customTheme || null,
+    username: dbUser?.username || null,
+    isPublic: Boolean(dbUser?.isPublic),
+    bio: dbUser?.bio || null,
+    emailVerified:
+      dbUser?.emailVerified ??
+      ('emailVerified' in session.user ? Boolean(session.user.emailVerified) : false),
+    readingGoals: dbUser?.readingGoals || {},
+    verificationDismissedAt: dbUser?.verificationDismissedAt || null,
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <header className="za-site-header">
@@ -73,6 +93,7 @@ export default async function GroupWorkspacePage({
             initialMessages={messages}
             initialMedia={mediaEntries}
             currentUserId={session.user.id}
+            currentUser={currentUser}
           />
         </div>
       </main>

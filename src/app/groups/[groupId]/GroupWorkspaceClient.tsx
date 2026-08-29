@@ -16,11 +16,26 @@ export default function GroupWorkspaceClient({
   initialMessages,
   initialMedia,
   currentUserId,
+  currentUser,
 }: {
   group: GroupDetails;
   initialMessages: GroupMessageItem[];
   initialMedia: MediaEntry[];
   currentUserId: string;
+  currentUser: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    theme?: string | null;
+    customTheme?: any;
+    username?: string | null;
+    isPublic?: boolean;
+    bio?: string | null;
+    readingGoals?: any;
+    emailVerified?: boolean;
+    verificationDismissedAt?: string | null;
+  };
 }) {
   const [tab, setTab] = useState<Tab>('chat');
   const [messages, setMessages] = useState(initialMessages);
@@ -126,7 +141,7 @@ export default function GroupWorkspaceClient({
       )}
 
       {tab === 'archive' && (
-        <GroupArchiveView group={group} initialMedia={initialMedia} currentUserId={currentUserId} />
+        <GroupArchiveView group={group} initialMedia={initialMedia} currentUser={currentUser} />
       )}
 
       {tab === 'members' && (

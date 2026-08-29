@@ -78,9 +78,19 @@ interface DashboardClientProps {
     verificationDismissedAt?: string | null;
   } | null;
   initialEntries?: MediaEntry[];
+  /** Group mode: when set, archive is scoped to groupId and title shows groupName */
+  groupId?: string | null;
+  groupName?: string | null;
+  isGroup?: boolean;
 }
 
-export default function DashboardClient({ user, initialEntries = [] }: DashboardClientProps) {
+export default function DashboardClient({
+  user,
+  initialEntries = [],
+  groupId = null,
+  groupName = null,
+  isGroup = false,
+}: DashboardClientProps) {
   const router = useRouter();
   const [entries, setEntries] = useState<MediaEntry[]>(initialEntries);
   const [activeTab, setActiveTab] = useState<DashboardTab>('total');
@@ -210,7 +220,10 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     });
   };
 
-  // Optimistic UI updates
+  // Optimistic UI updates — inject groupId when in group mode
+  const withGroup = (payload: Record<string, unknown>) =>
+    isGroup && groupId ? { ...payload, groupId } : payload;
+
   const handleUpdate = async (id: string, updates: Record<string, unknown>) => {
     const previousEntries = [...entries];
 
@@ -229,7 +242,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
     );
 
     try {
-      const updated = await updateMediaProgress(id, updates);
+      const updated = await updateMediaProgress(id, withGroup(updates));
       setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
     } catch (err) {
       console.error('Update failed:', err);
@@ -243,9 +256,9 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
   const handleCreate = async (data: Record<string, unknown>) => {
     try {
-      const newEntry = await createMediaEntry(data);
+      const newEntry = await createMediaEntry(withGroup(data));
       setEntries((prev) => [newEntry, ...prev]);
-      addToast(`Added "${newEntry.title}" to archive`, 'success');
+      addToast(`Added "${newEntry.title}" to ${isGroup ? 'group' : ''} archive`, 'success');
       return newEntry;
     } catch (err) {
       console.error('Creation failed:', err);
@@ -259,7 +272,7 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
   const handleSaveEdit = async (id: string, updates: Record<string, unknown>) => {
     try {
-      const updated = await updateMediaProgress(id, updates);
+      const updated = await updateMediaProgress(id, withGroup(updates));
       setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
       setEditingItem(null);
       addToast(`Updated "${updated.title}"`, 'success');
@@ -390,8 +403,8 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
 
       <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]">
         <div className="za-container">
-          {/* Email verification nudge */}
-          {user?.emailVerified === false && !verificationDismissed && (
+          {/* Email verification nudge — hidden in group mode */}
+          {!isGroup && user?.emailVerified === false && !verificationDismissed && (
             <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 rounded-control border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[var(--za-space-4)] py-[var(--za-space-3)] text-[length:var(--za-text-supporting)] text-[#b45309]">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={16} />
@@ -421,22 +434,26 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
             </div>
           )}
 
-          {/* Masthead */}
+          {/* Masthead — group name when in group mode */}
           <div className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised">
             <div className="flex flex-col gap-[var(--za-space-1)]">
               <h1 className="text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
-                {activeTab === 'total'
-                  ? 'Your Media Archive'
-                  : activeTab === 'shows'
-                    ? 'Shows & Anime'
-                    : activeTab === 'movies'
-                      ? 'Movies & Films'
-                      : 'Books & Manga'}
+                {isGroup && groupName
+                  ? groupName
+                  : activeTab === 'total'
+                    ? 'Your Media Archive'
+                    : activeTab === 'shows'
+                      ? 'Shows & Anime'
+                      : activeTab === 'movies'
+                        ? 'Movies & Films'
+                        : 'Books & Manga'}
               </h1>
               <p className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-                {activeTab === 'total'
-                  ? `Tracking ${entries.length} items across shows, movies, and books`
-                  : `Tracking ${tabNoun} in your collection`}
+                {isGroup && groupName
+                  ? `Shared archive · ${entries.length} titles · collaborative`
+                  : activeTab === 'total'
+                    ? `Tracking ${entries.length} items across shows, movies, and books`
+                    : `Tracking ${tabNoun} in your collection`}
               </p>
             </div>
 
