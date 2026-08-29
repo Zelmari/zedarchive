@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { FRIEND_REQUEST_RATE_LIMIT, FRIEND_REQUEST_WINDOW_MS } from '@/lib/constants';
 import { sendFriendRequestSchema } from '@/lib/validations/friend';
 import { getAuthUser } from './internal';
+import { searchUsersForFriendDiscovery } from './queries/friends';
 
 export async function sendFriendRequestAction(input: { targetUserId: string }) {
   const me = await getAuthUser();
@@ -127,4 +128,9 @@ export async function removeFriendAction(input: { friendUserId: string }) {
   await db.delete(friendships).where(eq(friendships.id, row.id));
   revalidatePath('/friends');
   return { success: true };
+}
+
+export async function searchUsersForDiscoveryAction(query: string) {
+  const me = await getAuthUser();
+  return searchUsersForFriendDiscovery(query, me.id, { limit: 20 });
 }
