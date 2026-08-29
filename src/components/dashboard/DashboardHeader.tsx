@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
+import SyncIndicator from '@/components/ui/SyncIndicator';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
 interface DashboardHeaderProps {
@@ -75,6 +76,7 @@ export default function DashboardHeader({
         </nav>
 
         <nav aria-label="Account" className="za-site-header__nav">
+          <SyncIndicator />
           <button
             type="button"
             className="za-button za-button--tertiary"

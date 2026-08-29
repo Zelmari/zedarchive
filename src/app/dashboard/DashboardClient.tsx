@@ -18,6 +18,7 @@ import StatsModal from '@/components/modals/StatsModal';
 import DataBackupModal from '@/components/modals/DataBackupModal';
 import ReadingGoalModal from '@/components/modals/ReadingGoalModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
+import CommandPaletteModal from '@/components/modals/CommandPaletteModal';
 import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
@@ -97,6 +98,19 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
   );
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [nextAirMap, setNextAirMap] = useState<NextAirMap>({});
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K keyboard listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -635,6 +649,16 @@ export default function DashboardClient({ user, initialEntries = [] }: Dashboard
         nextAirMap={nextAirMap}
         onUpdateProgress={handleUpdate}
         onOpenDetail={(item) => setDetailItem(item)}
+      />
+
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        entries={entries}
+        onOpenAddModal={() => modals.open('add')}
+        onOpenStatsModal={() => modals.open('stats')}
+        onOpenThemeModal={() => modals.open('theme')}
+        onSelectEntry={(item) => setDetailItem(item)}
       />
 
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

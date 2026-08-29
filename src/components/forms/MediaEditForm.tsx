@@ -19,6 +19,8 @@ export interface MediaFormState {
   sourceId: string;
   notes: string;
   coverImage: string | null;
+  /** Phase 3: hide this entry from public profile, Wrapped, and RSS feeds */
+  isPrivate: boolean;
 }
 
 interface MediaEditFormProps {
@@ -434,6 +436,23 @@ export default function MediaEditForm({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Privacy Control */}
+      <div className="mb-[var(--za-space-4)] rounded-control border border-decorative bg-surface-subtle p-3">
+        <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+          <span>Private Title (Hide from public profile & RSS)</span>
+          <input
+            type="checkbox"
+            checked={Boolean(form.isPrivate)}
+            onChange={(e) => onFieldChange('isPrivate', e.target.checked)}
+            className="h-4 w-4 rounded accent-accent"
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-ink-muted">
+          When checked, this entry is only visible to you on your private dashboard and excluded
+          from public showcases.
+        </p>
       </div>
 
       {/* Notes */}

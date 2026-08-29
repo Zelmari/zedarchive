@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText, Calendar, Bookmark } from 'lucide-react';
+import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
@@ -222,6 +222,16 @@ export default function MediaCard({
               >
                 {item.title}
               </h3>
+              {/* Phase 3: private entry lock badge — shown only on owner dashboard */}
+              {item.isPrivate && (
+                <span
+                  className="mt-0.5 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
+                  title="Private — hidden from public profile and RSS"
+                >
+                  <Lock size={10} strokeWidth={2} aria-hidden="true" />
+                  Private
+                </span>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-[var(--za-space-1)]">
               <button

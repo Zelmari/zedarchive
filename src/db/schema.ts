@@ -125,11 +125,13 @@ export const mediaEntries = pgTable(
     tags: jsonb('tags').$type<string[]>().default([]), // e.g. ["favorites", "cozy", "summer-2026"]
     synopsis: text('synopsis'),
     genres: jsonb('genres').$type<string[]>().default([]),
-    coverImage: text('cover_image'), // Compressed Base64 data URL
+    coverImage: text('cover_image'), // Compressed Base64 data URL or asset URL
     sourceId: text('source_id'), // e.g. "tvmaze-1234", "anilist-5678", "gbooks-abc"
     notes: text('notes'),
     quotes: jsonb('quotes').$type<MediaQuote[]>().default([]),
     priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
+    /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
+    isPrivate: boolean('is_private').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -138,6 +140,12 @@ export const mediaEntries = pgTable(
     index('media_entries_user_updated_idx').on(table.userId, table.updatedAt.desc()),
     index('media_entries_user_status_idx').on(table.userId, table.status),
     index('media_entries_user_priority_idx').on(table.userId, table.priorityIndex),
+    // Phase 3: composite index for public-profile filtering
+    index('media_entries_user_public_idx').on(
+      table.userId,
+      table.isPrivate,
+      table.updatedAt.desc(),
+    ),
   ],
 );
 
@@ -182,4 +190,182 @@ export const profileComments = pgTable(
     index('comments_profile_expires_idx').on(table.profileUserId, table.expiresAt),
     index('comments_author_created_idx').on(table.authorUserId, table.createdAt.desc()),
   ],
+);
+
+// ─── Phase 2: Normalized Relational Tables ────────────────────────────────────
+
+/**
+ * Normalized tag registry per user. Deduplicates tags across media entries.
+ * The JSONB `tags` array on `media_entries` remains the primary source for
+ * single-entry reads; these tables power cross-archive analytics and tag search.
+ */
+export const mediaTags = pgTable(
+  'media_tags',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('media_tags_user_idx').on(table.userId),
+    index('media_tags_user_name_idx').on(table.userId, table.normalizedName),
+  ],
+);
+
+export const mediaEntryTags = pgTable(
+  'media_entry_tags',
+  {
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
+    tagId: text('tag_id')
+      .notNull()
+      .references(() => mediaTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    index('entry_tags_media_idx').on(table.mediaId),
+    index('entry_tags_tag_idx').on(table.tagId),
+  ],
+);
+
+/**
+ * Normalized rewatch / reread cycles. The JSONB `cycles` on `media_entries`
+ * remains for fast single-entry reads; this table powers historical analytics.
+ */
+export const mediaCycles = pgTable(
+  'media_cycles',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    cycleNumber: integer('cycle_number').notNull().default(1),
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    rating: integer('rating'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('cycles_media_id_idx').on(table.mediaId),
+    index('cycles_user_completed_idx').on(table.userId, table.completedAt.desc()),
+  ],
+);
+
+/**
+ * Normalized quotes repository. The JSONB `quotes` on `media_entries` remains
+ * for fast single-entry reads; this table powers the favorites feed.
+ */
+export const mediaQuotes = pgTable(
+  'media_quotes',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(),
+    speaker: text('speaker'),
+    citation: text('citation'),
+    isFavorite: boolean('is_favorite').notNull().default(false),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('quotes_media_id_idx').on(table.mediaId),
+    index('quotes_user_favorite_idx').on(table.userId, table.isFavorite),
+  ],
+);
+
+/**
+ * User reading / watching goals by period (year or year-month).
+ */
+export const userGoals = pgTable(
+  'user_goals',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    period: text('period').notNull(), // '2026' or '2026-08'
+    target: integer('target').notNull(),
+    category: mediaCategoryEnum('category').notNull().default('book'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('goals_user_period_idx').on(table.userId, table.period)],
+);
+
+// ─── Phase 6: External API Cache ─────────────────────────────────────────────
+
+/**
+ * PostgreSQL-backed cache for external API responses (TMDB, TVMaze, etc.).
+ * Used when Cloudflare KV is unavailable or for fallback persistence.
+ */
+export const externalApiCache = pgTable('external_api_cache', {
+  key: text('key').primaryKey(),
+  payload: jsonb('payload').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+// ─── Phase 8.2: Curated Stacks & Anthologies ─────────────────────────────────
+
+export const stacks = pgTable(
+  'stacks',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    slug: text('slug').notNull(),
+    description: text('description'),
+    isPublic: boolean('is_public').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('stacks_user_slug_idx').on(table.userId, table.slug)],
+);
+
+export const stackItems = pgTable('stack_items', {
+  id: text('id').primaryKey(),
+  stackId: text('stack_id')
+    .notNull()
+    .references(() => stacks.id, { onDelete: 'cascade' }),
+  mediaId: text('media_id')
+    .notNull()
+    .references(() => mediaEntries.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').notNull().default(0),
+  annotation: text('annotation'), // User essay/note on why this item belongs in the stack
+});
+
+// ─── Phase 8.5: Third-Party Auto-Sync Integrations ───────────────────────────
+
+export const userIntegrations = pgTable(
+  'user_integrations',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** Integration provider: 'trakt' | 'anilist' | 'storygraph' */
+    provider: text('provider').notNull(),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    /** Opaque JSON for provider-specific metadata (scopes, userId, etc.) */
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    lastSyncedAt: timestamp('last_synced_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('integrations_user_provider_idx').on(table.userId, table.provider)],
 );

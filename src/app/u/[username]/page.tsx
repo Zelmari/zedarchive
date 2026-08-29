@@ -115,7 +115,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   // Guestbook comments (auto-purges expired rows for this profile)
   const initialComments = await getCommentsByProfileUserId(user.id, session?.user?.id);
-  const activityHeatmap = await getYearlyActivityHeatmapForUser(user.id);
+  const activityHeatmap = await getYearlyActivityHeatmapForUser(user.id, session?.user?.id);
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();

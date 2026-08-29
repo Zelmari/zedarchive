@@ -26,6 +26,7 @@ const EMPTY_FORM: MediaFormState = {
   sourceId: '',
   notes: '',
   coverImage: null,
+  isPrivate: false,
 };
 
 interface AddMediaModalProps {
@@ -97,6 +98,7 @@ export default function AddMediaModal({
         sourceId: String(editItem.sourceId || ''),
         notes: String(editItem.notes || ''),
         coverImage: (editItem.coverImage as string | null) || null,
+        isPrivate: Boolean(editItem.isPrivate),
       });
     } else {
       setCategory(initialCategory);
@@ -154,6 +156,7 @@ export default function AddMediaModal({
       sourceId: item.sourceId || '',
       notes: '',
       coverImage: item.coverUrl || null,
+      isPrivate: false,
     });
     setViewMode('manual');
 
@@ -267,6 +270,7 @@ export default function AddMediaModal({
         coverImage: form.coverImage || null,
         sourceId: form.sourceId || null,
         notes: form.notes.trim() || null,
+        isPrivate: Boolean(form.isPrivate),
       };
 
       if (isEditMode && onSave) {

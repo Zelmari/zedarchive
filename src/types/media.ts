@@ -77,6 +77,8 @@ export interface MediaEntry extends Omit<
   droppedProgressSecondary: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
+  isPrivate: boolean;
 }
 
 export type CreateMediaInput = Omit<MediaEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
