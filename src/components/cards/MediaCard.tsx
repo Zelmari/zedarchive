@@ -213,27 +213,9 @@ export default function MediaCard({
         />
 
         <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h3
-                className={`[overflow-wrap:anywhere] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink ${onOpenDetail ? 'cursor-pointer' : ''}`}
-                title={item.title}
-                {...openDetailProps}
-              >
-                {item.title}
-              </h3>
-              {/* Phase 3: private entry lock badge — shown only on owner dashboard */}
-              {item.isPrivate && (
-                <span
-                  className="mt-0.5 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
-                  title="Private — hidden from public profile and RSS"
-                >
-                  <Lock size={10} strokeWidth={2} aria-hidden="true" />
-                  Private
-                </span>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-[var(--za-space-1)]">
+          <div className="flex flex-col gap-1">
+            {/* Top action buttons (anchored top-right) */}
+            <div className="flex items-center justify-end gap-[var(--za-space-1)]">
               <button
                 type="button"
                 className={`${miniActionBtn} ${
@@ -284,6 +266,27 @@ export default function MediaCard({
                 >
                   <Trash2 size={14} strokeWidth={1.75} />
                 </button>
+              )}
+            </div>
+
+            {/* Title & Privacy Badge: full horizontal width */}
+            <div className="min-w-0">
+              <h3
+                className={`[overflow-wrap:anywhere] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink ${onOpenDetail ? 'cursor-pointer' : ''}`}
+                title={item.title}
+                {...openDetailProps}
+              >
+                {item.title}
+              </h3>
+              {/* Phase 3: private entry lock badge — shown only on owner dashboard */}
+              {item.isPrivate && (
+                <span
+                  className="mt-1 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
+                  title="Private — hidden from public profile and RSS"
+                >
+                  <Lock size={10} strokeWidth={2} aria-hidden="true" />
+                  Private
+                </span>
               )}
             </div>
           </div>
