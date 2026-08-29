@@ -124,17 +124,33 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     return null;
   }
 
-  const entries = await db
-    .select()
-    .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, foundUser.id),
-        eq(mediaEntries.isPrivate, false),
-        isNull(mediaEntries.groupId),
-      ),
-    )
-    .orderBy(desc(mediaEntries.updatedAt));
+  let entries: (typeof mediaEntries.$inferSelect)[];
+  try {
+    entries = await db
+      .select()
+      .from(mediaEntries)
+      .where(
+        and(
+          eq(mediaEntries.userId, foundUser.id),
+          eq(mediaEntries.isPrivate, false),
+          isNull(mediaEntries.groupId),
+        ),
+      )
+      .orderBy(desc(mediaEntries.updatedAt));
+  } catch (err: any) {
+    if (
+      String(err?.message || '').includes('group_id') ||
+      String(err?.cause?.message || '').includes('group_id')
+    ) {
+      entries = await db
+        .select()
+        .from(mediaEntries)
+        .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
+        .orderBy(desc(mediaEntries.updatedAt));
+    } else {
+      throw err;
+    }
+  }
 
   return {
     user: foundUser,
