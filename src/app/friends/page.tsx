@@ -1,0 +1,46 @@
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
+import {
+  getAcceptedFriends,
+  getIncomingFriendRequests,
+  getOutgoingFriendRequests,
+} from '@/server/queries/friends';
+import FriendsClient from './FriendsClient';
+
+export const metadata = {
+  title: 'Friends — zedarchive',
+  description: 'Manage your friends, requests, and discover new collectors.',
+};
+
+export default async function FriendsPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) redirect('/login');
+
+  const [friends, incoming, outgoing] = await Promise.all([
+    getAcceptedFriends(session.user.id),
+    getIncomingFriendRequests(session.user.id),
+    getOutgoingFriendRequests(session.user.id),
+  ]);
+
+  return (
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
+      <main className="flex-1 py-8">
+        <div className="za-container max-w-4xl">
+          <div className="mb-6">
+            <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">Friends</h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              Manage friendships and discover fellow archivists.
+            </p>
+          </div>
+          <FriendsClient
+            initialFriends={friends}
+            initialIncoming={incoming}
+            initialOutgoing={outgoing}
+            currentUserId={session.user.id}
+          />
+        </div>
+      </main>
+    </div>
+  );
+}

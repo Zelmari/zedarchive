@@ -11,6 +11,8 @@ import { Star, ShieldAlert, Sparkles } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
+import FriendButton from './FriendButton';
+import { getFriendshipStatus } from '@/server/queries/friends';
 
 import { THEME_LABELS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
@@ -110,6 +112,24 @@ export default async function PublicProfilePage({ params }: PageParams) {
         image: meRow.image,
         isPublic: meRow.isPublic,
       };
+    }
+  }
+
+  // Friendship status for Add Friend button
+  let friendshipStatus: {
+    status: string | null;
+    isSender: boolean | null;
+    friendshipId: string | null;
+  } = {
+    status: null,
+    isSender: null,
+    friendshipId: null,
+  };
+  if (viewer.isLoggedIn && viewer.id && viewer.id !== user.id) {
+    try {
+      friendshipStatus = await getFriendshipStatus(viewer.id, user.id);
+    } catch {
+      // ignore
     }
   }
 
@@ -272,6 +292,14 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 >
                   View Annual Wrapped
                 </Link>
+                {viewer.isLoggedIn && viewer.id && viewer.id !== user.id && (
+                  <FriendButton
+                    targetUserId={user.id}
+                    initialStatus={friendshipStatus.status}
+                    initialIsSender={friendshipStatus.isSender}
+                    initialRequestId={friendshipStatus.friendshipId}
+                  />
+                )}
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"

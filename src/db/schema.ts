@@ -7,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import type { StructureItem, MediaCycle, MediaQuote } from '@/types/media';
 import type { ThemeId, ReadingGoalConfig, CustomThemePalette } from '@/types/user';
@@ -79,6 +80,96 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── Friends & Groups ─────────────────────────────────────────────────────────
+
+export const friendshipStatusEnum = pgEnum('friendship_status', [
+  'pending',
+  'accepted',
+  'rejected',
+]);
+
+export const friendships = pgTable(
+  'friendships',
+  {
+    id: text('id').primaryKey(),
+    senderId: text('sender_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    receiverId: text('receiver_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: friendshipStatusEnum('status').notNull().default('pending'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('friendships_sender_idx').on(table.senderId),
+    index('friendships_receiver_idx').on(table.receiverId),
+    index('friendships_sender_status_idx').on(table.senderId, table.status),
+    index('friendships_receiver_status_idx').on(table.receiverId, table.status),
+    uniqueIndex('friendships_pair_uidx').on(table.senderId, table.receiverId),
+  ],
+);
+
+export const groupRoleEnum = pgEnum('group_role', ['owner', 'member']);
+
+export const groups = pgTable(
+  'groups',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    image: text('image'),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('groups_owner_idx').on(table.ownerId)],
+);
+
+export const groupMembers = pgTable(
+  'group_members',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: groupRoleEnum('role').notNull().default('member'),
+    joinedAt: timestamp('joined_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('group_members_group_idx').on(table.groupId),
+    index('group_members_user_idx').on(table.userId),
+    uniqueIndex('group_members_group_user_uidx').on(table.groupId, table.userId),
+  ],
+);
+
+export const groupMessages = pgTable(
+  'group_messages',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    senderId: text('sender_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [
+    index('group_messages_group_created_idx').on(table.groupId, table.createdAt.desc()),
+    index('group_messages_expires_idx').on(table.expiresAt),
+    index('group_messages_group_expires_idx').on(table.groupId, table.expiresAt),
+  ],
+);
+
 // MEDIA TRACKER TABLES
 
 export const mediaCategoryEnum = pgEnum('media_category', [
@@ -132,6 +223,7 @@ export const mediaEntries = pgTable(
     priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
     /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
     isPrivate: boolean('is_private').notNull().default(false),
+    groupId: text('group_id').references(() => groups.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -146,6 +238,8 @@ export const mediaEntries = pgTable(
       table.isPrivate,
       table.updatedAt.desc(),
     ),
+    index('media_entries_group_id_idx').on(table.groupId),
+    index('media_entries_group_updated_idx').on(table.groupId, table.updatedAt.desc()),
   ],
 );
 
