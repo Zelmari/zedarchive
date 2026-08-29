@@ -62,6 +62,19 @@ export const mediaRatingSchema = z.preprocess((val) => {
   return Math.min(MAX_RATING, Math.max(1, parsed));
 }, z.number().int().min(1).max(MAX_RATING).nullable().optional());
 
+export const optionalInt = z.preprocess((val) => {
+  if (val === null || val === undefined || val === '') return null;
+  const num = Number(val);
+  return isNaN(num) ? null : Math.floor(num);
+}, z.number().int().nullable().optional());
+
+export const nonNegativeInt = (defaultValue = 0) =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === '') return defaultValue;
+    const num = Number(val);
+    return isNaN(num) ? defaultValue : Math.max(0, Math.floor(num));
+  }, z.number().int().min(0).default(defaultValue));
+
 // ─── Create Schema ────────────────────────────────────────────────────────────
 
 export const createMediaSchema = z.object({
@@ -72,13 +85,13 @@ export const createMediaSchema = z.object({
   isPrivate: z.boolean().default(false),
   dropReason: z.string().trim().max(MAX_DROP_REASON_LENGTH).nullable().optional(),
   droppedAt: z.string().nullable().optional(),
-  droppedProgressPrimary: z.number().int().nullable().optional(),
-  droppedProgressSecondary: z.number().int().nullable().optional(),
+  droppedProgressPrimary: optionalInt,
+  droppedProgressSecondary: optionalInt,
   /** For non-movie categories, minimum 1. For movies 0 is allowed. */
-  primaryUnitCurrent: z.number().int().min(0).default(1),
-  primaryUnitTotal: z.number().int().min(1).nullable().optional(),
-  secondaryUnitCurrent: z.number().int().min(0).default(0),
-  secondaryUnitTotal: z.number().int().min(1).nullable().optional(),
+  primaryUnitCurrent: nonNegativeInt(1),
+  primaryUnitTotal: optionalInt,
+  secondaryUnitCurrent: nonNegativeInt(0),
+  secondaryUnitTotal: optionalInt,
   structure: z.array(structureItemSchema).max(MAX_STRUCTURE_LENGTH).default([]),
   cycles: z.array(mediaCycleSchema).default([]),
   quotes: z.array(mediaQuoteSchema).default([]),
@@ -90,7 +103,7 @@ export const createMediaSchema = z.object({
   coverImage: z.string().max(MAX_COVER_IMAGE_LENGTH).nullable().optional(),
   sourceId: z.string().max(MAX_SOURCE_ID_LENGTH).nullable().optional(),
   notes: z.string().max(MAX_NOTES_LENGTH).nullable().optional(),
-  priorityIndex: z.number().int().min(1).nullable().optional(),
+  priorityIndex: optionalInt,
   startedAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
 });

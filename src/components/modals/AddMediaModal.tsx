@@ -255,6 +255,17 @@ export default function AddMediaModal({
     setIsSubmitting(true);
 
     try {
+      const parsedPrimaryCur = parseInt(form.primaryUnitCurrent, 10);
+      const parsedPrimaryTot =
+        form.primaryUnitTotal && String(form.primaryUnitTotal).trim()
+          ? parseInt(String(form.primaryUnitTotal), 10)
+          : null;
+      const parsedSecCur = parseInt(form.secondaryUnitCurrent, 10);
+      const parsedSecTot =
+        form.secondaryUnitTotal && String(form.secondaryUnitTotal).trim()
+          ? parseInt(String(form.secondaryUnitTotal), 10)
+          : null;
+
       const payload: Record<string, unknown> = {
         title: form.title.trim(),
         category,
@@ -262,10 +273,18 @@ export default function AddMediaModal({
         dropReason:
           form.status === 'dropped' && form.dropReason?.trim() ? form.dropReason.trim() : null,
         rating: form.rating != null ? parseInt(String(form.rating), 10) : null,
-        primaryUnitCurrent: parseInt(form.primaryUnitCurrent, 10) || 1,
-        primaryUnitTotal: form.primaryUnitTotal ? parseInt(form.primaryUnitTotal, 10) : 1,
-        secondaryUnitCurrent: parseInt(form.secondaryUnitCurrent, 10) || 0,
-        secondaryUnitTotal: form.secondaryUnitTotal ? parseInt(form.secondaryUnitTotal, 10) : null,
+        primaryUnitCurrent: isNaN(parsedPrimaryCur)
+          ? category === 'movie'
+            ? 0
+            : 1
+          : Math.max(category === 'movie' ? 0 : 1, parsedPrimaryCur),
+        primaryUnitTotal:
+          parsedPrimaryTot === null || isNaN(parsedPrimaryTot)
+            ? null
+            : Math.max(1, parsedPrimaryTot),
+        secondaryUnitCurrent: isNaN(parsedSecCur) ? 0 : Math.max(0, parsedSecCur),
+        secondaryUnitTotal:
+          parsedSecTot === null || isNaN(parsedSecTot) ? null : Math.max(0, parsedSecTot),
         structure: form.structure || [],
         coverImage: form.coverImage || null,
         sourceId: form.sourceId || null,
@@ -278,7 +297,8 @@ export default function AddMediaModal({
       } else if (onAdd) {
         await onAdd(payload);
       }
-      resetAndClose();
+      setError('');
+      onClose();
     } catch (err) {
       setError(
         err instanceof Error
