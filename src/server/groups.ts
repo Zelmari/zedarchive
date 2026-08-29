@@ -19,6 +19,10 @@ import {
   MAX_COVER_IMAGE_LENGTH,
 } from '@/lib/constants';
 import {
+  getGroupMessages as getGroupMessagesQuery,
+  getEligibleFriendsToInvite as getEligibleQuery,
+} from './queries/groups';
+import {
   createGroupSchema,
   updateGroupSchema,
   sendGroupMessageSchema,
@@ -363,4 +367,14 @@ export async function deleteGroupMessageAction(input: { messageId: string }) {
   await db.delete(groupMessages).where(eq(groupMessages.id, messageId));
   revalidatePath(`/groups/${msg.groupId}`);
   return { success: true };
+}
+
+export async function getGroupMessagesAction(groupId: string) {
+  const me = await getAuthUser();
+  return getGroupMessagesQuery(groupId, me.id);
+}
+
+export async function getEligibleFriendsToInviteAction(groupId: string) {
+  const me = await getAuthUser();
+  return getEligibleQuery(groupId, me.id);
 }
