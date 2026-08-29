@@ -7,7 +7,7 @@ import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
 import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { auth } from '@/lib/auth';
-import { Star, ShieldAlert } from 'lucide-react';
+import { Star, ShieldAlert, Sparkles } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
@@ -246,6 +246,26 @@ export default async function PublicProfilePage({ params }: PageParams) {
               {/* Quick Action Bar */}
               <div className="flex flex-none flex-col items-end gap-2">
                 <ShareArchiveButton url={profileUrl} />
+                {viewer.isLoggedIn && viewer.username && viewer.id !== user.id && (
+                  <Link
+                    href={`/u/${viewer.username}/compare/${user.username}`}
+                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs font-[var(--za-weight-emphasis)] text-accent border-accent/40 hover:border-accent hover:bg-accent/10"
+                    title={`Compare your archive with @${user.username}`}
+                  >
+                    <Sparkles size={13} className="shrink-0 text-accent" />
+                    <span>Taste Match</span>
+                  </Link>
+                )}
+                {!viewer.isLoggedIn && (
+                  <Link
+                    href={`/login?callbackUrl=/u/${user.username}`}
+                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs"
+                    title="Log in to compare taste with this archive"
+                  >
+                    <Sparkles size={13} className="shrink-0 text-ink-muted" />
+                    <span>Taste Match</span>
+                  </Link>
+                )}
                 <Link
                   href={`/u/${user.username}/wrapped/${currentYear}`}
                   className="za-button za-button--secondary inline-flex items-center text-xs"
