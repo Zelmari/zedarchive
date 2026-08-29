@@ -24,7 +24,13 @@ Whether you're bingeing a multi-season show, tracking feature films, following s
 
 ---
 
-## ✨ Current Capabilities
+## ✨ Core Capabilities
+
+### ⚡ Global Command Palette (`Cmd + K` / `Ctrl + K`)
+
+- **Instant Title Spotlight:** Search across your entire catalog with fuzzy matching from anywhere on the dashboard.
+- **Keyboard Navigation:** Jump to Settings, View Stats, Change Themes, Open Weekly Calendar, or Manage Anthologies with zero mouse clicks.
+- **Quick Logging:** Rapidly open and update progress on any title directly from the search palette.
 
 ### 🔍 Spotlight Search-First Add Flow
 
@@ -39,6 +45,36 @@ Whether you're bingeing a multi-season show, tracking feature films, following s
 - **Multi-Volume & Chapter Steppers:** Volume selector paired with direct chapter/page input fields for books and manga.
 - **Movie Runtime & Rewatch Steppers:** Log movie viewings with minutes watched or 1-click completion and rewatch incrementing.
 - **Auto-Completion Milestone:** Reaching maximum progress prompts an interactive completion confirmation.
+
+### 📚 Curated Stacks & Anthologies
+
+- **Thematic Editorial Collections (`/stacks`):** Group titles into custom collections (e.g. _"Spooky Autumn Reads"_, _"90s Cyberpunk Essentials"_, or _"Cozy Rainy Day Shows"_).
+- **Personal Annotations:** Write intro essays and per-title notes explaining why each item belongs in the anthology.
+- **Public Showcase Pages (`/u/[username]/stacks/[slug]`):** Share curated editorial stacks as standalone, beautifully formatted reading lists.
+
+### 🤝 Taste Match & Archive Comparison
+
+- **Non-Algorithmic Comparison (`/u/[username]/compare/[targetUser]`):** Compare your public archive side-by-side with any friend's archive.
+- **Taste Overlap Analytics:** Computes shared catalog percentage, rating agreement correlation, top shared genres, and your **Shared Masterworks** (titles you both rated 9–10★).
+
+### 📰 RSS 2.0 & Atom 1.0 Public Feeds
+
+- **Open Web Syndication:** Friends can subscribe to your public media archive in their favorite feed reader via standard endpoints:
+  - `/u/[username]/rss.xml` (RSS 2.0)
+  - `/u/[username]/atom.xml` (Atom 1.0)
+- **Privacy Guaranteed:** Private titles and private profiles are strictly excluded from feed generation.
+
+### 📴 True Offline-First Architecture & Outbox
+
+- **IndexedDB Mutation Outbox:** All progress steppers, notes, and ratings queue safely on your device when your connection drops.
+- **Automatic Background Sync:** Pending writes replay seamlessly in order the moment your internet reconnects.
+- **Live Sync Indicator:** Header pill badge indicates real-time sync state (🟢 In Sync, 🟡 Queued Offline Writes, 🔴 Offline).
+
+### 🛡️ Granular Per-Title Privacy Controls
+
+- **Private Title Toggle:** Mark individual titles as **Private** directly in the Add/Edit form.
+- **Locked Dashboard Badge:** Private titles display a subtle lock icon on your dashboard for easy visual distinction.
+- **Leak Protection:** Private entries are 100% excluded from public profile pages (`/u/[username]`), yearly Wrapped reports, activity heatmaps, and public RSS feeds.
 
 ### 🎨 Themes & Custom Color Studio
 
@@ -79,7 +115,7 @@ Choose from 5 curated aesthetic themes or design your own bespoke color palette 
 ### 📊 Reading Goals, Activity Heatmap & Annual Wrapped
 
 - **GitHub-Style Contribution Heatmap:** 52-week × 7-day visual activity grid tracking daily watch/read logging momentum.
-- **Reading Challenges & Goals:** Annual and monthly target book counters with real-time pacing pace forecasts (_"2 ahead of schedule"_).
+- **Reading Challenges & Goals:** Annual and monthly target book counters with real-time pacing forecasts (_"2 ahead of schedule"_).
 - **Archive Statistics Modal:** Comprehensive breakdown of completion rates, total episodes watched, chapters read, movie minutes logged, and score averages.
 - **Yearly Wrapped (`/wrapped` & `/u/[username]/wrapped/[year]`):** Editorial year-in-review zine featuring month-by-month completion bar charts, category distribution, and top-rated masterworks.
 
@@ -102,23 +138,13 @@ Choose from 5 curated aesthetic themes or design your own bespoke color palette 
 
 ---
 
-## 🗺️ Roadmap & Upcoming Ideas
-
-Recently implemented in Project Unlimit:
-
-- [x] **Curated Stacks & Anthologies** — Thematic user-created collections (e.g. _"Spooky Autumn Reads"_) with intro essays and shareable cards (`/stacks` & `/u/[username]/stacks/[slug]`).
-- [x] **Command Palette (`Cmd + K`)** — Global keyboard spotlight for instant title search, quick +1 logging, and quick jumping.
-- [x] **RSS / Atom Feeds for Public Profiles** — Subscribe to any public archive's logs via standard RSS readers (`/u/[username]/rss.xml` & `/u/[username]/atom.xml`).
-- [x] **Taste Match & Archive Comparison** — Non-algorithmic side-by-side comparison between two public archives to find shared favorites (`/u/[username]/compare/[targetUser]`).
-
----
-
 ## 🛠️ Tech Stack & Architecture
 
 - **Framework:** [Next.js 16](https://nextjs.org/) (App Router, Turbopack, React Server Components & Server Actions)
 - **Edge Runtime:** [Cloudflare Workers](https://workers.cloudflare.com/) powered by [OpenNext](https://opennext.js.org/cloudflare)
 - **Database & ORM:** [PostgreSQL](https://www.postgresql.org/) (hosted on [Supabase](https://supabase.com/) or local Docker Postgres) with [Drizzle ORM](https://orm.drizzle.team/)
 - **Authentication:** [Better Auth](https://better-auth.com/) with scrypt password hashing and HTTP-only session cookies
+- **Client Offline Storage:** IndexedDB with localStorage fallback
 - **Styling:** Design token bridge (`--za-*`) exposed to Tailwind CSS v4 with custom semantic themes
 - **Icons:** [Lucide Icons](https://lucide.dev/)
 
