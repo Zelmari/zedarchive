@@ -403,8 +403,8 @@ export default function DashboardClient({
 
       <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]">
         <div className="za-container">
-          {/* Email verification nudge */}
-          {user?.emailVerified === false && !verificationDismissed && (
+          {/* Email verification nudge — hidden in group mode */}
+          {!isGroup && user?.emailVerified === false && !verificationDismissed && (
             <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 rounded-control border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[var(--za-space-4)] py-[var(--za-space-3)] text-[length:var(--za-text-supporting)] text-[#b45309]">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={16} />
