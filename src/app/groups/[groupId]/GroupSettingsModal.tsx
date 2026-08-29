@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Crown, UserMinus, LogOut, Trash2, UserPlus } from 'lucide-react';
 import type { GroupDetails } from '@/types/groups';
 import {
@@ -11,7 +12,6 @@ import {
   deleteGroupAction,
   updateGroupAction,
 } from '@/server/groups';
-import { getEligibleFriendsToInvite } from '@/server/queries/groups';
 
 export default function GroupSettingsModal({
   group,
@@ -24,6 +24,7 @@ export default function GroupSettingsModal({
   eligibleFriends: { id: string; name: string; username: string | null; image: string | null }[];
   onClose: () => void;
 }) {
+  const router = useRouter();
   const isOwner = group.isOwner;
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');
@@ -40,7 +41,7 @@ export default function GroupSettingsModal({
           description: description.trim() || null,
         });
         setMsg('Group updated');
-        setTimeout(() => window.location.reload(), 500);
+        setTimeout(() => router.refresh(), 500);
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }
@@ -53,7 +54,7 @@ export default function GroupSettingsModal({
       try {
         await addGroupMembersAction({ groupId: group.id, userIds: selectedToAdd });
         setMsg('Members added');
-        setTimeout(() => window.location.reload(), 500);
+        setTimeout(() => router.refresh(), 500);
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }
@@ -66,7 +67,7 @@ export default function GroupSettingsModal({
       try {
         await kickGroupMemberAction({ groupId: group.id, memberUserId: userId });
         setMsg('Member kicked');
-        setTimeout(() => window.location.reload(), 500);
+        setTimeout(() => router.refresh(), 500);
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }
@@ -79,7 +80,7 @@ export default function GroupSettingsModal({
       try {
         await transferGroupOwnershipAction({ groupId: group.id, newOwnerUserId: newOwnerId });
         setMsg('Ownership transferred');
-        setTimeout(() => window.location.reload(), 500);
+        setTimeout(() => router.refresh(), 500);
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }
@@ -91,7 +92,7 @@ export default function GroupSettingsModal({
     startTransition(async () => {
       try {
         await leaveGroupAction({ groupId: group.id });
-        window.location.href = '/groups';
+        router.push('/groups');
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }
@@ -108,7 +109,7 @@ export default function GroupSettingsModal({
     startTransition(async () => {
       try {
         await deleteGroupAction({ groupId: group.id });
-        window.location.href = '/groups';
+        router.push('/groups');
       } catch (e: any) {
         setMsg(e.message || 'Failed');
       }

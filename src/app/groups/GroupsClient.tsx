@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Plus, X } from 'lucide-react';
 import type { GroupSummary } from '@/types/groups';
@@ -14,6 +15,7 @@ export default function GroupsClient({
   initialGroups: GroupSummary[];
   friends: FriendUserSummary[];
 }) {
+  const router = useRouter();
   const [groups] = useState(initialGroups);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -39,7 +41,7 @@ export default function GroupsClient({
           memberUserIds: selected,
         });
         setMsg('Group created');
-        window.location.href = `/groups/${res.id}`;
+        router.push(`/groups/${res.id}`);
       } catch (e: any) {
         setMsg(e.message || 'Failed to create group');
       }
