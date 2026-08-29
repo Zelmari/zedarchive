@@ -24,6 +24,68 @@ Whether you're bingeing a multi-season show, tracking feature films, following s
 
 ---
 
+## 🏗️ Architecture & Hosting Topology
+
+ZedArchive is architected across three tiers — Edge Compute, Managed Database, and Local Client Storage — with zero proprietary lock-in:
+
+```mermaid
+flowchart TD
+    User([User Browser / PWA])
+
+    subgraph Client["Client Tier (User Device)"]
+        UI[React 19 Client UI]
+        IDB[(IndexedDB Outbox)]
+        SW[Service Worker Cache]
+    end
+
+    subgraph Edge["Compute & Hosting Tier (Cloudflare Workers)"]
+        OpenNext[Next.js 16 App Router on OpenNext]
+        RSC[React Server Components]
+        ServerActions[Server Actions & API Routes]
+        StaticAssets[Cloudflare Static Assets CDN]
+    end
+
+    subgraph DB["Database Tier (PostgreSQL / Supabase)"]
+        Postgres[(PostgreSQL Instance)]
+        Drizzle[Drizzle ORM Connection Pool]
+    end
+
+    subgraph External["External APIs (On-Demand Metadata)"]
+        TVM[TVMaze — TV & Airdates]
+        TMDBAPI[TMDB — Movies & Streaming Badges]
+        AL[AniList & Jikan — Anime, Manga & Filler]
+        OL[OpenLibrary & Google Books]
+        ResendAPI[Resend — Transactional Auth Email]
+    end
+
+    User <--> UI
+    UI <--> IDB
+    UI <--> SW
+    UI <-->|HTTPS / Global Edge| OpenNext
+    OpenNext --> RSC
+    OpenNext --> ServerActions
+    OpenNext --> StaticAssets
+    ServerActions <-->|Direct TCP / TLS| Drizzle
+    Drizzle <--> Postgres
+    ServerActions -->|On-Demand Search| TVM
+    ServerActions -->|On-Demand Search| TMDBAPI
+    ServerActions -->|On-Demand Search| AL
+    ServerActions -->|On-Demand Search| OL
+    ServerActions -->|Auth Events| ResendAPI
+```
+
+### What is Hosted Where?
+
+| Component                     | What is Hosted                                                                                           | Where It Lives                                                   | Notes                                                                                             |
+| :---------------------------- | :------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
+| **🌐 Web Application & APIs** | Next.js 16 App Router, React Server Components, Server Actions, and compiled static assets               | **Cloudflare Workers** (via `@opennextjs/cloudflare`)            | Globally distributed edge compute with zero server maintenance and edge asset CDN caching.        |
+| **🗄️ Database & Storage**     | User accounts, credentials, media entries, tags, cycles, quotes, anthologies, goals, and guestbook notes | **PostgreSQL (Supabase / Self-Hosted)**                          | Standard Postgres accessed via Drizzle ORM. Local dev runs in a Docker container.                 |
+| **📱 Offline Cache & Outbox** | Queued progress mutations, ratings, review edits, and offline shell assets                               | **Client Device (Browser IndexedDB & Service Worker)**           | Operates locally on user's phone or computer (`za_offline_db`) for true offline-first durability. |
+| **📡 Metadata & Cover Art**   | Millions of TV show, movie, anime, manga, and book metadata records                                      | **Free Public APIs** (TVMaze, TMDB, AniList, Jikan, OpenLibrary) | Queried strictly on-demand during user search — no local scraping or mass indexing required.      |
+| **✉️ Account Emails**         | Password recovery and email verification links                                                           | **Resend API**                                                   | Triggered only upon explicit user request in Settings or Signup.                                  |
+
+---
+
 ## ✨ Core Capabilities
 
 ### ⚡ Global Command Palette (`Cmd + K` / `Ctrl + K`)
