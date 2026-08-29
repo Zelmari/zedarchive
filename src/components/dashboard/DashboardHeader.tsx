@@ -2,7 +2,17 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
+import {
+  Layers,
+  Tv,
+  Film,
+  BookOpen,
+  LogOut,
+  Palette,
+  Settings,
+  Users,
+  MessageSquare,
+} from 'lucide-react';
 import SyncIndicator from '@/components/ui/SyncIndicator';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -73,6 +83,14 @@ export default function DashboardHeader({
               </span>
             </button>
           ))}
+          <Link href="/friends" className="za-button za-button--tertiary" title="Friends">
+            <Users size={16} strokeWidth={1.75} />
+            <span className="hidden sm:inline">Friends</span>
+          </Link>
+          <Link href="/groups" className="za-button za-button--tertiary" title="Groups">
+            <MessageSquare size={16} strokeWidth={1.75} />
+            <span className="hidden sm:inline">Groups</span>
+          </Link>
         </nav>
 
         <nav aria-label="Account" className="za-site-header__nav">

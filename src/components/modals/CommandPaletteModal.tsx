@@ -15,6 +15,8 @@ import {
   Film,
   BookOpen,
   Library,
+  Users,
+  MessageSquare,
 } from 'lucide-react';
 import type { MediaEntry } from '@/types/media';
 
@@ -128,6 +130,28 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           router.push('/settings');
+        },
+      },
+      {
+        id: 'cmd-friends',
+        type: 'action',
+        title: 'Friends & Requests',
+        subtitle: 'Manage friendships and requests',
+        Icon: Users,
+        onSelect: () => {
+          onClose();
+          router.push('/friends');
+        },
+      },
+      {
+        id: 'cmd-groups',
+        type: 'action',
+        title: 'Groups & Group Chats',
+        subtitle: 'Collaborate in shared archives and 7-day chats',
+        Icon: MessageSquare,
+        onSelect: () => {
+          onClose();
+          router.push('/groups');
         },
       },
     ],
