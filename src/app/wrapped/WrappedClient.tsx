@@ -19,6 +19,7 @@ import {
 import type { YearlyStats } from '@/lib/stats';
 import { RatingBadge } from '@/components/ui/Badge';
 import { getTileInitials } from '@/lib/format';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 
 interface WrappedClientProps {
   stats: YearlyStats;
@@ -47,7 +48,7 @@ export default function WrappedClient({
   stats,
   userName,
   userHandle,
-  isPublicView = false,
+  isPublicView,
   basePath,
 }: WrappedClientProps) {
   const router = useRouter();
@@ -56,13 +57,13 @@ export default function WrappedClient({
   const maxMonthCompletions = Math.max(1, ...stats.completionsByMonth);
 
   const handleShare = async () => {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    if (!url) return;
-
-    if (navigator.clipboard) {
+    try {
+      const url = window.location.href;
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
     }
   };
 
@@ -73,45 +74,38 @@ export default function WrappedClient({
   return (
     <div className="min-h-screen bg-canvas text-ink">
       {/* Top Header */}
-      <header className="sticky top-0 z-30 border-b border-required bg-surface shadow-raised">
-        <div className="za-container flex h-14 items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href={isPublicView && userHandle ? `/u/${userHandle}` : '/dashboard'}
-              className="za-button za-button--secondary p-2 text-xs font-[var(--za-weight-heading)]"
-              title="Back"
-            >
-              <ArrowLeft size={14} className="mr-1" />
-              <span>{isPublicView ? `@${userHandle}` : 'Dashboard'}</span>
-            </Link>
-            <div className="flex items-center gap-1.5 font-[var(--za-weight-heading)] tracking-[-0.02em] text-ink">
-              <Sparkles size={16} className="text-accent" />
-              <span>ZedArchive Wrapped</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleShare}
-              className="za-button za-button--primary text-xs"
-              title="Copy share link to clipboard"
-            >
-              {copied ? (
-                <>
-                  <Check size={14} className="mr-1 text-accent" />
-                  <span>Copied Link!</span>
-                </>
-              ) : (
-                <>
-                  <Share2 size={14} className="mr-1" />
-                  <span>Share</span>
-                </>
-              )}
-            </button>
-          </div>
+      <SubPageHeader
+        variant="sticky"
+        backLink={{
+          href: isPublicView && userHandle ? `/u/${userHandle}` : '/dashboard',
+          label: isPublicView ? `@${userHandle}` : 'Dashboard',
+        }}
+        actions={
+          <button
+            type="button"
+            onClick={handleShare}
+            className="za-button za-button--primary text-xs shrink-0"
+            title="Copy share link to clipboard"
+          >
+            {copied ? (
+              <>
+                <Check size={14} className="mr-1 text-accent" />
+                <span>Copied Link!</span>
+              </>
+            ) : (
+              <>
+                <Share2 size={14} className="mr-1" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
+        }
+      >
+        <div className="flex items-center gap-1.5 font-[var(--za-weight-heading)] tracking-[-0.02em] text-ink truncate">
+          <Sparkles size={16} className="text-accent shrink-0" />
+          <span>ZedArchive Wrapped</span>
         </div>
-      </header>
+      </SubPageHeader>
 
       {/* Main Content */}
       <main id="main-content" className="pb-16 pt-8">
