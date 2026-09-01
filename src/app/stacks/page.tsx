@@ -3,7 +3,8 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { getMyStacks } from '@/server/stacks';
-import { Layers, Plus, ArrowLeft, Globe, Lock, BookOpen } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import StacksClient from './StacksClient';
 
 export const metadata = {
@@ -23,31 +24,27 @@ export default async function StacksPage() {
   const initialStacks = await getMyStacks();
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
-            >
-              <ArrowLeft size={14} /> Back to Dashboard
-            </Link>
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
+      <SubPageHeader
+        backLink={{ href: '/dashboard', label: 'Dashboard' }}
+        breadcrumbs={[{ label: 'Curated Stacks' }]}
+        navItems={[{ label: 'Dashboard', href: '/dashboard', icon: Layers }]}
+      />
+      <main id="main-content" className="flex-1 py-8">
+        <div className="za-container max-w-4xl">
+          <div className="mb-8">
+            <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">
+              Curated Stacks & Anthologies
+            </h1>
+            <p className="mt-1 text-xs text-ink-muted">
+              Thematic user-created collections (e.g. <em>&quot;Spooky Autumn Reads&quot;</em> or{' '}
+              <em>&quot;Cyberpunk Anime Essentials&quot;</em>) with annotations and shareable cards.
+            </p>
           </div>
-        </div>
 
-        <div className="mb-8">
-          <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">
-            Curated Stacks & Anthologies
-          </h1>
-          <p className="mt-1 text-xs text-ink-muted">
-            Thematic user-created collections (e.g. <em>&quot;Spooky Autumn Reads&quot;</em> or{' '}
-            <em>&quot;Cyberpunk Anime Essentials&quot;</em>) with annotations and shareable cards.
-          </p>
+          <StacksClient initialStacks={initialStacks} username={session.user.name || 'user'} />
         </div>
-
-        <StacksClient initialStacks={initialStacks} username={session.user.name || 'user'} />
-      </div>
+      </main>
     </div>
   );
 }

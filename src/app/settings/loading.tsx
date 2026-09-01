@@ -7,12 +7,12 @@ export default function SettingsLoading() {
     >
       {/* Header skeleton */}
       <header className="sticky top-0 z-30 border-b border-required bg-surface shadow-raised">
-        <div className="za-container flex h-14 items-center justify-between">
+        <div className="za-container za-container--wide flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-small bg-surface-subtle" />
-            <div className="h-5 w-24 rounded-small bg-surface-subtle" />
+            <div className="h-9 w-28 rounded-small bg-surface-subtle" />
+            <div className="h-8 w-20 rounded-small bg-surface-subtle" />
+            <div className="h-5 w-32 rounded-small bg-surface-subtle" />
           </div>
-          <div className="h-8 w-20 rounded-control bg-surface-subtle" />
         </div>
       </header>
 
