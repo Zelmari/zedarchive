@@ -92,6 +92,7 @@ export interface NextAirInfo {
   airdate: string;
   airstamp?: string | null;
   status: string;
+  sequelTitle?: string | null;
 }
 
 export type NextAirMap = Record<string, NextAirInfo | null>;
