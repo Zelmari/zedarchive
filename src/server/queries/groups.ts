@@ -44,26 +44,32 @@ export async function getUserGroups(userId: string): Promise<GroupSummary[]> {
     .where(eq(groupMembers.userId, userId))
     .orderBy(desc(groups.updatedAt));
 
-  // Need memberCount per group
-  const result: GroupSummary[] = [];
-  for (const r of rows) {
-    const [c] = await db
-      .select({ value: count() })
-      .from(groupMembers)
-      .where(eq(groupMembers.groupId, r.groupId));
-    result.push({
-      id: r.groupId,
-      name: r.name,
-      description: r.description,
-      image: r.image,
-      ownerId: r.ownerId,
-      memberCount: Number(c?.value ?? 0),
-      role: r.role as any,
-      createdAt: toIso(r.createdAt),
-      updatedAt: toIso(r.updatedAt),
-    });
-  }
-  return result;
+  // Get member counts for all user groups in a single query
+  const groupIds = rows.map((r) => r.groupId);
+  if (groupIds.length === 0) return [];
+
+  const memberCounts = await db
+    .select({
+      groupId: groupMembers.groupId,
+      value: count(),
+    })
+    .from(groupMembers)
+    .where(inArray(groupMembers.groupId, groupIds))
+    .groupBy(groupMembers.groupId);
+
+  const countMap = new Map(memberCounts.map((c) => [c.groupId, Number(c.value)]));
+
+  return rows.map((r) => ({
+    id: r.groupId,
+    name: r.name,
+    description: r.description,
+    image: r.image,
+    ownerId: r.ownerId,
+    memberCount: countMap.get(r.groupId) ?? 0,
+    role: r.role as any,
+    createdAt: toIso(r.createdAt),
+    updatedAt: toIso(r.updatedAt),
+  }));
 }
 
 export async function getGroupDetails(
