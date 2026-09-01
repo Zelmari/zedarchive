@@ -39,6 +39,8 @@ import {
   updateMediaProgress,
   deleteMediaEntry,
 } from '@/server/media';
+import { initSyncEngine } from '@/lib/offline/syncEngine';
+import { offlineAwareMutation } from '@/lib/offline/offlineAwareMutation';
 
 type CardItem = MediaEntry;
 
@@ -110,17 +112,29 @@ export default function DashboardClient({
   const [nextAirMap, setNextAirMap] = useState<NextAirMap>({});
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  // Initialize offline sync engine on mount
+  useEffect(() => {
+    const cleanup = initSyncEngine();
+    return cleanup;
+  }, []);
+
+  const modals = useModalManager();
+
   // Global Cmd+K / Ctrl+K keyboard listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
+        // Don't open command palette if another modal is already open
+        if (detailItem || editingItem || isGoalModalOpen || confirmModal.isOpen || modals.anyOpen) {
+          return;
+        }
         setIsCommandPaletteOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [detailItem, editingItem, isGoalModalOpen, confirmModal.isOpen, modals.anyOpen]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,7 +148,6 @@ export default function DashboardClient({
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const modals = useModalManager();
   const filters = useMediaFilters(entries, activeTab);
   const { searchQuery, setSearchQuery, statusFilter, selectedTag, displayedEntries, counts } =
     filters;
@@ -226,6 +239,7 @@ export default function DashboardClient({
 
   const handleUpdate = async (id: string, updates: Record<string, unknown>) => {
     const previousEntries = [...entries];
+    const existingItem = entries.find((e) => e.id === id);
 
     setEntries((prev) =>
       prev.map((item) => {
@@ -242,8 +256,18 @@ export default function DashboardClient({
     );
 
     try {
-      const updated = await updateMediaProgress(id, withGroup(updates));
-      setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      const updated = await offlineAwareMutation(
+        'UPDATE_PROGRESS',
+        id,
+        withGroup(updates),
+        () => updateMediaProgress(id, withGroup(updates)),
+        existingItem?.updatedAt,
+      );
+      if (updated) {
+        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      } else {
+        addToast('Offline: progress update queued for sync', 'info');
+      }
     } catch (err) {
       console.error('Update failed:', err);
       setEntries(previousEntries);
@@ -256,10 +280,21 @@ export default function DashboardClient({
 
   const handleCreate = async (data: Record<string, unknown>) => {
     try {
-      const newEntry = await createMediaEntry(withGroup(data));
-      setEntries((prev) => [newEntry, ...prev]);
-      addToast(`Added "${newEntry.title}" to ${isGroup ? 'group' : ''} archive`, 'success');
-      return newEntry;
+      const payload = withGroup(data);
+      const newEntry = await offlineAwareMutation(
+        'CREATE_ENTRY',
+        (data.id as string) || crypto.randomUUID(),
+        payload,
+        () => createMediaEntry(payload),
+      );
+      if (newEntry) {
+        setEntries((prev) => [newEntry, ...prev]);
+        addToast(`Added "${newEntry.title}" to ${isGroup ? 'group' : ''} archive`, 'success');
+        return newEntry;
+      } else {
+        addToast('Offline: new title queued for creation', 'info');
+        return null as any;
+      }
     } catch (err) {
       console.error('Creation failed:', err);
       addToast(
@@ -271,11 +306,23 @@ export default function DashboardClient({
   };
 
   const handleSaveEdit = async (id: string, updates: Record<string, unknown>) => {
+    const existingItem = entries.find((e) => e.id === id);
     try {
-      const updated = await updateMediaProgress(id, withGroup(updates));
-      setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      const payload = withGroup(updates);
+      const updated = await offlineAwareMutation(
+        'UPDATE_PROGRESS',
+        id,
+        payload,
+        () => updateMediaProgress(id, payload),
+        existingItem?.updatedAt,
+      );
+      if (updated) {
+        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+        addToast(`Updated "${updated.title}"`, 'success');
+      } else {
+        addToast('Offline: changes queued for sync', 'info');
+      }
       setEditingItem(null);
-      addToast(`Updated "${updated.title}"`, 'success');
       return updated;
     } catch (err) {
       console.error('Edit save failed:', err);
@@ -303,7 +350,7 @@ export default function DashboardClient({
         setEntries((prev) => prev.filter((item) => item.id !== id));
 
         try {
-          await deleteMediaEntry(id);
+          await offlineAwareMutation('DELETE_ENTRY', id, {}, () => deleteMediaEntry(id));
           addToast(`Removed "${itemTitle}" from archive`, 'info');
         } catch (err) {
           console.error('Delete failed:', err);

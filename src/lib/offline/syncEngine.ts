@@ -1,4 +1,4 @@
-import { getPendingMutations, removeMutation, type QueuedMutation } from './outbox';
+import { getPendingMutations, removeMutation, updateMutation, type QueuedMutation } from './outbox';
 import { updateMediaProgress, createMediaEntry, deleteMediaEntry } from '@/server/media';
 
 export type SyncState = 'idle' | 'syncing' | 'offline' | 'error';
@@ -9,6 +9,7 @@ export interface SyncStatusEventDetail {
   lastSyncedAt: number | null;
 }
 
+const MAX_RETRIES = 5;
 let isReplaying = false;
 let lastSyncedAt: number | null = null;
 
@@ -43,6 +44,12 @@ export async function replayOutbox(): Promise<{ replayed: number; failed: number
       return { replayed: 0, failed: 0 };
     }
 
+    // Delay based on highest retry count for exponential backoff
+    const maxRetry = Math.max(...mutations.map((m) => m.retryCount), 0);
+    if (maxRetry > 0) {
+      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** maxRetry, 30000)));
+    }
+
     dispatchSyncEvent('syncing', mutations.length);
 
     for (const mutation of mutations) {
@@ -51,7 +58,10 @@ export async function replayOutbox(): Promise<{ replayed: number; failed: number
           case 'UPDATE_PROGRESS':
           case 'UPDATE_STATUS':
           case 'UPDATE_NOTES':
-            await updateMediaProgress(mutation.mediaId, mutation.payload);
+            await updateMediaProgress(mutation.mediaId, {
+              ...mutation.payload,
+              _offlineUpdatedAt: mutation.originalUpdatedAt,
+            });
             break;
           case 'CREATE_ENTRY':
             await createMediaEntry(mutation.payload);
@@ -67,7 +77,19 @@ export async function replayOutbox(): Promise<{ replayed: number; failed: number
       } catch (err) {
         console.error(`[SyncEngine] Failed to replay mutation ${mutation.id}:`, err);
         failed++;
-        // If it's a hard validation failure or offline, keep in queue or retry count
+
+        // Increment retry count in the outbox entry
+        const updated: QueuedMutation = { ...mutation, retryCount: mutation.retryCount + 1 };
+        if (updated.retryCount >= MAX_RETRIES) {
+          // Dead-letter: remove permanently-failing mutations
+          console.warn(
+            `[SyncEngine] Mutation ${mutation.id} exceeded ${MAX_RETRIES} retries, discarding`,
+          );
+          await removeMutation(mutation.id);
+        } else {
+          // Update the mutation with incremented retry count
+          await updateMutation(updated);
+        }
       }
     }
 

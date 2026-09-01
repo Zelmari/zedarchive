@@ -18,6 +18,7 @@ import {
   Users,
   MessageSquare,
 } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { MediaEntry } from '@/types/media';
 
 interface CommandPaletteModalProps {
@@ -55,6 +56,8 @@ export default function CommandPaletteModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
@@ -62,6 +65,30 @@ export default function CommandPaletteModal({
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const modal = document.querySelector('[role="dialog"][aria-label="Command palette"]');
+      if (!modal) return;
+      const focusable = modal.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
   }, [isOpen]);
 
   const staticCommands: CommandItem[] = useMemo(
@@ -231,6 +258,9 @@ export default function CommandPaletteModal({
     >
       <div
         className="w-full max-w-xl overflow-hidden rounded-control border border-required bg-surface text-ink shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

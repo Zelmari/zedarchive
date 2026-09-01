@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Tv, Film, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface SpotlightResult {
@@ -87,6 +88,7 @@ export default function SpotlightSearchModal({
   const modalRef = useFocusTrap(isOpen, undefined, {
     initialFocusRef: searchInputRef,
   });
+  useBodyScrollLock(isOpen);
 
   // Focus the input whenever the spotlight opens.
   useEffect(() => {
@@ -225,7 +227,7 @@ export default function SpotlightSearchModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="spotlight-modal-title"
+        aria-label="Search for media to add to your archive"
       >
         {/* Header with Category Chips and Close */}
         <div className="flex items-center justify-between border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
@@ -261,7 +263,7 @@ export default function SpotlightSearchModal({
           <input
             ref={searchInputRef}
             type="text"
-            aria-label="spotlight-modal-title"
+            aria-label="Search for movies, shows, books, or anime"
             className="min-w-0 flex-1 border-none bg-transparent text-[length:var(--za-text-base)] font-[var(--za-weight-body)] leading-[1.5] text-ink outline-none"
             placeholder={PLACEHOLDERS[category]}
             value={searchQuery}

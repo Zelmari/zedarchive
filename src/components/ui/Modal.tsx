@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { cn } from '@/lib/cn';
 
 interface ModalProps {
@@ -39,6 +40,7 @@ export default function Modal({
   children,
 }: ModalProps) {
   const modalRef = useFocusTrap(isOpen, onClose);
+  useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
 

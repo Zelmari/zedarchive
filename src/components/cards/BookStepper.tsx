@@ -16,6 +16,8 @@ interface BookStepperProps {
   onCommit: (value: string) => void;
   /** Step by delta from the authoritative current value (buttons). */
   onStep: (delta: number) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const stepperBtn =
@@ -31,6 +33,8 @@ export default function BookStepper({
   onValueChange,
   onCommit,
   onStep,
+  onFocus,
+  onBlur,
 }: BookStepperProps) {
   const [mode, setMode] = useState<'page' | 'percent'>(() => {
     if (typeof window === 'undefined') return 'page';
@@ -118,7 +122,11 @@ export default function BookStepper({
           className="h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] w-full rounded-control border border-required bg-surface px-2 text-center text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] text-ink outline-none focus:border-accent"
           value={displayVal}
           onChange={(e) => handleInputChange(e.target.value)}
-          onBlur={(e) => handleInputBlur(e.target.value)}
+          onFocus={onFocus}
+          onBlur={(e) => {
+            handleInputBlur(e.target.value);
+            onBlur?.();
+          }}
           onKeyDown={handleKeyDown}
           title={
             mode === 'percent'

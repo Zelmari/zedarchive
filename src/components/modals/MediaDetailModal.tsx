@@ -26,7 +26,12 @@ import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
 import type { WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
-import { addMediaQuote, updateMediaQuote, deleteMediaQuote } from '@/server/media';
+import {
+  addMediaQuote,
+  updateMediaQuote,
+  deleteMediaQuote,
+  togglePriorityQueue,
+} from '@/server/media';
 
 interface MediaDetailModalProps {
   isOpen: boolean;
@@ -426,9 +431,14 @@ export default function MediaDetailModal({
             <div className="mt-[var(--za-space-3)] flex flex-wrap justify-center gap-[0.4rem]">
               <button
                 type="button"
-                onClick={() =>
-                  runUpdate({ priorityIndex: item.priorityIndex != null ? null : 9999 })
-                }
+                onClick={async () => {
+                  try {
+                    const updated = await togglePriorityQueue(item.id);
+                    await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
+                  } catch (err) {
+                    console.error('Failed to toggle priority queue:', err);
+                  }
+                }}
                 className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] duration-[var(--za-motion-fast)] ${
                   item.priorityIndex != null
                     ? 'border-accent bg-accent/20 font-[var(--za-weight-emphasis)] text-accent'

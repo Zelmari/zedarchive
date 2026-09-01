@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
+import { togglePriorityQueue } from '@/server/media';
 import MediaCover from './MediaCover';
 import MediaBadges from './MediaBadges';
 import ShowStepper from './ShowStepper';
@@ -86,13 +87,16 @@ export default function MediaCard({
       : primaryUnitTotal;
 
   // Book card keeps its numeric input in sync with external progress updates
-  // (render-time derived-state sync, per React docs).
-  const [prevProgress, setPrevProgress] = useState(secondaryUnitCurrent);
   const [inputValue, setInputValue] = useState(String(secondaryUnitCurrent));
-  if (prevProgress !== secondaryUnitCurrent) {
-    setPrevProgress(secondaryUnitCurrent);
-    setInputValue(String(secondaryUnitCurrent));
-  }
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Only sync from external when the input is NOT focused (i.e., user isn't typing)
+  useEffect(() => {
+    if (!isFocused) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync external progress when not typing
+      setInputValue(String(secondaryUnitCurrent));
+    }
+  }, [secondaryUnitCurrent, isFocused]);
 
   const hasNextSeason = nextSeason(primaryUnitCurrent) !== null;
   const hasPrevSeason = prevSeason(primaryUnitCurrent) !== null;
@@ -224,9 +228,15 @@ export default function MediaCard({
                     : 'text-ink-muted hover:border-required hover:text-ink'
                 }`}
                 onClick={async () => {
-                  await runUpdate({
-                    priorityIndex: item.priorityIndex != null ? null : 9999,
-                  });
+                  try {
+                    setIsUpdating(true);
+                    const updated = await togglePriorityQueue(item.id);
+                    await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
+                  } catch (err) {
+                    console.error('Failed to toggle priority queue:', err);
+                  } finally {
+                    setIsUpdating(false);
+                  }
                 }}
                 title={
                   item.priorityIndex != null
@@ -415,7 +425,15 @@ export default function MediaCard({
             total={secondaryUnitTotal}
             disabled={isUpdating}
             onValueChange={setInputValue}
-            onCommit={commitChapterValue}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => {
+              setIsFocused(false);
+              setInputValue(String(secondaryUnitCurrent));
+            }}
+            onCommit={(val) => {
+              setIsFocused(false);
+              commitChapterValue(val);
+            }}
             onStep={handleChapterStep}
           />
         ) : (
