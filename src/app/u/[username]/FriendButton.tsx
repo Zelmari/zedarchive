@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { UserPlus, Check, Clock, UserCheck, UserX } from 'lucide-react';
 import {
   sendFriendRequestAction,
@@ -28,6 +28,19 @@ export default function FriendButton({
   const [requestId, setRequestId] = useState<string | null>(initialRequestId);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const showTransientMessage = (msg: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setMessage(msg);
+    timerRef.current = setTimeout(() => setMessage(null), 3000);
+  };
 
   const handleAdd = () => {
     startTransition(async () => {
@@ -37,8 +50,7 @@ export default function FriendButton({
         setIsSender(true);
         setRequestId(res.id);
       } catch (e: any) {
-        setMessage(e.message || 'Failed');
-        setTimeout(() => setMessage(null), 3000);
+        showTransientMessage(e.message || 'Failed');
       }
     });
   };
@@ -50,8 +62,7 @@ export default function FriendButton({
         await acceptFriendRequestAction({ requestId });
         setStatus('accepted');
       } catch (e: any) {
-        setMessage(e.message || 'Failed');
-        setTimeout(() => setMessage(null), 3000);
+        showTransientMessage(e.message || 'Failed');
       }
     });
   };
@@ -65,8 +76,7 @@ export default function FriendButton({
         setIsSender(null);
         setRequestId(null);
       } catch (e: any) {
-        setMessage(e.message || 'Failed');
-        setTimeout(() => setMessage(null), 3000);
+        showTransientMessage(e.message || 'Failed');
       }
     });
   };
@@ -80,8 +90,7 @@ export default function FriendButton({
         setIsSender(null);
         setRequestId(null);
       } catch (e: any) {
-        setMessage(e.message || 'Failed');
-        setTimeout(() => setMessage(null), 3000);
+        showTransientMessage(e.message || 'Failed');
       }
     });
   };
@@ -95,8 +104,7 @@ export default function FriendButton({
         setIsSender(null);
         setRequestId(null);
       } catch (e: any) {
-        setMessage(e.message || 'Failed');
-        setTimeout(() => setMessage(null), 3000);
+        showTransientMessage(e.message || 'Failed');
       }
     });
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Share2, Check } from 'lucide-react';
 
 interface ShareArchiveButtonProps {
@@ -10,6 +10,13 @@ interface ShareArchiveButtonProps {
 /** One-click copy of the public archive URL with a transient confirmation. */
 export default function ShareArchiveButton({ url }: ShareArchiveButtonProps) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
@@ -18,8 +25,9 @@ export default function ShareArchiveButton({ url }: ShareArchiveButtonProps) {
       // Clipboard unavailable (permissions/insecure context): offer manual copy.
       window.prompt('Copy your archive link:', url);
     }
+    if (timerRef.current) clearTimeout(timerRef.current);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    timerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (
