@@ -405,11 +405,15 @@ export const userGoals = pgTable(
  * PostgreSQL-backed cache for external API responses (TMDB, TVMaze, etc.).
  * Used when Cloudflare KV is unavailable or for fallback persistence.
  */
-export const externalApiCache = pgTable('external_api_cache', {
-  key: text('key').primaryKey(),
-  payload: jsonb('payload').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-});
+export const externalApiCache = pgTable(
+  'external_api_cache',
+  {
+    key: text('key').primaryKey(),
+    payload: jsonb('payload').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => [index('api_cache_expires_at_idx').on(table.expiresAt)],
+);
 
 // ─── Phase 8.2: Curated Stacks & Anthologies ─────────────────────────────────
 
@@ -430,14 +434,22 @@ export const stacks = pgTable(
   (table) => [index('stacks_user_slug_idx').on(table.userId, table.slug)],
 );
 
-export const stackItems = pgTable('stack_items', {
-  id: text('id').primaryKey(),
-  stackId: text('stack_id')
-    .notNull()
-    .references(() => stacks.id, { onDelete: 'cascade' }),
-  mediaId: text('media_id')
-    .notNull()
-    .references(() => mediaEntries.id, { onDelete: 'cascade' }),
-  orderIndex: integer('order_index').notNull().default(0),
-  annotation: text('annotation'), // User essay/note on why this item belongs in the stack
-});
+export const stackItems = pgTable(
+  'stack_items',
+  {
+    id: text('id').primaryKey(),
+    stackId: text('stack_id')
+      .notNull()
+      .references(() => stacks.id, { onDelete: 'cascade' }),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
+    orderIndex: integer('order_index').notNull().default(0),
+    annotation: text('annotation'), // User essay/note on why this item belongs in the stack
+  },
+  (table) => [
+    index('stack_items_stack_id_idx').on(table.stackId),
+    index('stack_items_media_id_idx').on(table.mediaId),
+    uniqueIndex('stack_items_stack_media_unique').on(table.stackId, table.mediaId),
+  ],
+);

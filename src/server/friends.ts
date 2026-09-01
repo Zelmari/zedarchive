@@ -33,32 +33,44 @@ export async function sendFriendRequestAction(input: { targetUserId: string }) {
     throw new Error('You are sending too many friend requests. Try again later');
   }
 
-  // Check existing friendship in either direction
-  const [existing] = await db
-    .select({ id: friendships.id })
-    .from(friendships)
-    .where(
-      or(
-        and(eq(friendships.senderId, me.id), eq(friendships.receiverId, targetUserId)),
-        and(eq(friendships.senderId, targetUserId), eq(friendships.receiverId, me.id)),
-      ),
-    )
-    .limit(1);
-  if (existing) throw new Error('Friend request already exists or you are already friends');
+  // Check existing and insert atomically
+  try {
+    const id = crypto.randomUUID();
+    const now = new Date();
 
-  const id = crypto.randomUUID();
-  const now = new Date();
-  await db.insert(friendships).values({
-    id,
-    senderId: me.id,
-    receiverId: targetUserId,
-    status: 'pending',
-    createdAt: now,
-    updatedAt: now,
-  });
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: friendships.id })
+        .from(friendships)
+        .where(
+          or(
+            and(eq(friendships.senderId, me.id), eq(friendships.receiverId, targetUserId)),
+            and(eq(friendships.senderId, targetUserId), eq(friendships.receiverId, me.id)),
+          ),
+        )
+        .limit(1)
+        .for('update');
 
-  revalidatePath('/friends');
-  return { id, status: 'pending' };
+      if (existing) throw new Error('Friend request already exists or you are already friends');
+
+      await tx.insert(friendships).values({
+        id,
+        senderId: me.id,
+        receiverId: targetUserId,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    revalidatePath('/friends');
+    return { id, status: 'pending' };
+  } catch (err: any) {
+    if (err.message?.includes('duplicate') || err.code === '23505') {
+      throw new Error('Friend request already exists or you are already friends');
+    }
+    throw err;
+  }
 }
 
 export async function acceptFriendRequestAction(input: { requestId: string }) {
