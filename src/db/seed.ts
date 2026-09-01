@@ -13,8 +13,10 @@ import { hashPassword } from 'better-auth/crypto';
 import { user, account, mediaEntries, mediaActivityLogs } from './schema';
 import type { MediaCategory, MediaStatus, StructureItem } from '@/types/media';
 
-const DEMO_EMAIL = 'demo@zedarchive.com';
-const DEMO_PASSWORD = 'password123';
+// NOTE: These credentials are strictly for local development and demonstration environments.
+// DO NOT run this seed script against production databases.
+const DEMO_EMAIL = process.env.DEMO_EMAIL || 'demo@zedarchive.com';
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'password123';
 
 interface SeedEntry {
   title: string;
