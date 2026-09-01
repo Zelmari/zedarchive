@@ -466,7 +466,9 @@ export default function MediaCard({
               <Calendar size={13} className="shrink-0 text-ink-muted" />
               <span>
                 {rawCategory === 'anime'
-                  ? `Ep ${nextAir.number}`
+                  ? nextAir.season && nextAir.season > 1
+                    ? `S${nextAir.season}E${nextAir.number}`
+                    : `Ep ${nextAir.number}`
                   : `S${nextAir.season}E${nextAir.number}`}
               </span>
             </span>
