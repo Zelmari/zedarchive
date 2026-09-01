@@ -18,12 +18,12 @@ export async function getActivityLogsByUserId(userId: string, limit = 40): Promi
 }
 
 export async function getActiveDaysForUser(userId: string): Promise<string[]> {
-  const activeDayExpr: SQL = sql`DATE(created_at AT TIME ZONE 'UTC')`;
+  const activeDayExpr: SQL = sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`;
   const rows = await db
     .select({ activeDay: activeDayExpr.as('active_day') })
     .from(mediaActivityLogs)
     .where(eq(mediaActivityLogs.userId, userId))
-    .groupBy(sql`active_day`);
+    .groupBy(sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`);
 
   return rows.map((row) => String(row.activeDay).slice(0, 10));
 }
@@ -102,7 +102,7 @@ export async function getYearlyActivityHeatmapForUser(
           eq(mediaEntries.isPrivate, false),
         ),
       )
-      .groupBy(sql`day`);
+      .groupBy(sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`);
   } else {
     rows = await db
       .select({
@@ -113,7 +113,7 @@ export async function getYearlyActivityHeatmapForUser(
       .where(
         and(eq(mediaActivityLogs.userId, userId), gte(mediaActivityLogs.createdAt, oneYearAgo)),
       )
-      .groupBy(sql`day`);
+      .groupBy(sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`);
   }
 
   const activityMap: Record<string, number> = {};
