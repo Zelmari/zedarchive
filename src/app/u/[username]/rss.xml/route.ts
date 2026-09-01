@@ -39,8 +39,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
       const entryTitle = escapeXml(`${e.title} (${e.category.toUpperCase()})`);
       const statusText = e.status.replace('_', ' ');
       const ratingText = e.rating ? ` - Rated ${e.rating}/10` : '';
-      const notesText = e.notes ? `<br/><br/>${escapeXml(e.notes)}` : '';
-      const desc = escapeXml(`Status: ${statusText}${ratingText}`) + notesText;
+      const notesText = e.notes ? `\n\n${e.notes}` : '';
+      const rawDesc = `Status: ${statusText}${ratingText}${notesText}`;
+      const safeCdata = rawDesc.replace(/\]\]>/g, ']]]]><![CDATA[>');
       const pubDate = new Date(e.updatedAt).toUTCString();
 
       return `
@@ -49,7 +50,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
       <link>${profileUrl}</link>
       <guid isPermaLink="false">${e.id}</guid>
       <pubDate>${pubDate}</pubDate>
-      <description><![CDATA[${desc}]]></description>
+      <description><![CDATA[${safeCdata}]]></description>
     </item>`;
     })
     .join('\n');
