@@ -172,33 +172,37 @@ export default function DashboardClient({
     }
   }, [currentTheme, user?.customTheme]);
 
-  // Fetch upcoming episode airdates for in-progress shows and anime
+  // Fetch upcoming episode airdates for in-progress and planning shows and anime
   useEffect(() => {
-    const tracked = entries
-      .filter(
-        (e) =>
-          (e.category === 'show' || e.category === 'anime') &&
-          (e.status === 'in_progress' || !e.status) &&
-          e.sourceId &&
-          /^(tvmaze|anilist|mal)-\d+$/.test(e.sourceId),
-      )
-      .slice(0, 20);
+    const tracked = entries.filter(
+      (e) =>
+        (e.category === 'show' || e.category === 'anime') &&
+        (e.status === 'in_progress' || e.status === 'planning' || !e.status) &&
+        e.sourceId &&
+        /^(tvmaze|anilist|mal)-\d+$/.test(e.sourceId),
+    );
 
     if (tracked.length === 0) return;
 
-    const ids = tracked.map((e) => e.sourceId as string);
-    const titles = tracked.map((e) => e.title);
-    const url = `/api/shows/airdate?ids=${encodeURIComponent(ids.join(','))}&titles=${encodeURIComponent(JSON.stringify(titles))}`;
-    fetch(url)
-      .then((res) => (res.ok ? res.json() : {}))
-      .then((data: NextAirMap) => {
-        if (data && typeof data === 'object') {
-          setNextAirMap((prev) => ({ ...prev, ...data }));
-        }
-      })
-      .catch((err) => {
-        console.warn('[airdate] Fetch failed:', err);
-      });
+    // Batch requests in chunks of 30 items
+    const CHUNK_SIZE = 30;
+    for (let i = 0; i < tracked.length; i += CHUNK_SIZE) {
+      const chunk = tracked.slice(i, i + CHUNK_SIZE);
+      const ids = chunk.map((e) => e.sourceId as string);
+      const titles = chunk.map((e) => e.title);
+      const url = `/api/shows/airdate?ids=${encodeURIComponent(ids.join(','))}&titles=${encodeURIComponent(JSON.stringify(titles))}`;
+
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : {}))
+        .then((data: NextAirMap) => {
+          if (data && typeof data === 'object') {
+            setNextAirMap((prev) => ({ ...prev, ...data }));
+          }
+        })
+        .catch((err) => {
+          console.warn('[airdate] Fetch failed:', err);
+        });
+    }
   }, [entries]);
 
   // Derive active detail item dynamically from latest entries state

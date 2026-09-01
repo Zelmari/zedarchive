@@ -10,6 +10,8 @@ export const STATUS_KEYS = ['in_progress', 'completed', 'planning', 'on_hold', '
 
 /**
  * Search / filter / sort state and derived views for the dashboard grid.
+ * Features stable session-snapshot sorting to prevent cards from jumping
+ * when updated in-place via steppers or modals.
  */
 export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,14 +19,46 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
   const [selectedTag, setSelectedTag] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('updated_desc');
 
-  // Reset filters when the active tab changes to prevent invisible no-match filters
+  // Session snapshot state to preserve positional stability during active edits
+  const [sessionTimestamps, setSessionTimestamps] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    entries.forEach((item) => {
+      initial[item.id] = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    });
+    return initial;
+  });
+
+  // Reset filters and refresh snapshot when activeTab explicitly changes
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset filters on tab switch
     setSearchQuery('');
     setStatusFilter('all');
     setSelectedTag('all');
     setSortBy('updated_desc');
+
+    const fresh: Record<string, number> = {};
+    entries.forEach((item) => {
+      fresh[item.id] = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    });
+    setSessionTimestamps(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Synchronize new entries (e.g. CREATE_ENTRY) with a top-ranking timestamp
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync session timestamps for newly created entries
+    setSessionTimestamps((prev) => {
+      let hasNew = false;
+      const next = { ...prev };
+      entries.forEach((item) => {
+        if (!(item.id in next)) {
+          next[item.id] = Date.now();
+          hasNew = true;
+        }
+      });
+      return hasNew ? next : prev;
+    });
+  }, [entries]);
 
   const allTags = Array.from(new Set(entries.flatMap((e) => e.tags || []))).filter(Boolean);
 
@@ -84,7 +118,9 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
         const pA = a.priorityIndex ?? Infinity;
         const pB = b.priorityIndex ?? Infinity;
         if (pA !== pB) return pA - pB;
-        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+        const tA = sessionTimestamps[a.id] ?? (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+        const tB = sessionTimestamps[b.id] ?? (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        return tB - tA;
       }
       case 'title_asc':
         return (a.title || '').localeCompare(b.title || '');
@@ -102,8 +138,11 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
         return pB - pA;
       }
       case 'updated_desc':
-      default:
-        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+      default: {
+        const tA = sessionTimestamps[a.id] ?? (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+        const tB = sessionTimestamps[b.id] ?? (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        return tB - tA;
+      }
     }
   });
 
