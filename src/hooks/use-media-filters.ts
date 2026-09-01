@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MediaEntry } from '@/types/media';
 import type { DashboardTab, SortKey } from '@/types/dashboard';
 
@@ -16,6 +16,15 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTag, setSelectedTag] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('updated_desc');
+
+  // Reset filters when the active tab changes to prevent invisible no-match filters
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset filters on tab switch
+    setSearchQuery('');
+    setStatusFilter('all');
+    setSelectedTag('all');
+    setSortBy('updated_desc');
+  }, [activeTab]);
 
   const allTags = Array.from(new Set(entries.flatMap((e) => e.tags || []))).filter(Boolean);
 
