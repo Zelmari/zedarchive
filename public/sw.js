@@ -68,16 +68,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Network-first for navigation requests with offline fallback
+  // 4. Network-first for navigation requests — cache successful responses
+  //    so revisited pages work offline; fall back to /offline.html otherwise.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(async () => {
-        const cachedOffline = await caches.match('/offline.html');
-        return (
-          cachedOffline ||
-          new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
-        );
-      }),
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          const cachedOffline = await caches.match('/offline.html');
+          return (
+            cachedOffline ||
+            new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+          );
+        }),
     );
   }
 });
