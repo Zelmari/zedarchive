@@ -75,6 +75,39 @@ export const nonNegativeInt = (defaultValue = 0) =>
     return isNaN(num) ? defaultValue : Math.max(0, Math.floor(num));
   }, z.number().int().min(0).default(defaultValue));
 
+// ─── Base Field Schemas (without creation defaults) ───────────────────────────
+
+export const mediaFieldsSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(MAX_TITLE_LENGTH),
+  category: z.enum(VALID_CATEGORIES),
+  status: z.enum(VALID_STATUSES),
+  /** Per-title privacy flag — hides entry from public profile & feeds */
+  isPrivate: z.boolean(),
+  dropReason: z.string().trim().max(MAX_DROP_REASON_LENGTH).nullable().optional(),
+  droppedAt: z.string().nullable().optional(),
+  droppedProgressPrimary: optionalInt,
+  droppedProgressSecondary: optionalInt,
+  /** For non-movie categories, minimum 1. For movies 0 is allowed. */
+  primaryUnitCurrent: optionalInt,
+  primaryUnitTotal: optionalInt,
+  secondaryUnitCurrent: optionalInt,
+  secondaryUnitTotal: optionalInt,
+  structure: z.array(structureItemSchema).max(MAX_STRUCTURE_LENGTH),
+  cycles: z.array(mediaCycleSchema),
+  quotes: z.array(mediaQuoteSchema),
+  rating: mediaRatingSchema,
+  /** Max 50 tags to match the sanitizeTags() slice(0, 50) cap */
+  tags: z.array(mediaTagSchema).max(50),
+  genres: z.array(z.string().trim().max(50)),
+  synopsis: z.string().max(MAX_SYNOPSIS_LENGTH).nullable().optional(),
+  coverImage: z.string().max(MAX_COVER_IMAGE_LENGTH).nullable().optional(),
+  sourceId: z.string().max(MAX_SOURCE_ID_LENGTH).nullable().optional(),
+  notes: z.string().max(MAX_NOTES_LENGTH).nullable().optional(),
+  priorityIndex: optionalInt,
+  startedAt: z.string().nullable().optional(),
+  completedAt: z.string().nullable().optional(),
+});
+
 // ─── Create Schema ────────────────────────────────────────────────────────────
 
 export const createMediaSchema = z.object({
@@ -110,9 +143,11 @@ export const createMediaSchema = z.object({
 
 // ─── Update Schema ────────────────────────────────────────────────────────────
 
-export const updateMediaSchema = createMediaSchema.partial().extend({
+export const updateMediaSchema = mediaFieldsSchema.partial().extend({
   /** Trigger a new rewatch / reread cycle */
   rewatch: z.boolean().optional(),
+  _offlineUpdatedAt: z.string().optional(),
+  groupId: z.string().nullable().optional(),
 });
 
 // ─── Bulk Import ──────────────────────────────────────────────────────────────

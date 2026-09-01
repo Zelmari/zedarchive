@@ -160,6 +160,33 @@ describe('updateMediaProgress', () => {
     expect(updated.primaryUnitCurrent).toBe(3);
     expect(updated.primaryUnitTotal).toBe(3);
   });
+
+  it('rejects updates with validation errors', async () => {
+    await seedEntry();
+    await expect(updateMediaProgress('whatever', { title: 'a'.repeat(501) })).rejects.toThrow(
+      /Validation failed/,
+    );
+  });
+
+  it('rejects stale offline updates when entry has been updated since', async () => {
+    const entry = await seedEntry();
+    const staleDate = new Date(Date.now() - 60000).toISOString();
+    await expect(
+      updateMediaProgress(entry.id, {
+        rating: 9,
+        _offlineUpdatedAt: staleDate,
+      }),
+    ).rejects.toThrow('Entry was modified since offline mutation was created');
+  });
+
+  it('prevents associating personal entry with a group via update', async () => {
+    const entry = await seedEntry();
+    await expect(
+      updateMediaProgress(entry.id, {
+        groupId: 'group-hack',
+      }),
+    ).rejects.toThrow('Cannot move personal entry to group via update');
+  });
 });
 
 describe('bulkImportMediaEntries', () => {

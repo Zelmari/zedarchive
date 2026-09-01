@@ -320,52 +320,58 @@ export async function updateMediaProgress(
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
 
+  const parsed = updateMediaSchema.safeParse(updates);
+  if (!parsed.success) {
+    throw new Error(`Validation failed: ${parsed.error.issues.map((i) => i.message).join(', ')}`);
+  }
+  const validatedUpdates = parsed.data;
+
   const updateFields: Partial<MediaRow> = {
     updatedAt: new Date(),
   };
 
-  if (updates.title !== undefined) {
-    const title = String(updates.title).trim().slice(0, MAX_TITLE_LENGTH);
+  if (validatedUpdates.title !== undefined) {
+    const title = String(validatedUpdates.title).trim().slice(0, MAX_TITLE_LENGTH);
     if (!title) {
       throw new Error('Title is required');
     }
     updateFields.title = title;
   }
 
-  if (updates.category !== undefined) {
-    if (!isInList(VALID_CATEGORIES, updates.category)) {
+  if (validatedUpdates.category !== undefined) {
+    if (!isInList(VALID_CATEGORIES, validatedUpdates.category)) {
       throw new Error('Invalid category');
     }
-    updateFields.category = updates.category as MediaRow['category'];
+    updateFields.category = validatedUpdates.category as MediaRow['category'];
   }
 
-  if (updates.status !== undefined) {
-    const status = sanitizeStatus(updates.status);
+  if (validatedUpdates.status !== undefined) {
+    const status = sanitizeStatus(validatedUpdates.status);
     updateFields.status = status;
     if (status === 'completed') {
-      updateFields.completedAt = toDateOrNull(updates.completedAt) ?? new Date();
+      updateFields.completedAt = toDateOrNull(validatedUpdates.completedAt) ?? new Date();
       updateFields.droppedAt = null;
       updateFields.dropReason = null;
       updateFields.droppedProgressPrimary = null;
       updateFields.droppedProgressSecondary = null;
     } else if (status === 'dropped') {
       updateFields.completedAt = null;
-      updateFields.droppedAt = toDateOrNull(updates.droppedAt) ?? new Date();
-      if (updates.dropReason !== undefined) {
-        updateFields.dropReason = updates.dropReason
-          ? String(updates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+      updateFields.droppedAt = toDateOrNull(validatedUpdates.droppedAt) ?? new Date();
+      if (validatedUpdates.dropReason !== undefined) {
+        updateFields.dropReason = validatedUpdates.dropReason
+          ? String(validatedUpdates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
           : null;
       }
-      if (updates.droppedProgressPrimary !== undefined) {
+      if (validatedUpdates.droppedProgressPrimary !== undefined) {
         updateFields.droppedProgressPrimary =
-          updates.droppedProgressPrimary !== null
-            ? toInt(updates.droppedProgressPrimary, null)
+          validatedUpdates.droppedProgressPrimary !== null
+            ? toInt(validatedUpdates.droppedProgressPrimary, null)
             : null;
       }
-      if (updates.droppedProgressSecondary !== undefined) {
+      if (validatedUpdates.droppedProgressSecondary !== undefined) {
         updateFields.droppedProgressSecondary =
-          updates.droppedProgressSecondary !== null
-            ? toInt(updates.droppedProgressSecondary, null)
+          validatedUpdates.droppedProgressSecondary !== null
+            ? toInt(validatedUpdates.droppedProgressSecondary, null)
             : null;
       }
     } else {
@@ -375,80 +381,93 @@ export async function updateMediaProgress(
       updateFields.droppedProgressPrimary = null;
       updateFields.droppedProgressSecondary = null;
     }
-  } else if (updates.dropReason !== undefined) {
-    updateFields.dropReason = updates.dropReason
-      ? String(updates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
+  } else if (validatedUpdates.dropReason !== undefined) {
+    updateFields.dropReason = validatedUpdates.dropReason
+      ? String(validatedUpdates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
       : null;
   }
 
-  if (updates.rating !== undefined) {
-    updateFields.rating = sanitizeRating(updates.rating);
+  if (validatedUpdates.rating !== undefined) {
+    updateFields.rating = sanitizeRating(validatedUpdates.rating);
   }
 
-  if (updates.cycles !== undefined) {
-    updateFields.cycles = sanitizeCycles(updates.cycles);
+  if (validatedUpdates.cycles !== undefined) {
+    updateFields.cycles = sanitizeCycles(validatedUpdates.cycles);
   }
-  if (updates.tags !== undefined) {
-    updateFields.tags = sanitizeTags(updates.tags);
+  if (validatedUpdates.tags !== undefined) {
+    updateFields.tags = sanitizeTags(validatedUpdates.tags);
   }
-  if (updates.synopsis !== undefined) {
-    updateFields.synopsis = updates.synopsis
-      ? String(updates.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
+  if (validatedUpdates.synopsis !== undefined) {
+    updateFields.synopsis = validatedUpdates.synopsis
+      ? String(validatedUpdates.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
       : null;
   }
-  if (updates.genres !== undefined) {
-    updateFields.genres = Array.isArray(updates.genres)
-      ? (updates.genres as string[]).slice(0, 20)
+  if (validatedUpdates.genres !== undefined) {
+    updateFields.genres = Array.isArray(validatedUpdates.genres)
+      ? (validatedUpdates.genres as string[]).slice(0, 20)
       : [];
   }
-  if (updates.startedAt !== undefined) {
-    updateFields.startedAt = toDateOrNull(updates.startedAt);
+  if (validatedUpdates.startedAt !== undefined) {
+    updateFields.startedAt = toDateOrNull(validatedUpdates.startedAt);
   }
   if (updates.rewatchCount !== undefined) {
     updateFields.rewatchCount = Math.max(0, toInt(updates.rewatchCount, 0));
   }
 
-  if (updates.primaryUnitCurrent !== undefined) {
-    updateFields.primaryUnitCurrent = Math.max(0, toInt(updates.primaryUnitCurrent, 0));
+  if (validatedUpdates.primaryUnitCurrent !== undefined) {
+    updateFields.primaryUnitCurrent =
+      validatedUpdates.primaryUnitCurrent !== null
+        ? Math.max(0, toInt(validatedUpdates.primaryUnitCurrent, 0))
+        : 0;
   }
-  if (updates.primaryUnitTotal !== undefined) {
+  if (validatedUpdates.primaryUnitTotal !== undefined) {
     updateFields.primaryUnitTotal =
-      updates.primaryUnitTotal !== null && updates.primaryUnitTotal !== ''
-        ? Math.max(1, toInt(updates.primaryUnitTotal, 1))
+      validatedUpdates.primaryUnitTotal !== null &&
+      (validatedUpdates.primaryUnitTotal as any) !== ''
+        ? Math.max(1, toInt(validatedUpdates.primaryUnitTotal, 1))
         : null;
   }
-  if (updates.secondaryUnitCurrent !== undefined) {
-    updateFields.secondaryUnitCurrent = Math.max(0, toInt(updates.secondaryUnitCurrent, 0));
+  if (validatedUpdates.secondaryUnitCurrent !== undefined) {
+    updateFields.secondaryUnitCurrent =
+      validatedUpdates.secondaryUnitCurrent !== null
+        ? Math.max(0, toInt(validatedUpdates.secondaryUnitCurrent, 0))
+        : 0;
   }
-  if (updates.secondaryUnitTotal !== undefined) {
+  if (validatedUpdates.secondaryUnitTotal !== undefined) {
     updateFields.secondaryUnitTotal =
-      updates.secondaryUnitTotal !== null && updates.secondaryUnitTotal !== ''
-        ? Math.max(0, toInt(updates.secondaryUnitTotal, 0))
+      validatedUpdates.secondaryUnitTotal !== null &&
+      (validatedUpdates.secondaryUnitTotal as any) !== ''
+        ? Math.max(0, toInt(validatedUpdates.secondaryUnitTotal, 0))
         : null;
   }
 
-  if (updates.structure !== undefined) {
-    updateFields.structure = sanitizeStructure(updates.structure);
+  if (validatedUpdates.structure !== undefined) {
+    updateFields.structure = sanitizeStructure(validatedUpdates.structure);
   }
-  if (updates.coverImage !== undefined) {
+  if (validatedUpdates.coverImage !== undefined) {
     updateFields.coverImage =
-      typeof updates.coverImage === 'string' && updates.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-        ? updates.coverImage
+      typeof validatedUpdates.coverImage === 'string' &&
+      validatedUpdates.coverImage.length <= MAX_COVER_IMAGE_LENGTH
+        ? validatedUpdates.coverImage
         : null;
   }
-  if (updates.sourceId !== undefined) {
+  if (validatedUpdates.sourceId !== undefined) {
     updateFields.sourceId =
-      typeof updates.sourceId === 'string' ? updates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
-  }
-  if (updates.priorityIndex !== undefined) {
-    updateFields.priorityIndex =
-      updates.priorityIndex !== null && updates.priorityIndex !== ''
-        ? Math.max(1, toInt(updates.priorityIndex, 1))
+      typeof validatedUpdates.sourceId === 'string'
+        ? validatedUpdates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
         : null;
   }
-  if (updates.notes !== undefined) {
+  if (validatedUpdates.priorityIndex !== undefined) {
+    updateFields.priorityIndex =
+      validatedUpdates.priorityIndex !== null && (validatedUpdates.priorityIndex as any) !== ''
+        ? Math.max(1, toInt(validatedUpdates.priorityIndex, 1))
+        : null;
+  }
+  if (validatedUpdates.notes !== undefined) {
     updateFields.notes =
-      updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+      validatedUpdates.notes == null
+        ? null
+        : String(validatedUpdates.notes).trim().slice(0, MAX_NOTES_LENGTH);
   }
   // Per-title privacy — validated as boolean (group entries forced false)
   const incomingGroupId =
@@ -456,8 +475,8 @@ export async function updateMediaProgress(
       ? ((updates as Record<string, unknown>).groupId as string)
       : null;
   // isPrivate ignored for group entries
-  if (updates.isPrivate !== undefined && !incomingGroupId) {
-    updateFields.isPrivate = Boolean(updates.isPrivate);
+  if (validatedUpdates.isPrivate !== undefined && !incomingGroupId) {
+    updateFields.isPrivate = Boolean(validatedUpdates.isPrivate);
   }
 
   const updated = await db.transaction(async (tx) => {
@@ -465,9 +484,15 @@ export async function updateMediaProgress(
     const [existing] = await tx.select().from(mediaEntries).where(eq(mediaEntries.id, id));
     if (!existing) throw new Error('Entry not found');
 
+    if (validatedUpdates._offlineUpdatedAt) {
+      if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {
+        throw new Error('Entry was modified since offline mutation was created');
+      }
+    }
+
     const isGroupEntry = Boolean(existing.groupId);
     if (isGroupEntry) {
-      const groupIdToCheck = (existing.groupId as string) || incomingGroupId;
+      const groupIdToCheck = existing.groupId as string;
       if (!groupIdToCheck) throw new Error('Group entry missing groupId');
       const [membership] = await tx
         .select({ id: groupMembers.id })
