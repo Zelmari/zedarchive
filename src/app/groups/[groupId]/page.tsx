@@ -14,7 +14,9 @@ export default async function GroupWorkspacePage({
 }) {
   const { groupId } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) redirect('/login');
+  if (!session?.user?.id) {
+    redirect(`/login?callbackUrl=/groups/${encodeURIComponent(groupId)}`);
+  }
 
   const details = await getGroupDetails(groupId, session.user.id);
   if (!details) {

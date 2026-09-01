@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, authClient } from '@/lib/client/auth-client';
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [view, setView] = useState<'signin' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +30,9 @@ export default function LoginForm() {
       if (res?.error) {
         setError(res.error.message || 'Invalid email or password.');
       } else {
-        router.push('/dashboard');
+        const dest =
+          callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/dashboard';
+        router.push(dest);
         router.refresh();
       }
     } catch (err) {
