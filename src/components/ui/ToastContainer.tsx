@@ -23,7 +23,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
     }, toast.duration || 3000);
 
     return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
+  }, [toast.id, toast.duration, onDismiss]);
 
   const getIcon = () => {
     switch (toast.type) {
