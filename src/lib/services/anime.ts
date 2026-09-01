@@ -347,13 +347,38 @@ interface JikanEpisodeItem {
   forum_url?: string | null;
 }
 
+let lastJikanRequestTime = 0;
+const JIKAN_MIN_INTERVAL_MS = 350;
+
+async function jikanFetch(url: string): Promise<Response> {
+  const now = Date.now();
+  const timeSinceLast = now - lastJikanRequestTime;
+  if (timeSinceLast < JIKAN_MIN_INTERVAL_MS) {
+    await new Promise((resolve) => setTimeout(resolve, JIKAN_MIN_INTERVAL_MS - timeSinceLast));
+  }
+  lastJikanRequestTime = Date.now();
+
+  let res = await fetch(url, {
+    next: { revalidate: 2592000 },
+    headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
+  });
+
+  if (res.status === 429) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    lastJikanRequestTime = Date.now();
+    res = await fetch(url, {
+      next: { revalidate: 2592000 },
+      headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
+    });
+  }
+
+  return res;
+}
+
 export async function fetchAnimeFillerGuide(malId: number): Promise<AnimeFillerMap | null> {
   const url = `https://api.jikan.moe/v4/anime/${malId}/episodes`;
   try {
-    const res = await fetch(url, {
-      next: { revalidate: 2592000 }, // 30-day cache
-      headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
-    });
+    const res = await jikanFetch(url);
 
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: JikanEpisodeItem[] };
@@ -419,10 +444,7 @@ export async function resolveMalId(
   if (title?.trim()) {
     try {
       const searchUrl = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title.trim())}&limit=1`;
-      const searchRes = await fetch(searchUrl, {
-        next: { revalidate: 2592000 },
-        headers: { Accept: 'application/json', 'User-Agent': 'zedarchive/0.1' },
-      });
+      const searchRes = await jikanFetch(searchUrl);
       if (searchRes.ok) {
         const searchJson = (await searchRes.json()) as { data?: Array<{ mal_id: number }> };
         const match = searchJson.data?.[0]?.mal_id;
