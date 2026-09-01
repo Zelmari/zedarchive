@@ -6,6 +6,8 @@ import {
   getIncomingFriendRequests,
   getOutgoingFriendRequests,
 } from '@/server/queries/friends';
+import { Layers, MessageSquare } from 'lucide-react';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import FriendsClient from './FriendsClient';
 
 export const metadata = {
@@ -25,7 +27,13 @@ export default async function FriendsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <main className="flex-1 py-8">
+      <SubPageHeader
+        navItems={[
+          { label: 'Dashboard', href: '/dashboard', icon: Layers },
+          { label: 'Groups', href: '/groups', icon: MessageSquare },
+        ]}
+      />
+      <main id="main-content" className="flex-1 py-8">
         <div className="za-container max-w-4xl">
           <div className="mb-6">
             <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">Friends</h1>

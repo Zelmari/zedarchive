@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { getGroupDetails, getGroupMessages } from '@/server/queries/groups';
 import { getGroupMediaEntries } from '@/server/queries/media';
 import { getUserProfileById } from '@/server/queries/user';
+import { Layers } from 'lucide-react';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import GroupWorkspaceClient from './GroupWorkspaceClient';
 
 export default async function GroupWorkspacePage({
@@ -80,15 +82,17 @@ export default async function GroupWorkspacePage({
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <header className="za-site-header">
-        <div className="za-container za-container--wide za-site-header__inner">
-          <Link href="/groups" className="za-wordmark za-link">
-            ← Groups
-          </Link>
-          <span className="text-xs text-ink-muted">Shared Group Archive & Chat</span>
-        </div>
-      </header>
-      <main className="flex-1 py-6">
+      <SubPageHeader
+        backLink={{ href: '/groups', label: 'Groups' }}
+        breadcrumbs={[{ label: details.name }]}
+        navItems={[{ label: 'Dashboard', href: '/dashboard', icon: Layers }]}
+        actions={
+          <span className="text-xs text-ink-muted hidden md:inline">
+            Shared Group Archive & Chat
+          </span>
+        }
+      />
+      <main id="main-content" className="flex-1 py-6">
         <div className="za-container max-w-5xl">
           <GroupWorkspaceClient
             group={details}

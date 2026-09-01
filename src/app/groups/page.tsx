@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { getUserGroups } from '@/server/queries/groups';
 import { getAcceptedFriends } from '@/server/queries/friends';
+import { Layers, Users } from 'lucide-react';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import GroupsClient from './GroupsClient';
 
 export const metadata = {
@@ -21,7 +23,13 @@ export default async function GroupsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <main className="flex-1 py-8">
+      <SubPageHeader
+        navItems={[
+          { label: 'Dashboard', href: '/dashboard', icon: Layers },
+          { label: 'Friends', href: '/friends', icon: Users },
+        ]}
+      />
+      <main id="main-content" className="flex-1 py-8">
         <div className="za-container max-w-5xl">
           <div className="mb-6">
             <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">Groups</h1>
