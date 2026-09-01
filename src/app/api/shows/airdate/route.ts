@@ -19,7 +19,7 @@ export async function GET(request: Request): Promise<Response> {
     .split(',')
     .map((id) => id.trim())
     .filter(Boolean)
-    .slice(0, 20);
+    .slice(0, 50);
 
   if (rawIds.length === 0) {
     return Response.json(
