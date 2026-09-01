@@ -77,6 +77,7 @@ export default function DashboardToolbar({
               ref={searchInputRef}
               type="text"
               placeholder="Search archive, tags, notes..."
+              aria-label="Search archive by title, tags, or notes"
               className="h-9 w-full rounded-control border border-required bg-surface px-[2.2rem] py-[0.45rem] text-[length:var(--za-text-fine)] text-ink transition-colors duration-[var(--za-motion-fast)] focus:border-accent"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
