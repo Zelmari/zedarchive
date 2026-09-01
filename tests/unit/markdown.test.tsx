@@ -26,7 +26,7 @@ describe('renderInlineMarkdown', () => {
   it('parses ***bold italic*** syntax as strong with italic', () => {
     const nodes = renderInlineMarkdown('***bold and italic***');
     expect(nodes.length).toBe(1);
-    const node = nodes[0] as React.ReactElement;
+    const node = nodes[0] as React.ReactElement<{ className?: string }>;
     expect(node.type).toBe('strong');
     expect(node.props.className).toContain('italic');
   });
