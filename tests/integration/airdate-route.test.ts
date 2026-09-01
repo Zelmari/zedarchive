@@ -183,6 +183,60 @@ describe('GET /api/shows/airdate', () => {
     expect(body['anilist-188139']?.airdate).toBe('2026-09-20');
   });
 
+  it('resolves ongoing anime sequels via AniList GraphQL traversal when earlier season is finished', async () => {
+    fetchMock.mockImplementation(async (input: unknown, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
+        return animeScheduleResponse([scheduleAnime({ status: 'Finished' })]);
+      }
+      if (url === 'https://graphql.anilist.co') {
+        return new Response(
+          JSON.stringify({
+            data: {
+              Media: {
+                id: 184951,
+                status: 'FINISHED',
+                title: { english: 'Polar Opposites S1' },
+                nextAiringEpisode: null,
+                relations: {
+                  edges: [
+                    {
+                      relationType: 'SEQUEL',
+                      node: {
+                        id: 210031,
+                        format: 'TV',
+                        status: 'RELEASING',
+                        title: { english: 'Polar Opposites Season 2' },
+                        nextAiringEpisode: {
+                          airingAt: 1788796800, // 2026-09-07T16:00:00.000Z
+                          episode: 4,
+                          timeUntilAiring: 86400,
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response('{}', { status: 200 });
+    });
+
+    const res = await GET(makeRequest('anilist-184951', ['Polar Opposites']));
+    const body = await res.json();
+    expect(body['anilist-184951']).toEqual({
+      season: 2,
+      number: 4,
+      airdate: '2026-09-07',
+      airstamp: '2026-09-07T16:00:00.000Z',
+      status: 'RELEASING',
+      sequelTitle: 'Polar Opposites Season 2',
+    });
+  });
+
   it('returns empty results for an empty ids parameter', async () => {
     const res = await GET(makeRequest(''));
     const body = await res.json();

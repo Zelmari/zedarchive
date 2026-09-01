@@ -92,4 +92,29 @@ describe('buildWeeklySchedule', () => {
       expect(schedule[day]).toHaveLength(0);
     }
   });
+
+  it('accurately handles multi-season anime sequel air dates and preserves season info', () => {
+    const entries: MediaEntry[] = [
+      baseEntry('3', 'You and I Are Polar Opposites', 'anime', 'anilist-184951'),
+    ];
+
+    const airMap: NextAirMap = {
+      'anilist-184951': {
+        season: 2,
+        number: 4,
+        airdate: '2026-08-24',
+        airstamp: '2026-08-24T15:00:00Z',
+        status: 'RELEASING',
+        sequelTitle: 'You and I Are Polar Opposites Season 2',
+      },
+    };
+
+    const refDate = new Date('2026-08-24T00:00:00Z');
+    const schedule = buildWeeklySchedule(entries, airMap, refDate);
+
+    expect(schedule.Monday).toHaveLength(1);
+    expect(schedule.Monday[0]?.airInfo.season).toBe(2);
+    expect(schedule.Monday[0]?.airInfo.number).toBe(4);
+    expect(schedule.Monday[0]?.airInfo.sequelTitle).toBe('You and I Are Polar Opposites Season 2');
+  });
 });

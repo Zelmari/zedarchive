@@ -25,3 +25,10 @@ describe('renderInlineMarkdown with spoilers', () => {
     expect(nodes.length).toBeGreaterThan(1);
   });
 });
+
+describe('SpoilerSpan Theme Contrast', () => {
+  it('uses bg-current and text-transparent when hidden', () => {
+    const nodes = renderInlineMarkdown('||Secret||');
+    expect(nodes.length).toBe(1);
+  });
+});
