@@ -67,7 +67,7 @@ export default function GroupChatView({
   };
 
   // Sync when parent updates
-   
+
   if (initialMessages !== messages && initialMessages.length !== messages.length) {
     // simple effect via render: update if parent has new poll data
     // We check by id set diff
@@ -98,9 +98,13 @@ export default function GroupChatView({
               className={`flex gap-2 ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[75%] rounded-control border px-3 py-2 text-sm ${msg.isOwn ? 'bg-accent text-on-accent border-accent' : 'bg-surface-subtle border-decorative text-ink'}`}
+                className={`max-w-[75%] rounded-control border px-3 py-2 text-sm shadow-xs ${
+                  msg.isOwn
+                    ? 'bg-accent text-on-accent border-accent'
+                    : 'bg-surface-subtle border-decorative text-ink'
+                }`}
               >
-                <div className="flex items-center gap-1.5 mb-1 text-[11px] opacity-70">
+                <div className="flex items-center gap-1.5 mb-1 text-[11px] opacity-75">
                   {msg.senderImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -123,14 +127,15 @@ export default function GroupChatView({
                   {(msg.isOwn || isOwner) && (
                     <button
                       onClick={() => handleDelete(msg.id)}
-                      className="ml-1 p-0.5 rounded hover:bg-black/10"
+                      className="ml-1 p-0.5 rounded hover:bg-current/10 transition-colors"
                       title="Delete"
+                      aria-label="Delete message"
                     >
                       <Trash2 size={10} />
                     </button>
                   )}
                 </div>
-                <div className="leading-relaxed text-xs">
+                <div className="leading-relaxed text-xs break-words">
                   {/* Render markdown with spoiler support via shared markdown renderer */}
                   <span>{renderInlineMarkdown(msg.body)}</span>
                 </div>
