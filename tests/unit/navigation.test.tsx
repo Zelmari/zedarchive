@@ -5,12 +5,12 @@ import SubPageHeader from '@/components/navigation/SubPageHeader';
 
 describe('BrandWordmark component', () => {
   it('renders default link to root with brand classes', () => {
-    const element = <BrandWordmark />;
+    const element = BrandWordmark({});
     expect(element.props.href).toBe('/');
   });
 
   it('accepts custom href', () => {
-    const element = <BrandWordmark href="/dashboard" />;
+    const element = BrandWordmark({ href: '/dashboard' });
     expect(element.props.href).toBe('/dashboard');
   });
 });
