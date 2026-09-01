@@ -289,6 +289,194 @@ export async function searchAnimeAndManga(
   return results;
 }
 
+interface AniListRelationNode {
+  id: number;
+  format?: string | null;
+  status?: string | null;
+  title?: { romaji?: string | null; english?: string | null };
+  nextAiringEpisode?: {
+    airingAt: number;
+    episode: number;
+    timeUntilAiring?: number;
+  } | null;
+  relations?: {
+    edges?: Array<{
+      relationType: string;
+      node: AniListRelationNode;
+    }>;
+  };
+}
+
+const ANILIST_RELATIONS_QUERY = `
+query ($id: Int, $idMal: Int) {
+  Media(id: $id, idMal: $idMal, type: ANIME) {
+    id
+    status
+    title {
+      romaji
+      english
+    }
+    nextAiringEpisode {
+      airingAt
+      episode
+      timeUntilAiring
+    }
+    relations {
+      edges {
+        relationType
+        node {
+          id
+          format
+          status
+          title {
+            romaji
+            english
+          }
+          nextAiringEpisode {
+            airingAt
+            episode
+            timeUntilAiring
+          }
+          relations {
+            edges {
+              relationType
+              node {
+                id
+                format
+                status
+                title {
+                  romaji
+                  english
+                }
+                nextAiringEpisode {
+                  airingAt
+                  episode
+                  timeUntilAiring
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+/**
+ * Traverses AniList relations graph following SEQUEL edges to find an active airing season.
+ */
+export async function resolveAniListAiringSequel(
+  id: number | null,
+  idMal: number | null,
+  currentDepth = 1,
+  maxDepth = 3,
+  visited = new Set<number>(),
+): Promise<NextAirInfo | null> {
+  if ((!id && !idMal) || currentDepth > maxDepth) return null;
+  const lookupKey = id ?? idMal ?? 0;
+  if (visited.has(lookupKey)) return null;
+  visited.add(lookupKey);
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
+      },
+      body: JSON.stringify({
+        query: ANILIST_RELATIONS_QUERY,
+        variables: id ? { id } : { idMal },
+      }),
+      next: { revalidate: 21600 },
+    });
+
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: {
+        Media?: {
+          id: number;
+          status: string;
+          title?: { romaji?: string; english?: string };
+          nextAiringEpisode?: { airingAt: number; episode: number } | null;
+          relations?: {
+            edges?: Array<{
+              relationType: string;
+              node: AniListRelationNode;
+            }>;
+          };
+        };
+      };
+    };
+
+    const media = json.data?.Media;
+    if (!media) return null;
+
+    // Direct check on root
+    if (media.status === 'RELEASING' && media.nextAiringEpisode) {
+      const airDate = new Date(media.nextAiringEpisode.airingAt * 1000);
+      return {
+        season: currentDepth,
+        number: media.nextAiringEpisode.episode,
+        airdate: airDate.toISOString().slice(0, 10),
+        airstamp: airDate.toISOString(),
+        status: 'RELEASING',
+        sequelTitle: media.title?.english || media.title?.romaji || null,
+      };
+    }
+
+    // Inspect SEQUEL edges
+    const edges = media.relations?.edges || [];
+    const sequelEdges = edges.filter(
+      (e) =>
+        e.relationType === 'SEQUEL' &&
+        e.node &&
+        (e.node.format === 'TV' || e.node.format === 'TV_SHORT' || !e.node.format),
+    );
+
+    for (const edge of sequelEdges) {
+      const node = edge.node;
+      if (node.status === 'RELEASING' && node.nextAiringEpisode) {
+        const airDate = new Date(node.nextAiringEpisode.airingAt * 1000);
+        return {
+          season: currentDepth + 1,
+          number: node.nextAiringEpisode.episode,
+          airdate: airDate.toISOString().slice(0, 10),
+          airstamp: airDate.toISOString(),
+          status: 'RELEASING',
+          sequelTitle: node.title?.english || node.title?.romaji || null,
+        };
+      }
+
+      // Check depth 3 nested node if available in response
+      const nestedSequels = (node.relations?.edges || []).filter(
+        (ne) => ne.relationType === 'SEQUEL' && ne.node,
+      );
+      for (const nestedEdge of nestedSequels) {
+        const nestedNode = nestedEdge.node;
+        if (nestedNode.status === 'RELEASING' && nestedNode.nextAiringEpisode) {
+          const airDate = new Date(nestedNode.nextAiringEpisode.airingAt * 1000);
+          return {
+            season: currentDepth + 2,
+            number: nestedNode.nextAiringEpisode.episode,
+            airdate: airDate.toISOString().slice(0, 10),
+            airstamp: airDate.toISOString(),
+            status: 'RELEASING',
+            sequelTitle: nestedNode.title?.english || nestedNode.title?.romaji || null,
+          };
+        }
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.warn(`[airdate] AniList sequel resolution error:`, err);
+    return null;
+  }
+}
+
 export async function fetchAnimeScheduleAirdates(
   items: Array<{ sourceId: string; title: string; lookupId: string; idKind: 'anilist' | 'mal' }>,
   result: Record<string, NextAirInfo>,
@@ -296,35 +484,54 @@ export async function fetchAnimeScheduleAirdates(
   const now = Date.now();
 
   await mapWithConcurrency(items, 3, async ({ sourceId, title, lookupId, idKind }) => {
-    if (!title) return;
     try {
-      const res = await fetch(
-        `https://animeschedule.net/api/v3/anime?q=${encodeURIComponent(title)}&limit=3`,
-        {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
-          },
-        },
-      );
+      let matchedAirInfo: NextAirInfo | null = null;
 
-      if (!res.ok) return;
+      // 1. Primary AnimeSchedule lookup by Title
+      if (title) {
+        try {
+          const res = await fetch(
+            `https://animeschedule.net/api/v3/anime?q=${encodeURIComponent(title)}&limit=3`,
+            {
+              headers: {
+                Accept: 'application/json',
+                'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
+              },
+            },
+          );
 
-      const data = (await res.json()) as { anime?: AnimeScheduleAnime[] };
-      const match = (data.anime ?? []).find((anime) => {
-        const websites = anime.websites ?? {};
-        const externalUrl = idKind === 'anilist' ? websites.aniList : websites.mal;
-        return extractIdFromUrl(externalUrl) === lookupId;
-      });
+          if (res.ok) {
+            const data = (await res.json()) as { anime?: AnimeScheduleAnime[] };
+            const match = (data.anime ?? []).find((anime) => {
+              const websites = anime.websites ?? {};
+              const externalUrl = idKind === 'anilist' ? websites.aniList : websites.mal;
+              return extractIdFromUrl(externalUrl) === lookupId;
+            });
 
-      if (!match) return;
+            if (match) {
+              matchedAirInfo = computeAnimeNextAir(match, now);
+            }
+          }
+        } catch {
+          // Fall through to AniList traversal
+        }
+      }
 
-      const nextAir = computeAnimeNextAir(match, now);
-      if (nextAir) {
-        result[sourceId] = nextAir;
+      // 2. If AnimeSchedule returned null (e.g. Finished or missing), follow AniList sequel graph
+      if (!matchedAirInfo) {
+        const parsedId = parseInt(lookupId, 10);
+        if (!isNaN(parsedId) && parsedId > 0) {
+          const anilistId = idKind === 'anilist' ? parsedId : null;
+          const malId = idKind === 'mal' ? parsedId : null;
+          matchedAirInfo = await resolveAniListAiringSequel(anilistId, malId);
+        }
+      }
+
+      if (matchedAirInfo) {
+        result[sourceId] = matchedAirInfo;
       }
     } catch (err) {
-      console.warn(`[airdate] AnimeSchedule lookup failed for ${sourceId}:`, err);
+      console.warn(`[airdate] Lookup failed for ${sourceId}:`, err);
     }
   });
 }
