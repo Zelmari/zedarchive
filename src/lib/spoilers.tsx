@@ -32,10 +32,10 @@ export function SpoilerSpan({ children, className = '' }: SpoilerSpanProps) {
           setRevealed((prev) => !prev);
         }
       }}
-      className={`inline cursor-pointer rounded-xs px-1 py-0.5 transition-[background-color,color] duration-[var(--za-motion-fast)] ${
+      className={`inline cursor-pointer rounded-xs px-1 py-0.5 transition-[background-color,opacity] duration-[var(--za-motion-fast)] ${
         revealed
-          ? 'bg-surface-subtle text-ink'
-          : 'bg-ink text-transparent select-none hover:opacity-90'
+          ? 'bg-current/15 text-inherit'
+          : 'bg-current text-transparent select-none hover:opacity-90'
       } ${className}`}
     >
       {children}
@@ -49,6 +49,9 @@ export function SpoilerSpan({ children, className = '' }: SpoilerSpanProps) {
 export function parseSpoilers(text: string): React.ReactNode {
   if (!text) return text;
   const regex = /(\|\|([\s\S]+?)\|\||>!([\s\S]+?)!<)/g;
+  if (!regex.test(text)) return text;
+  regex.lastIndex = 0;
+
   const elements: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;

@@ -18,15 +18,18 @@ function sanitizeUrl(url: string): string | null {
  * Parses inline markdown tokens (bold, italic, code, strikethrough, links, spoilers).
  */
 export function renderInlineMarkdown(text: string): React.ReactNode[] {
-  // Regex to match:
+  if (!text) return [];
+
+  // Match order:
   // 1. Links: [text](url)
   // 2. Spoilers: ||text|| or >!text!<
-  // 3. Bold: **text** or __text__
-  // 4. Strikethrough: ~~text~~
-  // 5. Italic: *text* or _text_
-  // 6. Inline code: `code`
+  // 3. Bold + Italic: ***text*** or ___text___
+  // 4. Bold: **text** or __text__
+  // 5. Strikethrough: ~~text~~
+  // 6. Italic: *text* or (word bounded) _text_
+  // 7. Inline code: `code`
   const tokenRegex =
-    /(\[([^\]]+)\]\(([^)]+)\)|\|\|([\s\S]+?)\|\||>!([\s\S]+?)!<|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_|`([^`]+)`)/g;
+    /(\[([^\]]+)\]\(([^)]+)\)|\|\|([\s\S]+?)\|\||>!([\s\S]+?)!<|\*\*\*([\s\S]+?)\*\*\*|___([\s\S]+?)___|\*\*((?:[^*]|\*[^*])*?)\*\*|__([^_]+)__|~~([\s\S]+?)~~|\*([^*]+)\*|(?:^|\s)_([^_]+)_(?=\s|$|[.,!?;:])|`([^`]+)`)/g;
 
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -40,6 +43,8 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
       linkUrl,
       spoiler1,
       spoiler2,
+      boldItalic1,
+      boldItalic2,
       bold1,
       bold2,
       strike,
@@ -65,7 +70,7 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
             href={safeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent underline hover:text-ink transition-colors"
+            className="underline underline-offset-2 decoration-current/50 hover:decoration-current hover:opacity-80 transition-opacity"
           >
             {renderInlineMarkdown(linkText)}
           </a>,
@@ -76,23 +81,30 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
     } else if (spoiler1 || spoiler2) {
       const spoilerText = spoiler1 ?? spoiler2 ?? '';
       parts.push(<SpoilerSpan key={key}>{renderInlineMarkdown(spoilerText)}</SpoilerSpan>);
+    } else if (boldItalic1 || boldItalic2) {
+      const biText = boldItalic1 ?? boldItalic2 ?? '';
+      parts.push(
+        <strong key={key} className="font-[var(--za-weight-emphasis)] italic">
+          {renderInlineMarkdown(biText)}
+        </strong>,
+      );
     } else if (bold1 || bold2) {
       const boldText = bold1 ?? bold2 ?? '';
       parts.push(
-        <strong key={key} className="font-[var(--za-weight-emphasis)] text-ink">
+        <strong key={key} className="font-[var(--za-weight-emphasis)]">
           {renderInlineMarkdown(boldText)}
         </strong>,
       );
     } else if (strike) {
       parts.push(
-        <del key={key} className="line-through text-ink-muted">
+        <del key={key} className="line-through opacity-70">
           {renderInlineMarkdown(strike)}
         </del>,
       );
     } else if (italic1 || italic2) {
       const italicText = italic1 ?? italic2 ?? '';
       parts.push(
-        <em key={key} className="italic text-ink">
+        <em key={key} className="italic">
           {renderInlineMarkdown(italicText)}
         </em>,
       );
@@ -100,7 +112,7 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
       parts.push(
         <code
           key={key}
-          className="rounded-xs bg-surface px-1 py-0.5 font-mono text-[0.85em] text-ink border border-decorative"
+          className="rounded-xs bg-current/10 px-1 py-0.5 font-mono text-[0.85em] border border-current/20"
         >
           {code}
         </code>,
