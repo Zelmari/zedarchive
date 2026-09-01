@@ -183,7 +183,10 @@ export async function searchPublicProfiles(
       totalEntries: count(mediaEntries.id),
     })
     .from(userTable)
-    .leftJoin(mediaEntries, eq(mediaEntries.userId, userTable.id))
+    .leftJoin(
+      mediaEntries,
+      and(eq(mediaEntries.userId, userTable.id), eq(mediaEntries.isPrivate, false)),
+    )
     .where(
       and(
         eq(userTable.isPublic, true),
