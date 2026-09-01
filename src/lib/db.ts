@@ -2,10 +2,10 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
 
-if (!process.env.DATABASE_URL && !isDev && !isBuildPhase) {
+if (!process.env.DATABASE_URL && !isDevOrTest && !isBuildPhase) {
   throw new Error(
     'DATABASE_URL is required in production. Configure it via Cloudflare dashboard vars before deploying.',
   );

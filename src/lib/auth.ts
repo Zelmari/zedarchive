@@ -4,7 +4,7 @@ import { db } from './db';
 import * as schema from '@/db/schema';
 import { sendEmail, buildPasswordResetEmail, buildVerificationEmail } from './email';
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 // `next build` evaluates this module in production mode without runtime
 // secrets present (CI included), so only hard-fail when actually serving.
 const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';

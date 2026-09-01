@@ -56,15 +56,21 @@ export function buildWeeklySchedule(
     const airInfo = airMap[entry.sourceId];
     if (!airInfo || !airInfo.airdate) continue;
 
-    // Use airstamp if available for precise local time, fallback to airdate
-    const dateObj = new Date(airInfo.airstamp || `${airInfo.airdate}T12:00:00Z`);
+    // Use airstamp if available for precise local time, fallback to airdate (UTC)
+    const hasAirstamp = Boolean(airInfo.airstamp);
+    const dateObj = new Date(airInfo.airstamp || `${airInfo.airdate}T00:00:00Z`);
     if (isNaN(dateObj.getTime())) continue;
 
-    const dayName = JS_DAY_INDEX_TO_NAME[dateObj.getDay()];
+    const dayName = hasAirstamp
+      ? JS_DAY_INDEX_TO_NAME[dateObj.getDay()]
+      : JS_DAY_INDEX_TO_NAME[dateObj.getUTCDay()];
     if (!dayName) continue;
 
-    const isToday = dateObj.toDateString() === todayStr;
-    const timeString = airInfo.airstamp
+    const isToday = hasAirstamp
+      ? dateObj.toDateString() === now.toDateString()
+      : airInfo.airdate === now.toISOString().slice(0, 10);
+
+    const timeString = hasAirstamp
       ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : 'TBA';
 
