@@ -2,9 +2,17 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
 
+const isDev = process.env.NODE_ENV === 'development';
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+
+if (!process.env.DATABASE_URL && !isDev && !isBuildPhase) {
+  throw new Error(
+    'DATABASE_URL is required in production. Configure it via Cloudflare dashboard vars before deploying.',
+  );
+}
+
 const connectionString =
-  process.env.DATABASE_URL ||
-  'postgres://placeholder:placeholder@localhost:5432/placeholder';
+  process.env.DATABASE_URL || 'postgres://placeholder:placeholder@localhost:5432/placeholder';
 
 // On Cloudflare Workers, TCP sockets are bound to the specific request that created them.
 // When connection pooling hands out a socket from an earlier request, workerd rejects
@@ -25,10 +33,7 @@ interface ErrorLike {
 function isStaleIoError(error: unknown): boolean {
   let current = error as ErrorLike | null | undefined;
   for (let depth = 0; current && depth < 5; depth++) {
-    if (
-      typeof current?.message === 'string' &&
-      current.message.includes(STALE_IO_MARKER)
-    ) {
+    if (typeof current?.message === 'string' && current.message.includes(STALE_IO_MARKER)) {
       return true;
     }
     current = current.cause as ErrorLike | null | undefined;
@@ -40,7 +45,7 @@ type PostgresOptions = postgres.Options<Record<string, postgres.PostgresType<any
 
 function createRetryingPostgresClient(
   connStr: string,
-  options: PostgresOptions
+  options: PostgresOptions,
 ): postgres.Sql<any> {
   const rawClient = postgres(connStr, options);
 
@@ -58,24 +63,21 @@ function createRetryingPostgresClient(
 
         const originalThen = queryPromise.then.bind(queryPromise);
         queryPromise.then = function (onFulfilled: any, onRejected: any) {
-          return originalThen(
-            onFulfilled,
-            (err: unknown) => {
-              if (attempt < MAX_RETRIES && isStaleIoError(err)) {
-                attempt++;
-                const isRawMode = currentQuery?.isRaw;
-                const nextPromise = execute();
-                if (isRawMode === 'values') {
-                  nextPromise.values();
-                } else if (isRawMode === true) {
-                  nextPromise.raw();
-                }
-                return nextPromise.then(onFulfilled, onRejected);
+          return originalThen(onFulfilled, (err: unknown) => {
+            if (attempt < MAX_RETRIES && isStaleIoError(err)) {
+              attempt++;
+              const isRawMode = currentQuery?.isRaw;
+              const nextPromise = execute();
+              if (isRawMode === 'values') {
+                nextPromise.values();
+              } else if (isRawMode === true) {
+                nextPromise.raw();
               }
-              if (onRejected) return onRejected(err);
-              throw err;
+              return nextPromise.then(onFulfilled, onRejected);
             }
-          );
+            if (onRejected) return onRejected(err);
+            throw err;
+          });
         };
         return queryPromise;
       }
