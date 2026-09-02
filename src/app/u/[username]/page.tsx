@@ -17,6 +17,7 @@ import { getFriendshipStatus } from '@/server/queries/friends';
 import { THEME_LABELS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
 import ArchiveUnavailable from '@/components/ui/ArchiveUnavailable';
+import { Badge, RatingBadge, StatusBadge } from '@/components/ui/Badge';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -132,6 +133,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
           '--za-color-accent': user.customTheme.accent,
           '--za-color-accent-hover': user.customTheme.accent,
           '--za-color-on-accent': user.customTheme.onAccent,
+          '--za-color-surface-sunken': user.customTheme.surfaceSubtle,
+          '--za-color-gold': user.customTheme.accent,
+          '--za-color-gold-hover': user.customTheme.accent,
+          '--za-color-gold-dark': user.customTheme.accent,
+          '--za-color-text-faint': user.customTheme.textMuted,
         } as React.CSSProperties)
       : {};
 
@@ -155,10 +161,14 @@ export default async function PublicProfilePage({ params }: PageParams) {
       </header>
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 pt-[var(--za-space-6)] pb-[var(--za-space-12)]">
-        <div className="za-container">
+      <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-8)]">
+        <div className="za-container max-w-6xl">
           {/* Profile Header Masthead */}
-          <div className="mb-6 rounded-control border border-required border-b-decorative bg-surface p-6 shadow-raised">
+          <div className="za-bookplate relative mb-8 p-6 sm:p-8">
+            <span className="za-ribbon-bookmark" aria-hidden="true" />
+            <p className="mb-5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
+              Published monograph · public collection
+            </p>
             {/* Hero Identity Zone */}
             <div className="flex flex-wrap items-center gap-5">
               {user.image ? (
@@ -166,11 +176,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 <img
                   src={user.image}
                   alt={`${user.name}'s avatar`}
-                  className="h-24 w-24 flex-none rounded-full border-[3px] border-accent object-cover shadow-raised"
+                  className="h-24 w-24 flex-none rounded-small border-2 border-required object-cover shadow-raised"
                 />
               ) : (
                 <span
-                  className="flex h-24 w-24 flex-none items-center justify-center rounded-full border-[3px] border-accent bg-[var(--za-color-title-tile)] text-2xl font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)] shadow-raised"
+                  className="flex h-24 w-24 flex-none items-center justify-center rounded-small border-2 border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-2xl font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)] shadow-raised"
                   aria-hidden="true"
                 >
                   {getInitials(user.name)}
@@ -178,34 +188,36 @@ export default async function PublicProfilePage({ params }: PageParams) {
               )}
 
               <div className="min-w-0 flex-1 basis-64">
-                <h1 className="text-2xl font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
+                <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.03em] text-ink">
                   {user.name}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[length:var(--za-text-supporting)] text-ink-muted">
+                  <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-supporting)] text-ink-muted">
                     @{user.username}
                   </span>
-                  <span className="inline-block rounded-small border border-success/30 bg-success/10 px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-success">
+                  <span className="inline-flex items-center rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-success">
                     Public Archive
                   </span>
                   {user.theme && (
-                    <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
+                    <span className="inline-flex items-center rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
                       {(user.theme && (THEME_LABELS as Record<string, string>)[user.theme]) ??
                         user.theme}
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                <p className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
                   Archiving since {formatMonthYear(user.createdAt)}
                 </p>
                 {user.bio && (
-                  <p className="mt-3 border-l-2 border-decorative pl-3 text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                  <p className="mt-4 max-w-2xl border-l-2 border-accent pl-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                     {user.bio}
                   </p>
                 )}
                 {publicGoalProgress && (
-                  <div className="mt-3 inline-flex items-center gap-2 rounded-small border border-decorative bg-surface-subtle px-3 py-1 text-xs text-ink">
-                    <span>📖</span>
+                  <div className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-decorative py-2 font-[var(--za-font-serif-body)] text-sm text-ink">
+                    <span className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.06em] text-accent">
+                      Reading goal
+                    </span>
                     <span className="font-[var(--za-weight-emphasis)]">
                       {currentYear} Reading Challenge:
                     </span>
@@ -215,7 +227,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
                     </span>
                     {publicGoalProgress.status === 'ahead' && (
                       <span className="text-[11px] font-[var(--za-weight-emphasis)] text-success">
-                        · {publicGoalProgress.paceDiff} ahead of pace!
+                        · {publicGoalProgress.paceDiff} ahead of pace
+                      </span>
+                    )}
+                    {publicGoalProgress.status === 'behind' && (
+                      <span className="text-[11px] font-[var(--za-weight-emphasis)] text-warning">
+                        · {Math.abs(publicGoalProgress.paceDiff)} behind pace
                       </span>
                     )}
                   </div>
@@ -223,12 +240,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
               </div>
 
               {/* Quick Action Bar */}
-              <div className="flex flex-none flex-col items-end gap-2">
+              <div className="flex w-full flex-none flex-wrap items-center gap-2 border-t border-decorative pt-4 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
                 <ShareArchiveButton url={profileUrl} />
                 {viewer.isLoggedIn && viewer.username && viewer.id !== user.id && (
                   <Link
                     href={`/u/${viewer.username}/compare/${user.username}`}
-                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs font-[var(--za-weight-emphasis)] text-accent border-accent/40 hover:border-accent hover:bg-accent/10"
+                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs font-[var(--za-weight-emphasis)] text-accent"
                     title={`Compare your archive with @${user.username}`}
                   >
                     <Sparkles size={13} className="shrink-0 text-accent" />
@@ -262,7 +279,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"
-                    className="za-button za-button--primary inline-flex items-center text-xs"
+                    className="za-button za-button--secondary inline-flex items-center text-xs"
                   >
                     Edit Profile
                   </Link>
@@ -271,66 +288,79 @@ export default async function PublicProfilePage({ params }: PageParams) {
             </div>
 
             {/* Enriched Stats & Highlights Bar */}
-            <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-3">
-              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+            <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-5">
+              <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
+                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalEntries}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Total Cataloged</div>
+                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  Total Cataloged
+                </div>
               </div>
-              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-success">
+              <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
+                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-success">
                   {stats.completedCount}
                   <span className="text-xs text-ink-muted"> · {stats.completionRate}%</span>
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">
+                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Completed · Completion Rate
                 </div>
               </div>
-              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+              <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
+                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalEpisodes}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Episodes Watched</div>
+                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  Episodes Watched
+                </div>
               </div>
-              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div className="text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink">
+              <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
+                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalChapters}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Chapters Read</div>
+                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  Chapters Read
+                </div>
               </div>
-              <div className="flex flex-col items-center rounded-control border border-decorative bg-surface-subtle px-2 py-3 text-center">
-                <div
-                  className="inline-flex items-center gap-1 text-[1.35rem] font-[var(--za-weight-heading)] leading-[1.2] text-ink"
-                  style={{ color: '#b45309' }}
-                >
+              <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
+                <div className="za-gold-stamp inline-flex items-center gap-1 font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2]">
                   <Star size={16} fill="currentColor" />
                   {stats.avgRating}
                 </div>
-                <div className="mt-1 text-xs leading-[1.3] text-ink-muted">Avg Rating</div>
+                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  Avg Rating
+                </div>
               </div>
             </div>
 
             {/* Yearly Contribution Heatmap */}
-            <ActivityHeatmap activityMap={activityHeatmap} className="mt-5" />
+            <div className="mt-7 border-t border-decorative pt-6">
+              <ActivityHeatmap activityMap={activityHeatmap} />
+            </div>
           </div>
 
           {/* Media Grid */}
           <section aria-labelledby="cataloged-titles-heading" className="mt-8">
             <h2
               id="cataloged-titles-heading"
-              className="mb-4 text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink"
+              className="mb-4 flex items-baseline justify-between border-b border-decorative pb-3 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
             >
-              Cataloged Titles ({entries.length})
+              <span>Cataloged Titles</span>
+              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-normal tracking-normal text-ink-faint">
+                {entries.length} records
+              </span>
             </h2>
 
             {entries.length === 0 ? (
-              <div className="za-card rounded-control border border-decorative bg-surface-subtle p-8 text-center text-[length:var(--za-text-supporting)] text-ink-muted">
-                No titles cataloged yet.
+              <div className="za-bookplate relative p-10 text-center">
+                <span className="za-ribbon-bookmark" aria-hidden="true" />
+                <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+                  No titles cataloged yet.
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
-                {entries.map((item) => {
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {entries.map((item, index) => {
                   const isMovie = item.category === 'movie';
                   const isBook = item.category === 'book' || item.category === 'manga';
                   const progressPct = item.secondaryUnitTotal
@@ -347,9 +377,13 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   return (
                     <article
                       key={item.id}
-                      className={`za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] rounded-control p-[var(--za-space-4)]`}
+                      className="za-bookplate relative flex min-w-0 max-w-full flex-col p-4"
                     >
-                      <div className="flex items-start gap-[var(--za-space-4)]">
+                      <div className="mb-3 flex items-center justify-between border-b border-decorative pb-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-ink-faint">
+                        <span>Ex libris · {item.category}</span>
+                        <span>No. {String(index + 1).padStart(2, '0')}</span>
+                      </div>
+                      <div className="flex items-start gap-4">
                         <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
                           {item.coverImage ? (
                             // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
@@ -371,24 +405,19 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
                         <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
                           <h3
-                            className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+                            className="font-[var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
                             title={item.title}
                           >
                             {item.title}
                           </h3>
 
                           <div className="flex flex-wrap items-center gap-[var(--za-space-1)]">
-                            <span
-                              className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted"
-                              style={{ textTransform: 'capitalize' }}
-                            >
-                              {(item.status || 'in_progress').replace('_', ' ')}
-                            </span>
-                            {item.rating != null && (
-                              <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
-                                <Star size={11} fill="currentColor" /> {item.rating}/10
-                              </span>
-                            )}
+                            <Badge>{item.category}</Badge>
+                            <StatusBadge
+                              status={item.status}
+                              label={(item.status || 'in_progress').replace('_', ' ')}
+                            />
+                            {item.rating != null && <RatingBadge rating={item.rating} />}
                             {isMovie ? (
                               item.primaryUnitCurrent && item.primaryUnitCurrent > 1 ? (
                                 <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] leading-[1.2] text-ink-muted">
@@ -411,19 +440,19 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           </div>
 
                           {item.notes && (
-                            <div className="mt-2 max-h-16 overflow-hidden text-ellipsis text-xs text-ink-muted">
+                            <div className="mt-3 max-h-20 overflow-hidden text-ellipsis font-[var(--za-font-serif-body)] text-sm text-ink-muted">
                               <MarkdownNotes content={item.notes} />
                             </div>
                           )}
 
                           {item.quotes && item.quotes.length > 0 && (
-                            <div className="mt-2 rounded-small border border-decorative bg-surface-subtle p-2 text-xs italic text-ink-muted">
+                            <div className="mt-3 border-l-2 border-gold bg-gold/10 p-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                               &ldquo;
                               {item.quotes.find((q) => q.isFavorite)?.text || item.quotes[0]?.text}
                               &rdquo;
                               {(item.quotes.find((q) => q.isFavorite)?.speaker ||
                                 item.quotes[0]?.speaker) && (
-                                <span className="block not-italic text-[10px] text-ink-muted mt-0.5">
+                                <span className="mt-1 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] not-italic uppercase tracking-[0.04em] text-ink-faint">
                                   —{' '}
                                   {item.quotes.find((q) => q.isFavorite)?.speaker ||
                                     item.quotes[0]?.speaker}
@@ -434,17 +463,20 @@ export default async function PublicProfilePage({ params }: PageParams) {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
+                      <div className="mt-4 flex flex-col gap-3 border-t border-decorative pt-3">
                         <div
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
+                            fontFamily: 'var(--za-font-mono)',
                             fontSize: 'var(--za-text-fine)',
-                            color: 'var(--za-color-text-muted)',
+                            color: 'var(--za-color-text-faint)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
                             marginBottom: '0.3rem',
                           }}
                         >
-                          <span>Progress</span>
+                          <span>Catalog progress</span>
                           <span>
                             {isMovie
                               ? item.status === 'completed'

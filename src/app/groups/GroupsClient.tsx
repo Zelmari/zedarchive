@@ -51,9 +51,14 @@ export default function GroupsClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-ink-muted">
-          {groups.length} group{groups.length !== 1 ? 's' : ''}
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-decorative pb-4">
+        <div>
+          <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint">
+            Anthology shelves
+          </p>
+          <div className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+            {groups.length} group{groups.length !== 1 ? 's' : ''}
+          </div>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -64,36 +69,62 @@ export default function GroupsClient({
       </div>
 
       {msg && (
-        <div className="rounded-small border border-decorative bg-surface-subtle px-3 py-2 text-sm text-ink">
+        <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
           {msg}
         </div>
       )}
 
       {groups.length === 0 ? (
-        <div className="za-card rounded-control border border-dashed border-decorative bg-surface-subtle p-8 text-center text-sm text-ink-muted">
-          No groups yet. Create one and invite your friends. Only your accepted friends can be
-          invited.
+        <div className="za-bookplate relative p-10 text-center">
+          <span className="za-ribbon-bookmark" aria-hidden="true" />
+          <p className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+            No volumes yet
+          </p>
+          <p className="mx-auto mt-2 max-w-lg font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+            Create a reading room and invite your friends. Only accepted companions can be added to
+            a collective shelf.
+          </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((g) => (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {groups.map((g, index) => (
             <Link
               key={g.id}
               href={`/groups/${g.id}`}
-              className="za-card rounded-control border border-decorative bg-surface p-4 hover:border-accent transition-colors"
+              className="za-bookplate relative flex min-h-56 flex-col justify-between p-5 transition-transform hover:-translate-y-0.5 hover:border-accent"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-accent">
-                  <Users size={16} />
-                </span>
-                <h3 className="text-sm font-medium text-ink truncate">{g.name}</h3>
+              <span className="za-ribbon-bookmark" aria-hidden="true" />
+              <div>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <span className="font-[var(--za-font-mono)] text-xs tracking-[0.12em] text-ink-faint">
+                    VOL. {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                    <Users size={12} /> {g.role}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-small border border-required bg-surface-subtle text-accent">
+                    {g.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={g.image} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Users size={18} />
+                    )}
+                  </span>
+                  <h3 className="truncate font-[var(--za-font-editorial)] text-xl leading-tight text-ink">
+                    {g.name}
+                  </h3>
+                </div>
               </div>
               {g.description && (
-                <p className="text-xs text-ink-muted line-clamp-2 mb-2">{g.description}</p>
+                <p className="mt-4 line-clamp-3 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                  {g.description}
+                </p>
               )}
-              <div className="flex justify-between text-xs text-ink-muted mt-2">
+              <div className="mt-5 flex justify-between border-t border-decorative pt-3 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
                 <span>{g.memberCount} members</span>
-                <span className="capitalize">{g.role}</span>
+                <span>{new Date(g.updatedAt).toLocaleDateString()}</span>
               </div>
             </Link>
           ))}
@@ -107,11 +138,19 @@ export default function GroupsClient({
           ariaLabel="Create Group"
           contentClassName="max-h-[90vh] max-w-lg overflow-y-auto p-6"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-[var(--za-weight-heading)] text-ink">Create Group</h2>
+          <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">
+            <div>
+              <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
+                New collective volume
+              </p>
+              <h2 className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                Create Group
+              </h2>
+            </div>
             <button
               onClick={() => setShowCreate(false)}
-              className="p-1 text-ink-muted hover:text-ink"
+              className="za-button za-button--tertiary p-2"
+              aria-label="Close create group dialog"
             >
               <X size={18} />
             </button>
@@ -119,41 +158,49 @@ export default function GroupsClient({
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-ink">Group Name *</label>
+              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+                Group Name *
+              </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
                 placeholder="Roshar Reading Society"
-                className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                className="za-field mt-1 font-[var(--za-font-serif-body)]"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-ink">Description (optional)</label>
+              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+                Description (optional)
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={500}
                 rows={3}
                 placeholder="What is this group about?"
-                className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                className="za-field mt-1 min-h-24 resize-y font-[var(--za-font-serif-body)]"
               />
             </div>
 
             <div>
-              <label className="text-xs font-medium text-ink">
+              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Invite Friends (owner&apos;s friends only)
               </label>
               {friends.length === 0 ? (
-                <p className="mt-1 text-xs text-ink-muted">
+                <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   You have no friends to invite yet. Add friends first.
                 </p>
               ) : (
-                <div className="mt-2 max-h-40 overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2 space-y-1">
+                <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto border-y border-decorative py-3">
                   {friends.map((f) => (
                     <label
                       key={f.id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-small hover:bg-surface cursor-pointer"
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-small border px-2 py-1.5 transition-colors ${
+                        selected.includes(f.id)
+                          ? 'border-accent bg-accent-soft text-accent'
+                          : 'border-decorative bg-surface-subtle text-ink-muted hover:border-required hover:text-ink'
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -161,8 +208,11 @@ export default function GroupsClient({
                         onChange={() => toggleSelect(f.id)}
                         className="accent-accent"
                       />
-                      <span className="text-sm text-ink truncate">
-                        {f.name} <span className="text-xs text-ink-muted">@{f.username}</span>
+                      <span className="min-w-0 truncate font-[var(--za-font-serif-body)] text-sm">
+                        {f.name}{' '}
+                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                          @{f.username}
+                        </span>
                       </span>
                     </label>
                   ))}

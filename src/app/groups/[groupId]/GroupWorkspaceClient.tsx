@@ -75,24 +75,35 @@ export default function GroupWorkspaceClient({
   return (
     <div className="space-y-6">
       {/* Masthead Banner */}
-      <div className="rounded-control border-2 border-accent bg-surface p-6 shadow-raised">
+      <div className="za-bookplate relative p-6 sm:p-7">
+        <span className="za-ribbon-bookmark" aria-hidden="true" />
         <div className="flex flex-wrap items-center gap-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-on-accent">
-            <Users size={20} />
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-small border border-required bg-surface-subtle text-accent">
+            {group.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={group.image} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Users size={22} />
+            )}
           </span>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-[var(--za-weight-heading)] text-ink flex items-center gap-2">
+            <p className="mb-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.14em] text-accent">
+              Collective volume
+            </p>
+            <h1 className="flex items-center gap-2 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.03em] text-ink">
               {group.name}
               {group.isOwner && (
-                <span className="inline-flex items-center gap-1 rounded-small bg-accent px-1.5 py-0.5 text-[10px] font-bold text-on-accent">
+                <span className="inline-flex items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-accent">
                   <Crown size={10} /> Owner
                 </span>
               )}
             </h1>
             {group.description && (
-              <p className="mt-1 text-sm text-ink-muted">{group.description}</p>
+              <p className="mt-2 max-w-2xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                {group.description}
+              </p>
             )}
-            <div className="mt-1 text-xs text-ink-muted">
+            <div className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
               {group.memberCount} members · Created {new Date(group.createdAt).toLocaleDateString()}
             </div>
           </div>
@@ -103,28 +114,28 @@ export default function GroupWorkspaceClient({
             <Settings size={14} /> Members & Settings
           </button>
         </div>
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-small border border-accent/30 bg-accent/10 px-2 py-1 text-xs font-medium text-accent">
+        <div className="mt-5 inline-flex items-center gap-1.5 border-t border-decorative pt-3 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-accent">
           <Library size={12} /> Shared Group Archive · Collective
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-decorative pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-decorative pb-4">
         <button
           onClick={() => setTab('chat')}
-          className={`inline-flex items-center gap-1.5 rounded-small border px-3 py-1.5 text-xs font-medium ${tab === 'chat' ? 'bg-accent text-on-accent border-accent' : 'bg-surface border-decorative text-ink hover:bg-surface-subtle'}`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'chat' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <MessageSquare size={14} /> Group Chat
         </button>
         <button
           onClick={() => setTab('archive')}
-          className={`inline-flex items-center gap-1.5 rounded-small border px-3 py-1.5 text-xs font-medium ${tab === 'archive' ? 'bg-accent text-on-accent border-accent' : 'bg-surface border-decorative text-ink hover:bg-surface-subtle'}`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'archive' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <Library size={14} /> Group Archive
         </button>
         <button
           onClick={() => setTab('members')}
-          className={`inline-flex items-center gap-1.5 rounded-small border px-3 py-1.5 text-xs font-medium ${tab === 'members' ? 'bg-accent text-on-accent border-accent' : 'bg-surface border-decorative text-ink hover:bg-surface-subtle'}`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'members' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <Users size={14} /> Members ({group.members.length})
         </button>
@@ -150,25 +161,36 @@ export default function GroupWorkspaceClient({
       )}
 
       {tab === 'members' && (
-        <div className="za-card rounded-control border border-decorative bg-surface p-4 space-y-3">
-          <h3 className="text-sm font-medium text-ink">Members</h3>
+        <div className="za-bookplate space-y-4 p-5">
+          <div className="border-b border-decorative pb-3">
+            <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
+              The reading room
+            </p>
+            <h3 className="mt-1 font-[var(--za-font-editorial)] text-xl text-ink">Members</h3>
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {group.members.map((m) => (
               <div
                 key={m.id}
-                className="flex items-center gap-2 rounded-small border border-decorative bg-surface-subtle px-3 py-2"
+                className="flex items-center gap-3 rounded-small border border-decorative bg-surface-subtle px-3 py-2.5"
               >
                 {m.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.image} alt={m.name} className="h-8 w-8 rounded-full object-cover" />
+                  <img
+                    src={m.image}
+                    alt={m.name}
+                    className="h-9 w-9 rounded-small border border-required object-cover"
+                  />
                 ) : (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface border border-decorative text-xs">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
                     {m.name.slice(0, 1)}
                   </span>
                 )}
                 <div className="min-w-0">
-                  <div className="text-xs font-medium text-ink truncate">{m.name}</div>
-                  <div className="text-[11px] text-ink-muted truncate">
+                  <div className="truncate font-[var(--za-font-editorial)] text-base text-ink">
+                    {m.name}
+                  </div>
+                  <div className="truncate font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
                     @{m.username} · {m.role}
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { calculateTasteMatch } from '@/lib/tasteMatch';
 import { Sparkles } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
+import { Badge, RatingBadge } from '@/components/ui/Badge';
 
 interface PageProps {
   params: Promise<{ username: string; targetUser: string }>;
@@ -46,126 +47,207 @@ export default async function CompareUsersPage({ params }: PageProps) {
           </Link>
         }
       />
-      <main id="main-content" className="flex-1 py-8">
-        <div className="za-container max-w-4xl">
+      <main id="main-content" className="flex-1 py-10">
+        <div className="za-container max-w-5xl">
           {/* Header diptych */}
-          <div className="mb-8 rounded-control border border-required bg-surface p-6 text-center shadow-sm">
-            <div className="flex items-center justify-center gap-4 text-xs text-ink-muted">
-              <span className="font-semibold text-ink text-sm">@{dataA.user.username}</span>
-              <span className="rounded-full bg-surface-subtle px-2 py-0.5 font-mono text-[11px]">
+          <div className="za-bookplate relative mb-8 p-6 text-center sm:p-8">
+            <span className="za-ribbon-bookmark" aria-hidden="true" />
+            <p className="mb-5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
+              Affinity report · two private catalogs
+            </p>
+            <div className="grid items-center gap-3 text-center sm:grid-cols-[1fr_auto_1fr]">
+              <div className="min-w-0">
+                <div className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                  @{dataA.user.username}
+                </div>
+                <div className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                  {dataA.user.name}
+                </div>
+              </div>
+              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-gold bg-gold/10 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-gold-dark">
                 VS
               </span>
-              <span className="font-semibold text-ink text-sm">@{dataB.user.username}</span>
+              <div className="min-w-0">
+                <div className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                  @{dataB.user.username}
+                </div>
+                <div className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                  {dataB.user.name}
+                </div>
+              </div>
             </div>
 
-            <h1 className="mt-3 text-2xl font-[var(--za-weight-heading)] text-ink">
-              Archive Comparison & Taste Match
+            <h1 className="mt-7 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+              Archive Comparison
             </h1>
+            <p className="mx-auto mt-2 max-w-2xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+              A quiet measure of shared titles, shared enthusiasms, and the places your ratings
+              diverge.
+            </p>
 
-            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-decorative/50 pt-4 sm:grid-cols-3">
+            <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-3">
               <div>
-                <div className="text-2xl font-bold text-accent">{match.sharedCount}</div>
-                <div className="text-[11px] text-ink-muted">Shared Titles</div>
+                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-mono)] text-2xl text-ink">
+                  {match.sharedCount}
+                </div>
+                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                  Shared Titles
+                </div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-accent">{match.sharedPercentage}%</div>
-                <div className="text-[11px] text-ink-muted">Catalog Overlap</div>
+                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-display)] text-2xl text-accent">
+                  {match.sharedPercentage}%
+                </div>
+                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                  Catalog Overlap
+                </div>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <div className="text-2xl font-bold text-accent">
+                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-display)] text-2xl text-gold-dark">
                   {match.ratingSimilarity !== null ? `${match.ratingSimilarity}%` : 'N/A'}
                 </div>
-                <div className="text-[11px] text-ink-muted">Rating Agreement</div>
+                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                  Rating Agreement
+                </div>
               </div>
             </div>
           </div>
 
           {/* Shared Masterworks */}
           {match.sharedMasterworks.length > 0 && (
-            <div className="mb-8">
-              <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-ink">
-                <Sparkles size={16} className="text-amber-500" />
-                <span>Shared Masterworks (Both Rated 9–10★)</span>
+            <section className="mb-8">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-gold/40 pb-3">
+                <h2 className="flex items-center gap-2 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                  <Sparkles size={16} className="text-gold" />
+                  Shared Masterworks
+                </h2>
+                <span className="font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                  both rated 9–10★
+                </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 {match.sharedMasterworks.map((item, i) => (
                   <div
                     key={i}
-                    className="za-card flex gap-3 rounded-control border border-amber-500/30 bg-surface p-3"
+                    className="za-bookplate relative flex gap-3 border-gold/50 bg-surface p-4"
                   >
+                    <span className="za-ribbon-bookmark" aria-hidden="true" />
                     <MediaCover
                       title={item.title}
                       coverImage={item.coverImage}
                       category={item.category}
                     />
                     <div className="flex flex-col justify-center overflow-hidden">
-                      <span className="text-[10px] uppercase tracking-wider text-ink-muted">
-                        {item.category}
-                      </span>
-                      <h3 className="truncate font-semibold text-xs text-ink">{item.title}</h3>
-                      <div className="mt-1 flex items-center gap-2 text-xs">
-                        <span className="text-accent">
-                          @{dataA.user.username}: {item.ratingA}★
+                      <Badge>{item.category}</Badge>
+                      <h3 className="mt-2 truncate font-[var(--za-font-editorial)] text-lg text-ink">
+                        {item.title}
+                      </h3>
+                      <div className="mt-2 grid gap-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                        <span>
+                          @{dataA.user.username}:{' '}
+                          <span className="text-gold-dark">{item.ratingA}★</span>
                         </span>
-                        <span className="text-accent">
-                          @{dataB.user.username}: {item.ratingB}★
+                        <span>
+                          @{dataB.user.username}:{' '}
+                          <span className="text-gold-dark">{item.ratingB}★</span>
                         </span>
                       </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.ratingA != null && <RatingBadge rating={item.ratingA} />}
+                        {item.ratingB != null && <RatingBadge rating={item.ratingB} />}
+                      </div>
+                      <span className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-faint">
+                        {item.category}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
+          )}
+
+          {match.topSharedGenres.length > 0 && (
+            <section className="mb-8 border-y border-decorative py-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                  Shared motifs
+                </span>
+                {match.topSharedGenres.map(({ genre, count }) => (
+                  <span
+                    key={genre}
+                    className="rounded-full border border-decorative bg-surface-subtle px-3 py-1 font-[var(--za-font-serif-body)] text-sm italic text-ink"
+                  >
+                    {genre} · {count}
+                  </span>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* All Shared Titles */}
-          <div className="mb-8">
-            <h2 className="mb-3 text-sm font-semibold text-ink">
-              All Shared Titles ({match.sharedTitles.length})
-            </h2>
+          <section className="mb-8">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-decorative pb-3">
+              <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                All Shared Titles
+              </h2>
+              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                {match.sharedTitles.length} records
+              </span>
+            </div>
+            <p className="mb-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+              The complete overlap, with each archive&apos;s rating preserved side by side.
+            </p>
             {match.sharedTitles.length === 0 ? (
-              <div className="rounded-control border border-dashed border-decorative p-8 text-center text-xs text-ink-muted">
+              <div className="za-bookplate p-10 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
                 No overlapping titles found between these two public archives.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-control border border-decorative bg-surface">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-decorative bg-surface-subtle text-[11px] text-ink-muted">
-                      <th className="p-3">Title</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">@{dataA.user.username}</th>
-                      <th className="p-3">@{dataB.user.username}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-decorative/40">
-                    {match.sharedTitles.map((item, i) => (
-                      <tr key={i} className="hover:bg-surface-subtle/50">
-                        <td className="p-3 font-medium text-ink">{item.title}</td>
-                        <td className="p-3 text-[11px] uppercase text-ink-muted">
-                          {item.category}
-                        </td>
-                        <td className="p-3">
-                          {item.ratingA ? (
-                            <span className="text-accent font-medium">{item.ratingA}★</span>
-                          ) : (
-                            <span className="text-ink-muted">—</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {item.ratingB ? (
-                            <span className="text-accent font-medium">{item.ratingB}★</span>
-                          ) : (
-                            <span className="text-ink-muted">—</span>
-                          )}
-                        </td>
+              <div className="za-bookplate overflow-hidden p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[38rem] border-collapse text-left text-xs">
+                    <caption className="sr-only">
+                      Shared titles and ratings for @{dataA.user.username} and @
+                      {dataB.user.username}
+                    </caption>
+                    <thead>
+                      <tr className="border-b border-decorative bg-surface-sunken font-[var(--za-font-display)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-muted">
+                        <th className="p-3 font-bold">Title</th>
+                        <th className="p-3 font-bold">Category</th>
+                        <th className="p-3 font-bold">@{dataA.user.username}</th>
+                        <th className="p-3 font-bold">@{dataB.user.username}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-decorative/40">
+                      {match.sharedTitles.map((item, i) => (
+                        <tr key={i} className="transition-colors hover:bg-surface-subtle/60">
+                          <td className="p-3 font-[var(--za-font-editorial)] text-base text-ink">
+                            {item.title}
+                          </td>
+                          <td className="p-3">
+                            <Badge>{item.category}</Badge>
+                          </td>
+                          <td className="p-3 font-[var(--za-font-mono)]">
+                            {item.ratingA ? (
+                              <span className="text-gold-dark">{item.ratingA}★</span>
+                            ) : (
+                              <span className="text-ink-faint">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-[var(--za-font-mono)]">
+                            {item.ratingB ? (
+                              <span className="text-gold-dark">{item.ratingB}★</span>
+                            ) : (
+                              <span className="text-ink-faint">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
-          </div>
+          </section>
         </div>
       </main>
     </div>

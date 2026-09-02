@@ -187,7 +187,7 @@ export default function UserSearchCombobox({
           aria-haspopup="listbox"
           aria-autocomplete="list"
           aria-label="Search public user profiles"
-          className="w-full rounded-control border border-required bg-surface py-2 pl-9 pr-9 text-[length:var(--za-text-supporting)] text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none"
+          className="za-field w-full py-2 pl-9 pr-9 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
         />
         <div className="absolute right-2.5 flex items-center gap-1">
           {isLoading && <Loader2 size={15} className="za-spin text-ink-muted" />}
@@ -209,12 +209,12 @@ export default function UserSearchCombobox({
         <div
           id="user-search-listbox"
           role="listbox"
-          className="animate-fade-in absolute left-0 right-0 top-full z-[var(--za-layer-modal)] mt-1.5 max-h-80 overflow-hidden rounded-control border border-required bg-surface shadow-layered"
+          className="animate-fade-in absolute left-0 right-0 top-full z-[var(--za-layer-modal)] mt-2 max-h-80 overflow-hidden rounded-small border-2 border-required bg-surface shadow-layered"
         >
           {results.length > 0 ? (
             <div>
-              <div className="border-b border-decorative px-3 py-1.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-wider text-ink-muted">
-                Public Archives
+              <div className="border-b border-decorative bg-surface-sunken px-3 py-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
+                Archivist plates
               </div>
               <ul className="m-0 list-none p-0">
                 {results.map((item, idx) => {
@@ -226,10 +226,10 @@ export default function UserSearchCombobox({
                       aria-selected={isHighlighted}
                       onClick={() => handleSelect(item.username)}
                       onMouseEnter={() => setHighlightedIndex(idx)}
-                      className={`flex cursor-pointer items-center justify-between gap-3 border-b border-decorative px-3 py-2.5 transition-colors ${
+                      className={`flex cursor-pointer items-center justify-between gap-3 border-b border-decorative border-l-2 px-3 py-3 transition-colors ${
                         isHighlighted
-                          ? 'bg-surface-subtle text-ink'
-                          : 'text-ink hover:bg-surface-subtle'
+                          ? 'border-l-accent bg-surface-subtle text-ink'
+                          : 'border-l-transparent text-ink hover:bg-surface-subtle'
                       }`}
                     >
                       <div className="flex min-w-0 items-center gap-3">
@@ -238,11 +238,11 @@ export default function UserSearchCombobox({
                           <img
                             src={item.image}
                             alt=""
-                            className="h-8 w-8 shrink-0 rounded-full border border-decorative object-cover"
+                            className="h-9 w-9 shrink-0 rounded-small border border-required object-cover"
                           />
                         ) : (
                           <span
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-decorative bg-[var(--za-color-title-tile)] text-xs font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-xs font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
                             aria-hidden="true"
                           >
                             {getInitials(item.name)}
@@ -250,15 +250,15 @@ export default function UserSearchCombobox({
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-1.5 truncate">
-                            <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] text-ink">
+                            <span className="font-[var(--za-font-editorial)] text-base text-ink">
                               {item.name}
                             </span>
-                            <span className="font-mono text-[length:var(--za-text-fine)] text-ink-muted">
+                            <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                               @{item.username}
                             </span>
                           </div>
                           {item.bio && (
-                            <p className="truncate text-[length:var(--za-text-fine)] text-ink-muted">
+                            <p className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted">
                               {item.bio}
                             </p>
                           )}
@@ -266,7 +266,7 @@ export default function UserSearchCombobox({
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="rounded-small border border-decorative bg-surface-subtle px-1.5 py-0.5 text-[length:var(--za-text-fine)] text-ink-muted">
+                        <span className="rounded-small border border-decorative bg-surface-subtle px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                           {item.totalEntries} {item.totalEntries === 1 ? 'title' : 'titles'}
                         </span>
                         <ArrowRight size={13} className="text-ink-muted opacity-60" />
@@ -282,7 +282,7 @@ export default function UserSearchCombobox({
                 aria-selected={highlightedIndex === results.length}
                 onClick={() => handleFullSearch(query)}
                 onMouseEnter={() => setHighlightedIndex(results.length)}
-                className={`flex cursor-pointer items-center justify-between border-t border-decorative bg-surface-subtle px-3 py-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-accent transition-colors ${
+                className={`flex cursor-pointer items-center justify-between border-t border-decorative bg-surface-subtle px-3 py-2 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-accent transition-colors ${
                   highlightedIndex === results.length ? 'bg-surface underline' : 'hover:underline'
                 }`}
               >
@@ -292,7 +292,7 @@ export default function UserSearchCombobox({
             </div>
           ) : hasSearched && !isLoading ? (
             <div className="p-4 text-center">
-              <p className="text-[length:var(--za-text-supporting)] text-ink-muted">
+              <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
                 No public archives found matching &ldquo;{query.trim()}&rdquo;
               </p>
               <button
