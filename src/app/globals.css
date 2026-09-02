@@ -575,6 +575,10 @@ html[data-theme='cyber'] body {
   -webkit-backdrop-filter: blur(8px);
 }
 
+.za-site-header--sticky {
+  background: var(--za-color-surface);
+}
+
 .za-site-header__inner {
   display: grid;
   align-items: start;
@@ -630,6 +634,26 @@ html[data-theme='cyber'] body {
   text-transform: uppercase;
 }
 
+.za-wordmark__lockup {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.za-wordmark__subline {
+  overflow: hidden;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: 0.56rem;
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .za-site-header__brand,
 .za-site-header__nav,
 .za-site-header__identity {
@@ -666,6 +690,10 @@ html[data-theme='cyber'] body {
 
 .za-link:active {
   color: var(--za-color-accent-active);
+}
+
+.za-wordmark.za-link {
+  text-decoration: none;
 }
 
 .za-current-page {
@@ -899,6 +927,54 @@ html[data-theme='cyber'] body {
 }
 
 /* 9. Folio Utilities */
+.za-modal-backdrop {
+  background-color: var(--za-backdrop-modal);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.za-modal-panel {
+  border: 2px solid var(--za-color-border-required);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-surface);
+  outline: 2px solid var(--za-color-border-decorative);
+  outline-offset: -8px;
+  box-shadow: var(--za-shadow-layered);
+}
+
+.za-modal-close {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: 999px;
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    color var(--za-motion-fast) var(--za-ease-standard),
+    border-radius var(--za-motion-fast) var(--za-ease-standard),
+    transform var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-modal-close:hover {
+  border-color: var(--za-color-accent);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-accent);
+  color: var(--za-color-on-accent);
+  transform: translateY(-1px);
+}
+
+.za-toast {
+  outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 30%, transparent);
+  outline-offset: -5px;
+}
+
 .za-bookplate {
   min-inline-size: 0;
   max-inline-size: 100%;

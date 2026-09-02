@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Cloud, CloudOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import {
   initSyncEngine,
   replayOutbox,
@@ -45,44 +45,68 @@ export default function SyncIndicator() {
     return null; // Keep header quiet when fully synced
   }
 
+  const statusClass =
+    syncState === 'offline'
+      ? 'border-decorative bg-surface-subtle text-ink-muted'
+      : syncState === 'syncing'
+        ? 'border-accent bg-accent-soft text-accent'
+        : syncState === 'error'
+          ? 'border-danger bg-danger-surface text-danger'
+          : pendingCount > 0
+            ? 'border-warning bg-warning-surface text-warning'
+            : 'border-success bg-success-surface text-success';
+
+  const statusLabel =
+    syncState === 'offline'
+      ? `Offline (${pendingCount})`
+      : syncState === 'syncing'
+        ? `Syncing (${pendingCount})...`
+        : syncState === 'error'
+          ? `Sync failed (${pendingCount})`
+          : pendingCount > 0
+            ? `${pendingCount} queued`
+            : 'In Sync';
+
   return (
     <button
       type="button"
       onClick={() => replayOutbox()}
-      className={`inline-flex cursor-pointer items-center gap-[var(--za-space-1)] rounded-control border border-decorative px-[var(--za-space-2)] py-0.5 text-[11px] transition-colors ${
-        syncState === 'offline'
-          ? 'bg-surface-subtle text-ink-muted'
-          : syncState === 'syncing'
-            ? 'border-accent bg-surface text-accent'
-            : pendingCount > 0
-              ? 'border-accent/40 bg-surface-subtle text-ink'
-              : 'border-decorative bg-surface text-ink-muted'
-      }`}
+      className={`inline-flex cursor-pointer items-center gap-[var(--za-space-1)] rounded-small border px-[var(--za-space-2)] py-0.5 font-[var(--za-font-mono)] text-[11px] transition-colors ${statusClass}`}
       title={
         syncState === 'offline'
           ? 'Working offline. Changes are saved locally and will sync when reconnected.'
-          : `${pendingCount} offline change(s) pending sync. Click to retry.`
+          : syncState === 'error'
+            ? 'Sync failed. Click to retry.'
+            : pendingCount > 0
+              ? `${pendingCount} offline change(s) pending sync. Click to retry.`
+              : 'Archive is in sync.'
       }
+      aria-label={statusLabel}
     >
       {syncState === 'offline' ? (
         <>
           <CloudOff size={12} strokeWidth={2} className="text-ink-muted" />
-          <span>Offline ({pendingCount})</span>
+          <span>{statusLabel}</span>
         </>
       ) : syncState === 'syncing' ? (
         <>
           <RefreshCw size={12} strokeWidth={2} className="animate-spin text-accent" />
-          <span>Syncing ({pendingCount})...</span>
+          <span>{statusLabel}</span>
+        </>
+      ) : syncState === 'error' ? (
+        <>
+          <AlertTriangle size={12} strokeWidth={2} className="text-danger" />
+          <span>{statusLabel}</span>
         </>
       ) : pendingCount > 0 ? (
         <>
-          <Cloud size={12} strokeWidth={2} className="text-accent" />
-          <span>{pendingCount} unsynced</span>
+          <Cloud size={12} strokeWidth={2} className="text-warning" />
+          <span>{statusLabel}</span>
         </>
       ) : (
         <>
-          <CheckCircle2 size={12} strokeWidth={2} className="text-green-600" />
-          <span>In Sync</span>
+          <CheckCircle2 size={12} strokeWidth={2} className="text-success" />
+          <span>{statusLabel}</span>
         </>
       )}
     </button>

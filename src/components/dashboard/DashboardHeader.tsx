@@ -11,6 +11,8 @@ import {
   Settings,
   Users,
   MessageSquare,
+  Library,
+  Sparkles,
 } from 'lucide-react';
 import SyncIndicator from '@/components/ui/SyncIndicator';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
@@ -62,9 +64,10 @@ export default function DashboardHeader({
             <button
               key={id}
               type="button"
-              className={`za-button ${activeTab === id ? 'za-button--selected za-current-page' : 'za-button--secondary'}`}
+              className={`za-button ${activeTab === id ? 'za-button--selected za-current-page' : 'za-button--tertiary'}`}
               onClick={() => onTabChange(id)}
               title={title}
+              aria-pressed={activeTab === id}
             >
               <Icon size={16} strokeWidth={1.75} />
               <span>
@@ -79,6 +82,14 @@ export default function DashboardHeader({
           <Link href="/groups" className="za-button za-button--tertiary" title="Groups">
             <MessageSquare size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Groups</span>
+          </Link>
+          <Link href="/stacks" className="za-button za-button--tertiary" title="Stacks">
+            <Library size={16} strokeWidth={1.75} />
+            <span className="hidden sm:inline">Stacks</span>
+          </Link>
+          <Link href="/wrapped" className="za-button za-button--tertiary" title="Wrapped">
+            <Sparkles size={16} strokeWidth={1.75} />
+            <span className="hidden sm:inline">Wrapped</span>
           </Link>
         </nav>
 

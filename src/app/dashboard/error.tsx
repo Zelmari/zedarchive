@@ -11,8 +11,8 @@ export default function DashboardError({
 }) {
   return (
     <ErrorFallback
-      title="Failed to load dashboard"
-      message="An error occurred while loading your archive. You can retry or return home."
+      title="The catalogue desk is unavailable"
+      message="Your archive could not be loaded. Try again or return to the archive."
       error={error}
       reset={reset}
       buttonGapClass="gap-3"

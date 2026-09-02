@@ -58,9 +58,7 @@ export default function SubPageHeader({
   };
 
   const isSticky = variant === 'sticky';
-  const headerClass = isSticky
-    ? 'sticky top-0 z-30 border-b border-required bg-surface shadow-raised'
-    : 'za-site-header';
+  const headerClass = isSticky ? 'za-site-header za-site-header--sticky' : 'za-site-header';
   const innerClass = isSticky
     ? `${getContainerClass()} flex h-14 items-center justify-between gap-4`
     : `${getContainerClass()} za-site-header__inner`;
@@ -98,7 +96,10 @@ export default function SubPageHeader({
                       {item.label}
                     </Link>
                   ) : (
-                    <span className="truncate text-ink font-medium" aria-current="page">
+                    <span
+                      className="truncate font-[var(--za-font-display)] text-xs font-semibold uppercase tracking-[0.06em] text-ink"
+                      aria-current="page"
+                    >
                       {item.label}
                     </span>
                   )}

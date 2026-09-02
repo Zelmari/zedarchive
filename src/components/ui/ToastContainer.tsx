@@ -40,21 +40,22 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
   const toneClass = clsx(
     toast.type === 'error' && 'text-danger',
-    toast.type === 'success' && 'text-[#2e7d32]',
-    toast.type === 'warning' && 'text-[#d97706]',
-    (!toast.type || toast.type === 'info') && 'text-ink',
+    toast.type === 'success' && 'text-success',
+    toast.type === 'warning' && 'text-warning',
+    (!toast.type || toast.type === 'info') && 'text-gold-dark',
   );
 
   const surfaceClass = clsx(
     toast.type === 'error' && 'border-danger bg-danger-surface',
     toast.type === 'success' && 'border-success bg-success-surface',
     toast.type === 'warning' && 'border-warning bg-warning-surface',
+    (!toast.type || toast.type === 'info') && 'border-gold bg-surface-subtle',
   );
 
   return (
     <div
       className={clsx(
-        'animate-slide-in-toast pointer-events-auto flex items-center gap-[var(--za-space-3)] rounded-control border border-required bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-ink shadow-layered',
+        'za-toast animate-slide-in-toast pointer-events-auto flex items-center gap-[var(--za-space-3)] rounded-small border border-required bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-ink shadow-layered',
         surfaceClass,
       )}
       role="status"
@@ -88,7 +89,7 @@ export default function ToastContainer({ toasts = [], onDismiss }: ToastContaine
   // otherwise screen readers can miss the announcement.
   return (
     <div
-      className="pointer-events-none fixed bottom-[var(--za-space-6)] left-[var(--za-space-6)] z-[var(--za-layer-modal)] flex w-[calc(100%-3rem)] max-w-[360px] flex-col gap-[var(--za-space-2)]"
+      className="pointer-events-none fixed bottom-[var(--za-space-6)] right-[var(--za-space-6)] z-[var(--za-layer-modal)] flex w-[calc(100%-3rem)] max-w-[360px] flex-col gap-[var(--za-space-2)]"
       role="status"
       aria-live="polite"
     >
