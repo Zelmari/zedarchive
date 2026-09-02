@@ -22,6 +22,7 @@ export function createMockDb(state: {
   accounts?: MockRow[];
   memberships?: MockRow[];
   joinConditions?: unknown[];
+  updates?: Array<{ table: string; fields: MockRow }>;
 }) {
   const getRows = () => state.rows ?? [];
   const getTableNameSafe = (table: unknown) => {
@@ -57,6 +58,9 @@ export function createMockDb(state: {
     update: (_table?: unknown) => ({
       set: (fields: MockRow) => ({
         where: () => {
+          if (state.updates) {
+            state.updates.push({ table: getTableNameSafe(_table), fields });
+          }
           const target = getRows()[0];
           if (target) Object.assign(target, fields);
           return createAwaitable([target]);
@@ -102,7 +106,7 @@ export function createMockDb(state: {
       },
     }),
     insert: (_table?: unknown) => makeTx().insert(),
-    update: (_table?: unknown) => makeTx().update(),
+    update: (_table?: unknown) => makeTx().update(_table),
     delete: (table: any) => makeTx().delete(table),
     transaction: async <T>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>) => fn(makeTx()),
   };
