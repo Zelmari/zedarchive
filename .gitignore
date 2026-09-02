@@ -50,6 +50,7 @@ CLAUDE.md
 agents/
 prompts/
 examples/
+skills/
 
 # OpenNext
 .open-next
