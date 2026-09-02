@@ -1,5 +1,36 @@
 import './globals.css';
+import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
 import { getSessionTheme } from '@/server/queries/user';
+
+const cinzel = Cinzel({
+  weight: ['600', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-cinzel',
+});
+
+const playfairDisplay = Playfair_Display({
+  weight: ['400', '600', '700'],
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-playfair',
+});
+
+const newsreader = Newsreader({
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-newsreader',
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  weight: ['400', '500', '600'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
 
 export const metadata = {
   title: {
@@ -30,7 +61,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const theme = await getSessionTheme();
 
   return (
-    <html lang="en" data-theme={theme}>
+    <html
+      lang="en"
+      data-theme={theme}
+      className={`${cinzel.variable} ${playfairDisplay.variable} ${newsreader.variable} ${jetBrainsMono.variable}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
