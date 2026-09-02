@@ -1,6 +1,7 @@
 'use client';
 
 import { Minus, Plus } from 'lucide-react';
+import { stepperBtn } from '@/components/cards/UnitStepperRow';
 
 interface ShowStepperProps {
   current: number;
@@ -10,9 +11,6 @@ interface ShowStepperProps {
   subtitle?: string | null;
   onStep: (delta: number) => void;
 }
-
-const stepperBtn =
-  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Episode control row for shows/anime: [−] Ep 01 / 12 [+] */
 export default function ShowStepper({

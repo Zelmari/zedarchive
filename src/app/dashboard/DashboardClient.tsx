@@ -23,8 +23,8 @@ import MediaGrid from '@/components/dashboard/MediaGrid';
 import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
 import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
-import type { ReadingGoalConfig, CustomThemePalette } from '@/types/user';
-import { applyCustomThemeTokens } from '@/lib/theme';
+import type { ReadingGoalConfig, CustomThemePalette, ThemeId } from '@/types/user';
+import { applyTheme } from '@/lib/theme';
 import { calculateReadingGoalProgress } from '@/lib/stats';
 import {
   setReadingGoal as setReadingGoalAction,
@@ -92,11 +92,15 @@ export default function DashboardClient({
   const router = useRouter();
   const [entries, setEntries] = useState<MediaEntry[]>(initialEntries);
   const [activeTab, setActiveTab] = useState<DashboardTab>('total');
-  const [currentTheme, setCurrentTheme] = useState(user?.theme || 'parchment');
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>(
+    (user?.theme as ThemeId | null | undefined) || 'parchment',
+  );
+  const [customTheme, setCustomTheme] = useState<CustomThemePalette | null>(
+    user?.customTheme || null,
+  );
   const [readingGoals, setReadingGoals] = useState<Record<string, ReadingGoalConfig>>(
     user?.readingGoals || {},
   );
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CardItem | null>(null);
   const [detailItem, setDetailItem] = useState<CardItem | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -106,7 +110,6 @@ export default function DashboardClient({
   );
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [nextAirMap, setNextAirMap] = useState<NextAirMap>({});
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const modals = useModalManager();
 
@@ -115,16 +118,20 @@ export default function DashboardClient({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        // Don't open command palette if another modal is already open
-        if (detailItem || editingItem || isGoalModalOpen || confirmModal.isOpen || modals.anyOpen) {
+        if (modals.openModal === 'palette') {
+          modals.close();
           return;
         }
-        setIsCommandPaletteOpen((prev) => !prev);
+        // Don't open command palette if another modal is already open
+        if (detailItem || editingItem || confirmModal.isOpen || modals.anyOpen) {
+          return;
+        }
+        modals.open('palette');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [detailItem, editingItem, isGoalModalOpen, confirmModal.isOpen, modals.anyOpen]);
+  }, [detailItem, editingItem, confirmModal.isOpen, modals]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,18 +155,8 @@ export default function DashboardClient({
 
   // Theme synchronization on mount and when theme changes
   useEffect(() => {
-    if (currentTheme === 'custom' && user?.customTheme) {
-      applyCustomThemeTokens(user.customTheme);
-    } else if (typeof document !== 'undefined') {
-      applyCustomThemeTokens(null);
-      document.documentElement.setAttribute('data-theme', currentTheme);
-      try {
-        localStorage.setItem('za-theme', currentTheme);
-      } catch {
-        // Storage unavailable (private mode etc.) — attribute is still set above.
-      }
-    }
-  }, [currentTheme, user?.customTheme]);
+    applyTheme(currentTheme, currentTheme === 'custom' ? customTheme : null);
+  }, [currentTheme, customTheme]);
 
   // Fetch upcoming episode airdates for in-progress and planning shows and anime
   useEffect(() => {
@@ -546,7 +543,7 @@ export default function DashboardClient({
                       </span>
                       <button
                         type="button"
-                        onClick={() => setIsGoalModalOpen(true)}
+                        onClick={() => modals.open('goal')}
                         className="za-button za-button--secondary px-2 py-1 text-xs"
                       >
                         Edit Goal
@@ -570,7 +567,7 @@ export default function DashboardClient({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsGoalModalOpen(true)}
+                    onClick={() => modals.open('goal')}
                     className="za-button za-button--secondary px-2.5 py-1 text-xs font-[var(--za-weight-emphasis)] text-accent"
                   >
                     Set Reading Goal
@@ -643,8 +640,13 @@ export default function DashboardClient({
         isOpen={modals.isOpen('theme')}
         onClose={modals.close}
         currentTheme={currentTheme}
-        customTheme={user?.customTheme}
-        onThemeChange={(newTheme: string) => setCurrentTheme(newTheme)}
+        customTheme={customTheme}
+        onThemeChange={(newTheme, nextCustomTheme) => {
+          setCurrentTheme(newTheme);
+          if (nextCustomTheme) {
+            setCustomTheme(nextCustomTheme);
+          }
+        }}
       />
 
       <ActivityTimelineModal isOpen={modals.isOpen('activity')} onClose={modals.close} />
@@ -684,12 +686,12 @@ export default function DashboardClient({
       />
 
       <ReadingGoalModal
-        isOpen={isGoalModalOpen}
+        isOpen={modals.isOpen('goal')}
         year={currentYear}
         currentGoal={activeGoal}
         onSave={handleSaveGoal}
         onDelete={handleDeleteGoal}
-        onClose={() => setIsGoalModalOpen(false)}
+        onClose={modals.close}
       />
 
       <WeeklyCalendarModal
@@ -702,8 +704,8 @@ export default function DashboardClient({
       />
 
       <CommandPaletteModal
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
+        isOpen={modals.isOpen('palette')}
+        onClose={modals.close}
         entries={entries}
         onOpenAddModal={() => modals.open('add')}
         onOpenStatsModal={() => modals.open('stats')}

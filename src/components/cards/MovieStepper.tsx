@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, RotateCcw, Minus, Plus } from 'lucide-react';
+import { stepperBtn } from '@/components/cards/UnitStepperRow';
 
 interface MovieStepperProps {
   status: string;
@@ -12,9 +13,6 @@ interface MovieStepperProps {
   onRewatch: () => void;
   onStepMinutes?: (delta: number) => void;
 }
-
-const stepperBtn =
-  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 function formatRuntime(minutes: number | null): string {
   if (!minutes || minutes <= 0) return '';

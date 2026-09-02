@@ -7,6 +7,7 @@ import { Users, Plus, X } from 'lucide-react';
 import type { GroupSummary } from '@/types/groups';
 import type { FriendUserSummary } from '@/types/friends';
 import { createGroupAction } from '@/server/groups';
+import Modal from '@/components/ui/Modal';
 
 export default function GroupsClient({
   initialGroups,
@@ -100,81 +101,84 @@ export default function GroupsClient({
       )}
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-control border border-required bg-surface p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-[var(--za-weight-heading)] text-ink">Create Group</h2>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="p-1 text-ink-muted hover:text-ink"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-ink">Group Name *</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  maxLength={100}
-                  placeholder="Roshar Reading Society"
-                  className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-ink">Description (optional)</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  maxLength={500}
-                  rows={3}
-                  placeholder="What is this group about?"
-                  className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-ink">
-                  Invite Friends (owner&apos;s friends only)
-                </label>
-                {friends.length === 0 ? (
-                  <p className="mt-1 text-xs text-ink-muted">
-                    You have no friends to invite yet. Add friends first.
-                  </p>
-                ) : (
-                  <div className="mt-2 max-h-40 overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2 space-y-1">
-                    {friends.map((f) => (
-                      <label
-                        key={f.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-small hover:bg-surface cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(f.id)}
-                          onChange={() => toggleSelect(f.id)}
-                          className="accent-accent"
-                        />
-                        <span className="text-sm text-ink truncate">
-                          {f.name} <span className="text-xs text-ink-muted">@{f.username}</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleCreate}
-                disabled={pending || !name.trim()}
-                className="za-button za-button--primary w-full disabled:opacity-50"
-              >
-                {pending ? 'Creating...' : 'Create Group'}
-              </button>
-            </div>
+        <Modal
+          isOpen={showCreate}
+          onClose={() => setShowCreate(false)}
+          ariaLabel="Create Group"
+          contentClassName="max-h-[90vh] max-w-lg overflow-y-auto p-6"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-[var(--za-weight-heading)] text-ink">Create Group</h2>
+            <button
+              onClick={() => setShowCreate(false)}
+              className="p-1 text-ink-muted hover:text-ink"
+            >
+              <X size={18} />
+            </button>
           </div>
-        </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-ink">Group Name *</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+                placeholder="Roshar Reading Society"
+                className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink">Description (optional)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="What is this group about?"
+                className="mt-1 w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-ink">
+                Invite Friends (owner&apos;s friends only)
+              </label>
+              {friends.length === 0 ? (
+                <p className="mt-1 text-xs text-ink-muted">
+                  You have no friends to invite yet. Add friends first.
+                </p>
+              ) : (
+                <div className="mt-2 max-h-40 overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2 space-y-1">
+                  {friends.map((f) => (
+                    <label
+                      key={f.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-small hover:bg-surface cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(f.id)}
+                        onChange={() => toggleSelect(f.id)}
+                        className="accent-accent"
+                      />
+                      <span className="text-sm text-ink truncate">
+                        {f.name} <span className="text-xs text-ink-muted">@{f.username}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleCreate}
+              disabled={pending || !name.trim()}
+              className="za-button za-button--primary w-full disabled:opacity-50"
+            >
+              {pending ? 'Creating...' : 'Create Group'}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

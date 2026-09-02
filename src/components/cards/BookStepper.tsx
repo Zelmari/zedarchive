@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { pageToPercent, percentToPage } from '@/lib/format';
+import { stepperBtn } from '@/components/cards/UnitStepperRow';
 
 interface BookStepperProps {
   value: string;
@@ -19,9 +20,6 @@ interface BookStepperProps {
   onFocus?: () => void;
   onBlur?: () => void;
 }
-
-const stepperBtn =
-  'inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Chapter/page control row for books/manga with Page / % mode toggle */
 export default function BookStepper({

@@ -16,6 +16,9 @@ interface UnitStepperRowProps {
   nextTitle?: string;
 }
 
+export const stepperBtn =
+  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+
 /** Dashed-top row with "Season X of Y" text and mini chevron steppers. */
 export default function UnitStepperRow({
   unitLabel,

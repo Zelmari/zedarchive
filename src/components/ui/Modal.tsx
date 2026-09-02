@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { cn } from '@/lib/cn';
@@ -9,7 +9,11 @@ import { cn } from '@/lib/cn';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  placement?: 'center' | 'top';
   labelledBy?: string;
+  ariaLabel?: string;
+  describedBy?: string;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   title?: string;
   icon?: ReactNode;
   header?: ReactNode;
@@ -30,7 +34,11 @@ const DEFAULT_PANEL =
 export default function Modal({
   isOpen,
   onClose,
+  placement = 'center',
   labelledBy,
+  ariaLabel,
+  describedBy,
+  initialFocusRef,
   title,
   icon = null,
   header = null,
@@ -39,7 +47,7 @@ export default function Modal({
   closeLabel = 'Close modal',
   children,
 }: ModalProps) {
-  const modalRef = useFocusTrap(isOpen, onClose);
+  const modalRef = useFocusTrap(isOpen, onClose, { initialFocusRef });
   useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
@@ -48,7 +56,10 @@ export default function Modal({
 
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex items-center justify-center bg-backdrop p-[var(--za-space-4)]"
+      className={cn(
+        'animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex justify-center bg-backdrop p-[var(--za-space-4)]',
+        placement === 'top' ? 'items-start pt-[12vh]' : 'items-center',
+      )}
       onClick={onClose}
     >
       <div
@@ -59,6 +70,8 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
+        aria-label={ariaLabel}
+        aria-describedby={describedBy}
       >
         {showHeader && (
           <div className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">

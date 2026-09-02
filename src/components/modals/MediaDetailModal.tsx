@@ -21,6 +21,7 @@ import {
 import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
+import { pillClass } from '@/components/ui/media-controls';
 import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
@@ -43,13 +44,6 @@ interface MediaDetailModalProps {
     skipOptimistic?: boolean,
   ) => Promise<void>;
   onEdit?: (item: MediaEntry) => void;
-}
-
-const pillBtn =
-  'cursor-pointer whitespace-nowrap rounded-control border border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)]';
-
-function pillActive(): string {
-  return ' border-required bg-surface-subtle font-[var(--za-weight-emphasis)] text-ink';
 }
 
 function formatDisplayDate(iso: string | null | undefined): string {
@@ -947,7 +941,7 @@ export default function MediaDetailModal({
                     <button
                       key={s.number}
                       type="button"
-                      className={`${pillBtn} ${activeSeason === s.number ? pillActive() : ''}`}
+                      className={pillClass(activeSeason === s.number)}
                       onClick={() => setActiveSeason(s.number)}
                     >
                       {s.name || `Season ${s.number}`}

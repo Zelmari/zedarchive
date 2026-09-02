@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Download, Upload, FileJson, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  FileJson,
+  FileSpreadsheet,
+  Check,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { bulkImportMediaEntries } from '@/server/media';
-import { parseImportBuffer, type ImportDraft } from '@/lib/backup';
+import { parseImportBuffer } from '@/lib/backup';
 import type { MediaEntry } from '@/types/media';
 
 interface DataBackupModalProps {
@@ -23,6 +31,17 @@ const tabButton = (active: boolean) =>
       : 'bg-surface-subtle'
   }`;
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function DataBackupModal({
   isOpen,
   onClose,
@@ -31,8 +50,6 @@ export default function DataBackupModal({
 }: DataBackupModalProps) {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'overwrite'>('skip');
-  const [pendingDrafts, setPendingDrafts] = useState<ImportDraft[] | null>(null);
-  const [selectedFileName, setSelectedFileName] = useState('');
   const [importStatus, setImportStatus] = useState<{
     state: ImportState;
     message: string;
@@ -43,17 +60,10 @@ export default function DataBackupModal({
 
   // EXPORT JSON
   const handleExportJSON = () => {
-    const dataStr =
-      'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(entries, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute(
-      'download',
-      `zedarchive-backup-${new Date().toISOString().split('T')[0]}.json`,
-    );
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const blob = new Blob([JSON.stringify(entries, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    downloadBlob(blob, `zedarchive-backup-${new Date().toISOString().split('T')[0]}.json`);
   };
 
   // EXPORT CSV
@@ -92,16 +102,7 @@ export default function DataBackupModal({
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute(
-      'download',
-      `zedarchive-export-${new Date().toISOString().split('T')[0]}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    downloadBlob(blob, `zedarchive-export-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // IMPORT FILE PARSER
@@ -110,7 +111,6 @@ export default function DataBackupModal({
     if (!file) return;
 
     setImportStatus({ state: 'loading', message: `Importing ${file.name}...` });
-    setSelectedFileName(file.name);
 
     try {
       const buffer = await file.arrayBuffer();
@@ -122,10 +122,8 @@ export default function DataBackupModal({
         state: 'success',
         message: `Successfully imported ${res.added} new item(s) and updated ${res.updated} item(s)! (${res.skipped} skipped)`,
       });
-      setPendingDrafts(null);
       onImportSuccess?.();
     } catch (err) {
-      setPendingDrafts(null);
       setImportStatus({
         state: 'error',
         message: err instanceof Error ? err.message : 'Failed to process import file',
@@ -262,16 +260,21 @@ export default function DataBackupModal({
             {/* Status feedback */}
             {importStatus.state !== 'idle' && (
               <div
-                className="mt-[var(--za-space-3)] flex items-center gap-2 rounded-control p-[var(--za-space-3)] text-[length:var(--za-text-fine)]"
-                style={{
-                  backgroundColor:
-                    importStatus.state === 'error'
-                      ? 'var(--za-color-error-surface)'
-                      : 'rgba(46, 125, 50, 0.1)',
-                  color: importStatus.state === 'error' ? 'var(--za-color-destructive)' : '#2e7d32',
-                }}
+                className={`mt-[var(--za-space-3)] flex items-center gap-2 rounded-control p-[var(--za-space-3)] text-[length:var(--za-text-fine)] ${
+                  importStatus.state === 'error'
+                    ? 'bg-danger-surface text-danger'
+                    : importStatus.state === 'success'
+                      ? 'bg-success-surface text-success'
+                      : 'bg-surface-subtle text-ink-muted'
+                }`}
               >
-                {importStatus.state === 'error' ? <AlertCircle size={16} /> : <Check size={16} />}
+                {importStatus.state === 'error' ? (
+                  <AlertCircle size={16} />
+                ) : importStatus.state === 'success' ? (
+                  <Check size={16} />
+                ) : (
+                  <Loader2 size={16} className="animate-spin" />
+                )}
                 <span>{importStatus.message}</span>
               </div>
             )}

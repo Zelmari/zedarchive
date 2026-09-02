@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signUp, signIn, authClient } from '@/lib/client/auth-client';
+import { AuthCard, AuthField } from '@/components/auth/AuthCard';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -56,171 +57,85 @@ export default function SignUpForm() {
 
   if (needsVerification) {
     return (
-      <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
-        <div className="za-container za-container--narrow">
-          <section
-            className="za-card za-card--raised"
-            style={{ display: 'grid', gap: 'var(--za-space-6)' }}
-          >
-            <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
-              <h1
-                style={{
-                  fontSize: 'var(--za-text-heading-lg)',
-                  fontWeight: 'var(--za-weight-heading)',
-                  lineHeight: 'var(--za-leading-compact)',
-                }}
-              >
-                Check your email
-              </h1>
-              <p
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  color: 'var(--za-color-text-muted)',
-                }}
-              >
-                We sent a verification link to <strong>{email}</strong>. Please check your inbox and
-                click the link to activate your account.
-              </p>
-            </header>
-
-            <div style={{ display: 'grid', gap: 'var(--za-space-3)' }}>
-              <Link
-                href="/login"
-                className="za-button za-button--primary"
-                style={{ textAlign: 'center' }}
-              >
-                Go to Sign In
-              </Link>
-            </div>
-          </section>
+      <AuthCard
+        title="Check your email"
+        subtitle={
+          <>
+            We sent a verification link to <strong>{email}</strong>. Please check your inbox and
+            click the link to activate your account.
+          </>
+        }
+      >
+        <div className="grid gap-3">
+          <Link href="/login" className="za-button za-button--primary text-center">
+            Go to Sign In
+          </Link>
         </div>
-      </main>
+      </AuthCard>
     );
   }
 
   return (
-    <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
-      <div className="za-container za-container--narrow">
-        <section
-          className="za-card za-card--raised"
-          style={{ display: 'grid', gap: 'var(--za-space-6)' }}
-        >
-          <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
-            <h1
-              style={{
-                fontSize: 'var(--za-text-heading-lg)',
-                fontWeight: 'var(--za-weight-heading)',
-                lineHeight: 'var(--za-leading-compact)',
-              }}
-            >
-              Register
-            </h1>
-            <p
-              style={{
-                fontSize: 'var(--za-text-supporting)',
-                color: 'var(--za-color-text-muted)',
-              }}
-            >
-              Create an account with a username, email address, and password.
-            </p>
-          </header>
+    <AuthCard
+      title="Register"
+      subtitle="Create an account with a username, email address, and password."
+      footer={
+        <p>
+          Already have an account?{' '}
+          <Link href="/login" className="za-link">
+            Sign in
+          </Link>
+        </p>
+      }
+    >
+      {error && (
+        <p className="za-notice za-notice--error" role="alert">
+          {error}
+        </p>
+      )}
 
-          {error && (
-            <p className="za-notice za-notice--error" role="alert">
-              {error}
-            </p>
-          )}
+      <form onSubmit={handleSubmit} className="grid gap-4">
+        <AuthField label="Username" htmlFor="name">
+          <input
+            id="name"
+            type="text"
+            required
+            className="za-field"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. John Smith"
+          />
+        </AuthField>
 
-          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-              <label
-                htmlFor="name"
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  fontWeight: 'var(--za-weight-emphasis)',
-                }}
-              >
-                Username
-              </label>
-              <input
-                id="name"
-                type="text"
-                required
-                className="za-field"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. John Smith"
-              />
-            </div>
+        <AuthField label="Email" htmlFor="email">
+          <input
+            id="email"
+            type="email"
+            required
+            className="za-field"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@example.com"
+          />
+        </AuthField>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-              <label
-                htmlFor="email"
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  fontWeight: 'var(--za-weight-emphasis)',
-                }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                className="za-field"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-              />
-            </div>
+        <AuthField label="Password" htmlFor="password">
+          <input
+            id="password"
+            type="password"
+            required
+            minLength={8}
+            className="za-field"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+          />
+        </AuthField>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-              <label
-                htmlFor="password"
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  fontWeight: 'var(--za-weight-emphasis)',
-                }}
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                className="za-field"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="za-button za-button--primary"
-              style={{ inlineSize: '100%' }}
-            >
-              {loading ? 'Creating account…' : 'Create account'}
-            </button>
-          </form>
-
-          <p
-            style={{
-              fontSize: 'var(--za-text-supporting)',
-              color: 'var(--za-color-text-muted)',
-              borderTop: 'var(--za-border-width) solid var(--za-color-border-decorative)',
-              paddingTop: 'var(--za-space-4)',
-            }}
-          >
-            Already have an account?{' '}
-            <Link href="/login" className="za-link">
-              Sign in
-            </Link>
-          </p>
-        </section>
-      </div>
-    </main>
+        <button type="submit" disabled={loading} className="za-button za-button--primary w-full">
+          {loading ? 'Creating account…' : 'Create account'}
+        </button>
+      </form>
+    </AuthCard>
   );
 }

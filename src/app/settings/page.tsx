@@ -24,6 +24,7 @@ export default async function SettingsPage() {
     email: profile.email,
     image: profile.image || null,
     theme: profile.theme,
+    customTheme: profile.customTheme || null,
     username: profile.username,
     isPublic: profile.isPublic,
     bio: profile.bio,

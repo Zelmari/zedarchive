@@ -1,4 +1,4 @@
-import type { ThemeId } from '@/types/user';
+import type { CustomThemePalette, ThemeId } from '@/types/user';
 
 export const VALID_CATEGORIES = ['show', 'movie', 'book', 'anime', 'manga'] as const;
 export const VALID_STATUSES = [
@@ -8,7 +8,13 @@ export const VALID_STATUSES = [
   'on_hold',
   'dropped',
 ] as const;
-import type { CustomThemePalette } from '@/types/user';
+export const STATUS_OPTIONS = [
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'planning', label: 'Planning' },
+  { id: 'on_hold', label: 'On Hold' },
+  { id: 'dropped', label: 'Dropped' },
+] as const;
 export const VALID_THEMES = ['parchment', 'midnight', 'sepia', 'e-ink', 'cyber', 'custom'] as const;
 
 export const MAX_TITLE_LENGTH = 500;
