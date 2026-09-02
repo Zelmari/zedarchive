@@ -1,14 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import {
-  groups,
-  groupMembers,
-  groupMessages,
-  friendships,
-  user as userTable,
-  mediaEntries,
-} from '@/db/schema';
+import { groups, groupMembers, groupMessages, user as userTable, mediaEntries } from '@/db/schema';
 import { eq, and, count, gt, lte } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
@@ -22,6 +15,7 @@ import {
   getGroupMessages as getGroupMessagesQuery,
   getEligibleFriendsToInvite as getEligibleQuery,
 } from './queries/groups';
+import { getFriendIds } from './queries/friends';
 import {
   createGroupSchema,
   updateGroupSchema,
@@ -47,15 +41,7 @@ export async function createGroupAction(input: Record<string, unknown>) {
 
   if (uniqueIds.length > 0) {
     // Fetch accepted friends of me
-    const sent = await db
-      .select({ id: friendships.receiverId })
-      .from(friendships)
-      .where(and(eq(friendships.senderId, me.id), eq(friendships.status, 'accepted')));
-    const received = await db
-      .select({ id: friendships.senderId })
-      .from(friendships)
-      .where(and(eq(friendships.receiverId, me.id), eq(friendships.status, 'accepted')));
-    const friendIds = new Set([...sent.map((r) => r.id), ...received.map((r) => r.id)]);
+    const friendIds = new Set(await getFriendIds(me.id));
     for (const uid of uniqueIds) {
       if (!friendIds.has(uid)) throw new Error(`User ${uid} is not your friend`);
       const [u] = await db
@@ -135,15 +121,7 @@ export async function addGroupMembersAction(input: { groupId: string; userIds: s
   if (!owner) throw new Error('Only the owner can add members');
 
   // Validate each is friend of owner and not already member
-  const sent = await db
-    .select({ id: friendships.receiverId })
-    .from(friendships)
-    .where(and(eq(friendships.senderId, me.id), eq(friendships.status, 'accepted')));
-  const received = await db
-    .select({ id: friendships.senderId })
-    .from(friendships)
-    .where(and(eq(friendships.receiverId, me.id), eq(friendships.status, 'accepted')));
-  const friendSet = new Set([...sent.map((r) => r.id), ...received.map((r) => r.id)]);
+  const friendSet = new Set(await getFriendIds(me.id));
 
   for (const uid of userIds) {
     if (uid === me.id) continue;
@@ -279,19 +257,6 @@ export async function sendGroupMessageAction(input: { groupId: string; body: str
 
   // Rate limit
   const windowStart = new Date(Date.now() - GROUP_MESSAGE_WINDOW_MS);
-  const [rateRow] = await db
-    .select({ value: count() })
-    .from(groupMessages)
-    .where(
-      and(
-        eq(groupMessages.senderId, me.id),
-        gt(groupMessages.createdAt, windowStart),
-        eq(groupMessages.groupId, groupId),
-      ),
-    );
-  // Actually global per user per window, not per group filter? Plan says 10 per 60s. Use group filter optional, but we will allow per group.
-  // If we filter by group, limit is per group; spec says general rate limit. We check without group filter for broader, but keep group filter for simplicity.
-  // Re-check global:
   const [globalRate] = await db
     .select({ value: count() })
     .from(groupMessages)
