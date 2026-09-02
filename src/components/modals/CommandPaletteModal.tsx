@@ -19,6 +19,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import { cn } from '@/lib/cn';
 import type { MediaEntry } from '@/types/media';
 
 interface CommandPaletteModalProps {
@@ -34,6 +35,7 @@ interface CommandPaletteModalProps {
 interface CommandItem {
   id: string;
   type: 'action' | 'media';
+  section: 'commands' | 'catalogue';
   title: string;
   subtitle?: string;
   category?: string;
@@ -64,11 +66,19 @@ export default function CommandPaletteModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const selected = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (selected && typeof selected.scrollIntoView === 'function') {
+      selected.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
+
   const staticCommands: CommandItem[] = useMemo(
     () => [
       {
         id: 'cmd-add',
         type: 'action',
+        section: 'commands',
         title: 'Add New Title to Archive',
         subtitle: 'Search TMDB, TVMaze, AniList, or OpenLibrary',
         Icon: Plus,
@@ -80,6 +90,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-stats',
         type: 'action',
+        section: 'commands',
         title: 'View Archive Statistics',
         subtitle: 'Breakdown of completed seasons, chapters, scores',
         Icon: BarChart2,
@@ -91,6 +102,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-theme',
         type: 'action',
+        section: 'commands',
         title: 'Customize Theme & Colors',
         subtitle: 'Parchment, Midnight, Sepia, E-Ink, Cyber or custom',
         Icon: Palette,
@@ -102,6 +114,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-stacks',
         type: 'action',
+        section: 'commands',
         title: 'Curated Stacks & Anthologies',
         subtitle: 'Manage thematic editorial collections',
         Icon: Layers,
@@ -113,6 +126,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-wrapped',
         type: 'action',
+        section: 'commands',
         title: 'View Yearly Wrapped',
         subtitle: 'Your year-in-review zine report',
         Icon: Sparkles,
@@ -124,6 +138,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-settings',
         type: 'action',
+        section: 'commands',
         title: 'Account & Archive Settings',
         subtitle: 'Profile, visibility, export & import',
         Icon: Settings,
@@ -135,6 +150,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-friends',
         type: 'action',
+        section: 'commands',
         title: 'Friends & Requests',
         subtitle: 'Manage friendships and requests',
         Icon: Users,
@@ -146,6 +162,7 @@ export default function CommandPaletteModal({
       {
         id: 'cmd-groups',
         type: 'action',
+        section: 'commands',
         title: 'Groups & Group Chats',
         subtitle: 'Collaborate in shared archives and 7-day chats',
         Icon: MessageSquare,
@@ -165,6 +182,7 @@ export default function CommandPaletteModal({
       const topMedia: CommandItem[] = entries.slice(0, 8).map((e) => ({
         id: `media-${e.id}`,
         type: 'media',
+        section: 'catalogue',
         title: e.title,
         subtitle: `${e.category.toUpperCase()} • ${e.status.replace('_', ' ')}`,
         category: e.category,
@@ -191,6 +209,7 @@ export default function CommandPaletteModal({
       .map((e) => ({
         id: `media-${e.id}`,
         type: 'media',
+        section: 'catalogue',
         title: e.title,
         subtitle: `${e.category.toUpperCase()} • ${e.status.replace('_', ' ')} • Current: ${e.primaryUnitCurrent}${e.secondaryUnitCurrent > 0 ? ` ep ${e.secondaryUnitCurrent}` : ''}`,
         category: e.category,
@@ -231,80 +250,144 @@ export default function CommandPaletteModal({
       placement="top"
       ariaLabel="Command palette"
       initialFocusRef={inputRef}
-      contentClassName="max-w-xl overflow-hidden rounded-control text-ink shadow-2xl"
+      contentClassName="max-w-[40rem] overflow-hidden rounded-small text-ink shadow-layered"
     >
-      {/* Search header */}
-      <div className="flex items-center gap-3 border-b border-decorative px-4 py-3 bg-surface-subtle">
-        <Search size={18} className="text-ink-muted shrink-0" />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Type a title or command..."
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setSelectedIndex(0);
-          }}
-          onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
-        />
-        <kbd className="hidden rounded border border-decorative bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted sm:inline-block">
-          ESC
-        </kbd>
+      <div className="border-b border-decorative bg-canvas px-4 py-4 sm:px-6">
+        <div className="mb-2 flex items-center justify-between font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-ink-faint">
+          <span>Commands &amp; Navigation</span>
+          <kbd className="rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] tracking-normal text-ink-muted">
+            ⌘K
+          </kbd>
+        </div>
+        <div className="flex items-center gap-3">
+          <Search size={19} className="shrink-0 text-accent" aria-hidden="true" />
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Type a title, action, or command..."
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
+            onKeyDown={handleKeyDown}
+            className="min-w-0 flex-1 bg-transparent font-[var(--za-font-display)] text-[1.05rem] tracking-[0.02em] text-ink outline-none placeholder:text-ink-muted"
+          />
+          <kbd className="hidden shrink-0 rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted sm:inline-block">
+            ESC
+          </kbd>
+        </div>
       </div>
 
-      {/* Results List */}
-      <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
+      <div
+        ref={listRef}
+        className="max-h-[26rem] overflow-y-auto bg-surface p-2 sm:p-3"
+        role="listbox"
+        aria-label="Command palette results"
+      >
         {filteredItems.length === 0 ? (
-          <div className="py-8 text-center text-xs text-ink-muted">
-            No matching titles or actions found.
+          <div className="px-4 py-10 text-center">
+            <div className="font-[var(--za-font-display)] text-sm uppercase tracking-[0.08em] text-ink">
+              No results found
+            </div>
+            <div className="mt-1 font-[var(--za-font-mono)] text-[0.7rem] text-ink-muted">
+              No matching titles or actions for “{query.trim()}”.
+            </div>
           </div>
         ) : (
           filteredItems.map((item, index) => {
             const isSelected = index === selectedIndex;
             const ActionIcon = item.Icon || ArrowRight;
+            const previousItem = filteredItems[index - 1];
+            const showSection = !previousItem || previousItem.section !== item.section;
+            const sectionLabel =
+              item.section === 'commands'
+                ? 'Commands & Navigation'
+                : query.trim()
+                  ? `Catalogue Works (${filteredItems.filter((entry) => entry.section === 'catalogue').length})`
+                  : `Catalogue Works (${entries.length})`;
 
             return (
-              <div
-                key={item.id}
-                onClick={() => item.onSelect()}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`flex cursor-pointer items-center justify-between rounded-small px-3 py-2 text-xs transition-colors ${
-                  isSelected
-                    ? 'bg-accent/15 text-accent font-medium'
-                    : 'text-ink hover:bg-surface-subtle'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  {item.type === 'action' ? (
-                    <ActionIcon size={15} className="shrink-0 text-ink-muted" />
-                  ) : item.category === 'movie' ? (
-                    <Film size={14} className="shrink-0 text-ink-muted" />
-                  ) : item.category === 'book' ? (
-                    <BookOpen size={14} className="shrink-0 text-ink-muted" />
-                  ) : item.category === 'manga' ? (
-                    <Library size={14} className="shrink-0 text-ink-muted" />
-                  ) : (
-                    <Tv size={14} className="shrink-0 text-ink-muted" />
-                  )}
-                  <div className="overflow-hidden">
-                    <div className="truncate font-medium">{item.title}</div>
-                    {item.subtitle && (
-                      <div className="truncate text-[11px] text-ink-muted">{item.subtitle}</div>
-                    )}
+              <div key={item.id}>
+                {showSection && (
+                  <div className="px-3 pb-1 pt-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.15em] text-ink-faint first:pt-0">
+                    {sectionLabel}
                   </div>
-                </div>
-                {isSelected && (
-                  <span className="shrink-0 text-[10px] text-accent/80 font-mono">↵ select</span>
                 )}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => item.onSelect()}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={cn(
+                    'group flex w-full cursor-pointer items-center justify-between rounded-small px-3 py-2.5 text-left text-sm transition-[background-color,color,box-shadow,transform] duration-[var(--za-motion-fast)]',
+                    isSelected
+                      ? 'bg-accent text-on-accent shadow-raised'
+                      : 'text-ink hover:bg-surface-subtle',
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+                    {item.type === 'action' ? (
+                      <ActionIcon
+                        size={15}
+                        aria-hidden="true"
+                        className={cn('shrink-0', isSelected ? 'text-on-accent' : 'text-accent')}
+                      />
+                    ) : item.category === 'movie' ? (
+                      <Film
+                        size={14}
+                        aria-hidden="true"
+                        className={cn('shrink-0', isSelected ? 'text-on-accent' : 'text-ink-muted')}
+                      />
+                    ) : item.category === 'book' ? (
+                      <BookOpen
+                        size={14}
+                        aria-hidden="true"
+                        className={cn('shrink-0', isSelected ? 'text-on-accent' : 'text-ink-muted')}
+                      />
+                    ) : item.category === 'manga' ? (
+                      <Library
+                        size={14}
+                        aria-hidden="true"
+                        className={cn('shrink-0', isSelected ? 'text-on-accent' : 'text-ink-muted')}
+                      />
+                    ) : (
+                      <Tv
+                        size={14}
+                        aria-hidden="true"
+                        className={cn('shrink-0', isSelected ? 'text-on-accent' : 'text-ink-muted')}
+                      />
+                    )}
+                    <span className="min-w-0 overflow-hidden">
+                      <span className="block truncate font-[var(--za-weight-emphasis)]">
+                        {item.title}
+                      </span>
+                      {item.subtitle && (
+                        <span
+                          className={cn(
+                            'block truncate text-[0.7rem]',
+                            isSelected ? 'text-on-accent/80' : 'text-ink-muted',
+                          )}
+                        >
+                          {item.subtitle}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                  {isSelected && (
+                    <span className="ml-3 shrink-0 font-[var(--za-font-mono)] text-[0.65rem] text-on-accent/80">
+                      ↵ select
+                    </span>
+                  )}
+                </button>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Footer shortcuts */}
-      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-3 py-1.5 text-[11px] text-ink-muted">
+      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-4 py-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted sm:px-6">
         <span>Navigate with ↑ ↓</span>
         <span>Open with ↵</span>
       </div>

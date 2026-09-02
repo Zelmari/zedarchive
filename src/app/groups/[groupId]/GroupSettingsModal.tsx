@@ -124,15 +124,26 @@ export default function GroupSettingsModal({
       ariaLabel="Group Settings"
       contentClassName="max-h-[90vh] max-w-xl overflow-y-auto p-6"
     >
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-[var(--za-weight-heading)] text-ink">Group Settings</h2>
-        <button onClick={onClose} className="text-ink-muted hover:text-ink">
+      <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">
+        <div>
+          <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
+            Volume administration
+          </p>
+          <h2 className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+            Group Settings
+          </h2>
+        </div>
+        <button
+          onClick={onClose}
+          className="za-button za-button--tertiary p-2"
+          aria-label="Close group settings"
+        >
           ✕
         </button>
       </div>
 
       {msg && (
-        <div className="mb-3 rounded-small border border-decorative bg-surface-subtle px-3 py-2 text-xs text-ink">
+        <div className="za-notice za-notice--info mb-4 font-[var(--za-font-serif-body)] text-sm">
           {msg}
         </div>
       )}
@@ -141,18 +152,22 @@ export default function GroupSettingsModal({
         {isOwner && (
           <>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-ink">Group Name</label>
+              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+                Group Name
+              </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                className="za-field font-[var(--za-font-serif-body)]"
               />
-              <label className="text-xs font-medium text-ink mt-2 block">Description</label>
+              <label className="mt-3 block font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+                Description
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full rounded-small border border-decorative bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                className="za-field min-h-24 resize-y font-[var(--za-font-serif-body)]"
               />
               <button
                 onClick={handleUpdate}
@@ -164,18 +179,24 @@ export default function GroupSettingsModal({
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-ink flex items-center gap-1.5">
+              <h3 className="flex items-center gap-1.5 font-[var(--za-font-editorial)] text-xl text-ink">
                 <UserPlus size={14} /> Add Members (friends only)
               </h3>
               {eligibleFriends.length === 0 ? (
-                <p className="mt-1 text-xs text-ink-muted">No eligible friends to invite.</p>
+                <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                  No eligible friends to invite.
+                </p>
               ) : (
                 <>
-                  <div className="mt-2 max-h-32 overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2 space-y-1">
+                  <div className="mt-3 flex max-h-36 flex-wrap gap-2 overflow-y-auto border-y border-decorative py-3">
                     {eligibleFriends.map((f) => (
                       <label
                         key={f.id}
-                        className="flex items-center gap-2 px-2 py-1 rounded-small hover:bg-surface cursor-pointer"
+                        className={`inline-flex cursor-pointer items-center gap-2 rounded-small border px-2 py-1.5 transition-colors ${
+                          selectedToAdd.includes(f.id)
+                            ? 'border-accent bg-accent-soft text-accent'
+                            : 'border-decorative bg-surface-subtle text-ink-muted hover:border-required hover:text-ink'
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -185,9 +206,13 @@ export default function GroupSettingsModal({
                               e.target.checked ? [...prev, f.id] : prev.filter((x) => x !== f.id),
                             );
                           }}
+                          className="accent-accent"
                         />
-                        <span className="text-xs text-ink">
-                          {f.name} <span className="text-ink-muted">@{f.username}</span>
+                        <span className="font-[var(--za-font-serif-body)] text-sm">
+                          {f.name}{' '}
+                          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                            @{f.username}
+                          </span>
                         </span>
                       </label>
                     ))}
@@ -206,27 +231,36 @@ export default function GroupSettingsModal({
         )}
 
         <div>
-          <h3 className="text-sm font-medium text-ink">Members ({group.members.length})</h3>
+          <h3 className="font-[var(--za-font-editorial)] text-xl text-ink">
+            Members ({group.members.length})
+          </h3>
           <div className="mt-2 space-y-2">
             {group.members.map((m) => (
               <div
                 key={m.id}
-                className="flex items-center justify-between rounded-small border border-decorative bg-surface-subtle px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-small border border-decorative bg-surface-subtle px-3 py-2.5"
               >
                 <div className="flex items-center gap-2">
                   {m.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.image} alt={m.name} className="h-7 w-7 rounded-full object-cover" />
+                    <img
+                      src={m.image}
+                      alt={m.name}
+                      className="h-8 w-8 rounded-small border border-required object-cover"
+                    />
                   ) : (
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface border border-decorative text-xs">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
                       {m.name.slice(0, 1)}
                     </span>
                   )}
-                  <span className="text-xs text-ink">
-                    {m.name} <span className="text-ink-muted">@{m.username}</span>
+                  <span className="font-[var(--za-font-serif-body)] text-sm text-ink">
+                    {m.name}{' '}
+                    <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      @{m.username}
+                    </span>
                   </span>
                   {m.role === 'owner' && (
-                    <span className="inline-flex items-center gap-1 rounded-small bg-accent px-1.5 py-0.5 text-[10px] font-bold text-on-accent">
+                    <span className="inline-flex items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase text-accent">
                       <Crown size={10} /> Owner
                     </span>
                   )}
@@ -237,7 +271,7 @@ export default function GroupSettingsModal({
                       <button
                         onClick={() => handleTransfer(m.userId)}
                         disabled={pending}
-                        className="rounded-small border border-decorative px-2 py-1 text-[11px] text-ink hover:bg-surface disabled:opacity-50"
+                        className="za-button za-button--tertiary min-h-0 px-2 py-1 text-[length:var(--za-text-fine)] disabled:opacity-50"
                         title="Transfer ownership"
                       >
                         Transfer
@@ -245,7 +279,7 @@ export default function GroupSettingsModal({
                       <button
                         onClick={() => handleKick(m.userId)}
                         disabled={pending}
-                        className="rounded-small border border-decorative px-2 py-1 text-[11px] text-ink hover:bg-surface disabled:opacity-50"
+                        className="za-button za-button--tertiary min-h-0 px-2 py-1 text-[length:var(--za-text-fine)] disabled:opacity-50"
                         title="Kick member"
                       >
                         <UserMinus size={12} />
@@ -258,7 +292,7 @@ export default function GroupSettingsModal({
           </div>
         </div>
 
-        <div className="border-t border-decorative pt-4 space-y-2">
+        <div className="space-y-2 border-t border-decorative pt-4">
           {!isOwner ? (
             <button
               onClick={handleLeave}
@@ -271,7 +305,7 @@ export default function GroupSettingsModal({
             <button
               onClick={handleDelete}
               disabled={pending}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-small bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              className="za-button za-button--destructive w-full text-xs disabled:opacity-50"
             >
               <Trash2 size={14} /> Delete Group
             </button>

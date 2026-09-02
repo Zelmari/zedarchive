@@ -25,10 +25,10 @@ interface DataBackupModalProps {
 type ImportState = 'idle' | 'loading' | 'success' | 'error';
 
 const tabButton = (active: boolean) =>
-  `flex-1 cursor-pointer border-none px-[var(--za-space-3)] py-[var(--za-space-3)] ${
+  `flex-1 cursor-pointer border-b-2 px-[var(--za-space-3)] py-[var(--za-space-3)] font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.08em] transition-colors ${
     active
-      ? 'border-b-2 border-b-ink bg-surface font-[var(--za-weight-heading)]'
-      : 'bg-surface-subtle'
+      ? 'border-b-accent bg-surface text-ink'
+      : 'border-b-transparent bg-surface-subtle text-ink-muted hover:text-ink'
   }`;
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -137,12 +137,13 @@ export default function DataBackupModal({
       onClose={onClose}
       labelledBy="data-backup-modal-title"
       title="Backup & Data Sovereignty"
-      contentClassName="max-w-[34rem]"
+      contentClassName="max-w-[42rem] rounded-small"
     >
       {/* Tab Buttons */}
-      <div className="flex border-b border-decorative">
+      <div className="flex border-b border-decorative bg-canvas">
         <button
           type="button"
+          aria-pressed={activeTab === 'export'}
           className={tabButton(activeTab === 'export')}
           onClick={() => setActiveTab('export')}
         >
@@ -151,6 +152,7 @@ export default function DataBackupModal({
         </button>
         <button
           type="button"
+          aria-pressed={activeTab === 'import'}
           className={tabButton(activeTab === 'import')}
           onClick={() => setActiveTab('import')}
         >
@@ -162,7 +164,10 @@ export default function DataBackupModal({
       <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
         {activeTab === 'export' ? (
           <div>
-            <p className="mb-[var(--za-space-4)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink-muted">
+            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+              Data Sovereignty &amp; Portability
+            </div>
+            <p className="mb-[var(--za-space-4)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               You own 100% of your data. Download your complete media entries, progress, cover art
               references, and notes at any time.
             </p>
@@ -170,13 +175,15 @@ export default function DataBackupModal({
             <div className="flex flex-col gap-[var(--za-space-3)]">
               <button
                 type="button"
-                className="za-button za-button--secondary justify-start p-[var(--za-space-3)]"
+                className="za-bookplate flex w-full cursor-pointer items-center justify-start gap-2 p-[var(--za-space-3)] text-left transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-required"
                 onClick={handleExportJSON}
               >
-                <FileJson size={18} className="mr-2" />
+                <FileJson size={18} className="shrink-0 text-accent" aria-hidden="true" />
                 <div className="text-left">
-                  <div className="font-[var(--za-weight-emphasis)]">Export as JSON Backup</div>
-                  <div className="text-xs text-ink-muted">
+                  <div className="font-[var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
+                    Export as JSON Backup
+                  </div>
+                  <div className="mt-0.5 font-[var(--za-font-serif-body)] text-xs text-ink-muted">
                     Full complete archive structure for 1-click restore
                   </div>
                 </div>
@@ -184,13 +191,15 @@ export default function DataBackupModal({
 
               <button
                 type="button"
-                className="za-button za-button--secondary justify-start p-[var(--za-space-3)]"
+                className="za-bookplate flex w-full cursor-pointer items-center justify-start gap-2 p-[var(--za-space-3)] text-left transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-required"
                 onClick={handleExportCSV}
               >
-                <FileSpreadsheet size={18} className="mr-2" />
+                <FileSpreadsheet size={18} className="shrink-0 text-accent" aria-hidden="true" />
                 <div className="text-left">
-                  <div className="font-[var(--za-weight-emphasis)]">Export as CSV Spreadsheet</div>
-                  <div className="text-xs text-ink-muted">
+                  <div className="font-[var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
+                    Export as CSV Spreadsheet
+                  </div>
+                  <div className="mt-0.5 font-[var(--za-font-serif-body)] text-xs text-ink-muted">
                     Compatible with Excel, Google Sheets, and Notion
                   </div>
                 </div>
@@ -199,18 +208,21 @@ export default function DataBackupModal({
           </div>
         ) : (
           <div>
-            <p className="mb-[var(--za-space-3)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink-muted">
+            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+              Multi-Platform Importer
+            </div>
+            <p className="mb-[var(--za-space-3)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json),
               Letterboxd (.csv), or Goodreads (.csv).
             </p>
 
             {/* Conflict handling options */}
-            <div className="mb-[var(--za-space-3)] rounded-control bg-surface-subtle p-[var(--za-space-3)]">
-              <div className="mb-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)]">
+            <div className="mb-[var(--za-space-3)] rounded-small border border-decorative bg-surface-subtle p-[var(--za-space-3)]">
+              <div className="mb-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.05em] text-ink">
                 If an entry already exists in your archive:
               </div>
               <div className="flex gap-[var(--za-space-4)]">
-                <label className="flex cursor-pointer items-center gap-[0.35rem] text-[length:var(--za-text-fine)]">
+                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
                   <input
                     type="radio"
                     name="conflictStrategy"
@@ -220,7 +232,7 @@ export default function DataBackupModal({
                   />
                   Skip duplicate
                 </label>
-                <label className="flex cursor-pointer items-center gap-[0.35rem] text-[length:var(--za-text-fine)]">
+                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
                   <input
                     type="radio"
                     name="conflictStrategy"
@@ -234,9 +246,9 @@ export default function DataBackupModal({
             </div>
 
             {/* Upload Input */}
-            <div className="rounded-layered border-2 border-dashed border-required bg-surface p-[var(--za-space-4)] text-center">
-              <Upload size={24} className="mx-auto mb-2 text-ink-muted" />
-              <div className="mb-2 text-[length:var(--za-text-fine)]">
+            <div className="rounded-small border-2 border-dashed border-required bg-surface-sunken p-5 text-center">
+              <Upload size={25} className="mx-auto mb-2 text-accent" aria-hidden="true" />
+              <div className="mb-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
                 Select a <strong>.json</strong>, <strong>.xml</strong>, <strong>.xml.gz</strong>, or{' '}
                 <strong>.csv</strong> file
               </div>
@@ -246,10 +258,11 @@ export default function DataBackupModal({
                 accept=".json,.csv,.xml,.gz,.xml.gz"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
+                aria-label="Choose backup file"
               />
               <button
                 type="button"
-                className="za-button za-button--primary"
+                className="za-button za-button--primary text-xs"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importStatus.state === 'loading'}
               >
@@ -260,20 +273,20 @@ export default function DataBackupModal({
             {/* Status feedback */}
             {importStatus.state !== 'idle' && (
               <div
-                className={`mt-[var(--za-space-3)] flex items-center gap-2 rounded-control p-[var(--za-space-3)] text-[length:var(--za-text-fine)] ${
+                className={`mt-[var(--za-space-3)] flex items-center gap-2 rounded-small border p-[var(--za-space-3)] text-[length:var(--za-text-fine)] ${
                   importStatus.state === 'error'
-                    ? 'bg-danger-surface text-danger'
+                    ? 'border-danger bg-danger-surface text-danger'
                     : importStatus.state === 'success'
-                      ? 'bg-success-surface text-success'
-                      : 'bg-surface-subtle text-ink-muted'
+                      ? 'border-success bg-success-surface text-success'
+                      : 'border-decorative bg-surface-subtle text-ink-muted'
                 }`}
               >
                 {importStatus.state === 'error' ? (
-                  <AlertCircle size={16} />
+                  <AlertCircle size={16} aria-hidden="true" />
                 ) : importStatus.state === 'success' ? (
-                  <Check size={16} />
+                  <Check size={16} aria-hidden="true" />
                 ) : (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                 )}
                 <span>{importStatus.message}</span>
               </div>
@@ -281,7 +294,7 @@ export default function DataBackupModal({
           </div>
         )}
 
-        <div className="mt-[var(--za-space-5)] flex justify-end">
+        <div className="mt-[var(--za-space-5)] flex justify-end border-t border-decorative pt-[var(--za-space-4)]">
           <button type="button" className="za-button za-button--secondary" onClick={onClose}>
             Close
           </button>

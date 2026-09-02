@@ -13,18 +13,24 @@ export default function ArchiveUnavailable({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-canvas text-ink">
       <div
-        className="za-card col-span-full flex flex-col items-center justify-center rounded-control border border-dashed border-required px-[var(--za-space-6)] py-[var(--za-space-12)] text-center [box-shadow:none]"
-        style={{ maxWidth: '28rem', textAlign: 'center' }}
+        aria-labelledby="archive-unavailable-title"
+        className="za-bookplate relative col-span-full flex w-full max-w-[28rem] flex-col items-center justify-center px-[var(--za-space-6)] py-[var(--za-space-12)] text-center"
       >
+        <span className="za-ribbon-bookmark" aria-hidden="true" />
         <ShieldAlert
+          aria-hidden="true"
+          className="mb-[var(--za-space-3)] text-danger"
           size={36}
-          style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }}
+          strokeWidth={1.6}
         />
-        <h1 className="mb-[var(--za-space-1)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink">
+        <h1
+          id="archive-unavailable-title"
+          className="mb-[var(--za-space-1)] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+        >
           Archive Unavailable
         </h1>
-        <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-          This archive is either private or does not exist.
+        <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+          This archive is private, missing from the catalogue, or no longer available.
         </p>
         <Link href="/" className={`za-button za-button--primary ${ctaClassName}`.trim()}>
           {ctaLabel}

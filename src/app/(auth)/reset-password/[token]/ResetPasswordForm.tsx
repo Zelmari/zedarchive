@@ -95,13 +95,14 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           </Link>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="grid gap-4">
+        <form onSubmit={handleSubmit} className="grid gap-5">
           <AuthField label="New Password" htmlFor="new-password">
             <input
               id="new-password"
               type="password"
               required
               minLength={8}
+              autoComplete="new-password"
               className="za-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -115,6 +116,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type="password"
               required
               minLength={8}
+              autoComplete="new-password"
               className="za-field"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

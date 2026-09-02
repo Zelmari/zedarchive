@@ -110,7 +110,11 @@ export default function FriendButton({
   };
 
   if (message) {
-    return <div className="text-xs text-ink-muted">{message}</div>;
+    return (
+      <div className="za-notice za-notice--error font-[var(--za-font-serif-body)] text-sm">
+        {message}
+      </div>
+    );
   }
 
   if (!status) {
@@ -118,7 +122,7 @@ export default function FriendButton({
       <button
         onClick={handleAdd}
         disabled={pending}
-        className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs"
+        className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
       >
         <UserPlus size={13} /> Add Friend
       </button>
@@ -130,7 +134,7 @@ export default function FriendButton({
       <button
         onClick={handleCancel}
         disabled={pending}
-        className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs"
+        className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
       >
         <Clock size={13} /> Request Pending · Cancel
       </button>
@@ -143,14 +147,14 @@ export default function FriendButton({
         <button
           onClick={handleAccept}
           disabled={pending}
-          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs"
+          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
         >
           <Check size={13} /> Accept Request
         </button>
         <button
           onClick={handleReject}
           disabled={pending}
-          className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs"
+          className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
         >
           <XIcon /> Reject
         </button>
@@ -161,7 +165,7 @@ export default function FriendButton({
   if (status === 'accepted') {
     return (
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 rounded-small border border-success/30 bg-success/10 px-2 py-1 text-xs font-medium text-success">
+        <span className="inline-flex items-center gap-1 rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-success">
           <UserCheck size={13} /> Friends ✓
         </span>
         <button

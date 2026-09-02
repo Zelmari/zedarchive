@@ -9,14 +9,17 @@
 /* Design Token Bridge: bespoke --za-* tokens exposed as Tailwind utilities
    (bg-canvas, text-ink, border-decorative, bg-accent, rounded-control, …).
    `inline` keeps utilities referencing the palette-scoped custom properties,
-   so all five themes work with zero duplication. */
+   so all preset themes work with zero duplication. */
 @theme inline {
   --color-canvas: var(--za-color-canvas);
+  --color-surface-sunken: var(--za-color-surface-sunken);
   --color-surface: var(--za-color-surface);
   --color-surface-subtle: var(--za-color-surface-subtle);
 
   --color-ink: var(--za-color-text);
   --color-ink-muted: var(--za-color-text-muted);
+  --color-ink-faint: var(--za-color-text-faint);
+  --color-text-faint: var(--za-color-text-faint);
   --color-ink-disabled: var(--za-color-disabled-text);
   --color-surface-disabled: var(--za-color-disabled-surface);
 
@@ -28,6 +31,9 @@
   --color-accent-active: var(--za-color-accent-active);
   --color-accent-soft: var(--za-color-accent-soft);
   --color-on-accent: var(--za-color-on-accent);
+  --color-gold: var(--za-color-gold);
+  --color-gold-hover: var(--za-color-gold-hover);
+  --color-gold-dark: var(--za-color-gold-dark);
 
   --color-danger: var(--za-color-destructive);
   --color-danger-surface: var(--za-color-error-surface);
@@ -43,6 +49,13 @@
 
   --shadow-layered: var(--za-shadow-layered);
   --shadow-raised: var(--za-shadow-raised);
+  --shadow-gold: var(--za-shadow-gold);
+
+  --font-sans: var(--za-font-sans);
+  --font-display: var(--za-font-display);
+  --font-editorial: var(--za-font-editorial);
+  --font-serif-body: var(--za-font-serif-body);
+  --font-mono: var(--za-font-mono);
 
   --animate-fade-in: fadeIn var(--za-motion-fast) ease-out;
   --animate-slide-in-toast: slideInToast var(--za-motion-fast) ease-out;
@@ -73,60 +86,75 @@
   /* ==========================================================================
      Canvas, Surfaces & Paper Fills (Warm Linen & Tactile Paper)
      ========================================================================== */
-  --za-color-canvas: #f7f5f0; /* Warm Linen / Editorial Canvas */
-  --za-color-surface: #ffffff; /* Crisp White Paper Surface */
-  --za-color-surface-subtle: #f0ede6; /* Subtle Neutral Surface / Restricted Tile */
+  --za-color-canvas: #f7f4ee; /* Warm Linen / Editorial Canvas */
+  --za-color-surface-sunken: #efeae0; /* Canvas alt / Trough */
+  --za-color-surface: #fdfcfa; /* Ivory Bookplate */
+  --za-color-surface-subtle: #f2ece0; /* Subtle Parchment / Restricted Tile */
 
   /* ==========================================================================
      Text & Typography Ink
      ========================================================================== */
-  --za-color-text: #242321; /* Primary Ink (High Contrast Obsidian) */
-  --za-color-text-muted: #5b5c61; /* Secondary Muted Ink */
-  --za-color-disabled-text: #64656a; /* Inactive / Disabled Text */
-  --za-color-disabled-surface: #ece9e2; /* Inactive / Disabled Surface */
+  --za-color-text: #201e1b; /* Obsidian Ink */
+  --za-color-text-muted: #686256; /* Muted Sepia */
+  --za-color-text-faint: #989182; /* Faint Meta */
+  --za-color-disabled-text: #989182; /* Inactive / Disabled Text */
+  --za-color-disabled-surface: #efeae0; /* Inactive / Disabled Surface */
 
   /* ==========================================================================
      Borders & Structural Dividers
      ========================================================================== */
-  --za-color-border-required: #85837c; /* Controls, Inputs, Active Borders */
-  --za-color-border-decorative: #d6d1c7; /* Dividers, Subordinate Separators */
+  --za-color-border-required: #b5ac98; /* Controls, Inputs, Active Borders */
+  --za-color-border-decorative: #d8d2c4; /* Dividers, Subordinate Separators */
 
   /* ==========================================================================
-     Interactive Accent (Ink Hierarchy)
+     Interactive Accent (Ribbon Hierarchy)
      ========================================================================== */
-  --za-color-accent: #242321; /* Primary Accent Fill */
-  --za-color-accent-hover: #3a3936; /* Subtle Lightening on Hover */
-  --za-color-accent-active: #171716; /* Deepened Ink on Active Press */
-  --za-color-accent-soft: #eeece7; /* Selected / Highlighted Pill Soft Fill */
-  --za-color-on-accent: #ffffff; /* Pure White Text on Accent Fill */
+  --za-color-accent: #8c2d19; /* Ribbon */
+  --za-color-accent-hover: #702213; /* Ribbon Hover */
+  --za-color-accent-active: #54190e; /* Ribbon Active */
+  --za-color-accent-soft: #f4ece9; /* Soft Ribbon Tint */
+  --za-color-on-accent: #ffffff; /* Text on Ribbon */
+
+  /* ==========================================================================
+     Decorative Gold Leaf
+     ========================================================================== */
+  --za-color-gold: #c5a059;
+  --za-color-gold-hover: #dfba73;
+  --za-color-gold-dark: #98752b;
 
   /* ==========================================================================
      Semantic & Destructive States
      ========================================================================== */
-  --za-color-destructive: #b4232e; /* Crimson Error / Destructive Action */
-  --za-color-destructive-hover: #8f1d26; /* Darkened Destructive Hover */
-  --za-color-destructive-active: #76151c; /* Deep Destructive Press */
+  --za-color-destructive: #a32822; /* Crimson Error / Destructive Action */
+  --za-color-destructive-hover: #85201b; /* Darkened Destructive Hover */
+  --za-color-destructive-active: #6c1915; /* Deep Destructive Press */
   --za-color-on-destructive: #ffffff; /* Text on Destructive Fills */
-  --za-color-error-surface: #fbecee; /* Soft Pink Error Notice Background */
+  --za-color-error-surface: #f9ebea; /* Soft Crimson Error Notice Background */
 
-  --za-color-success: #26734d; /* Botanical Forest Green */
-  --za-color-success-surface: #e9f4ee; /* Soft Mint Success Background */
+  --za-color-success: #2d5a3e; /* Botanical Forest Green */
+  --za-color-success-surface: #e8f0ea; /* Soft Botanical Background */
 
-  --za-color-warning: #765a00; /* Warm Amber / Ochre */
-  --za-color-warning-surface: #f8f0d8; /* Soft Ochre Warning Background */
+  --za-color-warning: #b87314; /* Warm Amber / Ochre */
+  --za-color-warning-surface: #faf2e3; /* Soft Ochre Warning Background */
 
   /* ==========================================================================
      Title Tile Placeholder
      ========================================================================== */
-  --za-color-title-tile: #ded9cf; /* 2:3 Initials Tile Background */
-  --za-color-title-tile-text: #30353b; /* Initials Text Color */
+  --za-color-title-tile: #efeae0; /* 2:3 Initials Tile Background */
+  --za-color-title-tile-text: #686256; /* Initials Text Color */
 
   /* ==========================================================================
      Typography & Text Scale
      ========================================================================== */
   --za-font-sans:
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --za-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --za-font-display: var(--font-cinzel, 'Cinzel'), 'Cinzel', 'Playfair Display', Georgia, serif;
+  --za-font-editorial:
+    var(--font-playfair, 'Playfair Display'), 'Playfair Display', 'Newsreader', Georgia, serif;
+  --za-font-serif-body:
+    var(--font-newsreader, 'Newsreader'), 'Newsreader', Georgia, Garamond, serif;
+  --za-font-mono:
+    var(--font-jetbrains-mono, 'JetBrains Mono'), 'JetBrains Mono', 'SF Mono', Consolas, monospace;
   --za-text-fine: 0.75rem; /* 12px - Small captions & fine notes */
   --za-text-supporting: 0.875rem; /* 14px - Helper text, metadata, labels */
   --za-text-base: 1rem; /* 16px - Standard body & inputs */
@@ -164,18 +192,19 @@
   /* ==========================================================================
      Radii, Borders & Shadows
      ========================================================================== */
-  --za-radius-small: 0.25rem; /* 4px - Title tiles, active route pills */
-  --za-radius-control: 0.5rem; /* 8px - Controls, buttons, fields, notices, cards */
-  --za-radius-layered: 0.75rem; /* 12px - Modals, dialogs, elevated containers */
+  --za-radius-small: 3px; /* Title tiles, active route pills */
+  --za-radius-control: 6px; /* Controls, fields, notices */
+  --za-radius-layered: 10px; /* Modals, dialogs, elevated containers */
   --za-border-width: 1px;
   --za-control-min-block-size: 2.5rem; /* 40px - Strict touch/click target min-height */
 
   --za-focus-width: 3px;
   --za-focus-offset: 3px;
 
-  --za-shadow-raised: 0 1px 2px rgb(36 35 33 / 8%), 0 6px 16px rgb(36 35 33 / 6%);
-  --za-shadow-layered: 0 18px 48px rgb(36 35 33 / 18%);
-  --za-backdrop-modal: rgb(23 23 22 / 48%);
+  --za-shadow-raised: 0 4px 16px rgba(32, 30, 27, 0.06), 0 1px 3px rgba(32, 30, 27, 0.08);
+  --za-shadow-layered: 0 18px 48px rgba(32, 30, 27, 0.16), 0 4px 12px rgba(32, 30, 27, 0.08);
+  --za-shadow-gold: 0 2px 10px rgba(197, 160, 89, 0.25);
+  --za-backdrop-modal: rgba(32, 30, 27, 0.55);
 
   /* ==========================================================================
      Layering (Z-Index Scale)
@@ -192,102 +221,182 @@
 }
 
 /* ==========================================================================
-   THEMES PALETTES (Midnight Slate, Sepia, E-Ink Monochrome, Phosphor Cyber)
+   THEME PALETTES (Parchment, Midnight, Sepia, E-Ink, Phosphor Cyber)
    ========================================================================== */
 
 /* 1. Midnight Slate (Dark Mode) */
 [data-theme='midnight'] {
   color-scheme: dark;
   --za-color-canvas: #121316;
-  --za-color-surface: #1a1c22;
+  --za-color-surface-sunken: #181a1f;
+  --za-color-surface: #1b1d22;
   --za-color-surface-subtle: #242730;
-  --za-color-text: #ededed;
-  --za-color-text-muted: #9da3af;
-  --za-color-disabled-text: #646b7a;
-  --za-color-disabled-surface: #1e2027;
-  --za-color-border-required: #4b5563;
-  --za-color-border-decorative: #2b303c;
-  --za-color-accent: #f3f4f6;
-  --za-color-accent-hover: #ffffff;
-  --za-color-accent-active: #e5e7eb;
-  --za-color-accent-soft: #282c37;
-  --za-color-on-accent: #121316;
+  --za-color-text: #ecebe8;
+  --za-color-text-muted: #a3a199;
+  --za-color-text-faint: #63625d;
+  --za-color-disabled-text: #63625d;
+  --za-color-disabled-surface: #181a1f;
+  --za-color-border-required: #52596b;
+  --za-color-border-decorative: #363b47;
+  --za-color-accent: #a83620;
+  --za-color-accent-hover: #8c2d19;
+  --za-color-accent-active: #702213;
+  --za-color-accent-soft: #34211f;
+  --za-color-on-accent: #ffffff;
+  --za-color-gold: #d6b26a;
+  --za-color-gold-hover: #e8ca88;
+  --za-color-gold-dark: #aa8638;
+  --za-color-destructive: #cf443c;
+  --za-color-destructive-hover: #a93631;
+  --za-color-destructive-active: #8c2b27;
+  --za-color-on-destructive: #ffffff;
+  --za-color-error-surface: #361917;
+  --za-color-success: #42825b;
+  --za-color-success-surface: #172a1f;
+  --za-color-warning: #d68d27;
+  --za-color-warning-surface: #33230c;
   --za-color-title-tile: #242730;
-  --za-color-title-tile-text: #9da3af;
-  --za-color-error-surface: #381a1e;
-  --za-color-success-surface: #132b1e;
-  --za-color-warning-surface: #33260c;
-  --za-shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.3);
-  --za-shadow-layered: 0 18px 48px rgba(0, 0, 0, 0.6);
-  --za-backdrop-modal: rgba(0, 0, 0, 0.75);
+  --za-color-title-tile-text: #a3a199;
+  --za-shadow-raised: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --za-shadow-layered: 0 20px 50px rgba(0, 0, 0, 0.75);
+  --za-shadow-gold: 0 2px 10px rgba(214, 178, 106, 0.25);
+  --za-backdrop-modal: rgba(0, 0, 0, 0.82);
 }
 
 /* 2. Vintage Sepia */
 [data-theme='sepia'] {
   color-scheme: light;
-  --za-color-canvas: #f4ebd9;
-  --za-color-surface: #fcf8ed;
-  --za-color-surface-subtle: #ebe0c7;
-  --za-color-text: #382b1d;
-  --za-color-text-muted: #6b563f;
-  --za-color-disabled-text: #8e785f;
-  --za-color-disabled-surface: #e5d8bd;
-  --za-color-border-required: #9c8369;
-  --za-color-border-decorative: #d8c8ab;
-  --za-color-accent: #422814;
-  --za-color-accent-hover: #59371c;
-  --za-color-accent-active: #2f1c0d;
-  --za-color-accent-soft: #e5d5b7;
+  --za-color-canvas: #f2e8d6;
+  --za-color-surface-sunken: #e8d9c0;
+  --za-color-surface: #faf4e8;
+  --za-color-surface-subtle: #eadbc5;
+  --za-color-text: #3a2a1a;
+  --za-color-text-muted: #725b45;
+  --za-color-text-faint: #a38c75;
+  --za-color-disabled-text: #a38c75;
+  --za-color-disabled-surface: #e8d9c0;
+  --za-color-border-required: #b19b7c;
+  --za-color-border-decorative: #d2c0a4;
+  --za-color-accent: #7f2718;
+  --za-color-accent-hover: #671e12;
+  --za-color-accent-active: #4f170d;
+  --za-color-accent-soft: #f1dfd7;
   --za-color-on-accent: #ffffff;
-  --za-color-title-tile: #dbc9a6;
-  --za-color-title-tile-text: #422814;
-  --za-color-error-surface: #fae4e5;
-  --za-color-success-surface: #e2ede5;
-  --za-color-warning-surface: #f7edcc;
+  --za-color-gold: #b8893f;
+  --za-color-gold-hover: #d6a75d;
+  --za-color-gold-dark: #8f6626;
+  --za-color-destructive: #992921;
+  --za-color-destructive-hover: #7c211c;
+  --za-color-destructive-active: #611914;
+  --za-color-on-destructive: #ffffff;
+  --za-color-error-surface: #f5e5e3;
+  --za-color-success: #336142;
+  --za-color-success-surface: #e0ede3;
+  --za-color-warning: #a86b18;
+  --za-color-warning-surface: #f7eedb;
+  --za-color-title-tile: #eadbc5;
+  --za-color-title-tile-text: #3a2a1a;
+  --za-shadow-raised: 0 4px 16px rgba(58, 42, 26, 0.08);
+  --za-shadow-layered: 0 18px 48px rgba(58, 42, 26, 0.18);
+  --za-shadow-gold: 0 2px 10px rgba(184, 137, 63, 0.25);
+  --za-backdrop-modal: rgba(58, 42, 26, 0.6);
 }
 
 /* 3. E-Ink Monochrome */
 [data-theme='e-ink'] {
   color-scheme: light;
-  --za-color-canvas: #fcfcfc;
+  --za-color-canvas: #ffffff;
+  --za-color-surface-sunken: #f0f0f0;
   --za-color-surface: #ffffff;
   --za-color-surface-subtle: #eeeeee;
   --za-color-text: #000000;
   --za-color-text-muted: #444444;
-  --za-color-disabled-text: #777777;
-  --za-color-disabled-surface: #e0e0e0;
+  --za-color-text-faint: #888888;
+  --za-color-disabled-text: #888888;
+  --za-color-disabled-surface: #f0f0f0;
   --za-color-border-required: #000000;
-  --za-color-border-decorative: #888888;
+  --za-color-border-decorative: #000000;
   --za-color-accent: #000000;
   --za-color-accent-hover: #222222;
   --za-color-accent-active: #000000;
-  --za-color-accent-soft: #e0e0e0;
+  --za-color-accent-soft: #eeeeee;
   --za-color-on-accent: #ffffff;
-  --za-color-title-tile: #e4e4e4;
+  --za-color-gold: #000000;
+  --za-color-gold-hover: #333333;
+  --za-color-gold-dark: #000000;
+  --za-color-destructive: #000000;
+  --za-color-destructive-hover: #222222;
+  --za-color-destructive-active: #000000;
+  --za-color-on-destructive: #ffffff;
+  --za-color-error-surface: #e8e8e8;
+  --za-color-success: #000000;
+  --za-color-success-surface: #e8e8e8;
+  --za-color-warning: #000000;
+  --za-color-warning-surface: #e8e8e8;
+  --za-color-title-tile: #eeeeee;
   --za-color-title-tile-text: #000000;
+  --za-shadow-raised: 0 0 0 1px #000000;
+  --za-shadow-layered: 0 0 0 2px #000000;
+  --za-shadow-gold: 0 0 0 1px #000000;
+  --za-backdrop-modal: rgba(0, 0, 0, 0.7);
 }
 
 /* 4. Phosphor Cyber */
 [data-theme='cyber'] {
   color-scheme: dark;
   --za-color-canvas: #090e09;
+  --za-color-surface-sunken: #0d140d;
   --za-color-surface: #0e170f;
   --za-color-surface-subtle: #142416;
   --za-color-text: #22c55e;
   --za-color-text-muted: #16a34a;
-  --za-color-disabled-text: #14532d;
+  --za-color-text-faint: #166534;
+  --za-color-disabled-text: #166534;
   --za-color-disabled-surface: #0a130c;
-  --za-color-border-required: #22c55e;
-  --za-color-border-decorative: #15421c;
+  --za-color-border-required: #15803d;
+  --za-color-border-decorative: #153a18;
   --za-color-accent: #22c55e;
   --za-color-accent-hover: #4ade80;
   --za-color-accent-active: #16a34a;
   --za-color-accent-soft: #142c18;
   --za-color-on-accent: #090e09;
+  --za-color-gold: #ffb000;
+  --za-color-gold-hover: #ffc533;
+  --za-color-gold-dark: #b45309;
+  --za-color-destructive: #ef4444;
+  --za-color-destructive-hover: #dc2626;
+  --za-color-destructive-active: #b91c1c;
+  --za-color-on-destructive: #ffffff;
+  --za-color-error-surface: #2b0d10;
+  --za-color-success: #22c55e;
+  --za-color-success-surface: #0e2a14;
+  --za-color-warning: #d97706;
+  --za-color-warning-surface: #33230c;
   --za-color-title-tile: #142c18;
   --za-color-title-tile-text: #22c55e;
-  --za-color-error-surface: #2b0d10;
-  --za-color-success-surface: #0e2a14;
+  --za-shadow-raised: 0 0 8px rgba(34, 197, 94, 0.2), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --za-shadow-layered: 0 0 14px rgba(34, 197, 94, 0.18), 0 20px 50px rgba(0, 0, 0, 0.75);
+  --za-shadow-gold: 0 0 10px rgba(255, 176, 0, 0.35);
+  --za-backdrop-modal: rgba(0, 0, 0, 0.82);
+}
+
+/* 5. Custom Palette (derived values stay outside the persisted schema). */
+[data-theme='custom'] {
+  color-scheme: light;
+  --za-color-surface-sunken: var(--za-color-surface-subtle);
+  --za-color-surface-sunken: color-mix(
+    in srgb,
+    var(--za-color-surface-subtle) 80%,
+    var(--za-color-text) 8%
+  );
+  --za-color-text-faint: var(--za-color-text-muted);
+  --za-color-text-faint: color-mix(in srgb, var(--za-color-text-muted) 65%, var(--za-color-canvas));
+  --za-color-gold: var(--za-color-accent);
+  --za-color-gold-hover: var(--za-color-accent-hover);
+  --za-color-gold-dark: var(--za-color-accent);
+  --za-color-accent-active: var(--za-color-accent);
+  --za-color-disabled-text: var(--za-color-text-muted);
+  --za-color-disabled-surface: var(--za-color-surface-sunken);
 }
 
 /* Base Reset & Document Typography.
@@ -307,21 +416,34 @@
     border: 0 solid var(--za-color-border-decorative);
   }
 
+  html,
+  body {
+    background-color: var(--za-color-canvas);
+    background-image:
+      radial-gradient(var(--za-color-border-decorative) 0.75px, transparent 0.75px),
+      radial-gradient(var(--za-color-border-decorative) 0.75px, var(--za-color-canvas) 0.75px);
+    background-size: 28px 28px;
+    background-position:
+      0 0,
+      14px 14px;
+  }
+
   html {
     color-scheme: light;
-    background-color: var(--za-color-canvas);
     color: var(--za-color-text);
-    font-family: var(--za-font-sans);
+    font-family: var(--za-font-serif-body);
     font-size: var(--za-text-base);
     line-height: var(--za-leading-body);
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     min-height: 100vh;
     margin: 0;
-    background-color: var(--za-color-canvas);
     color: var(--za-color-text);
+    font-family: var(--za-font-serif-body);
   }
 
   a {
@@ -345,6 +467,21 @@
     background-color: transparent;
     border: none;
     cursor: pointer;
+  }
+}
+
+/* The one-bit and phosphor presets stay crisp instead of textured. */
+html[data-theme='e-ink'],
+html[data-theme='e-ink'] body,
+html[data-theme='cyber'],
+html[data-theme='cyber'] body {
+  background-image: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html,
+  body {
+    background-image: none;
   }
 }
 
@@ -426,7 +563,19 @@
 
 /* 3. Site Header & Brand */
 .za-site-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 30;
   border-block-end: var(--za-border-width) solid var(--za-color-border-decorative);
+  background-color: var(--za-color-canvas);
+  background-color: color-mix(in srgb, var(--za-color-canvas) 88%, transparent);
+  box-shadow: 0 2px 10px rgba(32, 30, 27, 0.08);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--za-color-text) 8%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.za-site-header--sticky {
   background: var(--za-color-surface);
 }
 
@@ -478,6 +627,31 @@
 
 .za-wordmark__text {
   display: block;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.za-wordmark__lockup {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.za-wordmark__subline {
+  overflow: hidden;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: 0.56rem;
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .za-site-header__brand,
@@ -518,10 +692,15 @@
   color: var(--za-color-accent-active);
 }
 
+.za-wordmark.za-link {
+  text-decoration: none;
+}
+
 .za-current-page {
   border-radius: var(--za-radius-small);
-  background: var(--za-color-accent-soft);
+  background: var(--za-color-surface);
   box-shadow: inset 0 -2px 0 var(--za-color-accent);
+  color: var(--za-color-text);
   font-weight: var(--za-weight-heading);
 }
 
@@ -534,7 +713,7 @@
   gap: var(--za-space-2);
   padding: var(--za-space-2) var(--za-space-3);
   border: var(--za-border-width) solid var(--za-color-border-required);
-  border-radius: var(--za-radius-control);
+  border-radius: var(--za-radius-small);
   font: inherit;
   font-weight: var(--za-weight-emphasis);
   line-height: var(--za-leading-compact);
@@ -545,6 +724,7 @@
     color var(--za-motion-fast) var(--za-ease-standard),
     box-shadow var(--za-motion-fast) var(--za-ease-standard),
     outline-color var(--za-motion-fast) var(--za-ease-standard),
+    transform var(--za-motion-fast) var(--za-ease-standard),
     opacity var(--za-motion-fast) var(--za-ease-standard);
 }
 
@@ -552,62 +732,97 @@
   border-color: var(--za-color-accent);
   background: var(--za-color-accent);
   color: var(--za-color-on-accent);
+  font-family: var(--za-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--za-color-accent) 30%, transparent);
 }
 
 .za-button--primary:hover {
   border-color: var(--za-color-accent-hover);
   background: var(--za-color-accent-hover);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--za-color-accent) 40%, transparent);
+  transform: translateY(-1px);
 }
 
 .za-button--primary:active {
   border-color: var(--za-color-accent-active);
   background: var(--za-color-accent-active);
+  transform: translateY(0);
 }
 
 .za-button--secondary {
-  background: var(--za-color-surface);
-  color: var(--za-color-accent);
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .za-button--secondary:hover {
-  border-color: var(--za-color-accent);
-  background: var(--za-color-accent-soft);
+  border-color: var(--za-color-text);
+  background: var(--za-color-surface);
+  transform: translateY(-1px);
 }
 
 .za-button--secondary:active {
   border-color: var(--za-color-accent-active);
   color: var(--za-color-accent-active);
+  transform: translateY(0);
 }
 
 .za-button--tertiary {
   border-color: transparent;
   background: transparent;
-  color: var(--za-color-accent);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .za-button--tertiary:hover {
-  background: var(--za-color-accent-soft);
+  border-color: var(--za-color-border-decorative);
+  background: transparent;
+  color: var(--za-color-text);
 }
 
 .za-button--tertiary:active {
+  border-color: var(--za-color-border-required);
   color: var(--za-color-accent-active);
 }
 
 .za-button--selected {
-  border-color: var(--za-color-accent);
-  background: var(--za-color-accent-soft);
-  color: var(--za-color-accent);
+  border-color: var(--za-color-border-decorative);
+  border-block-end: 2px solid var(--za-color-accent);
+  background: var(--za-color-surface);
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .za-button--selected:hover {
-  border-color: var(--za-color-accent-hover);
-  background: var(--za-color-surface-subtle);
-  color: var(--za-color-accent-hover);
+  border-color: var(--za-color-border-required);
+  border-block-end-color: var(--za-color-accent-hover);
+  background: var(--za-color-surface);
+  color: var(--za-color-text);
 }
 
 .za-button--selected:active {
-  border-color: var(--za-color-accent-active);
-  color: var(--za-color-accent-active);
+  border-block-end-color: var(--za-color-accent-active);
+  color: var(--za-color-text);
 }
 
 .za-button--destructive {
@@ -653,6 +868,12 @@
     box-shadow var(--za-motion-fast) var(--za-ease-standard);
 }
 
+.za-field:focus {
+  border-color: var(--za-color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--za-color-accent) 15%, transparent);
+  outline: none;
+}
+
 .za-field[aria-invalid='true'] {
   border-color: var(--za-color-destructive);
 }
@@ -665,11 +886,13 @@
 }
 
 .za-notice--info {
-  background: var(--za-color-accent-soft);
-  color: var(--za-color-text);
+  border-color: var(--za-color-success);
+  background: var(--za-color-success-surface);
+  color: var(--za-color-success);
 }
 
 .za-notice--error {
+  border-color: var(--za-color-destructive);
   background: var(--za-color-error-surface);
   color: var(--za-color-destructive);
 }
@@ -678,10 +901,13 @@
 .za-card {
   min-inline-size: 0;
   max-inline-size: 100%;
-  border: var(--za-border-width) solid var(--za-color-border-required);
-  border-radius: var(--za-radius-control);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-small);
   background: var(--za-color-surface);
   padding: var(--za-space-4);
+  outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 25%, transparent);
+  outline-offset: -5px;
+  box-shadow: var(--za-shadow-raised);
   overflow-wrap: anywhere;
 }
 
@@ -694,79 +920,133 @@
   aspect-ratio: 2 / 3;
   place-items: center;
   border-radius: var(--za-radius-small);
-  background: var(--za-color-title-tile);
+  background: var(--za-color-title-tile, var(--za-color-surface-sunken));
   color: var(--za-color-title-tile-text);
   font-size: var(--za-text-heading-lg);
   font-weight: var(--za-weight-heading);
 }
 
-/* 11. Landing Page (Watermark) */
+/* 9. Folio Utilities */
+.za-modal-backdrop {
+  background-color: var(--za-backdrop-modal);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.za-modal-panel {
+  border: 2px solid var(--za-color-border-required);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-surface);
+  outline: 2px solid var(--za-color-border-decorative);
+  outline-offset: -8px;
+  box-shadow: var(--za-shadow-layered);
+}
+
+.za-modal-close {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: 999px;
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    color var(--za-motion-fast) var(--za-ease-standard),
+    border-radius var(--za-motion-fast) var(--za-ease-standard),
+    transform var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-modal-close:hover {
+  border-color: var(--za-color-accent);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-accent);
+  color: var(--za-color-on-accent);
+  transform: translateY(-1px);
+}
+
+.za-toast {
+  outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 30%, transparent);
+  outline-offset: -5px;
+}
+
+.za-bookplate {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-surface);
+  outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 25%, transparent);
+  outline-offset: -5px;
+  box-shadow: var(--za-shadow-raised);
+  overflow-wrap: anywhere;
+}
+
+.za-ribbon-bookmark {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: var(--za-space-4);
+  z-index: 5;
+  inline-size: 14px;
+  block-size: 28px;
+  background: var(--za-color-accent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--za-color-accent) 40%, transparent);
+}
+
+.za-gold-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--za-color-gold);
+  font-family: var(--za-font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--za-color-gold-dark) 35%, transparent);
+  box-shadow: var(--za-shadow-gold);
+}
+
+.za-folio-spread {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+}
+
+@media (max-width: 48rem) {
+  .za-folio-spread {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 11. Landing Page (Tactile Folio) */
 .za-landing {
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: clip;
 }
 
-.za-hero__ghost {
+.za-landing .za-hero__ghost {
   position: fixed;
-  inset: -12vmin;
+  inset: -18vmin;
   z-index: 0;
   display: grid;
   place-items: center;
   pointer-events: none;
 }
 
-.za-hero__ghost img {
+.za-landing .za-hero__ghost img {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
   filter: invert(1); /* white ink -> black ink */
   mix-blend-mode: multiply; /* let the linen show through */
-  opacity: 0.07;
-}
-
-.za-hero {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--za-space-6);
-  min-block-size: 100%;
-  padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12));
-  padding-inline: var(--za-page-gutter);
-  text-align: center;
-}
-
-.za-hero__eyebrow {
-  font-family: var(--za-font-mono);
-  font-size: var(--za-text-fine);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--za-color-text-muted);
-}
-
-.za-hero__title {
-  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
-  font-weight: var(--za-weight-heading);
-  line-height: 1.12;
-  letter-spacing: -0.025em;
-  overflow-wrap: anywhere;
-}
-
-.za-hero__title em {
-  font-style: normal;
-  color: var(--za-color-text-muted);
-}
-
-.za-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--za-space-3);
+  opacity: 0.035;
 }
 
 .za-site-header,
@@ -774,6 +1054,375 @@
 .za-landing main {
   position: relative;
   z-index: 1;
+}
+
+/* Monograph masthead and editorial hero spread. */
+.za-landing__content {
+  padding-block: clamp(2rem, 6vw, 4rem) 5rem;
+}
+
+.za-landing__masthead {
+  position: relative;
+  margin-block-end: clamp(2.5rem, 7vw, 4.5rem);
+  padding-block-end: clamp(2rem, 5vw, 3rem);
+  text-align: center;
+  border-block-end: 3px double var(--za-color-border-required);
+}
+
+.za-landing__masthead-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.za-landing__masthead-meta::before,
+.za-landing__masthead-meta::after {
+  inline-size: 2.5rem;
+  block-size: 1px;
+  flex: 0 0 auto;
+  background: var(--za-color-border-required);
+  content: '';
+}
+
+.za-landing .za-hero__title {
+  max-inline-size: 18ch;
+  margin: 1.5rem auto 0.75rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: clamp(2.35rem, 7vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.za-landing .za-hero__title em {
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-style: italic;
+  font-weight: 600;
+}
+
+.za-landing__subtitle {
+  max-inline-size: 44rem;
+  margin: 0 auto 1.5rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.za-landing__motto {
+  margin: 0;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-supporting);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* 12. Landing Hero Bookplate */
+.za-landing .za-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 3.5rem);
+  min-block-size: auto;
+  margin-block-end: clamp(3.5rem, 8vw, 5.5rem);
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.5rem, 5vw, 2.5rem);
+  border: 2px solid var(--za-color-border-required);
+  outline: 2px solid var(--za-color-border-decorative);
+  outline-offset: -8px;
+  box-shadow: var(--za-shadow-layered);
+  font-family: var(--za-font-serif-body);
+  text-align: start;
+}
+
+.za-landing .za-hero__copy {
+  min-inline-size: 0;
+}
+
+.za-landing .za-hero__eyebrow {
+  margin-block-end: 1rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__lead {
+  margin: 0 0 1.5rem;
+  padding-inline-start: 1.5rem;
+  border-inline-start: 3px solid var(--za-color-accent);
+  color: var(--za-color-text);
+  font-family: var(--za-font-editorial);
+  font-size: clamp(1.35rem, 2.8vw, 1.65rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.za-landing .za-hero__description {
+  max-inline-size: 58ch;
+  margin: 0 0 2rem;
+  color: var(--za-color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.za-landing .za-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 1rem;
+}
+
+.za-landing .za-hero__ex-libris {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 2rem);
+  border: 1px solid var(--za-color-border-required);
+  outline: 1px solid var(--za-color-border-decorative);
+  outline-offset: -6px;
+  background: var(--za-color-canvas);
+  text-align: center;
+}
+
+.za-landing .za-hero__ex-libris-label {
+  inline-size: 100%;
+  margin: 0 0 1.25rem;
+  padding-block-end: 0.6rem;
+  border-block-end: 1px solid var(--za-color-border-decorative);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-supporting);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__seal {
+  margin-block-end: 0.5rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: 2.8rem;
+  line-height: 1;
+}
+
+.za-landing .za-hero__owner {
+  margin: 0 0 0.25rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__caption {
+  margin: 0 0 1.25rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__inscription {
+  margin: 0;
+  padding-block-start: 0.75rem;
+  border-block-start: 1px dashed var(--za-color-border-decorative);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Manifesto bookplates. */
+.za-landing__manifesto {
+  margin-block-end: clamp(3.5rem, 8vw, 5.5rem);
+}
+
+.za-landing__section-heading {
+  margin-block-end: 2rem;
+  text-align: center;
+}
+
+.za-landing__section-kicker {
+  margin: 0 0 0.5rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.za-landing__section-heading h2 {
+  margin: 0;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.za-landing__section-heading > p:last-child {
+  max-inline-size: 42rem;
+  margin: 0.75rem auto 0;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: 1.05rem;
+  font-style: italic;
+}
+
+.za-landing .za-manifesto__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.za-landing .za-manifesto__plate {
+  block-size: 100%;
+  padding: 2rem 1.75rem;
+}
+
+.za-landing .za-manifesto__title {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.8rem;
+  margin: 0 0 1rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+}
+
+.za-landing .za-manifesto__dropcap {
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+
+.za-landing .za-manifesto__plate > p {
+  margin: 0;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-serif-body);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+/* Static decorative cover studies. */
+.za-landing__specimens {
+  margin-block-start: clamp(3.5rem, 8vw, 5.5rem);
+}
+
+.za-landing .za-specimen__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.za-landing .za-specimen {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 0.7fr) 1fr;
+  align-items: center;
+  gap: 1rem;
+  block-size: 100%;
+  padding: 1.25rem;
+}
+
+.za-landing .za-specimen__cover {
+  display: flex;
+  aspect-ratio: 2 / 3;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--za-color-text) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 25%, transparent);
+  color: var(--za-color-on-accent);
+  text-align: center;
+}
+
+.za-landing .za-specimen__cover--ember {
+  background: linear-gradient(145deg, var(--za-color-accent-active), var(--za-color-accent));
+}
+
+.za-landing .za-specimen__cover--ink {
+  background: linear-gradient(145deg, var(--za-color-text), var(--za-color-text-muted));
+}
+
+.za-landing .za-specimen__cover--gold {
+  color: var(--za-color-text);
+  background: linear-gradient(145deg, var(--za-color-gold-dark), var(--za-color-gold));
+}
+
+.za-landing .za-specimen__cover span {
+  font-family: var(--za-font-display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.za-landing .za-specimen__cover small {
+  max-inline-size: 10ch;
+  font-family: var(--za-font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.za-landing .za-specimen__details {
+  min-inline-size: 0;
+}
+
+.za-landing .za-specimen__details p,
+.za-landing .za-specimen__details span {
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.za-landing .za-specimen__details p {
+  margin: 0 0 0.5rem;
+}
+
+.za-landing .za-specimen__details h3 {
+  margin: 0 0 0.5rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-editorial);
+  font-size: 1.2rem;
+  line-height: 1.2;
 }
 
 /* 13. Site Footer */
@@ -813,13 +1462,9 @@
   text-decoration-color: var(--za-color-text);
 }
 
-/* Landing-page overrides — emblem-centered front page */
-.za-landing .za-site-header {
-  background: transparent;
-}
-
+/* Landing-page overrides — keep account actions compact in the masthead. */
 .za-landing .za-button {
-  border-radius: 999px;
+  border-radius: var(--za-radius-small);
   min-block-size: 2.4rem;
   padding: 0 1.1rem;
   font-size: 0.875rem;
@@ -838,8 +1483,61 @@
   border-bottom-color: var(--za-color-text);
 }
 
-.za-landing .za-hero {
-  gap: 1.3rem;
+.za-landing .za-site-footer {
+  border-block-start: 3px double var(--za-color-border-required);
+  background: color-mix(in srgb, var(--za-color-canvas) 92%, var(--za-color-surface));
+}
+
+.za-landing .za-site-footer__inner {
+  padding-block: 1.5rem;
+}
+
+.za-landing .za-site-footer__link {
+  color: var(--za-color-accent);
+}
+
+@media (max-width: 48rem) {
+  .za-landing .za-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .za-landing .za-hero__ex-libris {
+    min-block-size: auto;
+  }
+
+  .za-landing .za-manifesto__grid,
+  .za-landing .za-specimen__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 40rem) {
+  .za-landing__masthead-meta {
+    gap: 0.5rem 0.75rem;
+    font-size: 0.65rem;
+  }
+
+  .za-landing__masthead-meta::before,
+  .za-landing__masthead-meta::after {
+    display: none;
+  }
+
+  .za-landing .za-hero {
+    padding: 2rem 1.25rem;
+  }
+
+  .za-landing .za-hero__actions {
+    flex-direction: column;
+  }
+
+  .za-landing .za-hero__actions .za-button {
+    inline-size: 100%;
+  }
+
+  .za-landing .za-site-footer__inner {
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 /* 11. Accessibility Preferences */

@@ -23,6 +23,17 @@ export const PALETTE_FIELDS: Array<{ key: PaletteField; label: string }> = [
   { key: 'onAccent', label: 'Text on Accent' },
 ];
 
+const CONTRAST_PAIRS = [
+  { id: 'text-canvas', label: 'Text / Canvas', foreground: 'text', background: 'canvas' },
+  { id: 'text-surface', label: 'Text / Surface', foreground: 'text', background: 'surface' },
+  {
+    id: 'accent-on-accent',
+    label: 'Accent / onAccent',
+    foreground: 'accent',
+    background: 'onAccent',
+  },
+] as const;
+
 interface ThemeStudioProps {
   initialTheme?: ThemeId;
   customTheme?: CustomThemePalette | null;
@@ -107,16 +118,18 @@ export default function ThemeStudio({
     }
   };
 
-  const textOnCanvasRatio = getContrastRatio(customPalette.text, customPalette.canvas);
-  const textOnSurfaceRatio = getContrastRatio(customPalette.text, customPalette.surface);
-  const minRatio = Math.min(textOnCanvasRatio, textOnSurfaceRatio);
-  const wcag = getWcagLevel(minRatio);
+  const contrastChecks = CONTRAST_PAIRS.map((pair) => {
+    const ratio = getContrastRatio(customPalette[pair.foreground], customPalette[pair.background]);
+    return { ...pair, ratio, wcag: getWcagLevel(ratio) };
+  });
 
   return (
-    <div className={cn('px-[var(--za-space-6)] py-[var(--za-space-4)]', className)}>
-      <div className="mb-4 flex gap-2 border-b border-decorative pb-2">
+    <div className={cn('bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)]', className)}>
+      <div className="mb-5 flex gap-2 border-b border-decorative pb-2" role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === 'presets'}
           onClick={() => {
             setTab('presets');
             if (selectedTheme !== 'custom') {
@@ -124,37 +137,44 @@ export default function ThemeStudio({
             }
           }}
           className={cn(
-            'flex cursor-pointer items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-[var(--za-weight-emphasis)] transition-colors',
+            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
             tab === 'presets'
-              ? 'border border-required bg-surface text-ink'
-              : 'text-ink-muted hover:text-ink',
+              ? 'border-accent text-ink'
+              : 'border-transparent text-ink-muted hover:text-ink',
           )}
         >
-          <Palette size={14} /> Curated Presets
+          <Palette size={14} aria-hidden="true" /> Curated Presets
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === 'builder'}
           onClick={() => {
             setTab('builder');
             previewCustomPalette(customPalette);
           }}
           className={cn(
-            'flex cursor-pointer items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-[var(--za-weight-emphasis)] transition-colors',
+            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
             tab === 'builder'
-              ? 'border border-accent bg-accent/15 text-accent'
-              : 'text-ink-muted hover:text-ink',
+              ? 'border-accent text-accent'
+              : 'border-transparent text-ink-muted hover:text-ink',
           )}
         >
-          <Sliders size={14} /> Custom Studio
+          <Sliders size={14} aria-hidden="true" /> Custom Studio
         </button>
       </div>
 
       {tab === 'presets' ? (
         <div>
-          <p className="mb-[var(--za-space-4)] text-[length:var(--za-text-fine)] text-ink-muted">
-            Choose a visual style. Your theme is saved to your account and syncs across all your
-            devices.
-          </p>
+          <div className="mb-[var(--za-space-4)]">
+            <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+              Curated Palettes
+            </div>
+            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+              Choose a visual style. Your theme is saved to your account and syncs across all your
+              devices.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-[var(--za-space-3)]">
             {THEMES.map((theme) => {
@@ -163,15 +183,17 @@ export default function ThemeStudio({
                 <button
                   key={theme.id}
                   type="button"
+                  aria-label={theme.name}
+                  aria-pressed={isActive}
                   onClick={() => void handleSelectPreset(theme.id)}
                   className={cn(
-                    'flex w-full cursor-pointer items-center justify-between rounded-control border-2 bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-left transition-all hover:border-accent',
-                    isActive ? 'border-accent' : 'border-decorative',
+                    'za-bookplate flex w-full cursor-pointer items-center justify-between rounded-small border-2 px-[var(--za-space-4)] py-[var(--za-space-3)] text-left transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-accent',
+                    isActive ? 'border-accent shadow-gold' : 'border-decorative',
                   )}
                 >
                   <div className="flex items-center gap-[var(--za-space-3)]">
                     <div
-                      className="flex h-[2.2rem] w-[2.2rem] shrink-0 items-center justify-center rounded-small text-[0.8rem] font-bold"
+                      className="flex h-[2.6rem] w-[2.6rem] shrink-0 items-center justify-center rounded-small text-[0.8rem] font-bold shadow-raised"
                       style={{
                         backgroundColor: theme.bg,
                         border: `1.5px solid ${theme.border}`,
@@ -181,10 +203,10 @@ export default function ThemeStudio({
                       Aa
                     </div>
                     <div>
-                      <div className="text-[length:var(--za-text-base)] font-[var(--za-weight-heading)] text-ink">
+                      <div className="font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
                         {theme.name}
                       </div>
-                      <div className="mt-[0.1rem] text-[length:var(--za-text-fine)] text-ink-muted">
+                      <div className="mt-[0.1rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
                         {theme.description}
                       </div>
                     </div>
@@ -197,8 +219,15 @@ export default function ThemeStudio({
         </div>
       ) : (
         <div>
-          <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-[var(--za-weight-emphasis)] text-ink-muted">
+          <div className="mb-5">
+            <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+              Palette Workshop
+            </div>
+            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+              Tune the archive surfaces and ribbon accent while keeping the saved palette schema
+              compact.
+            </p>
+            <label className="mt-4 mb-1.5 block font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
               Starter Presets
             </label>
             <div className="flex flex-wrap gap-2">
@@ -207,7 +236,7 @@ export default function ThemeStudio({
                   key={preset.name}
                   type="button"
                   onClick={() => handleLoadStarterPreset(preset)}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 text-xs text-ink hover:border-accent"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] text-ink hover:border-accent"
                 >
                   <span
                     className="h-3 w-3 rounded-full border border-decorative"
@@ -219,41 +248,74 @@ export default function ThemeStudio({
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-2 gap-3 text-xs">
+          <div className="mb-5 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
             {PALETTE_FIELDS.map(({ key, label }) => (
               <div key={key}>
-                <label className="mb-1 block text-[11px] text-ink-muted">{label}</label>
+                <label className="mb-1 block font-[var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.06em] text-ink-muted">
+                  {label}
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={customPalette[key]}
                     onChange={(event) => handlePaletteFieldChange(key, event.target.value)}
-                    className="h-7 w-8 cursor-pointer rounded border border-decorative bg-transparent"
+                    aria-label={`${label} color`}
+                    className="h-8 w-9 cursor-pointer rounded-small border border-decorative bg-transparent"
                   />
                   <input
                     type="text"
                     value={customPalette[key]}
                     onChange={(event) => handlePaletteFieldChange(key, event.target.value)}
-                    className="w-full rounded-small border border-decorative bg-surface px-2 py-1 font-mono text-xs text-ink"
+                    aria-label={`${label} hex value`}
+                    className="za-field w-full min-w-0 py-1 font-[var(--za-font-mono)] text-xs"
                   />
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mb-4 rounded-control border border-decorative bg-surface-subtle p-3 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-[var(--za-weight-emphasis)] text-ink">
-                Readability & Contrast Check
+          <div className="mb-5 rounded-small border border-required bg-surface-sunken p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.07em] text-ink">
+                WCAG 2.1 Contrast Engine
               </span>
-              <span className={`font-bold ${wcag.pass ? 'text-success' : 'text-danger'}`}>
-                {wcag.pass ? `✓ ${wcag.level}` : `⚠ ${wcag.level}`} ({minRatio.toFixed(1)}:1)
+              <span className="font-[var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.08em] text-ink-muted">
+                Relative luminance
               </span>
             </div>
-            <p className="mt-1 text-[11px] text-ink-muted">
-              {wcag.pass
-                ? 'Great contrast! Text and interactive elements meet WCAG accessibility standards.'
-                : 'Low contrast detected. Consider increasing brightness difference between text and backgrounds.'}
+            <div className="flex flex-col gap-2">
+              {contrastChecks.map((check) => (
+                <div
+                  key={check.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-small border border-decorative bg-surface px-3 py-2"
+                >
+                  <div>
+                    <div className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                      {check.label}
+                    </div>
+                    <div className="font-[var(--za-font-mono)] text-[0.6rem] text-ink-faint">
+                      {customPalette[check.foreground]} on {customPalette[check.background]}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-[var(--za-font-display)] text-sm font-bold text-ink">
+                      {check.ratio.toFixed(2)} : 1
+                    </div>
+                    <div
+                      className={cn(
+                        'font-[var(--za-font-mono)] text-[0.6rem] uppercase tracking-[0.06em]',
+                        check.wcag.pass ? 'text-success' : 'text-danger',
+                      )}
+                    >
+                      {check.wcag.pass ? '✓' : '⚠'} {check.wcag.level}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 font-[var(--za-font-serif-body)] text-[0.7rem] leading-[1.4] text-ink-muted">
+              These checks cover text/canvas, text/surface, and accent/onAccent. Gold remains a
+              decorative stamp and is not a save requirement.
             </p>
           </div>
 
@@ -264,7 +326,7 @@ export default function ThemeStudio({
               disabled={isSaving}
               className="za-button za-button--primary text-xs"
             >
-              <Sparkles size={13} className="mr-1" />
+              <Sparkles size={13} aria-hidden="true" />
               {isSaving ? 'Saving Palette…' : 'Save & Apply Palette'}
             </button>
           </div>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, CheckCircle2, ChevronRight, Tv } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock3, Tv } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { buildWeeklySchedule, ORDERED_DAYS, type DayOfWeek } from '@/lib/calendar';
 import type { MediaEntry, NextAirMap, UpdateMediaInput } from '@/types/media';
+import { cn } from '@/lib/cn';
 
 interface WeeklyCalendarModalProps {
   isOpen: boolean;
@@ -67,68 +68,81 @@ export default function WeeklyCalendarModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="weekly-calendar-modal-title"
-      contentClassName="flex max-w-6xl flex-col overflow-hidden p-0"
+      contentClassName="flex max-w-[72rem] flex-col overflow-hidden rounded-small p-0"
     >
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-decorative bg-surface-subtle p-4 md:px-6 md:py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-required bg-surface text-ink">
-            <Calendar size={20} strokeWidth={2} />
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-decorative bg-canvas px-4 py-5 sm:px-6">
+        <div className="flex items-start gap-3">
+          <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-required bg-surface text-accent shadow-raised">
+            <Calendar size={19} strokeWidth={1.75} aria-hidden="true" />
           </div>
           <div>
+            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
+              Broadcast Radar &amp; Schedule
+            </div>
             <h2
               id="weekly-calendar-modal-title"
-              className="text-lg font-[var(--za-weight-heading)] text-ink"
+              className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
             >
               Weekly Airing Schedule
             </h2>
-            <p className="text-xs text-ink-muted">
+            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
               {totalAiring} ongoing {totalAiring === 1 ? 'title' : 'titles'} airing in your
               watchlist
             </p>
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5">
+        <div
+          className="flex items-center gap-1 border-b border-decorative"
+          role="tablist"
+          aria-label="Calendar filters"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={filter === 'all'}
             onClick={() => setFilter('all')}
-            className={`rounded-small px-3 py-1 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+            className={cn(
+              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
               filter === 'all'
-                ? 'border border-required bg-surface text-ink'
-                : 'border border-transparent text-ink-muted hover:text-ink'
-            }`}
+                ? 'border-accent text-ink'
+                : 'border-transparent text-ink-muted hover:text-ink',
+            )}
           >
             All
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={filter === 'show'}
             onClick={() => setFilter('show')}
-            className={`rounded-small px-3 py-1 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+            className={cn(
+              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
               filter === 'show'
-                ? 'border border-required bg-surface text-ink'
-                : 'border border-transparent text-ink-muted hover:text-ink'
-            }`}
+                ? 'border-accent text-ink'
+                : 'border-transparent text-ink-muted hover:text-ink',
+            )}
           >
             Shows Only
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={filter === 'anime'}
             onClick={() => setFilter('anime')}
-            className={`rounded-small px-3 py-1 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+            className={cn(
+              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
               filter === 'anime'
-                ? 'border border-required bg-surface text-ink'
-                : 'border border-transparent text-ink-muted hover:text-ink'
-            }`}
+                ? 'border-accent text-ink'
+                : 'border-transparent text-ink-muted hover:text-ink',
+            )}
           >
             Anime Only
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* 7-Day Grid */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto bg-surface-subtle p-4 sm:p-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
           {ORDERED_DAYS.map((day) => {
             const isToday = day === todayName;
@@ -137,30 +151,33 @@ export default function WeeklyCalendarModal({
             return (
               <div
                 key={day}
-                className={`flex flex-col rounded-control border p-3 min-h-[14rem] transition-[colors] ${
-                  isToday
-                    ? 'border-accent bg-accent/5 ring-1 ring-accent/30'
-                    : 'border-decorative bg-surface-subtle'
-                }`}
+                className={cn(
+                  'flex min-h-[15rem] flex-col rounded-small border bg-surface p-3 transition-[border-color,box-shadow]',
+                  isToday ? 'border-accent shadow-gold' : 'border-decorative shadow-raised',
+                )}
               >
-                <div className="mb-2.5 flex items-center justify-between border-b border-decorative pb-2">
+                <div className="mb-3 flex items-center justify-between border-b border-decorative pb-2">
                   <span
-                    className={`text-xs font-[var(--za-weight-emphasis)] ${
-                      isToday ? 'text-accent' : 'text-ink'
-                    }`}
+                    className={cn(
+                      'font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em]',
+                      isToday ? 'text-accent' : 'text-ink',
+                    )}
                   >
-                    {day.slice(0, 3).toUpperCase()}
+                    {day.slice(0, 3)}
                   </span>
                   {isToday && (
-                    <span className="rounded-small bg-accent px-1.5 py-0.2 text-[9px] font-bold text-[var(--za-color-on-accent)]">
+                    <span className="rounded-small bg-accent px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.58rem] font-bold uppercase tracking-[0.06em] text-on-accent">
                       TODAY
                     </span>
                   )}
                 </div>
 
                 {items.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center text-center text-[11px] text-ink-muted/60">
-                    No releases
+                  <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-ink-muted/60">
+                    <Clock3 size={15} aria-hidden="true" />
+                    <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.06em]">
+                      No releases
+                    </span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -173,10 +190,21 @@ export default function WeeklyCalendarModal({
                             : 'Next Ep';
 
                       return (
-                        <div
+                        <article
                           key={media.id}
                           onClick={() => onOpenDetail?.(media)}
-                          className="group relative cursor-pointer rounded-small border border-decorative bg-surface p-2 shadow-xs transition-transform hover:-translate-y-0.5 hover:border-required"
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onOpenDetail?.(media);
+                            }
+                          }}
+                          role={onOpenDetail ? 'button' : undefined}
+                          tabIndex={onOpenDetail ? 0 : undefined}
+                          className={cn(
+                            'group relative rounded-small border border-decorative bg-surface-subtle p-2 shadow-raised transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-required',
+                            onOpenDetail && 'cursor-pointer',
+                          )}
                         >
                           <div className="flex items-start gap-2">
                             {media.coverImage ? (
@@ -188,17 +216,17 @@ export default function WeeklyCalendarModal({
                               />
                             ) : (
                               <div className="flex h-10 w-7 flex-none items-center justify-center rounded-xs bg-surface-subtle text-ink-muted">
-                                <Tv size={12} />
+                                <Tv size={12} aria-hidden="true" />
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="truncate text-xs font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
+                                className="truncate font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
                                 title={media.title}
                               >
                                 {media.title}
                               </h4>
-                              <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-muted">
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 font-[var(--za-font-mono)] text-[0.62rem] text-ink-muted">
                                 <span className="font-semibold text-accent">{epLabel}</span>
                                 {timeString !== 'TBA' && <span>· {timeString}</span>}
                               </div>
@@ -211,14 +239,14 @@ export default function WeeklyCalendarModal({
                               type="button"
                               disabled={updatingId === media.id}
                               onClick={(e) => handleQuickLog(media, e)}
-                              className="mt-2 flex w-full items-center justify-center gap-1 rounded-xs border border-decorative bg-surface-subtle py-0.5 text-[10px] font-medium text-ink-muted hover:border-accent hover:text-accent disabled:opacity-50"
+                              className="za-button za-button--primary mt-2 flex min-h-0 w-full gap-1 px-2 py-1 text-[0.65rem] disabled:opacity-50"
                               title="Mark watched / +1 episode"
                             >
-                              <CheckCircle2 size={10} />
+                              <CheckCircle2 size={11} aria-hidden="true" />
                               <span>+1 Ep</span>
                             </button>
                           )}
-                        </div>
+                        </article>
                       );
                     })}
                   </div>
@@ -229,8 +257,10 @@ export default function WeeklyCalendarModal({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-end border-t border-decorative bg-surface-subtle px-6 py-3">
+      <div className="flex items-center justify-between border-t border-decorative bg-canvas px-4 py-3 sm:px-6">
+        <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
+          One-click episode logging
+        </span>
         <button type="button" onClick={onClose} className="za-button za-button--secondary text-xs">
           Close Calendar
         </button>

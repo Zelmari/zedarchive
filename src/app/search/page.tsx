@@ -50,8 +50,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       </header>
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 py-8">
-        <div className="za-container">
+      <main id="main-content" className="flex-1 py-10">
+        <div className="za-container max-w-5xl">
           <SearchResultsClient initialQuery={query} initialResults={results} />
         </div>
       </main>

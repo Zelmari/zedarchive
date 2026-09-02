@@ -17,7 +17,7 @@ interface UnitStepperRowProps {
 }
 
 export const stepperBtn =
-  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-flex min-h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 self-stretch cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface font-[family-name:var(--za-font-mono)] font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Dashed-top row with "Season X of Y" text and mini chevron steppers. */
 export default function UnitStepperRow({
@@ -36,16 +36,15 @@ export default function UnitStepperRow({
 
   const prevDisabled = disabled || (canPrev !== undefined ? !canPrev : current <= 1);
   const nextDisabled = disabled || (canNext !== undefined ? !canNext : current >= total);
+  const unitText = `${unitLabel} ${current} of ${total}`;
 
   return (
     <div className="flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted">
-      <span>
-        {unitLabel} {current} of {total}
-      </span>
+      <span className="font-[family-name:var(--za-font-mono)]">{unitText}</span>
       <div className="flex items-center gap-[var(--za-space-1)]">
         <button
           type="button"
-          className={miniBtn}
+          className={`${miniBtn} font-[family-name:var(--za-font-mono)]`}
           onClick={() => onChange(-1)}
           disabled={prevDisabled}
           title={prevTitle ?? `Previous ${unitLabel.toLowerCase()}`}

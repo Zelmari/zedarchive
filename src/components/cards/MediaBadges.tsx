@@ -13,6 +13,8 @@ interface MediaBadgesProps {
   droppedProgressPrimary?: number | null;
   droppedProgressSecondary?: number | null;
   priorityIndex?: number | null;
+  showStatus?: boolean;
+  showRating?: boolean;
 }
 
 export default function MediaBadges({
@@ -27,6 +29,8 @@ export default function MediaBadges({
   droppedProgressPrimary,
   droppedProgressSecondary,
   priorityIndex,
+  showStatus = true,
+  showRating = true,
 }: MediaBadgesProps) {
   const bookish = category === 'book' || category === 'manga';
   const isMovie = category === 'movie';
@@ -49,17 +53,19 @@ export default function MediaBadges({
       {priorityIndex != null && (
         <span
           title={`Rank #${priorityIndex} in Up Next Queue`}
-          className="inline-flex items-center gap-0.5 rounded-small border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-accent"
+          className="inline-flex items-center gap-0.5 rounded-small border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-accent"
         >
-          ⚡ #{priorityIndex}
+          Up Next #{priorityIndex}
         </span>
       )}
-      <StatusBadge
-        status={status}
-        label={droppedMilestoneText || statusLabel}
-        title={status === 'dropped' && dropReason ? `Reason: "${dropReason}"` : undefined}
-      />
-      {rating != null && <RatingBadge rating={rating} />}
+      {showStatus && (
+        <StatusBadge
+          status={status}
+          label={droppedMilestoneText || statusLabel}
+          title={status === 'dropped' && dropReason ? `Reason: "${dropReason}"` : undefined}
+        />
+      )}
+      {showRating && rating != null && <RatingBadge rating={rating} />}
       {!bookish && !isMovie && (
         <Badge>
           S{primaryUnitCurrent}
@@ -78,11 +84,26 @@ export default function MediaBadges({
                 ? 'Book'
                 : 'TV Series'}
       </Badge>
-      {tags.slice(0, 2).map((t) => (
-        <Badge key={t} className="text-[0.68rem]">
-          #{t}
-        </Badge>
-      ))}
+      {tags.length > 0 && (
+        <div className="flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pt-1">
+          {tags.map((t) => (
+            <span
+              key={t}
+              className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint"
+            >
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
+      {status === 'dropped' && (
+        <div className="basis-full border-l-2 border-danger bg-danger-surface px-[var(--za-space-3)] py-[var(--za-space-2)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic leading-[var(--za-leading-body)] text-danger">
+          <span className="font-[family-name:var(--za-font-mono)] font-[var(--za-weight-emphasis)] not-italic uppercase tracking-[0.08em]">
+            DNF
+          </span>
+          <span className="ml-1.5">{dropReason || droppedMilestoneText || 'Dropped'}</span>
+        </div>
+      )}
     </div>
   );
 }

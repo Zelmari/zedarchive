@@ -11,8 +11,8 @@ export default function Error({
 }) {
   return (
     <ErrorFallback
-      title="Something went wrong"
-      message="An unexpected error occurred while loading this page."
+      title="The archive was interrupted"
+      message="The catalogue could not complete this request. Try again or return to the archive."
       error={error}
       reset={reset}
     />

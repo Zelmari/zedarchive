@@ -1,20 +1,21 @@
 export default function DashboardLoading() {
   return (
     <div
-      className="min-h-screen bg-canvas text-ink animate-pulse"
+      className="min-h-screen bg-canvas text-ink"
       aria-busy="true"
       aria-label="Loading dashboard"
     >
       {/* Header skeleton */}
-      <header className="sticky top-0 z-30 border-b border-required bg-surface shadow-raised">
-        <div className="za-container flex h-14 items-center justify-between">
+      <header className="za-site-header">
+        <div className="za-container za-container--wide za-site-header__inner">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-small bg-surface-subtle" />
-            <div className="h-5 w-24 rounded-small bg-surface-subtle" />
+            <div className="h-9 w-9 animate-pulse rounded-small bg-surface-subtle" />
+            <div className="h-6 w-32 animate-pulse rounded-small bg-surface-subtle" />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-28 rounded-control bg-surface-subtle" />
-            <div className="h-8 w-8 rounded-full bg-surface-subtle" />
+          <div className="flex flex-wrap items-center gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-9 w-20 animate-pulse rounded-small bg-surface-subtle" />
+            ))}
           </div>
         </div>
       </header>
@@ -22,23 +23,20 @@ export default function DashboardLoading() {
       {/* Main content skeleton */}
       <main className="za-container py-[var(--za-space-6)]">
         {/* Filter bar skeleton */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="za-bookplate mb-6 flex animate-pulse flex-wrap items-center justify-between gap-4 p-4">
           <div className="flex gap-2">
-            <div className="h-9 w-20 rounded-control bg-surface-subtle" />
-            <div className="h-9 w-20 rounded-control bg-surface-subtle" />
-            <div className="h-9 w-20 rounded-control bg-surface-subtle" />
+            <div className="h-9 w-20 rounded-small bg-surface-sunken" />
+            <div className="h-9 w-20 rounded-small bg-surface-sunken" />
+            <div className="h-9 w-20 rounded-small bg-surface-sunken" />
           </div>
-          <div className="h-9 w-48 rounded-control bg-surface-subtle" />
+          <div className="h-9 w-48 rounded-small bg-surface-sunken" />
         </div>
 
         {/* Media grid skeleton */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-2 rounded-control border border-required bg-surface p-3 shadow-raised"
-            >
-              <div className="aspect-[2/3] w-full rounded-small bg-surface-subtle" />
+            <div key={i} className="za-bookplate flex animate-pulse flex-col gap-2 p-3">
+              <div className="aspect-[2/3] w-full rounded-small bg-surface-sunken" />
               <div className="h-4 w-3/4 rounded-small bg-surface-subtle" />
               <div className="h-3 w-1/2 rounded-small bg-surface-subtle" />
             </div>

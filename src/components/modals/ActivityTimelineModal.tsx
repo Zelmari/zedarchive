@@ -91,13 +91,13 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
   const getActionIcon = (type: string) => {
     switch (type) {
       case 'completed':
-        return <CheckCircle size={14} style={{ color: '#2e7d32' }} />;
+        return <CheckCircle size={14} className="text-success" aria-hidden="true" />;
       case 'rewatch':
-        return <RotateCcw size={14} style={{ color: '#d97706' }} />;
+        return <RotateCcw size={14} className="text-warning" aria-hidden="true" />;
       case 'rating':
-        return <Star size={14} style={{ color: '#b45309' }} fill="currentColor" />;
+        return <Star size={14} className="text-gold" fill="currentColor" aria-hidden="true" />;
       default:
-        return <Clock size={14} style={{ color: 'var(--za-color-text-muted)' }} />;
+        return <Clock size={14} className="text-ink-muted" aria-hidden="true" />;
     }
   };
 
@@ -108,101 +108,116 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
       labelledBy="activity-modal-title"
       title="Activity & Habits"
       icon={<ActivityIcon size={18} />}
-      contentStyle={{
-        maxWidth: '36rem',
-        maxHeight: '85vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      contentClassName="flex max-h-[90vh] max-w-[58rem] flex-col overflow-hidden"
     >
-      <div className="flex-1 overflow-y-auto px-[var(--za-space-6)] py-[var(--za-space-4)]">
-        {/* Yearly Activity Heatmap */}
-        <ActivityHeatmap activityMap={heatmapData} className="mb-[var(--za-space-4)]" />
-
-        {/* Streak Banner */}
-        <div
-          className="mb-[var(--za-space-4)] flex items-center justify-between rounded-control border p-[var(--za-space-4)]"
-          style={{
-            background: streak > 0 ? 'rgba(217, 119, 6, 0.08)' : 'var(--za-color-surface-subtle)',
-            borderColor:
-              streak > 0 ? 'rgba(217, 119, 6, 0.3)' : 'var(--za-color-border-decorative)',
-            borderWidth: 'var(--za-border-width)',
-            borderStyle: 'solid',
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Flame size={20} className={streak > 0 ? 'text-warning' : 'text-ink-muted'} />
-            <div>
-              <div
-                className={cn(
-                  'text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)]',
-                  streak > 0 ? 'text-warning' : 'text-ink',
-                )}
-              >
-                {streak > 0 ? `${streak} Day Active Streak` : 'No active streak'}
-              </div>
-              <div className="text-[length:var(--za-text-fine)] text-ink-muted">
-                {streak > 0
-                  ? 'Keep logging daily to build your habit!'
-                  : 'Log an episode or chapter today to start a streak.'}
-              </div>
-            </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="border-b border-decorative bg-canvas px-[var(--za-space-6)] py-[var(--za-space-5)]">
+          <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
+            52-Week Archival Heatmap
           </div>
-          <div
-            className={cn(
-              'text-[1.4rem] font-bold',
-              streak > 0 ? 'text-warning' : 'text-ink-muted',
-            )}
-          >
-            {streak}
+          <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+            Reading &amp; Watching Velocity
           </div>
+          <p className="mt-1 max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+            A year of activity logging, arranged as a quiet record of your archive practice.
+          </p>
         </div>
 
-        {/* Activity Stream */}
-        {loading ? (
-          <div className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
-            Loading activity timeline...
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
-            No logged activities yet. Increment an episode or chapter on any card to see your
-            history here!
-          </div>
-        ) : (
-          <div className="flex flex-col gap-[var(--za-space-4)]">
-            {Object.entries(groupedLogs).map(([dateLabel, groupItems]) => (
-              <div key={dateLabel}>
-                <div className="mb-[var(--za-space-2)] text-[0.75rem] font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-ink-muted">
-                  {dateLabel}
+        <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
+          <ActivityHeatmap activityMap={heatmapData} className="mb-[var(--za-space-5)]" />
+
+          {/* Streak Banner */}
+          <div
+            className={cn(
+              'mb-[var(--za-space-5)] flex items-center justify-between rounded-small border p-[var(--za-space-4)]',
+              streak > 0
+                ? 'border-warning bg-warning-surface'
+                : 'border-decorative bg-surface-subtle',
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <Flame
+                size={21}
+                className={streak > 0 ? 'text-warning' : 'text-ink-muted'}
+                aria-hidden="true"
+              />
+              <div>
+                <div
+                  className={cn(
+                    'font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.05em]',
+                    streak > 0 ? 'text-warning' : 'text-ink',
+                  )}
+                >
+                  {streak > 0 ? `${streak} Day Active Streak` : 'No active streak'}
                 </div>
-                <div className="flex flex-col gap-[0.35rem]">
-                  {groupItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between rounded-small border border-decorative bg-surface-subtle px-[0.65rem] py-[0.45rem] text-[length:var(--za-text-fine)]"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        {getActionIcon(item.actionType)}
-                        <span className="truncate">{formatActionMessage(item)}</span>
-                      </div>
-                      <span className="ml-2 shrink-0 text-[0.7rem] text-ink-muted">
-                        {new Date(item.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                  ))}
+                <div className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+                  {streak > 0
+                    ? 'Keep logging daily to build your habit.'
+                    : 'Log an episode or chapter today to start a streak.'}
                 </div>
               </div>
-            ))}
+            </div>
+            <div
+              className={cn(
+                'font-[var(--za-font-display)] text-[1.6rem] font-bold',
+                streak > 0 ? 'text-warning' : 'text-ink-muted',
+              )}
+            >
+              {streak}
+            </div>
           </div>
-        )}
 
-        <div className="mt-[var(--za-space-5)] flex justify-end">
-          <button type="button" className="za-button za-button--secondary" onClick={onClose}>
-            Close
-          </button>
+          {/* Activity Stream */}
+          <div className="mb-[var(--za-space-2)] font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.1em] text-ink">
+            Recent Entries
+          </div>
+          {loading ? (
+            <div className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+              Loading activity timeline...
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="rounded-small border border-dashed border-decorative bg-surface-subtle px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+              No logged activities yet. Increment an episode or chapter on any card to see your
+              history here.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[var(--za-space-4)]">
+              {Object.entries(groupedLogs).map(([dateLabel, groupItems]) => (
+                <div key={dateLabel}>
+                  <div className="mb-[var(--za-space-2)] font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+                    {dateLabel}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {groupItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between rounded-small border border-decorative border-l-2 border-l-accent bg-surface-subtle px-3 py-2 text-[length:var(--za-text-fine)] shadow-raised"
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          {getActionIcon(item.actionType)}
+                          <span className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                            {formatActionMessage(item)}
+                          </span>
+                        </div>
+                        <span className="ml-2 shrink-0 font-[var(--za-font-mono)] text-[0.62rem] text-ink-muted">
+                          {new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-[var(--za-space-5)] flex justify-end border-t border-decorative pt-[var(--za-space-4)]">
+            <button type="button" className="za-button za-button--secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

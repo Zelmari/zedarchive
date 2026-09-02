@@ -3,6 +3,7 @@ import {
   getIncomingFriendRequests,
   getOutgoingFriendRequests,
 } from '@/server/queries/friends';
+import { getUserProfileById } from '@/server/queries/user';
 import { requireSession } from '@/server/internal';
 import { Layers, MessageSquare } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
@@ -16,10 +17,11 @@ export const metadata = {
 export default async function FriendsPage() {
   const session = await requireSession();
 
-  const [friends, incoming, outgoing] = await Promise.all([
+  const [friends, incoming, outgoing, profile] = await Promise.all([
     getAcceptedFriends(session.id),
     getIncomingFriendRequests(session.id),
     getOutgoingFriendRequests(session.id),
+    getUserProfileById(session.id),
   ]);
 
   return (
@@ -29,19 +31,38 @@ export default async function FriendsPage() {
           { label: 'Dashboard', href: '/dashboard', icon: Layers },
           { label: 'Groups', href: '/groups', icon: MessageSquare },
         ]}
+        actions={
+          <span className="hidden font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint md:inline">
+            Social ledger · {friends.length} companions
+          </span>
+        }
       />
-      <main id="main-content" className="flex-1 py-8">
-        <div className="za-container max-w-4xl">
-          <div className="mb-6">
-            <h1 className="text-2xl font-[var(--za-weight-heading)] text-ink">Friends</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              Manage friendships and discover fellow archivists.
+      <main id="main-content" className="flex-1 py-10">
+        <div className="za-container max-w-5xl">
+          <div className="mb-8 border-b border-decorative pb-6">
+            <p className="mb-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
+              The social ledger · correspondence &amp; trust
             </p>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                  Friends
+                </h1>
+                <p className="mt-2 max-w-xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+                  Keep company with fellow archivists. Requests, accepted companions, and new
+                  discoveries are kept here in one quiet register.
+                </p>
+              </div>
+              <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-ink-faint">
+                {incoming.length} incoming · {outgoing.length} outgoing
+              </div>
+            </div>
           </div>
           <FriendsClient
             initialFriends={friends}
             initialIncoming={incoming}
             initialOutgoing={outgoing}
+            currentUsername={profile?.username ?? session.username ?? null}
           />
         </div>
       </main>

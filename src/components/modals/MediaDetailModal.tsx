@@ -7,24 +7,26 @@ import {
   RotateCcw,
   Tag,
   FileText,
+  Film,
   Tv,
   BookOpen,
   BookmarkX,
-  Plus,
   Trash2,
   Check,
   ExternalLink,
   Quote,
   Copy,
+  X,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
-import { Badge, RatingBadge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { pillClass } from '@/components/ui/media-controls';
+import { STATUS_OPTIONS } from '@/lib/constants';
 import { formatDisplayDate, getTileInitials, pageToPercent } from '@/lib/format';
 import { seasonTotal } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
-import type { MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
+import type { MediaCategory, MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
 import type { WatchProviderItem, WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
 import {
@@ -54,7 +56,7 @@ function ProviderChips({ label, providers, link, titlePrefix }: ProviderChipsPro
 
   return (
     <div className="mt-2">
-      <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+      <div className="mb-1 font-[var(--za-font-mono)] text-[10px] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-ink-muted">
         {label}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -79,6 +81,334 @@ function ProviderChips({ label, providers, link, titlePrefix }: ProviderChipsPro
   );
 }
 
+interface ProviderAvailabilityProps {
+  isBookLike: boolean;
+  providersCountry: string;
+  providersLoading: boolean;
+  watchProviders: WatchProvidersResult | null;
+}
+
+function ProviderAvailability({
+  isBookLike,
+  providersCountry,
+  providersLoading,
+  watchProviders,
+}: ProviderAvailabilityProps) {
+  if (isBookLike) return null;
+
+  const hasProviders = Boolean(
+    watchProviders?.flatrate?.length ||
+    watchProviders?.free?.length ||
+    watchProviders?.rent?.length ||
+    watchProviders?.buy?.length,
+  );
+
+  return (
+    <div className="mt-[var(--za-space-5)] border-t border-dashed border-decorative pt-[var(--za-space-4)]">
+      <div className="mb-2 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
+        Where to watch
+        {providersCountry ? (
+          <span className="ml-1 font-[var(--za-font-mono)] text-ink-muted">
+            · {providersCountry}
+          </span>
+        ) : null}
+      </div>
+      {providersLoading && (
+        <p className="text-xs text-ink-muted" role="status">
+          Checking providers…
+        </p>
+      )}
+      {!providersLoading && !hasProviders && (
+        <p className="text-xs leading-[var(--za-leading-body)] text-ink-muted">
+          No streaming providers detected for this title in {providersCountry}.
+        </p>
+      )}
+
+      <ProviderChips
+        label="Stream on subscription:"
+        providers={watchProviders?.flatrate}
+        link={watchProviders?.link}
+        titlePrefix="Stream on"
+      />
+      <ProviderChips
+        label="Free / with ads:"
+        providers={watchProviders?.free}
+        link={watchProviders?.link}
+        titlePrefix="Watch free on"
+      />
+      <ProviderChips
+        label="Rent:"
+        providers={watchProviders?.rent}
+        link={watchProviders?.link}
+        titlePrefix="Rent on"
+      />
+      <ProviderChips
+        label="Buy:"
+        providers={watchProviders?.buy}
+        link={watchProviders?.link}
+        titlePrefix="Buy on"
+      />
+
+      {watchProviders?.link && (
+        <div className="mt-2.5 flex items-center justify-between gap-2 text-[10px] text-ink-muted">
+          <span>Powered by JustWatch</span>
+          <a
+            href={watchProviders.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="za-link inline-flex items-center gap-0.5"
+          >
+            View all rent &amp; buy options <ExternalLink size={10} />
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type CycleFormState = {
+  startedAt: string;
+  completedAt: string;
+  rating: number | null;
+  notes: string;
+};
+
+interface CycleLedgerProps {
+  cycles: MediaCycle[];
+  isBookLike: boolean;
+  editingCycleId: string | 'new' | null;
+  cycleForm: CycleFormState;
+  isUpdating: boolean;
+  onCycleFormChange: (updater: (previous: CycleFormState) => CycleFormState) => void;
+  onOpenAddCycle: () => void;
+  onOpenEditCycle: (cycle: MediaCycle) => void;
+  onSaveCycle: () => void;
+  onCancelCycle: () => void;
+  onDeleteCycle: (cycleId: string) => void;
+  onStartNewCycle: () => void;
+}
+
+function CycleLedger({
+  cycles,
+  isBookLike,
+  editingCycleId,
+  cycleForm,
+  isUpdating,
+  onCycleFormChange,
+  onOpenAddCycle,
+  onOpenEditCycle,
+  onSaveCycle,
+  onCancelCycle,
+  onDeleteCycle,
+  onStartNewCycle,
+}: CycleLedgerProps) {
+  return (
+    <div className="border-t border-dashed border-decorative pt-[var(--za-space-4)]">
+      <div className="mb-[var(--za-space-2)] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
+          <RotateCcw size={12} />
+          {isBookLike ? 'Reread cycles' : 'Rewatch cycles'}
+        </div>
+        <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-ink-muted">
+          {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'}
+        </span>
+      </div>
+
+      <div className="space-y-1.5">
+        {cycles.map((cycle) => {
+          const isOriginal = cycle.cycleNumber === 1;
+
+          return (
+            <div
+              key={cycle.id}
+              className="rounded-small border border-decorative bg-surface-subtle p-2.5 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-[var(--za-weight-emphasis)] text-ink">
+                  {isOriginal
+                    ? 'Cycle 1 (Original)'
+                    : `Cycle ${cycle.cycleNumber} (${isBookLike ? 'Reread' : 'Rewatch'} ${cycle.cycleNumber - 1})`}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  {cycle.rating != null && (
+                    <span className="font-[var(--za-font-mono)] text-[10px] font-bold text-gold-dark">
+                      ★ {cycle.rating}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onOpenEditCycle(cycle)}
+                    title="Edit cycle"
+                    aria-label={`Edit cycle ${cycle.cycleNumber}`}
+                    className="cursor-pointer rounded-small p-1 text-ink-muted hover:bg-surface hover:text-ink"
+                  >
+                    <Pencil size={11} />
+                  </button>
+                  {cycles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteCycle(cycle.id)}
+                      title="Delete cycle"
+                      aria-label={`Delete cycle ${cycle.cycleNumber}`}
+                      className="cursor-pointer rounded-small p-1 text-ink-muted hover:bg-danger-surface hover:text-danger"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-0.5 text-[11px] text-ink-muted">
+                {formatDisplayDate(cycle.startedAt)} →{' '}
+                {cycle.completedAt ? (
+                  formatDisplayDate(cycle.completedAt)
+                ) : (
+                  <span className="font-[var(--za-weight-emphasis)] text-accent">In Progress</span>
+                )}
+              </div>
+
+              {cycle.notes && (
+                <p className="mt-1 text-[11px] italic text-ink-muted">
+                  &ldquo;{cycle.notes}&rdquo;
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {editingCycleId && (
+        <div className="mt-2 rounded-small border border-required bg-surface p-2.5 text-xs">
+          <div className="mb-1.5 font-[var(--za-weight-emphasis)] text-ink">
+            {editingCycleId === 'new' ? 'Log Past Cycle' : 'Edit Cycle'}
+          </div>
+          <div className="space-y-1.5">
+            <div>
+              <label className="block text-[10px] text-ink-muted" htmlFor="cycle-start-date">
+                Start Date
+              </label>
+              <input
+                id="cycle-start-date"
+                type="date"
+                className="za-field text-xs"
+                value={cycleForm.startedAt}
+                onChange={(event) =>
+                  onCycleFormChange((previous) => ({
+                    ...previous,
+                    startedAt: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-ink-muted" htmlFor="cycle-finish-date">
+                Finish Date (Optional)
+              </label>
+              <input
+                id="cycle-finish-date"
+                type="date"
+                className="za-field text-xs"
+                value={cycleForm.completedAt}
+                onChange={(event) =>
+                  onCycleFormChange((previous) => ({
+                    ...previous,
+                    completedAt: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-ink-muted" htmlFor="cycle-rating">
+                Rating (1–10, Optional)
+              </label>
+              <input
+                id="cycle-rating"
+                type="number"
+                min={1}
+                max={10}
+                placeholder="e.g. 9"
+                className="za-field text-xs"
+                value={cycleForm.rating ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value ? parseInt(event.target.value, 10) : null;
+                  onCycleFormChange((previous) => ({ ...previous, rating: value }));
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-ink-muted" htmlFor="cycle-notes">
+                Notes (Optional)
+              </label>
+              <input
+                id="cycle-notes"
+                type="text"
+                placeholder="e.g. Rewatched with friends"
+                className="za-field text-xs"
+                value={cycleForm.notes}
+                onChange={(event) =>
+                  onCycleFormChange((previous) => ({
+                    ...previous,
+                    notes: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="flex justify-end gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={onCancelCycle}
+                className="za-button za-button--secondary min-h-0 px-2 py-0.5 text-xs"
+                disabled={isUpdating}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onSaveCycle}
+                disabled={isUpdating}
+                className="za-button za-button--primary min-h-0 px-2 py-0.5 text-xs"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2.5 flex flex-col gap-1.5">
+        <button
+          type="button"
+          className="za-button za-button--secondary w-full text-xs"
+          onClick={onStartNewCycle}
+          disabled={isUpdating}
+        >
+          <RotateCcw size={12} />
+          {isBookLike ? 'Start New Reread' : 'Start New Rewatch'}
+        </button>
+        {!editingCycleId && (
+          <button
+            type="button"
+            className="za-button za-button--secondary min-h-0 py-1 text-xs"
+            onClick={onOpenAddCycle}
+            disabled={isUpdating}
+          >
+            + Log Past Cycle Date
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getStatusLabel(status: string, category: MediaCategory): string {
+  if (status === 'completed' && category === 'movie') return 'Watched';
+  if (status === 'planning') {
+    if (category === 'movie') return 'Plan to Watch';
+    if (category === 'book' || category === 'manga') return 'Plan to Read';
+  }
+  return status.replace('_', ' ');
+}
+
 function toDateInputVal(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -97,15 +427,11 @@ export default function MediaDetailModal({
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDropReasonOpen, setIsDropReasonOpen] = useState(false);
+  const [isSelectingDroppedStatus, setIsSelectingDroppedStatus] = useState(false);
 
   // Cycle management state
   const [editingCycleId, setEditingCycleId] = useState<string | 'new' | null>(null);
-  const [cycleForm, setCycleForm] = useState<{
-    startedAt: string;
-    completedAt: string;
-    rating: number | null;
-    notes: string;
-  }>({
+  const [cycleForm, setCycleForm] = useState<CycleFormState>({
     startedAt: '',
     completedAt: '',
     rating: null,
@@ -144,6 +470,8 @@ export default function MediaDetailModal({
     setProvidersLoading(false);
     setFillerFilter('all');
     setProvidersCountry('US');
+    setIsSelectingDroppedStatus(false);
+    setIsDropReasonOpen(false);
   }, [item?.id]);
 
   useEffect(() => {
@@ -208,9 +536,11 @@ export default function MediaDetailModal({
 
   const category = item.category || 'show';
   const isBookLike = category === 'book' || category === 'manga';
+  const isMovie = category === 'movie';
   const status = item.status || 'in_progress';
   const rating = item.rating;
   const tags = Array.isArray(item.tags) ? item.tags : [];
+  const genres = Array.isArray(item.genres) ? item.genres : [];
   const cycles: MediaCycle[] =
     Array.isArray(item.cycles) && item.cycles.length > 0
       ? item.cycles
@@ -238,6 +568,25 @@ export default function MediaDetailModal({
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleRatingChange = (nextRating: number) => {
+    void runUpdate({ rating: rating === nextRating ? null : nextRating });
+  };
+
+  const handleStatusChange = (nextStatus: string) => {
+    if (nextStatus === status) return;
+    if (nextStatus === 'dropped') {
+      setIsSelectingDroppedStatus(true);
+      setIsDropReasonOpen(true);
+      return;
+    }
+    void runUpdate({ status: nextStatus });
+  };
+
+  const openDropReason = () => {
+    setIsSelectingDroppedStatus(false);
+    setIsDropReasonOpen(true);
   };
 
   const handleStartRewatch = async () => {
@@ -423,47 +772,115 @@ export default function MediaDetailModal({
   const hasFillerOrRecap = fillerCount > 0;
 
   const sectionLabel =
-    'mb-1 flex items-center gap-1 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted';
+    'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="media-detail-title"
-      header={
-        <div className="flex min-w-0 items-center gap-[0.6rem]">
-          {isBookLike ? <BookOpen size={20} /> : <Tv size={20} />}
-          <h2
-            id="media-detail-title"
-            className="truncate text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
-          >
-            {item.title}
-          </h2>
-        </div>
-      }
-      contentStyle={{ maxWidth: '44rem', maxHeight: '90vh', overflowY: 'auto' }}
+      ariaLabel="Media detail folio"
+      contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
     >
-      <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
-        <div className="grid gap-[var(--za-space-5)] [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
+      <div className="relative">
+        <button
+          type="button"
+          aria-label="Close modal"
+          onClick={onClose}
+          className="za-modal-close absolute right-[var(--za-space-4)] top-[var(--za-space-4)] z-10"
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
+
+        <div className="za-folio-spread">
           {/* Left Column */}
-          <div>
-            <div className="mx-auto aspect-[2/3] w-full max-w-[14rem] overflow-hidden rounded-control border border-required bg-surface-subtle">
-              {item.coverImage ? (
-                // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
-                <img
-                  src={item.coverImage}
-                  alt={item.title}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center font-bold text-[1.5rem]">
-                  {getTileInitials(item.title)}
-                </div>
-              )}
+          <aside className="min-w-0 bg-canvas p-[var(--za-space-6)] md:border-r md:border-decorative">
+            <div className="mx-auto w-full max-w-[18rem] border border-required bg-surface p-2 shadow-raised">
+              <div className="aspect-[2/3] overflow-hidden border border-decorative bg-surface-subtle">
+                {item.coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
+                  <img
+                    src={item.coverImage}
+                    alt={item.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center font-bold text-[1.5rem]">
+                    {getTileInitials(item.title)}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Status & Rating Pills */}
-            <div className="mt-[var(--za-space-3)] flex flex-wrap justify-center gap-[0.4rem]">
+            {/* Gold-foil rating selector */}
+            <div
+              className="mt-[var(--za-space-4)] rounded-small border border-decorative bg-surface p-2.5 shadow-raised"
+              aria-label="Personal rating"
+            >
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted">
+                  Rating
+                </span>
+                <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-gold-dark">
+                  {rating != null ? `${rating}/10★` : 'Unrated'}
+                </span>
+              </div>
+              <div
+                className="flex flex-wrap gap-0.5"
+                role="radiogroup"
+                aria-label="Rating from 1 to 10"
+              >
+                {Array.from({ length: 10 }, (_, index) => {
+                  const score = index + 1;
+                  const isRated = rating != null && score <= rating;
+                  return (
+                    <button
+                      key={score}
+                      type="button"
+                      role="radio"
+                      aria-checked={rating === score}
+                      aria-label={`Rate ${score} out of 10`}
+                      title={`Rate ${score} out of 10`}
+                      onClick={() => handleRatingChange(score)}
+                      disabled={isUpdating}
+                      className={`flex h-7 w-6 cursor-pointer items-center justify-center rounded-small border text-gold transition-[all] duration-[var(--za-motion-fast)] hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed ${
+                        isRated ? 'border-gold/50 bg-gold/10' : 'border-transparent'
+                      }`}
+                    >
+                      <Star size={14} fill={isRated ? 'currentColor' : 'none'} strokeWidth={1.75} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Status and priority */}
+            <div className="mt-[var(--za-space-4)]">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label
+                  htmlFor="detail-status"
+                  className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted"
+                >
+                  Catalogue status
+                </label>
+                <StatusBadge status={status} label={getStatusLabel(status, category)} />
+              </div>
+              <select
+                id="detail-status"
+                value={status}
+                onChange={(event) => handleStatusChange(event.target.value)}
+                disabled={isUpdating}
+                className="za-field"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-[var(--za-space-3)]">
               <button
                 type="button"
                 onClick={async () => {
@@ -474,10 +891,8 @@ export default function MediaDetailModal({
                     console.error('Failed to toggle priority queue:', err);
                   }
                 }}
-                className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] duration-[var(--za-motion-fast)] ${
-                  item.priorityIndex != null
-                    ? 'border-accent bg-accent/20 font-[var(--za-weight-emphasis)] text-accent'
-                    : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
+                className={`za-button w-full text-xs ${
+                  item.priorityIndex != null ? 'za-button--selected' : 'za-button--secondary'
                 }`}
                 title={
                   item.priorityIndex != null
@@ -489,190 +904,14 @@ export default function MediaDetailModal({
                   ? `⚡ Up Next #${item.priorityIndex}`
                   : '+ Add to Up Next'}
               </button>
-              <Badge className="capitalize">{status.replace('_', ' ')}</Badge>
-              {rating != null && <RatingBadge rating={rating} />}
-              <Badge>
-                {isBookLike
-                  ? `Vol ${primaryCurrent}/${primaryTotal}`
-                  : `Season ${primaryCurrent}/${primaryTotal}`}
-              </Badge>
             </div>
 
-            {/* Rewatch / Reread Tracker & Timeline */}
-            <div className="mt-[var(--za-space-4)] rounded-control bg-surface-subtle p-[var(--za-space-3)]">
-              <div className="flex items-center justify-between">
-                <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted">
-                  {isBookLike ? 'REREAD HISTORY' : 'REWATCH HISTORY'}
-                </div>
-                <span className="text-xs font-[var(--za-weight-emphasis)] text-ink">
-                  {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'}
-                </span>
-              </div>
-
-              {/* Cycle Timeline List */}
-              <div className="mt-2 space-y-1.5 text-left">
-                {cycles.map((c) => {
-                  const isOriginal = c.cycleNumber === 1;
-
-                  return (
-                    <div
-                      key={c.id}
-                      className="rounded-small border border-decorative bg-surface p-2 text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-[var(--za-weight-emphasis)] text-ink">
-                          {isOriginal
-                            ? 'Cycle 1 (Original)'
-                            : `Cycle ${c.cycleNumber} (${isBookLike ? 'Reread' : 'Rewatch'} ${c.cycleNumber - 1})`}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {c.rating != null && (
-                            <span className="text-[10px] font-bold text-[#b45309]">
-                              ★ {c.rating}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditCycle(c)}
-                            title="Edit cycle"
-                            className="cursor-pointer rounded p-0.5 text-ink-muted hover:text-ink"
-                          >
-                            <Pencil size={11} />
-                          </button>
-                          {cycles.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCycle(c.id)}
-                              title="Delete cycle"
-                              className="cursor-pointer rounded p-0.5 text-danger/70 hover:text-danger"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-0.5 text-[11px] text-ink-muted">
-                        {formatDisplayDate(c.startedAt)} →{' '}
-                        {c.completedAt ? (
-                          formatDisplayDate(c.completedAt)
-                        ) : (
-                          <span className="font-[var(--za-weight-emphasis)] text-accent">
-                            In Progress
-                          </span>
-                        )}
-                      </div>
-
-                      {c.notes && (
-                        <p className="mt-1 text-[11px] text-ink-muted italic">
-                          &ldquo;{c.notes}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Inline Cycle Editor Form */}
-              {editingCycleId && (
-                <div className="mt-2 rounded-small border border-required bg-surface p-2 text-left text-xs">
-                  <div className="mb-1.5 font-[var(--za-weight-emphasis)] text-ink">
-                    {editingCycleId === 'new' ? 'Log Past Cycle' : 'Edit Cycle'}
-                  </div>
-                  <div className="space-y-1.5">
-                    <div>
-                      <label className="block text-[10px] text-ink-muted">Start Date</label>
-                      <input
-                        type="date"
-                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
-                        value={cycleForm.startedAt}
-                        onChange={(e) => setCycleForm((p) => ({ ...p, startedAt: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-ink-muted">
-                        Finish Date (Optional)
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
-                        value={cycleForm.completedAt}
-                        onChange={(e) =>
-                          setCycleForm((p) => ({ ...p, completedAt: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-ink-muted">
-                        Rating (1–10, Optional)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        placeholder="e.g. 9"
-                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
-                        value={cycleForm.rating ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value, 10) : null;
-                          setCycleForm((p) => ({ ...p, rating: val }));
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-ink-muted">Notes (Optional)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Rewatched with friends"
-                        className="w-full rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-required focus:outline-none"
-                        value={cycleForm.notes}
-                        onChange={(e) => setCycleForm((p) => ({ ...p, notes: e.target.value }))}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditingCycleId(null)}
-                        className="cursor-pointer rounded-small border border-decorative px-2 py-0.5 text-xs text-ink-muted hover:text-ink"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveCycle}
-                        disabled={isUpdating}
-                        className="cursor-pointer rounded-small border border-required bg-surface px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] text-ink hover:bg-surface-hover"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="mt-2.5 flex flex-col gap-1.5">
-                <button
-                  type="button"
-                  className="za-button za-button--secondary w-full text-xs"
-                  onClick={handleStartRewatch}
-                  disabled={isUpdating}
-                >
-                  <RotateCcw size={12} className="mr-1" />
-                  {isBookLike ? 'Start New Reread' : 'Start New Rewatch'}
-                </button>
-                {!editingCycleId && (
-                  <button
-                    type="button"
-                    className="cursor-pointer rounded-small border border-decorative bg-surface py-1 text-xs text-ink-muted hover:border-required hover:text-ink"
-                    onClick={handleOpenAddCycle}
-                    disabled={isUpdating}
-                  >
-                    + Log Past Cycle Date
-                  </button>
-                )}
-              </div>
-            </div>
+            <ProviderAvailability
+              isBookLike={isBookLike}
+              providersCountry={providersCountry}
+              providersLoading={providersLoading}
+              watchProviders={watchProviders}
+            />
 
             {/* Tags / Shelves */}
             <div className="mt-[var(--za-space-4)]">
@@ -702,22 +941,45 @@ export default function MediaDetailModal({
                   placeholder="Add tag (e.g. favorites)..."
                   value={newTagInput}
                   onChange={(e) => setNewTagInput(e.target.value)}
-                  className="flex-1 rounded-small border border-required bg-surface px-[0.4rem] py-[0.2rem] text-xs text-ink focus:border-accent focus:outline-none"
+                  className="za-field flex-1 text-xs"
                 />
                 <button
                   type="submit"
-                  className="za-button za-button--secondary px-[0.5rem] py-[0.2rem] text-xs"
+                  className="za-button za-button--secondary min-h-0 px-[0.5rem] py-[0.2rem] text-xs"
                 >
                   +
                 </button>
               </form>
             </div>
-          </div>
+          </aside>
 
           {/* Right Column */}
-          <div>
+          <section className="min-w-0 p-[var(--za-space-6)] md:p-[var(--za-space-8)]">
+            <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)] pr-10">
+              <div className="mb-1 flex items-center gap-1.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.1em] text-accent">
+                {category === 'movie' ? (
+                  <Film size={14} />
+                ) : isBookLike ? (
+                  <BookOpen size={14} />
+                ) : (
+                  <Tv size={14} />
+                )}
+                <span>{category} folio</span>
+              </div>
+              <h2
+                id="media-detail-title"
+                className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+              >
+                {item.title}
+              </h2>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                {genres.length > 0 && <span>{genres.join(' · ')}</span>}
+                <span>Added {formatDisplayDate(item.createdAt)}</span>
+              </div>
+            </div>
+
             {status === 'dropped' && (
-              <div className="mb-[var(--za-space-4)] rounded-control border border-danger/30 bg-danger/5 p-[var(--za-space-3)]">
+              <div className="za-notice za-notice--error mb-[var(--za-space-5)]">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
                     <BookmarkX size={16} className="mt-0.5 shrink-0 text-danger" />
@@ -749,15 +1011,15 @@ export default function MediaDetailModal({
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setIsDropReasonOpen(true)}
-                      className="cursor-pointer rounded-small border border-decorative bg-surface px-2 py-0.5 text-xs text-ink-muted hover:border-required hover:text-ink"
+                      onClick={openDropReason}
+                      className="za-button za-button--secondary min-h-0 px-2 py-1 text-xs"
                     >
                       Edit Reason
                     </button>
                     <button
                       type="button"
                       onClick={() => runUpdate({ status: 'in_progress' })}
-                      className="cursor-pointer rounded-small border border-required bg-surface px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] text-ink hover:bg-surface-hover"
+                      className="za-button za-button--primary min-h-0 px-2 py-1 text-xs"
                     >
                       Resume
                     </button>
@@ -767,84 +1029,54 @@ export default function MediaDetailModal({
             )}
 
             {item.synopsis && (
-              <div className="mb-[var(--za-space-4)]">
+              <div className="mb-[var(--za-space-5)]">
                 <div className={sectionLabel}>SYNOPSIS</div>
-                <p className="text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink">
-                  {item.synopsis}
-                </p>
-              </div>
-            )}
-
-            {/* Where to Watch / Streaming Availability */}
-            {!isBookLike && (
-              <div className="mb-[var(--za-space-4)] rounded-control bg-surface-subtle p-[var(--za-space-3)]">
-                <div className="flex items-center justify-between">
-                  <div className={sectionLabel}>
-                    STREAMING AVAILABILITY {providersCountry ? `(${providersCountry})` : ''}
-                  </div>
-                  {providersLoading && (
-                    <span className="text-[10px] text-ink-muted">Checking providers…</span>
-                  )}
-                </div>
-
-                {!providersLoading &&
-                (!watchProviders ||
-                  (!watchProviders.flatrate?.length &&
-                    !watchProviders.free?.length &&
-                    !watchProviders.rent?.length &&
-                    !watchProviders.buy?.length)) ? (
-                  <p className="mt-1 text-xs text-ink-muted">
-                    No streaming providers detected for this title in {providersCountry}.
-                  </p>
-                ) : null}
-
-                <ProviderChips
-                  label="STREAM ON SUBSCRIPTION:"
-                  providers={watchProviders?.flatrate}
-                  link={watchProviders?.link}
-                  titlePrefix="Stream on"
+                <MarkdownNotes
+                  content={item.synopsis}
+                  className="text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink"
                 />
-                <ProviderChips
-                  label="FREE / WITH ADS:"
-                  providers={watchProviders?.free}
-                  link={watchProviders?.link}
-                  titlePrefix="Watch free on"
-                />
-                <ProviderChips
-                  label="RENT:"
-                  providers={watchProviders?.rent}
-                  link={watchProviders?.link}
-                  titlePrefix="Rent on"
-                />
-                <ProviderChips
-                  label="BUY:"
-                  providers={watchProviders?.buy}
-                  link={watchProviders?.link}
-                  titlePrefix="Buy on"
-                />
-
-                {/* JustWatch attribution and deep link */}
-                {watchProviders?.link && (
-                  <div className="mt-2.5 flex items-center justify-between text-[10px] text-ink-muted">
-                    <span>Powered by JustWatch</span>
-                    <a
-                      href={watchProviders.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="za-link inline-flex items-center gap-0.5"
-                    >
-                      View all rent & buy options <ExternalLink size={10} />
-                    </a>
-                  </div>
-                )}
               </div>
             )}
 
             {/* Progress Checklist */}
             <div>
               <div className={`${sectionLabel} mb-[var(--za-space-2)]`}>
-                {isBookLike ? 'READING PROGRESS & QUICK JUMP' : 'EPISODE QUICK JUMP'}
+                {isBookLike
+                  ? 'READING PROGRESS & QUICK JUMP'
+                  : isMovie
+                    ? 'WATCH PROGRESS'
+                    : 'EPISODE MATRIX'}
               </div>
+
+              {isMovie && (
+                <div className="mb-3 rounded-small border border-decorative bg-surface-subtle p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-[var(--za-weight-emphasis)] text-ink">
+                      Runtime watched
+                    </span>
+                    <span className="font-[var(--za-weight-emphasis)] text-accent">
+                      {secondaryTotal != null
+                        ? `${secondaryCurrent} of ${secondaryTotal} min`
+                        : `${secondaryCurrent} min`}
+                    </span>
+                  </div>
+                  {secondaryTotal != null && secondaryTotal > 0 && (
+                    <input
+                      type="range"
+                      min={0}
+                      max={secondaryTotal}
+                      value={secondaryCurrent}
+                      disabled={isUpdating}
+                      aria-label="Minutes watched"
+                      onChange={(event) => {
+                        const minutes = parseInt(event.target.value, 10) || 0;
+                        void runUpdate({ secondaryUnitCurrent: minutes });
+                      }}
+                      className="mt-2 w-full cursor-pointer accent-accent"
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Book / Manga percentage and slider controls */}
               {isBookLike && secondaryTotal !== null && secondaryTotal > 0 && (
@@ -919,7 +1151,7 @@ export default function MediaDetailModal({
                 </div>
               )}
 
-              {structure.length > 1 && (
+              {!isMovie && structure.length > 1 && (
                 <div className="mb-2 flex gap-[0.3rem] overflow-x-auto pb-[0.4rem]">
                   {structure.map((s) => (
                     <button
@@ -934,90 +1166,107 @@ export default function MediaDetailModal({
                 </div>
               )}
 
-              <div className="max-h-48 overflow-y-auto rounded-control border border-decorative bg-surface-subtle p-2 [grid-template-columns:repeat(auto-fill,minmax(2.5rem,1fr))] grid gap-[0.35rem]">
-                {Array.from({ length: Math.min(100, Math.max(1, totalUnitsInSeason)) }).map(
-                  (_, i) => {
-                    const unitNum = i + 1;
-                    const epInfo =
-                      category === 'anime' && fillerMap ? fillerMap.episodes[unitNum] : null;
-                    const isFiller = epInfo?.type === 'filler';
-                    const isRecap = epInfo?.type === 'recap';
+              {!isMovie && (
+                <div className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-[0.35rem] overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2">
+                  {Array.from({ length: Math.min(100, Math.max(1, totalUnitsInSeason)) }).map(
+                    (_, i) => {
+                      const unitNum = i + 1;
+                      const epInfo =
+                        category === 'anime' && fillerMap ? fillerMap.episodes[unitNum] : null;
+                      const isFiller = epInfo?.type === 'filler';
+                      const isRecap = epInfo?.type === 'recap';
 
-                    if (
-                      category === 'anime' &&
-                      fillerFilter === 'canon_only' &&
-                      (isFiller || isRecap)
-                    ) {
-                      return null;
-                    }
+                      if (
+                        category === 'anime' &&
+                        fillerFilter === 'canon_only' &&
+                        (isFiller || isRecap)
+                      ) {
+                        return null;
+                      }
 
-                    const isDone =
-                      activeSeason < primaryCurrent ||
-                      (activeSeason === primaryCurrent && unitNum <= secondaryCurrent);
-                    const isCurrent =
-                      activeSeason === primaryCurrent && unitNum === secondaryCurrent;
+                      const isDone =
+                        activeSeason < primaryCurrent ||
+                        (activeSeason === primaryCurrent && unitNum <= secondaryCurrent);
+                      const isCurrent =
+                        activeSeason === primaryCurrent && unitNum === secondaryCurrent;
 
-                    return (
-                      <button
-                        key={unitNum}
-                        type="button"
-                        onClick={() => handleSetEpisode(unitNum, activeSeason)}
-                        disabled={isUpdating}
-                        title={
-                          epInfo
-                            ? `Episode ${unitNum}${epInfo.title ? `: ${epInfo.title}` : ''} (${isFiller ? 'Filler' : isRecap ? 'Recap' : 'Canon'})`
-                            : undefined
-                        }
-                        style={{
-                          background: isCurrent
-                            ? 'var(--za-color-accent)'
-                            : isDone
-                              ? 'rgba(46, 125, 50, 0.15)'
-                              : isFiller
-                                ? 'rgba(234, 179, 8, 0.08)'
-                                : 'var(--za-color-surface)',
-                          color: isCurrent
-                            ? 'var(--za-color-on-accent)'
-                            : isDone
-                              ? '#2e7d32'
-                              : isFiller
-                                ? '#b45309'
-                                : 'var(--za-color-text)',
-                          borderColor: isCurrent
-                            ? 'var(--za-color-accent)'
-                            : isDone
-                              ? 'rgba(46, 125, 50, 0.4)'
-                              : isFiller
-                                ? 'rgba(234, 179, 8, 0.4)'
-                                : 'var(--za-color-border-decorative)',
-                          borderStyle: isFiller ? 'dashed' : 'solid',
-                          fontWeight: isCurrent ? 'bold' : 'normal',
-                        }}
-                        className="relative inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
-                      >
-                        {unitNum}
-                        {isFiller && (
-                          <span
-                            aria-hidden="true"
-                            className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-[#b45309] text-[8px] font-bold text-white"
-                          >
-                            F
-                          </span>
-                        )}
-                        {isRecap && (
-                          <span
-                            aria-hidden="true"
-                            className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-500 text-[8px] font-bold text-white"
-                          >
-                            R
-                          </span>
-                        )}
-                      </button>
-                    );
-                  },
-                )}
-              </div>
+                      return (
+                        <button
+                          key={unitNum}
+                          type="button"
+                          onClick={() => handleSetEpisode(unitNum, activeSeason)}
+                          disabled={isUpdating}
+                          title={
+                            epInfo
+                              ? `Episode ${unitNum}${epInfo.title ? `: ${epInfo.title}` : ''} (${isFiller ? 'Filler' : isRecap ? 'Recap' : 'Canon'})`
+                              : undefined
+                          }
+                          style={{
+                            background: isCurrent
+                              ? 'var(--za-color-accent)'
+                              : isDone
+                                ? 'rgba(46, 125, 50, 0.15)'
+                                : isFiller
+                                  ? 'rgba(234, 179, 8, 0.08)'
+                                  : 'var(--za-color-surface)',
+                            color: isCurrent
+                              ? 'var(--za-color-on-accent)'
+                              : isDone
+                                ? '#2e7d32'
+                                : isFiller
+                                  ? '#b45309'
+                                  : 'var(--za-color-text)',
+                            borderColor: isCurrent
+                              ? 'var(--za-color-accent)'
+                              : isDone
+                                ? 'rgba(46, 125, 50, 0.4)'
+                                : isFiller
+                                  ? 'rgba(234, 179, 8, 0.4)'
+                                  : 'var(--za-color-border-decorative)',
+                            borderStyle: isFiller ? 'dashed' : 'solid',
+                            fontWeight: isCurrent ? 'bold' : 'normal',
+                          }}
+                          className="relative inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
+                        >
+                          {unitNum}
+                          {isFiller && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-[#b45309] text-[8px] font-bold text-white"
+                            >
+                              F
+                            </span>
+                          )}
+                          {isRecap && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-500 text-[8px] font-bold text-white"
+                            >
+                              R
+                            </span>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              )}
             </div>
+
+            <CycleLedger
+              cycles={cycles}
+              isBookLike={isBookLike}
+              editingCycleId={editingCycleId}
+              cycleForm={cycleForm}
+              isUpdating={isUpdating}
+              onCycleFormChange={setCycleForm}
+              onOpenAddCycle={handleOpenAddCycle}
+              onOpenEditCycle={handleOpenEditCycle}
+              onSaveCycle={handleSaveCycle}
+              onCancelCycle={() => setEditingCycleId(null)}
+              onDeleteCycle={handleDeleteCycle}
+              onStartNewCycle={handleStartRewatch}
+            />
 
             {/* Personal Notes */}
             {item.notes && (
@@ -1037,15 +1286,25 @@ export default function MediaDetailModal({
                 <div className={sectionLabel}>
                   <Quote size={12} /> QUOTES & EXCERPTS ({(item.quotes || []).length})
                 </div>
-                {!editingQuoteId && (
-                  <button
-                    type="button"
-                    onClick={handleOpenAddQuote}
-                    className="cursor-pointer text-xs font-[var(--za-weight-emphasis)] text-accent hover:underline"
-                  >
-                    + Add Quote
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {copiedQuoteId && (
+                    <span
+                      className="font-[var(--za-font-mono)] text-[10px] text-success"
+                      role="status"
+                    >
+                      Copied
+                    </span>
+                  )}
+                  {!editingQuoteId && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddQuote}
+                      className="za-button za-button--tertiary min-h-0 px-0 py-0 text-xs"
+                    >
+                      + Add Quote
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Inline Quote Add/Edit Form */}
@@ -1062,7 +1321,7 @@ export default function MediaDetailModal({
                       <textarea
                         rows={2}
                         placeholder="“Fear is the mind-killer...”"
-                        className="w-full rounded-small border border-decorative bg-surface p-2 text-xs text-ink focus:border-accent focus:outline-none"
+                        className="za-field min-h-[4rem] text-xs"
                         value={quoteForm.text}
                         onChange={(e) => setQuoteForm((p) => ({ ...p, text: e.target.value }))}
                       />
@@ -1075,7 +1334,7 @@ export default function MediaDetailModal({
                         <input
                           type="text"
                           placeholder="e.g. Paul Atreides"
-                          className="w-full rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink focus:border-accent focus:outline-none"
+                          className="za-field text-xs"
                           value={quoteForm.speaker}
                           onChange={(e) => setQuoteForm((p) => ({ ...p, speaker: e.target.value }))}
                         />
@@ -1087,7 +1346,7 @@ export default function MediaDetailModal({
                         <input
                           type="text"
                           placeholder="e.g. Chapter 1, p. 8"
-                          className="w-full rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink focus:border-accent focus:outline-none"
+                          className="za-field text-xs"
                           value={quoteForm.citation}
                           onChange={(e) =>
                             setQuoteForm((p) => ({ ...p, citation: e.target.value }))
@@ -1187,11 +1446,11 @@ export default function MediaDetailModal({
                 </div>
               ) : null}
             </div>
-          </div>
+          </section>
         </div>
 
         {/* Footer Actions */}
-        <div className="mt-[var(--za-space-5)] flex items-center justify-between border-t border-decorative pt-[var(--za-space-3)]">
+        <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
           <button
             type="button"
             className="za-button za-button--secondary"
@@ -1215,9 +1474,16 @@ export default function MediaDetailModal({
         initialReason={item.dropReason}
         onConfirm={async (reason) => {
           setIsDropReasonOpen(false);
-          await runUpdate({ dropReason: reason });
+          const updates = isSelectingDroppedStatus
+            ? { status: 'dropped', dropReason: reason }
+            : { dropReason: reason };
+          setIsSelectingDroppedStatus(false);
+          await runUpdate(updates);
         }}
-        onCancel={() => setIsDropReasonOpen(false)}
+        onCancel={() => {
+          setIsSelectingDroppedStatus(false);
+          setIsDropReasonOpen(false);
+        }}
       />
     </Modal>
   );

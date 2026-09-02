@@ -20,9 +20,15 @@ interface Props {
   initialFriends: FriendshipItem[];
   initialIncoming: FriendshipItem[];
   initialOutgoing: FriendshipItem[];
+  currentUsername?: string | null;
 }
 
-export default function FriendsClient({ initialFriends, initialIncoming, initialOutgoing }: Props) {
+export default function FriendsClient({
+  initialFriends,
+  initialIncoming,
+  initialOutgoing,
+  currentUsername,
+}: Props) {
   const [tab, setTab] = useState<Tab>('friends');
   const [friends, setFriends] = useState(initialFriends);
   const [incoming, setIncoming] = useState(initialIncoming);
@@ -124,12 +130,12 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
   return (
     <div className="space-y-4">
       {message && (
-        <div className="rounded-small border border-decorative bg-surface-subtle px-3 py-2 text-sm text-ink">
+        <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
           {message}
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-decorative pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-decorative pb-4">
         {[
           { id: 'friends' as Tab, label: `Friends (${friends.length})`, icon: Users },
           { id: 'incoming' as Tab, label: `Incoming (${incoming.length})`, icon: Inbox },
@@ -139,7 +145,7 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`inline-flex items-center gap-1.5 rounded-small border px-3 py-1.5 text-xs font-medium transition-colors ${tab === id ? 'bg-accent text-on-accent border-accent' : 'bg-surface border-decorative text-ink hover:bg-surface-subtle'}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === id ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
           >
             <Icon size={14} /> {label}
           </button>
@@ -149,7 +155,7 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
       {tab === 'friends' && (
         <div className="space-y-3">
           {friends.length === 0 ? (
-            <div className="za-card rounded-control border border-dashed border-decorative bg-surface-subtle p-8 text-center text-sm text-ink-muted">
+            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               No friends yet. Find and add people from the Find Friends tab or via their public
               profiles.
             </div>
@@ -157,7 +163,7 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
             friends.map((item) => (
               <div
                 key={item.id}
-                className="za-card flex items-center justify-between rounded-control border border-decorative bg-surface p-4"
+                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
                 <div className="flex items-center gap-3">
                   {item.friend.image ? (
@@ -165,34 +171,48 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-10 w-10 rounded-full object-cover border border-decorative"
+                      className="h-11 w-11 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle border border-decorative text-sm font-bold text-ink">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                   <div>
-                    <div className="text-sm font-medium text-ink">{item.friend.name}</div>
-                    <div className="text-xs text-ink-muted">
-                      @{item.friend.username || 'unknown'}{' '}
-                      {item.friend.bio ? `· ${item.friend.bio.slice(0, 60)}` : ''}
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                      {item.friend.name}
                     </div>
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      @{item.friend.username || 'unknown'}{' '}
+                    </div>
+                    {item.friend.bio && (
+                      <p className="mt-1 max-w-xl font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                        {item.friend.bio.slice(0, 100)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {item.friend.username && (
                     <Link
                       href={`/u/${item.friend.username}`}
-                      className="za-button za-button--tertiary text-xs"
+                      className="za-button za-button--secondary text-xs"
                     >
                       View
+                    </Link>
+                  )}
+                  {currentUsername && item.friend.username && (
+                    <Link
+                      href={`/u/${encodeURIComponent(currentUsername)}/compare/${encodeURIComponent(item.friend.username)}`}
+                      className="za-button za-button--tertiary text-xs"
+                    >
+                      Compare
                     </Link>
                   )}
                   <button
                     onClick={() => handleRemove(item.friend.id)}
                     disabled={pending}
-                    className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink-muted hover:text-ink hover:border-required"
+                    className="za-button za-button--tertiary text-xs"
                     title="Remove friend"
                   >
                     <Trash2 size={12} /> Unfriend
@@ -207,14 +227,14 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
       {tab === 'incoming' && (
         <div className="space-y-3">
           {incoming.length === 0 ? (
-            <div className="za-card rounded-control border border-dashed border-decorative bg-surface-subtle p-8 text-center text-sm text-ink-muted">
+            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               No incoming requests.
             </div>
           ) : (
             incoming.map((item) => (
               <div
                 key={item.id}
-                className="za-card flex items-center justify-between rounded-control border border-decorative bg-surface p-4"
+                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
                 <div className="flex items-center gap-3">
                   {item.friend.image ? (
@@ -222,16 +242,18 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-10 w-10 rounded-full object-cover border border-decorative"
+                      className="h-11 w-11 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle border border-decorative text-sm font-bold text-ink">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                   <div>
-                    <div className="text-sm font-medium text-ink">{item.friend.name}</div>
-                    <div className="text-xs text-ink-muted">
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                      {item.friend.name}
+                    </div>
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                       @{item.friend.username} wants to be friends
                     </div>
                   </div>
@@ -240,14 +262,14 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
                   <button
                     onClick={() => handleAccept(item.id)}
                     disabled={pending}
-                    className="inline-flex items-center gap-1 rounded-small bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    className="za-button za-button--primary text-xs disabled:opacity-50"
                   >
                     <Check size={14} /> Accept
                   </button>
                   <button
                     onClick={() => handleReject(item.id)}
                     disabled={pending}
-                    className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-subtle disabled:opacity-50"
+                    className="za-button za-button--secondary text-xs disabled:opacity-50"
                   >
                     <X size={14} /> Reject
                   </button>
@@ -261,14 +283,14 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
       {tab === 'outgoing' && (
         <div className="space-y-3">
           {outgoing.length === 0 ? (
-            <div className="za-card rounded-control border border-dashed border-decorative bg-surface-subtle p-8 text-center text-sm text-ink-muted">
+            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               No outgoing requests.
             </div>
           ) : (
             outgoing.map((item) => (
               <div
                 key={item.id}
-                className="za-card flex items-center justify-between rounded-control border border-decorative bg-surface p-4"
+                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
                 <div className="flex items-center gap-3">
                   {item.friend.image ? (
@@ -276,22 +298,26 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-10 w-10 rounded-full object-cover border border-decorative"
+                      className="h-11 w-11 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle border border-decorative text-sm font-bold text-ink">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                   <div>
-                    <div className="text-sm font-medium text-ink">{item.friend.name}</div>
-                    <div className="text-xs text-ink-muted">@{item.friend.username} · pending</div>
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                      {item.friend.name}
+                    </div>
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      @{item.friend.username} · pending
+                    </div>
                   </div>
                 </div>
                 <button
                   onClick={() => handleCancel(item.id)}
                   disabled={pending}
-                  className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-subtle disabled:opacity-50"
+                  className="za-button za-button--secondary text-xs disabled:opacity-50"
                 >
                   <X size={14} /> Cancel
                 </button>
@@ -303,23 +329,23 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
 
       {tab === 'find' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 rounded-control border border-decorative bg-surface px-3 py-2">
+          <div className="za-bookplate flex items-center gap-2 p-3">
             <Search size={16} className="text-ink-muted" />
             <input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by username or name..."
-              className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
+              className="za-field flex-1 border-0 bg-transparent py-1 shadow-none"
             />
             {searchLoading && <span className="text-xs text-ink-muted">Searching...</span>}
           </div>
 
           {searchQuery.trim().length < 2 ? (
-            <div className="text-center text-sm text-ink-muted py-6">
+            <div className="py-6 text-center font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
               Type at least 2 characters to search.
             </div>
           ) : searchResults.length === 0 && !searchLoading ? (
-            <div className="za-card rounded-control border border-dashed border-decorative bg-surface-subtle p-8 text-center text-sm text-ink-muted">
+            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               No users found for &quot;{searchQuery}&quot;.
             </div>
           ) : (
@@ -327,7 +353,7 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
               {searchResults.map((u) => (
                 <div
                   key={u.id}
-                  className="za-card flex items-center justify-between rounded-control border border-decorative bg-surface p-4"
+                  className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
                 >
                   <div className="flex items-center gap-3">
                     {u.image ? (
@@ -335,24 +361,31 @@ export default function FriendsClient({ initialFriends, initialIncoming, initial
                       <img
                         src={u.image}
                         alt={u.name}
-                        className="h-10 w-10 rounded-full object-cover border border-decorative"
+                        className="h-11 w-11 rounded-small border border-required object-cover"
                       />
                     ) : (
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle border border-decorative text-sm font-bold text-ink">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                         {u.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
                     <div>
-                      <div className="text-sm font-medium text-ink">{u.name}</div>
-                      <div className="text-xs text-ink-muted">
-                        @{u.username || 'unknown'} {u.bio ? `· ${u.bio.slice(0, 60)}` : ''}
+                      <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                        {u.name}
                       </div>
+                      <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                        @{u.username || 'unknown'}
+                      </div>
+                      {u.bio && (
+                        <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                          {u.bio.slice(0, 100)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button
                     onClick={() => handleSend(u.id)}
                     disabled={pending}
-                    className="inline-flex items-center gap-1 rounded-small bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:opacity-90 disabled:opacity-50"
+                    className="za-button za-button--primary text-xs disabled:opacity-50"
                   >
                     <UserPlus size={14} /> Add Friend
                   </button>

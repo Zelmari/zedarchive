@@ -10,7 +10,13 @@ const CUSTOM_THEME_TOKENS = [
   '--za-color-border-decorative',
   '--za-color-accent',
   '--za-color-accent-hover',
+  '--za-color-accent-active',
   '--za-color-on-accent',
+  '--za-color-surface-sunken',
+  '--za-color-text-faint',
+  '--za-color-gold',
+  '--za-color-gold-hover',
+  '--za-color-gold-dark',
 ] as const;
 
 /**
@@ -36,7 +42,19 @@ export function applyCustomThemeTokens(palette: CustomThemePalette | null | unde
   root.style.setProperty('--za-color-border-decorative', palette.borderDecorative);
   root.style.setProperty('--za-color-accent', palette.accent);
   root.style.setProperty('--za-color-accent-hover', palette.accent);
+  root.style.setProperty('--za-color-accent-active', palette.accent);
   root.style.setProperty('--za-color-on-accent', palette.onAccent);
+  root.style.setProperty(
+    '--za-color-surface-sunken',
+    'color-mix(in srgb, var(--za-color-surface-subtle) 80%, var(--za-color-text) 8%)',
+  );
+  root.style.setProperty(
+    '--za-color-text-faint',
+    'color-mix(in srgb, var(--za-color-text-muted) 65%, var(--za-color-canvas))',
+  );
+  root.style.setProperty('--za-color-gold', 'var(--za-color-accent)');
+  root.style.setProperty('--za-color-gold-hover', 'var(--za-color-accent-hover)');
+  root.style.setProperty('--za-color-gold-dark', 'var(--za-color-accent)');
 }
 
 /**

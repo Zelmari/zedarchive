@@ -25,7 +25,7 @@ interface ModalProps {
 }
 
 const DEFAULT_PANEL =
-  'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-layered border border-required bg-surface shadow-layered';
+  'za-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-small border-2 border-required bg-surface shadow-layered';
 
 /**
  * Shared modal frame: focus-trapped dialog with backdrop, standard header,
@@ -57,7 +57,7 @@ export default function Modal({
   return (
     <div
       className={cn(
-        'animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex justify-center bg-backdrop p-[var(--za-space-4)]',
+        'za-modal-backdrop animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex justify-center bg-backdrop p-[var(--za-space-4)]',
         placement === 'top' ? 'items-start pt-[12vh]' : 'items-center',
       )}
       onClick={onClose}
@@ -90,7 +90,7 @@ export default function Modal({
               type="button"
               aria-label={closeLabel}
               onClick={onClose}
-              className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
+              className="za-modal-close"
             >
               <X size={18} strokeWidth={2} />
             </button>

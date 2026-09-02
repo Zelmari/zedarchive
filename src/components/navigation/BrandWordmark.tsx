@@ -4,9 +4,14 @@ import Image from 'next/image';
 interface BrandWordmarkProps {
   href?: string;
   className?: string;
+  subline?: string;
 }
 
-export default function BrandWordmark({ href = '/', className = '' }: BrandWordmarkProps) {
+export default function BrandWordmark({
+  href = '/',
+  className = '',
+  subline = 'quiet media archive',
+}: BrandWordmarkProps) {
   return (
     <Link href={href} className={`za-wordmark za-link za-site-header__brand ${className}`.trim()}>
       <Image
@@ -18,7 +23,10 @@ export default function BrandWordmark({ href = '/', className = '' }: BrandWordm
         width={36}
         unoptimized
       />
-      <span className="za-wordmark__text">zedarchive</span>
+      <span className="za-wordmark__lockup">
+        <span className="za-wordmark__text">zedarchive</span>
+        {subline && <span className="za-wordmark__subline">{subline}</span>}
+      </span>
     </Link>
   );
 }

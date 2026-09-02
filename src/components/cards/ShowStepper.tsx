@@ -23,7 +23,7 @@ export default function ShowStepper({
     total !== null && total >= 10 && current < 10 ? `0${current}` : `${current}`;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-[var(--za-space-2)]" data-testid="show-stepper">
       <button
         type="button"
         className={stepperBtn}
@@ -34,8 +34,11 @@ export default function ShowStepper({
       >
         <Minus size={15} strokeWidth={2.2} />
       </button>
-      <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center">
-        <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] leading-tight text-ink">
+      <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-small border border-decorative bg-surface-sunken px-[var(--za-space-3)] text-center">
+        <span
+          className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] leading-tight text-ink"
+          aria-live="polite"
+        >
           Ep {formattedCurrent}
           {total ? ` / ${total}` : ''}
         </span>

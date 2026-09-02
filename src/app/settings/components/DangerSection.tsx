@@ -46,15 +46,16 @@ export default function DangerSection({ email }: DangerSectionProps) {
 
   return (
     <>
-      <section className="rounded-control border border-red-200 bg-red-50/40 p-6 shadow-raised dark:border-red-950 dark:bg-red-950/20">
+      <section className="za-bookplate relative p-6 sm:p-8">
+        <span className="za-ribbon-bookmark" aria-hidden="true" />
         <div className="mb-3 flex items-center gap-2">
-          <Trash2 size={18} className="text-red-600" />
-          <h2 className="text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-red-700 dark:text-red-400">
+          <Trash2 size={18} className="text-danger" />
+          <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-danger">
             Danger Zone
           </h2>
         </div>
 
-        <p className="mb-4 text-xs text-ink-muted">
+        <p className="mb-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
           Permanently delete your ZedArchive account and all your tracked media entries, progress,
           comments, and public profile data. This operation is immediately destructive and cannot be
           undone.
@@ -66,7 +67,7 @@ export default function DangerSection({ email }: DangerSectionProps) {
             setDeleteError('');
             setIsDeleteModalOpen(true);
           }}
-          className="za-button border border-red-300 bg-red-600 text-xs text-white hover:bg-red-700 dark:border-red-800"
+          className="za-button za-button--destructive text-xs"
         >
           Delete My Account
         </button>
@@ -81,7 +82,7 @@ export default function DangerSection({ email }: DangerSectionProps) {
           contentClassName="max-w-[28rem]"
         >
           <form onSubmit={handleDeleteAccount} className="p-6">
-            <div className="mb-4 flex items-center gap-3 text-red-600">
+            <div className="mb-4 flex items-center gap-3 text-danger">
               <AlertTriangle size={24} />
               <h3 className="text-sm font-[var(--za-weight-heading)]">
                 Permanent Account Deletion
@@ -94,16 +95,20 @@ export default function DangerSection({ email }: DangerSectionProps) {
             </p>
 
             {deleteError && (
-              <div className="mb-4 rounded-control bg-red-100 p-2.5 text-xs text-red-700">
+              <div className="za-notice za-notice--error mb-4 text-xs" role="alert">
                 {deleteError}
               </div>
             )}
 
             <div className="mb-4">
-              <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+              <label
+                htmlFor="delete-account-password"
+                className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink"
+              >
                 Enter your current password to confirm:
               </label>
               <input
+                id="delete-account-password"
                 type="password"
                 required
                 value={deletePassword}
@@ -125,7 +130,7 @@ export default function DangerSection({ email }: DangerSectionProps) {
               <button
                 type="submit"
                 disabled={isDeleting}
-                className="za-button bg-red-600 text-xs text-white hover:bg-red-700"
+                className="za-button za-button--destructive text-xs"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Permanently'}
               </button>

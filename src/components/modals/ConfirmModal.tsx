@@ -42,9 +42,9 @@ export default function ConfirmModal({
       initialFocusRef={confirmBtnRef}
       contentClassName="max-w-[28rem] overflow-hidden"
     >
-      <div className="flex gap-[var(--za-space-4)] p-[var(--za-space-6)]">
+      <div className="flex gap-[var(--za-space-4)] bg-surface p-[var(--za-space-6)]">
         <div
-          className={`flex h-10 w-10 items-center justify-center rounded-control border ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-small border ${
             isDanger
               ? 'border-danger bg-danger-surface text-danger'
               : 'border-required bg-surface-subtle text-ink'
@@ -59,20 +59,20 @@ export default function ConfirmModal({
         <div>
           <h2
             id="confirm-modal-title"
-            className="mb-[var(--za-space-1)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+            className="mb-[var(--za-space-1)] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
           >
             {title}
           </h2>
           <p
             id="confirm-modal-message"
-            className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
+            className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
           >
             {message}
           </p>
         </div>
       </div>
 
-      <div className="flex justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
+      <div className="flex justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-sunken px-[var(--za-space-6)] py-[var(--za-space-4)]">
         <button type="button" className="za-button za-button--secondary" onClick={onCancel}>
           {cancelText}
         </button>

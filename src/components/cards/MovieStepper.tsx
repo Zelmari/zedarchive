@@ -38,14 +38,16 @@ export default function MovieStepper({
 
   if (isCompleted) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-between rounded-control border border-success/30 bg-success/10 px-[var(--za-space-3)] text-success">
-          <div className="flex items-center gap-1.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)]">
+      <div className="flex items-center gap-[var(--za-space-2)]" data-testid="movie-stepper">
+        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-between rounded-small border border-success/30 bg-success-surface px-[var(--za-space-3)] text-success">
+          <div className="flex items-center gap-1.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)]">
             <Check size={14} strokeWidth={2.5} />
             <span>Watched {rewatchCount > 1 ? `(${rewatchCount}x)` : ''}</span>
           </div>
           {runtimeDisplay && (
-            <span className="text-[length:var(--za-text-fine)] opacity-80">{runtimeDisplay}</span>
+            <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] opacity-80">
+              {runtimeDisplay}
+            </span>
           )}
         </div>
 
@@ -67,7 +69,10 @@ export default function MovieStepper({
   // If in progress or planning, show minutes stepper if runtime is known and user has progress, or 1-tap "Mark Watched"
   if (runtime && runtime > 0 && onStepMinutes && progressMinutes > 0) {
     return (
-      <div className="flex items-center gap-2">
+      <div
+        className="flex flex-wrap items-center gap-[var(--za-space-2)]"
+        data-testid="movie-stepper"
+      >
         <button
           type="button"
           className={stepperBtn}
@@ -79,8 +84,8 @@ export default function MovieStepper({
           <Minus size={15} strokeWidth={2.2} />
         </button>
 
-        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center">
-          <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] leading-tight text-ink">
+        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] min-w-32 flex-1 items-center justify-center rounded-small border border-decorative bg-surface-sunken px-[var(--za-space-3)] text-center">
+          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] leading-tight text-ink">
             {progressMinutes}m / {runtime}m
           </span>
         </div>
@@ -111,10 +116,13 @@ export default function MovieStepper({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex flex-wrap items-center gap-[var(--za-space-2)]"
+      data-testid="movie-stepper"
+    >
       {runtimeDisplay && (
-        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center">
-          <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink-muted">
+        <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] min-w-24 flex-1 items-center justify-center rounded-small border border-decorative bg-surface-sunken px-[var(--za-space-3)] text-center">
+          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink-muted">
             {runtimeDisplay}
           </span>
         </div>
