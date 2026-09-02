@@ -83,40 +83,31 @@ export default function ReadingGoalModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="reading-goal-modal-title"
+      title={`${year} Reading Challenge`}
+      icon={<BookOpen size={18} />}
       initialFocusRef={inputRef}
-      contentClassName="max-w-[30rem] overflow-hidden"
+      contentClassName="max-w-[30rem] rounded-small"
     >
       <form onSubmit={handleSave}>
         <div className="p-[var(--za-space-6)]">
-          <div className="flex items-start gap-[var(--za-space-4)]">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-required bg-surface-subtle text-ink">
-              <BookOpen size={20} strokeWidth={2} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2
-                id="reading-goal-modal-title"
-                className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
-              >
-                {year} Reading Challenge
-              </h2>
-              <p className="mt-[var(--za-space-1)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-                Set your annual book reading target to track your progress and pacing throughout{' '}
-                {year}.
-              </p>
-            </div>
-          </div>
+          <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            Set an annual book and manga target to track your pace throughout {year}.
+          </p>
 
           {error && (
-            <div className="mt-4 rounded-control bg-danger/10 p-2.5 text-xs text-danger">
+            <div
+              role="alert"
+              className="za-notice za-notice--error mt-4 text-[length:var(--za-text-fine)]"
+            >
               {error}
             </div>
           )}
 
           {/* Target input */}
-          <div className="mt-[var(--za-space-4)]">
+          <div className="mt-[var(--za-space-5)] rounded-small border border-required bg-surface-sunken p-4">
             <label
               htmlFor="goal-target-input"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
+              className="mb-2 block font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-accent"
             >
               Annual Target (Books & Manga)
             </label>
@@ -130,24 +121,28 @@ export default function ReadingGoalModal({
                 required
                 value={targetInput}
                 onChange={(e) => setTargetInput(e.target.value)}
-                className="za-field w-32 font-bold text-center text-base"
+                className="za-field w-32 text-center font-[var(--za-font-display)] text-lg font-bold"
               />
-              <span className="text-xs text-ink-muted">books in {year}</span>
+              <span className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+                works in {year}
+              </span>
             </div>
           </div>
 
           {/* Preset chips */}
           <div className="mt-3">
-            <span className="text-[11px] text-ink-muted">Quick Presets:</span>
+            <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
+              Quick Presets
+            </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {PRESET_TARGETS.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTargetInput(String(t))}
-                  className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] ${
+                  className={`cursor-pointer rounded-small border px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] transition-[all] ${
                     targetInput === String(t)
-                      ? 'border-accent bg-accent/15 font-[var(--za-weight-emphasis)] text-accent'
+                      ? 'border-accent bg-accent text-on-accent'
                       : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
                   }`}
                 >
@@ -158,22 +153,25 @@ export default function ReadingGoalModal({
           </div>
 
           {/* Privacy toggle */}
-          <div className="mt-5 flex items-center gap-2.5 rounded-control border border-decorative bg-surface-subtle p-3">
+          <div className="mt-5 flex items-center gap-2.5 rounded-small border border-decorative bg-surface-subtle p-3">
             <input
               type="checkbox"
               id="goal-public-toggle"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="h-4 w-4 rounded border-decorative"
+              className="h-4 w-4 accent-[var(--za-color-accent)]"
             />
-            <label htmlFor="goal-public-toggle" className="cursor-pointer text-xs text-ink">
+            <label
+              htmlFor="goal-public-toggle"
+              className="cursor-pointer font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink"
+            >
               Showcase this reading challenge on my public profile
             </label>
           </div>
         </div>
 
         {/* Modal Actions */}
-        <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
+        <div className="flex items-center justify-between border-t border-decorative bg-surface-sunken px-[var(--za-space-6)] py-[var(--za-space-4)]">
           {currentGoal ? (
             <button
               type="button"

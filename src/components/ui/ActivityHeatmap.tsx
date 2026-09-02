@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface ActivityHeatmapProps {
   activityMap: Record<string, number>;
@@ -24,12 +24,41 @@ const MONTH_NAMES = [
 
 const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 
-function getIntensityClass(count: number): string {
-  if (count === 0) return 'bg-surface-subtle border-decorative';
-  if (count <= 2) return 'bg-accent/25 border-accent/40';
-  if (count <= 5) return 'bg-accent/50 border-accent/60';
-  if (count <= 9) return 'bg-accent/75 border-accent/80';
-  return 'bg-accent border-accent shadow-sm';
+// The light palette is intentionally explicit: these are the four ink levels
+// used by the Tactile Folio. Dark and one-bit themes replace the warm colors
+// with their own accent so the grid remains legible on OLED and e-ink surfaces.
+const PARCHMENT_RAMP = ['#EFEAE0', '#D9C3A8', '#B36856', '#8C2D19'] as const;
+
+function getRampLevel(count: number, max: number): number {
+  if (count <= 0 || max <= 0) return 0;
+  return Math.min(PARCHMENT_RAMP.length - 1, Math.max(1, Math.ceil((count / max) * 3)));
+}
+
+function getThemeName(): string {
+  if (typeof document === 'undefined') return 'parchment';
+  return document.documentElement.getAttribute('data-theme') || 'parchment';
+}
+
+function getCellStyle(level: number, useThemeRamp: boolean): React.CSSProperties {
+  if (!useThemeRamp) {
+    return {
+      backgroundColor: PARCHMENT_RAMP[level] ?? PARCHMENT_RAMP[0],
+      borderColor: level === 0 ? 'var(--za-color-border-decorative)' : PARCHMENT_RAMP[level],
+    };
+  }
+
+  if (level === 0) {
+    return {
+      backgroundColor: 'var(--za-color-surface-sunken)',
+      borderColor: 'var(--za-color-border-decorative)',
+    };
+  }
+
+  const accentStrength = [0, 28, 58, 82][level] ?? 82;
+  return {
+    backgroundColor: `color-mix(in srgb, var(--za-color-accent) ${accentStrength}%, var(--za-color-surface-sunken))`,
+    borderColor: `color-mix(in srgb, var(--za-color-accent) ${Math.min(100, accentStrength + 12)}%, var(--za-color-surface-sunken))`,
+  };
 }
 
 function formatDate(date: Date): string {
@@ -41,6 +70,21 @@ function formatDate(date: Date): string {
 }
 
 export default function ActivityHeatmap({ activityMap, className = '' }: ActivityHeatmapProps) {
+  const [themeName, setThemeName] = useState('parchment');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const updateTheme = () => setThemeName(getThemeName());
+    // The root theme can change while the activity modal is open.
+    updateTheme();
+
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const useThemeRamp = themeName !== 'parchment' && themeName !== 'sepia';
+
   // Generate 52 weeks (52 * 7 = 364 days) ending today
   const { weeks, monthHeaders, totalLogs, maxInOneDay } = useMemo(() => {
     const today = new Date();
@@ -108,14 +152,12 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
   }, [activityMap]);
 
   return (
-    <div
-      className={`rounded-control border border-decorative bg-surface p-[var(--za-space-4)] ${className}`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-xs font-[var(--za-weight-emphasis)] text-ink">
+    <div className={`za-bookplate rounded-small p-[var(--za-space-4)] ${className}`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           Activity Over Past Year
         </div>
-        <div className="text-[11px] text-ink-muted">
+        <div className="font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
           {totalLogs} {totalLogs === 1 ? 'log' : 'logs'} · Max {maxInOneDay} in one day
         </div>
       </div>
@@ -124,13 +166,13 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
       <div className="overflow-x-auto pb-1">
         <div className="inline-block min-w-full">
           {/* Months header */}
-          <div className="flex pl-8 text-[10px] text-ink-muted mb-1 h-3.5 relative">
+          <div className="relative mb-1 flex h-3.5 pl-8 font-[var(--za-font-mono)] text-[0.6rem] text-ink-muted">
             {monthHeaders.map((m, i) => (
               <span
                 key={i}
                 style={{
                   position: 'absolute',
-                  left: `${m.colIndex * 13 + 32}px`,
+                  left: `${m.colIndex * 15 + 32}px`,
                 }}
               >
                 {m.monthName}
@@ -138,22 +180,22 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
             ))}
           </div>
 
-          <div className="flex gap-1.5">
+          <div className="flex gap-[3px]">
             {/* Day of week labels */}
-            <div className="flex flex-col gap-1 text-[9px] text-ink-muted leading-[10px] w-6 shrink-0 pt-0.5">
+            <div className="flex w-6 shrink-0 flex-col gap-[3px] pt-0.5 font-[var(--za-font-mono)] text-[0.58rem] leading-3 text-ink-muted">
               {DAY_LABELS.map((label, idx) => (
-                <div key={idx} className="h-2.5 flex items-center">
+                <div key={idx} className="flex h-3 items-center">
                   {label}
                 </div>
               ))}
             </div>
 
             {/* Weeks columns */}
-            <div className="flex gap-1">
+            <div className="flex gap-[3px]">
               {weeks.map((week, weekIdx) => (
-                <div key={weekIdx} className="flex flex-col gap-1">
+                <div key={weekIdx} className="flex flex-col gap-[3px]">
                   {week.map((day) => {
-                    const intensity = getIntensityClass(day.count);
+                    const level = getRampLevel(day.count, maxInOneDay);
                     const formatted = formatDate(day.date);
                     const tooltip = `${formatted}: ${day.count} ${day.count === 1 ? 'action' : 'actions'} logged`;
 
@@ -162,7 +204,8 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
                         key={day.dateKey}
                         title={tooltip}
                         aria-label={tooltip}
-                        className={`h-2.5 w-2.5 rounded-xs border transition-transform hover:scale-125 hover:z-10 ${intensity}`}
+                        className="size-3 rounded-[2px] border transition-transform hover:z-10 hover:scale-125"
+                        style={getCellStyle(level, useThemeRamp)}
                       />
                     );
                   })}
@@ -174,18 +217,20 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
       </div>
 
       {/* Legend footer */}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-ink-muted pt-2 border-t border-decorative">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-decorative pt-2 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
         <span>52-week habit timeline</span>
         <div className="flex items-center gap-1.5">
           <span>Less</span>
           <div className="flex items-center gap-1">
-            <div className="h-2.5 w-2.5 rounded-xs border bg-surface-subtle border-decorative" />
-            <div className="h-2.5 w-2.5 rounded-xs border bg-accent/25 border-accent/40" />
-            <div className="h-2.5 w-2.5 rounded-xs border bg-accent/50 border-accent/60" />
-            <div className="h-2.5 w-2.5 rounded-xs border bg-accent/75 border-accent/80" />
-            <div className="h-2.5 w-2.5 rounded-xs border bg-accent border-accent" />
+            {PARCHMENT_RAMP.map((_, level) => (
+              <div
+                key={level}
+                className="size-3 rounded-[2px] border"
+                style={getCellStyle(level, useThemeRamp)}
+              />
+            ))}
           </div>
-          <span>More</span>
+          <span>More Activity</span>
         </div>
       </div>
     </div>

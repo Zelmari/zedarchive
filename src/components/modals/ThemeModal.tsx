@@ -25,9 +25,9 @@ export default function ThemeModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="theme-modal-title"
-      title="Theme & Aesthetic"
+      title="Choose Theme"
       icon={<Palette size={18} />}
-      contentStyle={{ maxWidth: '34rem' }}
+      contentClassName="max-w-[40rem] rounded-small"
     >
       <ThemeStudio
         initialTheme={currentTheme}
