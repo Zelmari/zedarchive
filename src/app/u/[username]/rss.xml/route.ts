@@ -1,54 +1,29 @@
-import { getPublicUserProfile } from '@/server/queries/user';
-
-function escapeXml(unsafe: string): string {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '&':
-        return '&amp;';
-      case "'":
-        return '&apos;';
-      case '"':
-        return '&quot;';
-      default:
-        return c;
-    }
-  });
-}
+import { escapeXml, loadPublicFeed } from '@/server/feeds';
 
 export async function GET(request: Request, { params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  const data = await getPublicUserProfile(username);
+  const data = await loadPublicFeed(username, request);
 
-  if (!data?.user || !data.user.isPublic) {
+  if (!data) {
     return new Response('User not found or archive is private', { status: 404 });
   }
 
-  const { user, entries = [] } = data;
-  const url = new URL(request.url);
-  const siteUrl = `${url.protocol}//${url.host}`;
-  const profileUrl = `${siteUrl}/u/${user.username}`;
-
-  const recentEntries = entries.slice(0, 50);
-
+  const { user, recentEntries, profileUrl } = data;
   const itemsXml = recentEntries
-    .map((e) => {
-      const entryTitle = escapeXml(`${e.title} (${e.category.toUpperCase()})`);
-      const statusText = e.status.replace('_', ' ');
-      const ratingText = e.rating ? ` - Rated ${e.rating}/10` : '';
-      const notesText = e.notes ? `\n\n${e.notes}` : '';
+    .map((entry) => {
+      const entryTitle = escapeXml(`${entry.title} (${entry.category.toUpperCase()})`);
+      const statusText = entry.status.replace('_', ' ');
+      const ratingText = entry.rating ? ` - Rated ${entry.rating}/10` : '';
+      const notesText = entry.notes ? `\n\n${entry.notes}` : '';
       const rawDesc = `Status: ${statusText}${ratingText}${notesText}`;
       const safeCdata = rawDesc.replace(/\]\]>/g, ']]]]><![CDATA[>');
-      const pubDate = new Date(e.updatedAt).toUTCString();
+      const pubDate = new Date(entry.updatedAt).toUTCString();
 
       return `
     <item>
       <title>${entryTitle}</title>
       <link>${profileUrl}</link>
-      <guid isPermaLink="false">${e.id}</guid>
+      <guid isPermaLink="false">${entry.id}</guid>
       <pubDate>${pubDate}</pubDate>
       <description><![CDATA[${safeCdata}]]></description>
     </item>`;

@@ -13,7 +13,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         }
       />
-      <div className="flex-1">{children}</div>
+      <main id="main-content" tabIndex={-1} className="flex-1 py-[var(--za-space-6)]">
+        <div className="za-container za-container--narrow">{children}</div>
+      </main>
     </div>
   );
 }

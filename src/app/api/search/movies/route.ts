@@ -1,17 +1,14 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 86400;
 
-import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import { parseSearchQuery } from '@/lib/search';
 import { searchTmdbMovies } from '@/lib/services/tmdb';
 
 export async function GET(request: Request): Promise<Response> {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
+  const parsed = parseSearchQuery(request);
+  if (parsed instanceof Response) return parsed;
 
-  if (query.length > MAX_QUERY_LENGTH) {
-    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
-  }
-
+  const { query } = parsed;
   if (!query) {
     return Response.json({ results: [] });
   }

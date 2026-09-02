@@ -1,4 +1,14 @@
 /**
+ * Normalize external cover URLs for secure image loading.
+ */
+export function httpsCover(url: string | null | undefined): string | null {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url ?? null;
+}
+
+/**
  * Derive up-to-two leading initials from a display name or title.
  *
  * @param name - Display name or title.
@@ -49,6 +59,16 @@ export function formatAirdate(airdate: string): string {
     return `${MONTHS[monthIdx]} ${day}`;
   }
   return airdate;
+}
+
+/**
+ * Format an ISO date for display, falling back to "Present".
+ */
+export function formatDisplayDate(iso: string | null | undefined): string {
+  if (!iso) return 'Present';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Present';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /**

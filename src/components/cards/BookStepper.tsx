@@ -1,40 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { pageToPercent, percentToPage } from '@/lib/format';
+import { stepperBtn } from '@/components/cards/UnitStepperRow';
 
 interface BookStepperProps {
-  value: string;
-  canDecrement: boolean;
-  canIncrement: boolean;
+  current: number;
   total: number | null;
   disabled?: boolean;
-  onValueChange: (value: string) => void;
-  /** Commit an absolute numeric value (from blur/Enter). */
-  onCommit: (value: string) => void;
+  /** Commit an absolute numeric page value (from blur/Enter). */
+  onCommit: (value: number) => void;
   /** Step by delta from the authoritative current value (buttons). */
   onStep: (delta: number) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
 }
-
-const stepperBtn =
-  'inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-control border border-required bg-surface font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
 /** Chapter/page control row for books/manga with Page / % mode toggle */
 export default function BookStepper({
-  value,
-  canDecrement,
-  canIncrement,
+  current,
   total,
   disabled = false,
-  onValueChange,
   onCommit,
   onStep,
-  onFocus,
-  onBlur,
 }: BookStepperProps) {
   const [mode, setMode] = useState<'page' | 'percent'>(() => {
     if (typeof window === 'undefined') return 'page';
@@ -44,6 +32,18 @@ export default function BookStepper({
       return 'page';
     }
   });
+
+  const [inputValue, setInputValue] = useState(String(current));
+  const [isFocused, setIsFocused] = useState(false);
+  const previousCurrentRef = useRef(current);
+
+  useEffect(() => {
+    const currentChanged = previousCurrentRef.current !== current;
+    previousCurrentRef.current = current;
+    if (currentChanged && !isFocused) {
+      setInputValue(String(current));
+    }
+  }, [current, isFocused]);
 
   const toggleMode = () => {
     if (!total || total <= 0) return;
@@ -56,10 +56,13 @@ export default function BookStepper({
     }
   };
 
-  const currentNum = parseInt(value, 10) || 0;
+  const currentNum = parseInt(inputValue, 10) || 0;
   const currentPercent = pageToPercent(currentNum, total);
+  const hasTotal = total !== null && total > 0;
+  const canDecrement = current > 0;
+  const canIncrement = total === null || current < total;
 
-  const displayVal = mode === 'percent' && total ? String(currentPercent) : value;
+  const displayVal = mode === 'percent' && total ? String(currentPercent) : inputValue;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -71,35 +74,38 @@ export default function BookStepper({
     if (mode === 'percent' && total) {
       const parsedPct = parseInt(raw, 10);
       if (isNaN(parsedPct)) {
-        onValueChange('');
+        setInputValue('');
         return;
       }
       const page = percentToPage(parsedPct, total);
-      onValueChange(String(page));
+      setInputValue(String(page));
     } else {
-      onValueChange(raw);
+      setInputValue(raw);
     }
   };
 
   const handleInputBlur = (raw: string) => {
+    const parsed = parseInt(raw, 10);
+    let nextValue = isNaN(parsed) ? 0 : parsed;
     if (mode === 'percent' && total) {
-      const parsedPct = parseInt(raw, 10);
-      const safePct = isNaN(parsedPct) ? 0 : Math.min(100, Math.max(0, parsedPct));
-      const page = percentToPage(safePct, total);
-      onCommit(String(page));
+      const safePct = Math.min(100, Math.max(0, nextValue));
+      nextValue = percentToPage(safePct, total);
     } else {
-      onCommit(raw);
+      nextValue = Math.max(0, nextValue);
+      if (total !== null) nextValue = Math.min(total, nextValue);
     }
+    setInputValue(String(nextValue));
+    setIsFocused(false);
+    onCommit(nextValue);
   };
 
   const handleStepPercent = (deltaPct: number) => {
     if (!total) return;
-    const nextPct = Math.min(100, Math.max(0, currentPercent + deltaPct));
+    const nextPct = Math.min(100, Math.max(0, pageToPercent(current, total) + deltaPct));
     const nextPg = percentToPage(nextPct, total);
-    onCommit(String(nextPg));
+    setInputValue(String(nextPg));
+    onCommit(nextPg);
   };
-
-  const hasTotal = total !== null && total > 0;
 
   return (
     <div className="flex items-center gap-1.5">
@@ -122,11 +128,8 @@ export default function BookStepper({
           className="h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] w-full rounded-control border border-required bg-surface px-2 text-center text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] text-ink outline-none focus:border-accent"
           value={displayVal}
           onChange={(e) => handleInputChange(e.target.value)}
-          onFocus={onFocus}
-          onBlur={(e) => {
-            handleInputBlur(e.target.value);
-            onBlur?.();
-          }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={(e) => handleInputBlur(e.target.value)}
           onKeyDown={handleKeyDown}
           title={
             mode === 'percent'

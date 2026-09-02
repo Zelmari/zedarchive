@@ -1,10 +1,8 @@
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
 import { getGroupDetails, getGroupMessages } from '@/server/queries/groups';
 import { getGroupMediaEntries } from '@/server/queries/media';
 import { getUserProfileById } from '@/server/queries/user';
+import { requireSession, toDashboardUser } from '@/server/internal';
 import { Layers } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import GroupWorkspaceClient from './GroupWorkspaceClient';
@@ -15,12 +13,9 @@ export default async function GroupWorkspacePage({
   params: Promise<{ groupId: string }>;
 }) {
   const { groupId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) {
-    redirect(`/login?callbackUrl=/groups/${encodeURIComponent(groupId)}`);
-  }
+  const session = await requireSession(`/login?callbackUrl=/groups/${encodeURIComponent(groupId)}`);
 
-  const details = await getGroupDetails(groupId, session.user.id);
+  const details = await getGroupDetails(groupId, session.id);
   if (!details) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas text-ink">
@@ -49,36 +44,20 @@ export default async function GroupWorkspacePage({
 
   let messages: Awaited<ReturnType<typeof getGroupMessages>> = [];
   try {
-    messages = await getGroupMessages(groupId, session.user.id);
+    messages = await getGroupMessages(groupId, session.id);
   } catch {
     messages = [];
   }
 
   let mediaEntries: Awaited<ReturnType<typeof getGroupMediaEntries>> = [];
   try {
-    mediaEntries = await getGroupMediaEntries(groupId, session.user.id);
+    mediaEntries = await getGroupMediaEntries(groupId, session.id);
   } catch {
     mediaEntries = [];
   }
 
-  const dbUser = await getUserProfileById(session.user.id);
-
-  const currentUser = {
-    id: session.user.id,
-    name: dbUser?.name || session.user.name,
-    email: dbUser?.email || session.user.email,
-    image: dbUser?.image || session.user.image,
-    theme: dbUser?.theme || 'parchment',
-    customTheme: dbUser?.customTheme || null,
-    username: dbUser?.username || null,
-    isPublic: Boolean(dbUser?.isPublic),
-    bio: dbUser?.bio || null,
-    emailVerified:
-      dbUser?.emailVerified ??
-      ('emailVerified' in session.user ? Boolean(session.user.emailVerified) : false),
-    readingGoals: dbUser?.readingGoals || {},
-    verificationDismissedAt: dbUser?.verificationDismissedAt || null,
-  };
+  const dbUser = await getUserProfileById(session.id);
+  const currentUser = toDashboardUser(session, dbUser);
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -98,7 +77,7 @@ export default async function GroupWorkspacePage({
             group={details}
             initialMessages={messages}
             initialMedia={mediaEntries}
-            currentUserId={session.user.id}
+            currentUserId={session.id}
             currentUser={currentUser}
           />
         </div>

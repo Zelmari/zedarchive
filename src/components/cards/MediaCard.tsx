@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock } from 'lucide-react';
 import { getInitials, formatAirdate } from '@/lib/format';
-import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
+import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
 import { togglePriorityQueue } from '@/server/media';
@@ -86,29 +86,11 @@ export default function MediaCard({
       ? (sortedStructure[sortedStructure.length - 1]?.number ?? primaryUnitTotal)
       : primaryUnitTotal;
 
-  // Book card keeps its numeric input in sync with external progress updates
-  const [inputValue, setInputValue] = useState(String(secondaryUnitCurrent));
-  const [isFocused, setIsFocused] = useState(false);
-
-  // Only sync from external when the input is NOT focused (i.e., user isn't typing)
-  useEffect(() => {
-    if (!isFocused) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync external progress when not typing
-      setInputValue(String(secondaryUnitCurrent));
-    }
-  }, [secondaryUnitCurrent, isFocused]);
-
   const hasNextSeason = nextSeason(primaryUnitCurrent) !== null;
   const hasPrevSeason = prevSeason(primaryUnitCurrent) !== null;
 
   const isAtFinalUnit =
     !hasNextSeason && secondaryUnitTotal !== null && secondaryUnitCurrent >= secondaryUnitTotal;
-
-  const canDecrement = secondaryUnitCurrent > 0;
-  const canIncrement =
-    secondaryUnitTotal === null ||
-    (!bookish && hasNextSeason) ||
-    secondaryUnitCurrent < secondaryUnitTotal;
 
   async function runUpdate(updates: Record<string, unknown>) {
     try {
@@ -117,11 +99,6 @@ export default function MediaCard({
     } finally {
       setIsUpdating(false);
     }
-  }
-
-  function seasonTotalFor(seasonNumber: number): number | null {
-    const match = structure.find((s) => s.number === seasonNumber);
-    return match && match.total !== null && match.total !== undefined ? match.total : null;
   }
 
   const handleEpisodeStep = (delta: number) => {
@@ -138,7 +115,7 @@ export default function MediaCard({
         void runUpdate({
           primaryUnitCurrent: next,
           secondaryUnitCurrent: 1,
-          secondaryUnitTotal: seasonTotalFor(next),
+          secondaryUnitTotal: seasonTotal(structure, next),
         });
       }
       return;
@@ -153,23 +130,19 @@ export default function MediaCard({
     void runUpdate({
       primaryUnitCurrent: next,
       secondaryUnitCurrent: 1,
-      secondaryUnitTotal: seasonTotalFor(next),
+      secondaryUnitTotal: seasonTotal(structure, next),
     });
   };
 
-  const commitChapterValue = (raw: string) => {
-    let parsed = parseInt(raw, 10);
-    if (isNaN(parsed) || parsed < 0) parsed = 0;
-    if (secondaryUnitTotal !== null && parsed > secondaryUnitTotal) parsed = secondaryUnitTotal;
-    setInputValue(String(parsed));
-    if (parsed === secondaryUnitCurrent) return;
-    void runUpdate({ secondaryUnitCurrent: parsed });
+  const handleChapterCommit = (next: number) => {
+    if (next === secondaryUnitCurrent) return;
+    void runUpdate({ secondaryUnitCurrent: next });
   };
 
   const handleChapterStep = (delta: number) => {
     const nextVal = Math.max(0, secondaryUnitCurrent + delta);
     if (secondaryUnitTotal !== null && nextVal > secondaryUnitTotal) return;
-    commitChapterValue(String(nextVal));
+    handleChapterCommit(nextVal);
   };
 
   const handleVolumeChange = (delta: number) => {
@@ -419,21 +392,10 @@ export default function MediaCard({
           />
         ) : bookish ? (
           <BookStepper
-            value={inputValue}
-            canDecrement={canDecrement}
-            canIncrement={canIncrement}
+            current={secondaryUnitCurrent}
             total={secondaryUnitTotal}
             disabled={isUpdating}
-            onValueChange={setInputValue}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              setIsFocused(false);
-              setInputValue(String(secondaryUnitCurrent));
-            }}
-            onCommit={(val) => {
-              setIsFocused(false);
-              commitChapterValue(val);
-            }}
+            onCommit={handleChapterCommit}
             onStep={handleChapterStep}
           />
         ) : (

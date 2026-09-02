@@ -36,15 +36,6 @@ export interface UserProfile {
   verificationDismissedAt?: string | null;
 }
 
-export interface UpdateProfileInput {
-  name?: string;
-  username?: string | null;
-  bio?: string | null;
-  isPublic?: boolean;
-  image?: string | null;
-  countryCode?: string;
-}
-
 export interface PublicUserSearchResult {
   id: string;
   name: string;

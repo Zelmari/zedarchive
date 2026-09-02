@@ -1,17 +1,15 @@
 export const dynamic = 'force-dynamic';
 
-import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import { parseSearchQuery } from '@/lib/search';
 import { searchPublicProfiles } from '@/server/queries/user';
 
 export async function GET(request: Request): Promise<Response> {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
+  const parsed = parseSearchQuery(request);
+  if (parsed instanceof Response) return parsed;
+
+  const { query, searchParams } = parsed;
   const limitParam = searchParams.get('limit');
   const limit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 5, 1), 20) : 5;
-
-  if (query.length > MAX_QUERY_LENGTH) {
-    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
-  }
 
   if (!query) {
     return Response.json({ results: [] });

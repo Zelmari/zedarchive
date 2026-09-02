@@ -5,7 +5,7 @@ import { MessageSquare, Library, Settings, Users, Crown } from 'lucide-react';
 import type { GroupDetails, GroupMessageItem } from '@/types/groups';
 import type { MediaEntry } from '@/types/media';
 import GroupChatView from './GroupChatView';
-import GroupArchiveView from './GroupArchiveView';
+import DashboardClient from '@/app/dashboard/DashboardClient';
 import GroupSettingsModal from './GroupSettingsModal';
 import { getGroupMessagesAction, getEligibleFriendsToInviteAction } from '@/server/groups';
 
@@ -134,14 +134,19 @@ export default function GroupWorkspaceClient({
         <GroupChatView
           groupId={group.id}
           initialMessages={messages}
-          currentUserId={currentUserId}
           isOwner={group.isOwner}
           onUpdate={setMessages}
         />
       )}
 
       {tab === 'archive' && (
-        <GroupArchiveView group={group} initialMedia={initialMedia} currentUser={currentUser} />
+        <DashboardClient
+          user={currentUser}
+          initialEntries={initialMedia}
+          groupId={group.id}
+          groupName={group.name}
+          isGroup
+        />
       )}
 
       {tab === 'members' && (

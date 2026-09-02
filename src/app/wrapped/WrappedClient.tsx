@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles,
@@ -11,14 +10,12 @@ import {
   Star,
   Share2,
   Check,
-  ArrowLeft,
   Calendar,
   Flame,
   Award,
 } from 'lucide-react';
 import type { YearlyStats } from '@/lib/stats';
 import { RatingBadge } from '@/components/ui/Badge';
-import { getTileInitials } from '@/lib/format';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 
 interface WrappedClientProps {

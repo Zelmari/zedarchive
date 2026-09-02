@@ -25,7 +25,7 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
       <main id="main-content" className="pb-16 pt-8">
         <div className="za-container max-w-[42rem] space-y-8">
           <ProfileSection profile={profile} />
-          <ThemeSection initialTheme={profile.theme} />
+          <ThemeSection initialTheme={profile.theme} customTheme={profile.customTheme} />
           <SecuritySection profile={profile} />
           <DangerSection email={profile.email} />
         </div>

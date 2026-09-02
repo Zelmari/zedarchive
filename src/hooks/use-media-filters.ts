@@ -6,7 +6,7 @@ import type { DashboardTab, SortKey } from '@/types/dashboard';
 
 export type { DashboardTab, SortKey };
 
-export const STATUS_KEYS = ['in_progress', 'completed', 'planning', 'on_hold', 'dropped'] as const;
+export { VALID_STATUSES as STATUS_KEYS } from '@/lib/constants';
 
 /**
  * Search / filter / sort state and derived views for the dashboard grid.
@@ -161,6 +161,5 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
     bookEntries,
     counts,
     displayedEntries,
-    statusKeys: STATUS_KEYS,
   };
 }

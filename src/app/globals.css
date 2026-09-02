@@ -29,8 +29,8 @@
   --color-accent-soft: var(--za-color-accent-soft);
   --color-on-accent: var(--za-color-on-accent);
 
-  --color-danger: var(--za-color-danger);
-  --color-danger-surface: var(--za-color-danger-surface);
+  --color-danger: var(--za-color-destructive);
+  --color-danger-surface: var(--za-color-error-surface);
   --color-success: var(--za-color-success);
   --color-success-surface: var(--za-color-success-surface);
   --color-warning: var(--za-color-warning);
@@ -115,9 +115,6 @@
   --za-color-warning: #765a00; /* Warm Amber / Ochre */
   --za-color-warning-surface: #f8f0d8; /* Soft Ochre Warning Background */
 
-  --za-color-information: #4b4a46; /* Slate Charcoal Information */
-  --za-color-information-surface: #f0ede6; /* Soft Slate Information Background */
-
   /* ==========================================================================
      Title Tile Placeholder
      ========================================================================== */
@@ -148,7 +145,6 @@
   /* ==========================================================================
      Spacing & Layout Rhythm
      ========================================================================== */
-  --za-space-unit: 0.25rem; /* 4px base step */
   --za-space-1: 0.25rem; /* 4px */
   --za-space-2: 0.5rem; /* 8px */
   --za-space-3: 0.75rem; /* 12px */
@@ -184,7 +180,6 @@
   /* ==========================================================================
      Layering (Z-Index Scale)
      ========================================================================== */
-  --za-layer-content: 0;
   --za-layer-skip-link: 50;
   --za-layer-modal: 100;
 
@@ -222,7 +217,6 @@
   --za-color-error-surface: #381a1e;
   --za-color-success-surface: #132b1e;
   --za-color-warning-surface: #33260c;
-  --za-color-information-surface: #20242d;
   --za-shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.3);
   --za-shadow-layered: 0 18px 48px rgba(0, 0, 0, 0.6);
   --za-backdrop-modal: rgba(0, 0, 0, 0.75);
@@ -616,24 +610,6 @@
   color: var(--za-color-accent-active);
 }
 
-.za-button.za-current-page {
-  border-color: var(--za-color-accent);
-  background: var(--za-color-accent-soft);
-  color: var(--za-color-accent);
-  font-weight: var(--za-weight-heading);
-}
-
-.za-button.za-current-page:hover {
-  border-color: var(--za-color-accent-hover);
-  background: var(--za-color-surface-subtle);
-  color: var(--za-color-accent-hover);
-}
-
-.za-button.za-current-page:active {
-  border-color: var(--za-color-accent-active);
-  color: var(--za-color-accent-active);
-}
-
 .za-button--destructive {
   border-color: var(--za-color-destructive);
   background: var(--za-color-destructive);
@@ -686,6 +662,11 @@
   border: var(--za-border-width) solid currentcolor;
   border-radius: var(--za-radius-control);
   padding: var(--za-space-3) var(--za-space-4);
+}
+
+.za-notice--info {
+  background: var(--za-color-accent-soft);
+  color: var(--za-color-text);
 }
 
 .za-notice--error {
@@ -875,7 +856,7 @@
     text-underline-offset: 0.15em;
   }
 
-  .za-button.za-current-page {
+  .za-button--selected {
     border-color: Highlight;
   }
 }
@@ -905,18 +886,6 @@
 }
 
 @media (prefers-contrast: more) {
-  /* ==========================================================================
-   Tailwind CSS v4 — Design Token Bridge
-   Maps the bespoke `--za-*` editorial tokens into Tailwind utilities
-   (bg-canvas, text-ink, border-decorative, bg-accent, …) so components can
-   adopt utilities without ever hardcoding a color. `inline` keeps the
-   generated utilities referencing the theme-scoped custom properties, so all
-   five palettes keep working with zero duplication.
-   ========================================================================== */
-
-  /* Keyframes backing the token-driven animations above (shared with the
-   legacy module until it is deleted). */
-
   :root {
     --za-color-text-muted: var(--za-color-text);
     --za-color-border-decorative: var(--za-color-border-required);

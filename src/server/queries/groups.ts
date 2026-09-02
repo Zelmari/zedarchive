@@ -1,7 +1,8 @@
 import { db } from '@/lib/db';
-import { groups, groupMembers, groupMessages, user as userTable, friendships } from '@/db/schema';
-import { eq, and, desc, gt, lte, inArray, notInArray, or, count } from 'drizzle-orm';
+import { groups, groupMembers, groupMessages, user as userTable } from '@/db/schema';
+import { eq, and, desc, gt, lte, inArray, count } from 'drizzle-orm';
 import type { GroupDetails, GroupSummary, GroupMessageItem } from '@/types/groups';
+import { getFriendIds } from './friends';
 
 function toIso(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString();
@@ -180,31 +181,23 @@ export async function getEligibleFriendsToInvite(
   const excluded = new Set(existingMemberIds.map((r) => r.userId));
   excluded.add(ownerId);
 
-  // Get accepted friends of owner (both directions)
-  const sentFriends = await db
+  const friendIds = await getFriendIds(ownerId);
+  const eligibleIds = friendIds.filter((id) => !excluded.has(id));
+  if (eligibleIds.length === 0) return [];
+
+  const friendRows = await db
     .select({
-      friendId: userTable.id,
+      id: userTable.id,
       name: userTable.name,
       username: userTable.username,
       image: userTable.image,
     })
-    .from(friendships)
-    .innerJoin(userTable, eq(userTable.id, friendships.receiverId))
-    .where(and(eq(friendships.senderId, ownerId), eq(friendships.status, 'accepted')));
+    .from(userTable)
+    .where(inArray(userTable.id, eligibleIds));
 
-  const receivedFriends = await db
-    .select({
-      friendId: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      image: userTable.image,
-    })
-    .from(friendships)
-    .innerJoin(userTable, eq(userTable.id, friendships.senderId))
-    .where(and(eq(friendships.receiverId, ownerId), eq(friendships.status, 'accepted')));
-
-  const all = [...sentFriends, ...receivedFriends];
-  return all
-    .filter((f) => !excluded.has(f.friendId))
-    .map((f) => ({ id: f.friendId, name: f.name, username: f.username, image: f.image }));
+  const friendById = new Map(friendRows.map((friend) => [friend.id, friend]));
+  return eligibleIds.flatMap((id) => {
+    const friend = friendById.get(id);
+    return friend ? [friend] : [];
+  });
 }

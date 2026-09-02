@@ -1,5 +1,7 @@
 import type { SearchResult } from '@/types/search';
 import type { NextAirInfo } from '@/types/media';
+import { httpsCover } from '@/lib/format';
+import { searchGoogleBooks, searchOpenLibrary } from './openlibrary';
 import { searchTvmazeAnime } from './tvmaze';
 
 interface AniListMedia {
@@ -50,11 +52,28 @@ query ($search: String, $type: MediaType) {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function httpsCover(url: string | null | undefined): string | null {
-  if (url && url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+async function anilistGraphql<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  revalidate: number,
+): Promise<T | null> {
+  const response = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
+    },
+    body: JSON.stringify({ query, variables }),
+    next: { revalidate },
+  });
+
+  if (!response.ok) {
+    return null;
   }
-  return url ?? null;
+
+  const json = (await response.json()) as { data?: T };
+  return json.data ?? null;
 }
 
 function validDate(iso: unknown): Date | null {
@@ -175,99 +194,18 @@ export async function searchAniList(
   query: string,
   isManga: boolean,
 ): Promise<SearchResult[] | null> {
-  const response = await fetch('https://graphql.anilist.co', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
+  const data = await anilistGraphql<{ Page?: { media?: AniListMedia[] } }>(
+    ANILIST_QUERY,
+    {
+      search: query,
+      type: isManga ? 'MANGA' : 'ANIME',
     },
-    body: JSON.stringify({
-      query: ANILIST_QUERY,
-      variables: {
-        search: query,
-        type: isManga ? 'MANGA' : 'ANIME',
-      },
-    }),
-    next: { revalidate: 86400 },
-  });
+    86400,
+  );
+  if (!data) return null;
 
-  if (!response.ok) {
-    return null;
-  }
-
-  const json: unknown = await response.json();
-  const mediaList =
-    (json as { data?: { Page?: { media?: AniListMedia[] } } })?.data?.Page?.media || [];
+  const mediaList = data.Page?.media ?? [];
   return mediaList.map((item) => toAnimeResult(item, isManga, 'anilist'));
-}
-
-export async function searchGoogleBooksManga(query: string): Promise<SearchResult[] | null> {
-  const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`${query} manga`)}&maxResults=5`;
-  const gbooksRes = await fetch(gbooksUrl, {
-    next: { revalidate: 86400 },
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!gbooksRes.ok) return null;
-
-  const gbooksData: unknown = await gbooksRes.json();
-  const items = (gbooksData as { items?: unknown[] }).items;
-  if (!Array.isArray(items) || items.length === 0) return null;
-
-  return items.map((rawItem): SearchResult => {
-    const item = rawItem as { id: number; volumeInfo?: Record<string, unknown> };
-    const info = item.volumeInfo || {};
-    const imageLinks = info.imageLinks as
-      { thumbnail?: string; smallThumbnail?: string } | undefined;
-    const coverUrl = httpsCover(imageLinks?.thumbnail || imageLinks?.smallThumbnail);
-
-    return {
-      sourceId: `gbooks-${item.id}`,
-      category: 'manga',
-      title: (info.title as string) || 'Unknown Title',
-      coverUrl,
-      primaryUnitTotal: 1,
-      structure: [],
-      secondaryUnitTotal: typeof info.pageCount === 'number' ? info.pageCount : null,
-      authors: Array.isArray(info.authors) ? info.authors.join(', ') : null,
-      year: info.publishedDate ? String(info.publishedDate).substring(0, 4) : null,
-    };
-  });
-}
-
-export async function searchOpenLibraryManga(query: string): Promise<SearchResult[] | null> {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(`${query} manga`)}&limit=5`;
-  const res = await fetch(url, {
-    next: { revalidate: 86400 },
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!res.ok) return null;
-
-  const data = (await res.json()) as Record<string, unknown>;
-  const docs = Array.isArray(data.docs) ? (data.docs as Record<string, unknown>[]) : [];
-  if (docs.length === 0) return null;
-
-  return docs.map((doc): SearchResult => {
-    const coverUrl = doc.cover_i
-      ? `https://covers.openlibrary.org/b/id/${String(doc.cover_i)}-M.jpg`
-      : null;
-
-    const cleanKey = doc.key ? String(doc.key).replace(/^\/works\//, '') : null;
-
-    return {
-      sourceId: `openlib-${cleanKey || doc.title || query}`,
-      category: 'manga',
-      title: (doc.title as string) || 'Unknown Title',
-      coverUrl,
-      primaryUnitTotal: 1,
-      structure: [],
-      secondaryUnitTotal: (doc.number_of_pages_median as number) || null,
-      authors: Array.isArray(doc.author_name) ? doc.author_name.join(', ') : null,
-      year: doc.first_publish_year ? String(doc.first_publish_year) : null,
-    };
-  });
 }
 
 export async function searchAnimeAndManga(
@@ -276,13 +214,13 @@ export async function searchAnimeAndManga(
 ): Promise<SearchResult[] | null> {
   let results = await searchAniList(query, isManga);
 
-  if (!results && isManga) {
-    results = await searchGoogleBooksManga(query);
+  if (!results?.length && isManga) {
+    results = await searchGoogleBooks(query, { category: 'manga', querySuffix: 'manga' });
   }
-  if (!results && isManga) {
-    results = await searchOpenLibraryManga(query);
+  if (!results?.length && isManga) {
+    results = await searchOpenLibrary(query, { category: 'manga', querySuffix: 'manga' });
   }
-  if (!results && !isManga) {
+  if (!results?.length && !isManga) {
     results = await searchTvmazeAnime(query);
   }
 
@@ -307,7 +245,18 @@ interface AniListRelationNode {
   };
 }
 
+const ANILIST_AIR_INFO_FRAGMENT = `
+fragment AirInfo on Media {
+  nextAiringEpisode {
+    airingAt
+    episode
+    timeUntilAiring
+  }
+}
+`;
+
 const ANILIST_RELATIONS_QUERY = `
+${ANILIST_AIR_INFO_FRAGMENT}
 query ($id: Int, $idMal: Int) {
   Media(id: $id, idMal: $idMal, type: ANIME) {
     id
@@ -316,11 +265,7 @@ query ($id: Int, $idMal: Int) {
       romaji
       english
     }
-    nextAiringEpisode {
-      airingAt
-      episode
-      timeUntilAiring
-    }
+    ...AirInfo
     relations {
       edges {
         relationType
@@ -332,11 +277,7 @@ query ($id: Int, $idMal: Int) {
             romaji
             english
           }
-          nextAiringEpisode {
-            airingAt
-            episode
-            timeUntilAiring
-          }
+          ...AirInfo
           relations {
             edges {
               relationType
@@ -348,11 +289,7 @@ query ($id: Int, $idMal: Int) {
                   romaji
                   english
                 }
-                nextAiringEpisode {
-                  airingAt
-                  episode
-                  timeUntilAiring
-                }
+                ...AirInfo
               }
             }
           }
@@ -363,71 +300,41 @@ query ($id: Int, $idMal: Int) {
 }
 `;
 
+function toNextAir(node: AniListRelationNode, season: number): NextAirInfo | null {
+  if (node.status !== 'RELEASING' || !node.nextAiringEpisode) return null;
+
+  const airDate = new Date(node.nextAiringEpisode.airingAt * 1000);
+  return {
+    season,
+    number: node.nextAiringEpisode.episode,
+    airdate: airDate.toISOString().slice(0, 10),
+    airstamp: airDate.toISOString(),
+    status: 'RELEASING',
+    sequelTitle: node.title?.english || node.title?.romaji || null,
+  };
+}
+
 /**
  * Traverses AniList relations graph following SEQUEL edges to find an active airing season.
  */
 export async function resolveAniListAiringSequel(
   id: number | null,
   idMal: number | null,
-  currentDepth = 1,
-  maxDepth = 3,
-  visited = new Set<number>(),
 ): Promise<NextAirInfo | null> {
-  if ((!id && !idMal) || currentDepth > maxDepth) return null;
-  const lookupKey = id ?? idMal ?? 0;
-  if (visited.has(lookupKey)) return null;
-  visited.add(lookupKey);
+  if (!id && !idMal) return null;
 
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'User-Agent': 'zedarchive/0.1 (https://zedarchive.com; media tracking app)',
-      },
-      body: JSON.stringify({
-        query: ANILIST_RELATIONS_QUERY,
-        variables: id ? { id } : { idMal },
-      }),
-      next: { revalidate: 21600 },
-    });
-
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      data?: {
-        Media?: {
-          id: number;
-          status: string;
-          title?: { romaji?: string; english?: string };
-          nextAiringEpisode?: { airingAt: number; episode: number } | null;
-          relations?: {
-            edges?: Array<{
-              relationType: string;
-              node: AniListRelationNode;
-            }>;
-          };
-        };
-      };
-    };
-
-    const media = json.data?.Media;
+    const data = await anilistGraphql<{ Media?: AniListRelationNode }>(
+      ANILIST_RELATIONS_QUERY,
+      id ? { id } : { idMal },
+      21600,
+    );
+    const media = data?.Media;
     if (!media) return null;
 
-    // Direct check on root
-    if (media.status === 'RELEASING' && media.nextAiringEpisode) {
-      const airDate = new Date(media.nextAiringEpisode.airingAt * 1000);
-      return {
-        season: currentDepth,
-        number: media.nextAiringEpisode.episode,
-        airdate: airDate.toISOString().slice(0, 10),
-        airstamp: airDate.toISOString(),
-        status: 'RELEASING',
-        sequelTitle: media.title?.english || media.title?.romaji || null,
-      };
-    }
+    const directAir = toNextAir(media, 1);
+    if (directAir) return directAir;
 
-    // Inspect SEQUEL edges
     const edges = media.relations?.edges || [];
     const sequelEdges = edges.filter(
       (e) =>
@@ -438,35 +345,16 @@ export async function resolveAniListAiringSequel(
 
     for (const edge of sequelEdges) {
       const node = edge.node;
-      if (node.status === 'RELEASING' && node.nextAiringEpisode) {
-        const airDate = new Date(node.nextAiringEpisode.airingAt * 1000);
-        return {
-          season: currentDepth + 1,
-          number: node.nextAiringEpisode.episode,
-          airdate: airDate.toISOString().slice(0, 10),
-          airstamp: airDate.toISOString(),
-          status: 'RELEASING',
-          sequelTitle: node.title?.english || node.title?.romaji || null,
-        };
-      }
+      const sequelAir = toNextAir(node, 2);
+      if (sequelAir) return sequelAir;
 
-      // Check depth 3 nested node if available in response
       const nestedSequels = (node.relations?.edges || []).filter(
         (ne) => ne.relationType === 'SEQUEL' && ne.node,
       );
       for (const nestedEdge of nestedSequels) {
         const nestedNode = nestedEdge.node;
-        if (nestedNode.status === 'RELEASING' && nestedNode.nextAiringEpisode) {
-          const airDate = new Date(nestedNode.nextAiringEpisode.airingAt * 1000);
-          return {
-            season: currentDepth + 2,
-            number: nestedNode.nextAiringEpisode.episode,
-            airdate: airDate.toISOString().slice(0, 10),
-            airstamp: airDate.toISOString(),
-            status: 'RELEASING',
-            sequelTitle: nestedNode.title?.english || nestedNode.title?.romaji || null,
-          };
-        }
+        const nestedAir = toNextAir(nestedNode, 3);
+        if (nestedAir) return nestedAir;
       }
     }
 
@@ -627,21 +515,13 @@ export async function resolveMalId(
     if (!isNaN(anilistId) && anilistId > 0) {
       try {
         const query = `query ($id: Int) { Media(id: $id, type: ANIME) { idMal } }`;
-        const res = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'User-Agent': 'zedarchive/0.1',
-          },
-          body: JSON.stringify({ query, variables: { id: anilistId } }),
-          next: { revalidate: 2592000 },
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { data?: { Media?: { idMal?: number | null } } };
-          const idMal = json.data?.Media?.idMal;
-          if (idMal && idMal > 0) return idMal;
-        }
+        const data = await anilistGraphql<{ Media?: { idMal?: number | null } }>(
+          query,
+          { id: anilistId },
+          2592000,
+        );
+        const idMal = data?.Media?.idMal;
+        if (idMal && idMal > 0) return idMal;
       } catch {
         // Fallback to title search
       }

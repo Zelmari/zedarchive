@@ -1,26 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
-import type { ThemeId } from '@/types/user';
-import { THEMES } from '@/lib/constants';
-import { updateUserTheme } from '@/server/profile';
+import ThemeStudio from '@/components/theme/ThemeStudio';
+import { applyCustomThemeTokens, applyTheme } from '@/lib/theme';
+import type { CustomThemePalette, ThemeId } from '@/types/user';
 
 interface ThemeSectionProps {
   initialTheme?: ThemeId;
+  customTheme?: CustomThemePalette | null;
 }
 
-export default function ThemeSection({ initialTheme = 'parchment' }: ThemeSectionProps) {
+export default function ThemeSection({
+  initialTheme = 'parchment',
+  customTheme = null,
+}: ThemeSectionProps) {
   const [currentTheme, setCurrentTheme] = useState<ThemeId>(initialTheme);
+  const [currentCustomTheme, setCurrentCustomTheme] = useState<CustomThemePalette | null>(
+    customTheme,
+  );
 
-  const handleThemeChange = async (themeId: ThemeId) => {
+  useEffect(() => {
+    applyTheme(currentTheme, currentTheme === 'custom' ? currentCustomTheme : null);
+  }, [currentTheme, currentCustomTheme]);
+
+  const handleThemeChange = (themeId: ThemeId, nextCustomTheme?: CustomThemePalette | null) => {
+    if (themeId !== 'custom') {
+      applyCustomThemeTokens(null);
+    }
     setCurrentTheme(themeId);
-    document.documentElement.setAttribute('data-theme', themeId);
-    try {
-      localStorage.setItem('za-theme', themeId);
-      await updateUserTheme(themeId);
-    } catch (err) {
-      console.warn('Failed to save theme preference:', err);
+    if (nextCustomTheme) {
+      setCurrentCustomTheme(nextCustomTheme);
     }
   };
 
@@ -32,25 +42,12 @@ export default function ThemeSection({ initialTheme = 'parchment' }: ThemeSectio
           Interface Theme
         </h2>
       </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {THEMES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => handleThemeChange(t.id)}
-            style={{ backgroundColor: t.bg, color: t.text }}
-            className={`flex flex-col items-center justify-center rounded-control border p-3 text-center transition-all ${
-              currentTheme === t.id
-                ? 'border-2 border-accent shadow-sm'
-                : 'border-decorative hover:border-required'
-            }`}
-          >
-            <span className="text-xs font-[var(--za-weight-emphasis)]">{t.label}</span>
-            {currentTheme === t.id && <span className="mt-1 text-[10px] text-accent">Active</span>}
-          </button>
-        ))}
-      </div>
+      <ThemeStudio
+        initialTheme={currentTheme}
+        customTheme={currentCustomTheme}
+        onThemeChange={handleThemeChange}
+        className="px-0 py-0"
+      />
     </section>
   );
 }

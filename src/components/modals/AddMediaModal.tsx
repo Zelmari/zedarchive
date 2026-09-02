@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tv, Sparkles, BookOpen, Library, X, ArrowLeft } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
-import { useFocusTrap } from '@/hooks/use-focus-trap';
+import Modal from '@/components/ui/Modal';
 import SpotlightSearchModal, {
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
 import MediaEditForm, { type MediaFormState } from '@/components/forms/MediaEditForm';
+import { seasonTotal } from '@/lib/season';
 import type { MediaCategory, MediaEntry } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session
@@ -121,19 +122,6 @@ export default function AddMediaModal({
     onClose();
   }, [onClose, isSubmitting, isCompressing]);
 
-  // Escape in search view → manual; in manual view → close.
-  const handleEscape = useCallback(() => {
-    if (viewMode === 'search') {
-      setViewMode('manual');
-    } else {
-      resetAndClose();
-    }
-  }, [viewMode, resetAndClose]);
-
-  const modalRef = useFocusTrap(isOpen, handleEscape, {
-    initialFocusRef: titleInputRef,
-  });
-
   if (!isOpen) return null;
 
   const setField = <K extends keyof MediaFormState>(field: K, value: MediaFormState[K]) => {
@@ -184,6 +172,8 @@ export default function AddMediaModal({
   // VIEW MODE 1: SPOTLIGHT SEARCH-FIRST WINDOW
   // =========================================================================
   if (viewMode === 'search') {
+    // Spotlight owns Escape and closes the complete add flow; AddMedia only
+    // mounts its own Modal for the manual view so one focus trap is active.
     return (
       <SpotlightSearchModal
         isOpen
@@ -212,9 +202,9 @@ export default function AddMediaModal({
     setField('primaryUnitCurrent', val);
     const seasonNum = parseInt(val, 10);
     if (!isNaN(seasonNum) && form.structure.length > 0) {
-      const seasonObj = form.structure.find((s) => s.number === seasonNum);
-      if (seasonObj && seasonObj.total !== null && seasonObj.total !== undefined) {
-        setField('secondaryUnitTotal', String(seasonObj.total));
+      const total = seasonTotal(form.structure, seasonNum);
+      if (total !== null) {
+        setField('secondaryUnitTotal', String(total));
         return;
       }
     }
@@ -324,54 +314,49 @@ export default function AddMediaModal({
   );
 
   return (
-    <div
-      className="animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex items-center justify-center bg-backdrop p-[var(--za-space-4)]"
-      onClick={resetAndClose}
+    <Modal
+      isOpen={isOpen}
+      onClose={resetAndClose}
+      labelledBy="add-media-modal-title"
+      initialFocusRef={titleInputRef}
+      contentClassName="max-w-2xl overflow-y-auto"
     >
-      <div
-        ref={modalRef}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-layered border border-required bg-surface shadow-layered"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-media-modal-title"
-      >
-        <div className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
-          {!isEditMode && (
-            <button
-              type="button"
-              onClick={() => setViewMode('search')}
-              className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] text-ink-muted hover:text-ink"
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Search</span>
-            </button>
-          )}
-          <h2
-            id="add-media-modal-title"
-            className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+      <div className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
+        {!isEditMode && (
+          <button
+            type="button"
+            onClick={() => setViewMode('search')}
+            className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] text-ink-muted hover:text-ink"
           >
-            {isEditMode ? 'Edit Entry' : 'Manual Entry'}
-          </h2>
-          {headerCloseBtn}
-        </div>
-
-        <MediaEditForm
-          isEditMode={isEditMode}
-          category={category}
-          onCategoryChange={updateCategory}
-          form={form}
-          onFieldChange={(field, value) => setField(field, value)}
-          onPrimaryUnitCurrentChange={handlePrimaryUnitChange}
-          onImageUpload={handleImageUpload}
-          onImageRemove={handleImageRemove}
-          isCompressing={isCompressing}
-          isSubmitting={isSubmitting}
-          error={error}
-          onSubmit={handleSubmit}
-          onCancel={resetAndClose}
-        />
+            <ArrowLeft size={14} />
+            <span>Back to Search</span>
+          </button>
+        )}
+        <h2
+          id="add-media-modal-title"
+          className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+        >
+          {isEditMode ? 'Edit Entry' : 'Manual Entry'}
+        </h2>
+        {headerCloseBtn}
       </div>
-    </div>
+
+      <MediaEditForm
+        isEditMode={isEditMode}
+        category={category}
+        onCategoryChange={updateCategory}
+        titleInputRef={titleInputRef}
+        form={form}
+        onFieldChange={(field, value) => setField(field, value)}
+        onPrimaryUnitCurrentChange={handlePrimaryUnitChange}
+        onImageUpload={handleImageUpload}
+        onImageRemove={handleImageRemove}
+        isCompressing={isCompressing}
+        isSubmitting={isSubmitting}
+        error={error}
+        onSubmit={handleSubmit}
+        onCancel={resetAndClose}
+      />
+    </Modal>
   );
 }

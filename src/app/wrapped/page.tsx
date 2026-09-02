@@ -1,6 +1,5 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
+import { requireSession } from '@/server/internal';
 
 export const metadata = {
   title: 'Your Year in Media — zedarchive Wrapped',
@@ -8,13 +7,7 @@ export const metadata = {
 };
 
 export default async function WrappedRedirectPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user?.id) {
-    redirect('/login');
-  }
+  await requireSession();
 
   const currentYear = new Date().getFullYear();
   redirect(`/wrapped/${currentYear}`);

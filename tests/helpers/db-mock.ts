@@ -20,13 +20,25 @@ export function createMockDb(state: {
   inserted?: MockRow[];
   deletedTables?: string[];
   accounts?: MockRow[];
+  memberships?: MockRow[];
+  joinConditions?: unknown[];
 }) {
   const getRows = () => state.rows ?? [];
+  const getTableNameSafe = (table: unknown) => {
+    try {
+      return getTableName(table as never);
+    } catch {
+      return '';
+    }
+  };
 
   const makeTx = () => ({
     select: () => ({
-      from: () => {
-        const rows = getRows();
+      from: (table?: unknown) => {
+        const rows =
+          getTableNameSafe(table) === 'group_members' && state.memberships
+            ? state.memberships
+            : getRows();
         const p = createAwaitable(rows.length ? [rows[0]] : []);
         p.where = () => p;
         p.orderBy = () => p;
@@ -70,13 +82,22 @@ export function createMockDb(state: {
 
   return {
     select: () => ({
-      from: () => {
+      from: (table?: unknown) => {
         const result =
-          state.accounts ?? (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows());
+          getTableNameSafe(table) === 'group_members' && state.memberships
+            ? state.memberships
+            : (state.accounts ??
+              (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows()));
         const p = createAwaitable(result);
         p.where = () => p;
         p.orderBy = () => p;
         p.limit = () => p;
+        if (state.joinConditions) {
+          p.leftJoin = (_table: unknown, condition: unknown) => {
+            state.joinConditions?.push(condition);
+            return p;
+          };
+        }
         return p;
       },
     }),

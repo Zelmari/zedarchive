@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPublicUserProfile } from '@/server/queries/user';
 import { calculateTasteMatch } from '@/lib/tasteMatch';
-import { ArrowLeft, Star, Heart, Check, Users, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 

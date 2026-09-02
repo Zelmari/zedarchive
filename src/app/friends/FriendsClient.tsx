@@ -20,7 +20,6 @@ interface Props {
   initialFriends: FriendshipItem[];
   initialIncoming: FriendshipItem[];
   initialOutgoing: FriendshipItem[];
-  currentUserId: string;
 }
 
 export default function FriendsClient({ initialFriends, initialIncoming, initialOutgoing }: Props) {

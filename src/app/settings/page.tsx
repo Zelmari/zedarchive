@@ -1,7 +1,6 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
 import { getUserProfileById } from '@/server/queries/user';
+import { requireSession } from '@/server/internal';
 import SettingsClient from './SettingsClient';
 import type { UserProfile } from '@/types/user';
 
@@ -11,15 +10,9 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await requireSession();
 
-  if (!session?.user?.id) {
-    redirect('/login');
-  }
-
-  const profile = await getUserProfileById(session.user.id);
+  const profile = await getUserProfileById(session.id);
 
   if (!profile) {
     redirect('/login');
@@ -31,6 +24,7 @@ export default async function SettingsPage() {
     email: profile.email,
     image: profile.image || null,
     theme: profile.theme,
+    customTheme: profile.customTheme || null,
     username: profile.username,
     isPublic: profile.isPublic,
     bio: profile.bio,

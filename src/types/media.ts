@@ -34,13 +34,6 @@ export interface MediaQuote {
   createdAt: string;
 }
 
-export interface MediaQuoteInput {
-  text: string;
-  speaker?: string | null;
-  citation?: string | null;
-  isFavorite?: boolean;
-}
-
 type MediaRow = typeof mediaEntries.$inferSelect;
 
 /**
@@ -83,8 +76,9 @@ export interface MediaEntry extends Omit<
   groupId: string | null;
 }
 
-export type CreateMediaInput = Omit<MediaEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
-export type UpdateMediaInput = Partial<CreateMediaInput>;
+export type UpdateMediaInput = Partial<
+  Omit<MediaEntry, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+>;
 
 export interface NextAirInfo {
   season: number;

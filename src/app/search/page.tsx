@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import { searchPublicProfiles } from '@/server/queries/user';
+import BrandWordmark from '@/components/navigation/BrandWordmark';
 import SearchResultsClient from './SearchResultsClient';
 import { isAuthenticated } from '@/server/queries/user';
 
@@ -28,18 +28,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       {/* Header */}
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">
-          <Link href="/" className="za-wordmark za-link za-site-header__brand">
-            <Image
-              alt=""
-              aria-hidden="true"
-              className="za-wordmark__mark"
-              height={36}
-              src="/transparentlogo.png"
-              width={36}
-              unoptimized
-            />
-            <span className="za-wordmark__text">zedarchive</span>
-          </Link>
+          <BrandWordmark />
 
           <nav aria-label="Account" className="za-site-header__nav">
             {loggedIn ? (

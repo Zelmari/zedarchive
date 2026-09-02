@@ -3,9 +3,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const dbState = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   selectQueue: [] as Array<Array<Record<string, unknown>>>,
+  joinConditions: [] as unknown[],
 }));
 
 import { createMockDb } from '../helpers/db-mock';
+
+function containsColumn(value: unknown, columnName: string, seen = new Set<object>()): boolean {
+  if (!value || typeof value !== 'object' || seen.has(value)) return false;
+  seen.add(value);
+
+  const record = value as Record<string, unknown>;
+  if (record.name === columnName && record.table) return true;
+  return Object.values(record).some((child) => containsColumn(child, columnName, seen));
+}
 
 vi.mock('@/lib/db', () => ({
   db: createMockDb(dbState),
@@ -19,6 +29,7 @@ describe('searchPublicProfiles', () => {
     vi.clearAllMocks();
     dbState.rows.length = 0;
     dbState.selectQueue.length = 0;
+    dbState.joinConditions.length = 0;
   });
 
   it('returns empty array when query is empty or invalid', async () => {
@@ -66,6 +77,26 @@ describe('searchPublicProfiles', () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.username).toBe('alex');
   });
+
+  it('returns the personal-entry count for public profile search', async () => {
+    const mockUserRow = {
+      id: 'usr_4',
+      name: 'Group Reader',
+      username: 'group_reader',
+      bio: null,
+      image: null,
+      theme: 'parchment',
+      createdAt: new Date('2026-04-01'),
+      // The query's left join excludes private and group entries.
+      totalEntries: 1,
+    };
+
+    dbState.selectQueue.push([mockUserRow]);
+
+    const results = await searchPublicProfiles('group_reader');
+    expect(results[0]?.totalEntries).toBe(1);
+    expect(containsColumn(dbState.joinConditions[0], 'group_id')).toBe(true);
+  });
 });
 
 describe('GET /api/search/users', () => {
@@ -73,6 +104,7 @@ describe('GET /api/search/users', () => {
     vi.clearAllMocks();
     dbState.rows.length = 0;
     dbState.selectQueue.length = 0;
+    dbState.joinConditions.length = 0;
   });
 
   it('returns empty results array when query is missing', async () => {

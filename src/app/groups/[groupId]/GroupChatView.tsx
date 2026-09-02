@@ -20,13 +20,11 @@ function timeLeft(expiresAt: string): string {
 export default function GroupChatView({
   groupId,
   initialMessages,
-  currentUserId,
   isOwner,
   onUpdate,
 }: {
   groupId: string;
   initialMessages: GroupMessageItem[];
-  currentUserId: string;
   isOwner: boolean;
   onUpdate: (msgs: GroupMessageItem[]) => void;
 }) {

@@ -1,16 +1,15 @@
-import { headers } from 'next/headers';
 import { eq, desc, asc, and, or, ilike, isNotNull, isNull, ne, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
+import { getSessionUser } from '@/server/internal';
 import type { MediaEntry } from '@/types/media';
 import type { UserProfile, PublicUserSearchResult, ReadingGoalConfig } from '@/types/user';
 
 export async function isAuthenticated(): Promise<boolean> {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    return Boolean(session?.user?.id);
+    const sessionUser = await getSessionUser();
+    return Boolean(sessionUser?.id);
   } catch {
     return false;
   }
@@ -18,29 +17,18 @@ export async function isAuthenticated(): Promise<boolean> {
 
 export async function getSessionTheme(): Promise<string> {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser?.id) {
       return 'parchment';
     }
     const [row] = await db
       .select({ theme: userTable.theme })
       .from(userTable)
-      .where(eq(userTable.id, session.user.id));
+      .where(eq(userTable.id, sessionUser.id));
     return row?.theme || 'parchment';
   } catch {
     return 'parchment';
   }
-}
-
-export async function getUserById(id: string) {
-  const [row] = await db.select().from(userTable).where(eq(userTable.id, id));
-  return row ?? null;
-}
-
-export async function getUserByUsername(username: string) {
-  const clean = username.trim().toLowerCase().replace(/^@/, '');
-  const [row] = await db.select().from(userTable).where(eq(userTable.username, clean));
-  return row ?? null;
 }
 
 export async function getUserProfileById(id: string): Promise<UserProfile | null> {
@@ -124,33 +112,17 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     return null;
   }
 
-  let entries: (typeof mediaEntries.$inferSelect)[];
-  try {
-    entries = await db
-      .select()
-      .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.userId, foundUser.id),
-          eq(mediaEntries.isPrivate, false),
-          isNull(mediaEntries.groupId),
-        ),
-      )
-      .orderBy(desc(mediaEntries.updatedAt));
-  } catch (err: any) {
-    if (
-      String(err?.message || '').includes('group_id') ||
-      String(err?.cause?.message || '').includes('group_id')
-    ) {
-      entries = await db
-        .select()
-        .from(mediaEntries)
-        .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
-        .orderBy(desc(mediaEntries.updatedAt));
-    } else {
-      throw err;
-    }
-  }
+  const entries = await db
+    .select()
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, foundUser.id),
+        eq(mediaEntries.isPrivate, false),
+        isNull(mediaEntries.groupId),
+      ),
+    )
+    .orderBy(desc(mediaEntries.updatedAt));
 
   return {
     user: foundUser,
@@ -185,7 +157,11 @@ export async function searchPublicProfiles(
     .from(userTable)
     .leftJoin(
       mediaEntries,
-      and(eq(mediaEntries.userId, userTable.id), eq(mediaEntries.isPrivate, false)),
+      and(
+        eq(mediaEntries.userId, userTable.id),
+        eq(mediaEntries.isPrivate, false),
+        isNull(mediaEntries.groupId),
+      ),
     )
     .where(
       and(

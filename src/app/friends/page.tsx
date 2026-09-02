@@ -1,11 +1,9 @@
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
 import {
   getAcceptedFriends,
   getIncomingFriendRequests,
   getOutgoingFriendRequests,
 } from '@/server/queries/friends';
+import { requireSession } from '@/server/internal';
 import { Layers, MessageSquare } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import FriendsClient from './FriendsClient';
@@ -16,13 +14,12 @@ export const metadata = {
 };
 
 export default async function FriendsPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) redirect('/login');
+  const session = await requireSession();
 
   const [friends, incoming, outgoing] = await Promise.all([
-    getAcceptedFriends(session.user.id),
-    getIncomingFriendRequests(session.user.id),
-    getOutgoingFriendRequests(session.user.id),
+    getAcceptedFriends(session.id),
+    getIncomingFriendRequests(session.id),
+    getOutgoingFriendRequests(session.id),
   ]);
 
   return (
@@ -45,7 +42,6 @@ export default async function FriendsPage() {
             initialFriends={friends}
             initialIncoming={incoming}
             initialOutgoing={outgoing}
-            currentUserId={session.user.id}
           />
         </div>
       </main>

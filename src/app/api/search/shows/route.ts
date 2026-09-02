@@ -1,15 +1,13 @@
 export const revalidate = 86400;
 
-import { MAX_QUERY_LENGTH } from '@/lib/constants';
+import { parseSearchQuery } from '@/lib/search';
 import { searchTvmazeShows } from '@/lib/services/tvmaze';
 
 export async function GET(request: Request): Promise<Response> {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
-  if (query.length > MAX_QUERY_LENGTH) {
-    return Response.json({ results: [], error: 'Query too long' }, { status: 400 });
-  }
+  const parsed = parseSearchQuery(request);
+  if (parsed instanceof Response) return parsed;
 
+  const { query } = parsed;
   if (!query) {
     return Response.json({ results: [] });
   }

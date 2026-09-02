@@ -110,35 +110,19 @@ export const mediaFieldsSchema = z.object({
 
 // ─── Create Schema ────────────────────────────────────────────────────────────
 
-export const createMediaSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(MAX_TITLE_LENGTH),
-  category: z.enum(VALID_CATEGORIES).default('show'),
-  status: z.enum(VALID_STATUSES).default('in_progress'),
+export const createMediaSchema = mediaFieldsSchema.extend({
+  category: mediaFieldsSchema.shape.category.default('show'),
+  status: mediaFieldsSchema.shape.status.default('in_progress'),
   /** Per-title privacy flag — hides entry from public profile & feeds */
-  isPrivate: z.boolean().default(false),
-  dropReason: z.string().trim().max(MAX_DROP_REASON_LENGTH).nullable().optional(),
-  droppedAt: z.string().nullable().optional(),
-  droppedProgressPrimary: optionalInt,
-  droppedProgressSecondary: optionalInt,
+  isPrivate: mediaFieldsSchema.shape.isPrivate.default(false),
   /** For non-movie categories, minimum 1. For movies 0 is allowed. */
   primaryUnitCurrent: nonNegativeInt(1),
-  primaryUnitTotal: optionalInt,
   secondaryUnitCurrent: nonNegativeInt(0),
-  secondaryUnitTotal: optionalInt,
-  structure: z.array(structureItemSchema).max(MAX_STRUCTURE_LENGTH).default([]),
-  cycles: z.array(mediaCycleSchema).default([]),
-  quotes: z.array(mediaQuoteSchema).default([]),
-  rating: mediaRatingSchema,
-  /** Max 50 tags to match the sanitizeTags() slice(0, 50) cap */
-  tags: z.array(mediaTagSchema).max(50).default([]),
-  genres: z.array(z.string().trim().max(50)).default([]),
-  synopsis: z.string().max(MAX_SYNOPSIS_LENGTH).nullable().optional(),
-  coverImage: z.string().max(MAX_COVER_IMAGE_LENGTH).nullable().optional(),
-  sourceId: z.string().max(MAX_SOURCE_ID_LENGTH).nullable().optional(),
-  notes: z.string().max(MAX_NOTES_LENGTH).nullable().optional(),
-  priorityIndex: optionalInt,
-  startedAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
+  structure: mediaFieldsSchema.shape.structure.default([]),
+  cycles: mediaFieldsSchema.shape.cycles.default([]),
+  quotes: mediaFieldsSchema.shape.quotes.default([]),
+  tags: mediaFieldsSchema.shape.tags.default([]),
+  genres: mediaFieldsSchema.shape.genres.default([]),
 });
 
 // ─── Update Schema ────────────────────────────────────────────────────────────
@@ -149,32 +133,3 @@ export const updateMediaSchema = mediaFieldsSchema.partial().extend({
   _offlineUpdatedAt: z.string().optional(),
   groupId: z.string().nullable().optional(),
 });
-
-// ─── Bulk Import ──────────────────────────────────────────────────────────────
-
-export const bulkImportItemSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(MAX_TITLE_LENGTH),
-  category: z.enum(VALID_CATEGORIES).optional(),
-  status: z.string().optional(),
-  dropReason: z.string().nullable().optional(),
-  droppedAt: z.string().nullable().optional(),
-  droppedProgressPrimary: z.number().nullable().optional(),
-  droppedProgressSecondary: z.number().nullable().optional(),
-  cycles: z.array(mediaCycleSchema).optional(),
-  priorityIndex: z.number().int().nullable().optional(),
-  primaryUnitCurrent: z.number().optional(),
-  primaryUnitTotal: z.number().nullable().optional(),
-  secondaryUnitCurrent: z.number().optional(),
-  secondaryUnitTotal: z.number().nullable().optional(),
-  rating: z.number().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  tags: z.array(z.string()).optional(),
-  genres: z.array(z.string()).optional(),
-  structure: z.array(z.any()).optional(),
-  sourceId: z.string().nullable().optional(),
-  coverImage: z.string().nullable().optional(),
-  startedAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
-});
-
-export const bulkImportSchema = z.array(bulkImportItemSchema).max(1000);

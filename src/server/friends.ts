@@ -9,6 +9,17 @@ import { sendFriendRequestSchema } from '@/lib/validations/friend';
 import { getAuthUser } from './internal';
 import { searchUsersForFriendDiscovery } from './queries/friends';
 
+async function loadPendingRequest(requestId: string, { role }: { role: 'receiver' | 'sender' }) {
+  const [row] = await db.select().from(friendships).where(eq(friendships.id, requestId));
+  if (!row) throw new Error('Friend request not found');
+  if (row.status !== 'pending') throw new Error('Request is not pending');
+
+  return {
+    row,
+    userId: role === 'receiver' ? row.receiverId : row.senderId,
+  };
+}
+
 export async function sendFriendRequestAction(input: { targetUserId: string }) {
   const me = await getAuthUser();
   const parsed = sendFriendRequestSchema.safeParse(input);
@@ -78,15 +89,13 @@ export async function acceptFriendRequestAction(input: { requestId: string }) {
   const requestId = String(input.requestId || '').trim();
   if (!requestId) throw new Error('Request ID is required');
 
-  const [row] = await db.select().from(friendships).where(eq(friendships.id, requestId));
-  if (!row) throw new Error('Friend request not found');
-  if (row.receiverId !== me.id) throw new Error('You can only accept requests sent to you');
-  if (row.status !== 'pending') throw new Error('Request is not pending');
+  const { row, userId } = await loadPendingRequest(requestId, { role: 'receiver' });
+  if (userId !== me.id) throw new Error('You can only accept requests sent to you');
 
   await db
     .update(friendships)
     .set({ status: 'accepted', updatedAt: new Date() })
-    .where(eq(friendships.id, requestId));
+    .where(eq(friendships.id, row.id));
   revalidatePath('/friends');
   return { success: true };
 }
@@ -95,11 +104,9 @@ export async function rejectFriendRequestAction(input: { requestId: string }) {
   const me = await getAuthUser();
   const requestId = String(input.requestId || '').trim();
   if (!requestId) throw new Error('Request ID is required');
-  const [row] = await db.select().from(friendships).where(eq(friendships.id, requestId));
-  if (!row) throw new Error('Friend request not found');
-  if (row.receiverId !== me.id) throw new Error('You can only reject requests sent to you');
-  if (row.status !== 'pending') throw new Error('Request is not pending');
-  await db.delete(friendships).where(eq(friendships.id, requestId));
+  const { row, userId } = await loadPendingRequest(requestId, { role: 'receiver' });
+  if (userId !== me.id) throw new Error('You can only reject requests sent to you');
+  await db.delete(friendships).where(eq(friendships.id, row.id));
   revalidatePath('/friends');
   return { success: true };
 }
@@ -108,11 +115,9 @@ export async function cancelFriendRequestAction(input: { requestId: string }) {
   const me = await getAuthUser();
   const requestId = String(input.requestId || '').trim();
   if (!requestId) throw new Error('Request ID is required');
-  const [row] = await db.select().from(friendships).where(eq(friendships.id, requestId));
-  if (!row) throw new Error('Friend request not found');
-  if (row.senderId !== me.id) throw new Error('You can only cancel requests you sent');
-  if (row.status !== 'pending') throw new Error('Request is not pending');
-  await db.delete(friendships).where(eq(friendships.id, requestId));
+  const { row, userId } = await loadPendingRequest(requestId, { role: 'sender' });
+  if (userId !== me.id) throw new Error('You can only cancel requests you sent');
+  await db.delete(friendships).where(eq(friendships.id, row.id));
   revalidatePath('/friends');
   return { success: true };
 }

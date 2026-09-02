@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tv, Film, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
-import { useFocusTrap } from '@/hooks/use-focus-trap';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import { endpointFor } from '@/lib/search';
+import Modal from '@/components/ui/Modal';
+import { CATEGORY_CHIPS, chipClass } from '@/components/ui/media-controls';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface SpotlightResult {
@@ -28,14 +29,6 @@ interface SpotlightSearchModalProps {
   onSelectResult: (result: SpotlightResult) => void;
 }
 
-const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
-  { id: 'show', label: 'TV Show', Icon: Tv },
-  { id: 'movie', label: 'Movie', Icon: Film },
-  { id: 'anime', label: 'Anime', Icon: Sparkles },
-  { id: 'book', label: 'Book', Icon: BookOpen },
-  { id: 'manga', label: 'Manga', Icon: Library },
-];
-
 const PLACEHOLDERS: Record<MediaCategory, string> = {
   show: 'Search TV shows (e.g. Breaking Bad, The Bear)...',
   movie: 'Search movies (e.g. Inception, Spirited Away, Dune)...',
@@ -43,22 +36,6 @@ const PLACEHOLDERS: Record<MediaCategory, string> = {
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
 };
-
-function endpointFor(category: MediaCategory, query: string): string {
-  const q = encodeURIComponent(query);
-  switch (category) {
-    case 'movie':
-      return `/api/search/movies?q=${q}`;
-    case 'book':
-      return `/api/search/books?q=${q}`;
-    case 'anime':
-      return `/api/search/anime?q=${q}&category=anime`;
-    case 'manga':
-      return `/api/search/anime?q=${q}&category=manga`;
-    default:
-      return `/api/search/shows?q=${q}`;
-  }
-}
 
 /**
  * Spotlight search-first window for adding media. Owns search state and
@@ -84,11 +61,6 @@ export default function SpotlightSearchModal({
   const resultsContainerRef = useRef<HTMLDivElement>(null);
   const dropdownItemsRef = useRef<Array<HTMLDivElement | null>>([]);
   const searchAbortRef = useRef<AbortController | null>(null);
-
-  const modalRef = useFocusTrap(isOpen, undefined, {
-    initialFocusRef: searchInputRef,
-  });
-  useBodyScrollLock(isOpen);
 
   // Focus the input whenever the spotlight opens.
   useEffect(() => {
@@ -203,13 +175,6 @@ export default function SpotlightSearchModal({
     }
   };
 
-  const chipClass = (active: boolean) =>
-    `flex cursor-pointer items-center gap-1 rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent ${
-      active
-        ? 'border-accent bg-accent-soft font-[var(--za-weight-heading)] shadow-[inset_0_-2px_0_var(--za-color-accent)]'
-        : ''
-    }`;
-
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
@@ -217,203 +182,198 @@ export default function SpotlightSearchModal({
   };
 
   return (
-    <div
-      className="animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex items-start justify-center bg-backdrop p-[var(--za-space-4)] pt-[12vh]"
-      onClick={onClose}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      placement="top"
+      ariaLabel="Search for media to add to your archive"
+      initialFocusRef={searchInputRef}
+      contentClassName="flex max-w-[38rem] flex-col overflow-hidden"
     >
-      <div
-        ref={modalRef}
-        className="flex w-full max-w-[38rem] flex-col overflow-hidden rounded-layered border border-required bg-surface shadow-layered"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Search for media to add to your archive"
-      >
-        {/* Header with Category Chips and Close */}
-        <div className="flex items-center justify-between border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Media Category">
-            {CHIPS.map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                role="radio"
-                aria-checked={category === id}
-                className={chipClass(category === id)}
-                onClick={() => onCategoryChange(id)}
-              >
-                <Icon size={14} strokeWidth={2} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            aria-label="Close modal"
-            onClick={onClose}
-            className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
+      {/* Header with Category Chips and Close */}
+      <div className="flex items-center justify-between border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Media Category">
+          {CATEGORY_CHIPS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={category === id}
+              className={chipClass(category === id)}
+              onClick={() => onCategoryChange(id)}
+            >
+              <Icon size={14} strokeWidth={2} />
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Search box */}
-        <div className="flex items-center gap-[var(--za-space-3)] border-b border-decorative px-[var(--za-space-4)] py-[var(--za-space-3)]">
-          <Search size={18} className="shrink-0 text-ink-muted" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            aria-label="Search for movies, shows, books, or anime"
-            className="min-w-0 flex-1 border-none bg-transparent text-[length:var(--za-text-base)] font-[var(--za-weight-body)] leading-[1.5] text-ink outline-none"
-            placeholder={PLACEHOLDERS[category]}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            autoComplete="off"
-          />
-          {isSearching && <Loader2 size={16} className="za-spin shrink-0 text-ink-muted" />}
-          {searchQuery && !isSearching && (
+        <button
+          type="button"
+          aria-label="Close modal"
+          onClick={onClose}
+          className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
+      </div>
+
+      {/* Search box */}
+      <div className="flex items-center gap-[var(--za-space-3)] border-b border-decorative px-[var(--za-space-4)] py-[var(--za-space-3)]">
+        <Search size={18} className="shrink-0 text-ink-muted" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          aria-label="Search for movies, shows, books, or anime"
+          className="min-w-0 flex-1 border-none bg-transparent text-[length:var(--za-text-base)] font-[var(--za-weight-body)] leading-[1.5] text-ink outline-none"
+          placeholder={PLACEHOLDERS[category]}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          autoComplete="off"
+        />
+        {isSearching && <Loader2 size={16} className="za-spin shrink-0 text-ink-muted" />}
+        {searchQuery && !isSearching && (
+          <button
+            type="button"
+            className="cursor-pointer border-none bg-transparent p-0 text-ink-muted"
+            onClick={clearSearch}
+            aria-label="Clear search"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Unconfigured API Notice for Movies */}
+      {!isServiceConfigured && category === 'movie' && !isSearching && (
+        <div className="mx-[var(--za-space-4)] my-3 rounded-control border border-decorative bg-surface-subtle p-3 text-center text-[length:var(--za-text-fine)]">
+          <div className="font-[var(--za-weight-emphasis)] text-ink">
+            TMDB movie search API key not configured
+          </div>
+          <div className="mt-1 text-ink-muted">
+            Add <code className="rounded bg-surface px-1 text-xs">TMDB_API_READ_TOKEN</code> to{' '}
+            <code className="rounded bg-surface px-1 text-xs">.env.local</code> for auto-poster
+            lookup, or catalog this movie manually.
+          </div>
+          {searchQuery.trim() && (
             <button
               type="button"
-              className="cursor-pointer border-none bg-transparent p-0 text-ink-muted"
-              onClick={clearSearch}
-              aria-label="Clear search"
+              onClick={() => onManualEnter(searchQuery.trim())}
+              className="za-button za-button--primary mt-2.5 inline-flex items-center gap-1 text-xs"
             >
-              <X size={16} />
+              <span>Add &ldquo;{searchQuery.trim()}&rdquo; as Movie</span>
             </button>
           )}
         </div>
+      )}
 
-        {/* Unconfigured API Notice for Movies */}
-        {!isServiceConfigured && category === 'movie' && !isSearching && (
-          <div className="mx-[var(--za-space-4)] my-3 rounded-control border border-decorative bg-surface-subtle p-3 text-center text-[length:var(--za-text-fine)]">
-            <div className="font-[var(--za-weight-emphasis)] text-ink">
-              TMDB movie search API key not configured
-            </div>
-            <div className="mt-1 text-ink-muted">
-              Add <code className="rounded bg-surface px-1 text-xs">TMDB_API_READ_TOKEN</code> to{' '}
-              <code className="rounded bg-surface px-1 text-xs">.env.local</code> for auto-poster
-              lookup, or catalog this movie manually.
-            </div>
-            {searchQuery.trim() && (
-              <button
-                type="button"
-                onClick={() => onManualEnter(searchQuery.trim())}
-                className="za-button za-button--primary mt-2.5 inline-flex items-center gap-1 text-xs"
+      {/* Results List */}
+      {searchResults.length > 0 && (
+        <div
+          ref={resultsContainerRef}
+          className="max-h-[22rem] overflow-y-auto py-2"
+          data-testid="spotlight-results"
+        >
+          {searchResults.map((item, idx) => {
+            const isSelected = idx === highlightedIndex;
+            const metaParts: string[] = [];
+            if (item.year) metaParts.push(String(item.year));
+
+            if (category === 'movie' || item.category === 'movie') {
+              if (item.secondaryUnitTotal) {
+                const mins = Number(item.secondaryUnitTotal);
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                const durationStr = h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m} min`;
+                metaParts.push(durationStr);
+              } else {
+                metaParts.push('Feature Film');
+              }
+            } else if (item.primaryUnitTotal) {
+              metaParts.push(
+                `${item.primaryUnitTotal} ${item.primaryUnitTotal === 1 ? 'Season' : 'Seasons'}`,
+              );
+            }
+            if (Array.isArray(item.genres) && item.genres.length > 0) {
+              metaParts.push(item.genres.slice(0, 2).join(', '));
+            }
+
+            return (
+              <div
+                key={item.sourceId || `${item.title}-${idx}`}
+                ref={(el) => {
+                  dropdownItemsRef.current[idx] = el;
+                }}
+                data-testid="spotlight-item"
+                className={`flex cursor-pointer select-none items-center gap-[var(--za-space-3)] border-l-[3px] border-l-transparent px-[var(--za-space-4)] py-2 transition-colors duration-[var(--za-motion-fast)] ${
+                  isSelected ? 'border-l-[var(--za-color-border-focus)] bg-surface-subtle' : ''
+                }`}
+                onClick={() => onSelectResult(item)}
+                onMouseEnter={() => setHighlightedIndex(idx)}
               >
-                <span>Add &ldquo;{searchQuery.trim()}&rdquo; as Movie</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Results List */}
-        {searchResults.length > 0 && (
-          <div
-            ref={resultsContainerRef}
-            className="max-h-[22rem] overflow-y-auto py-2"
-            data-testid="spotlight-results"
-          >
-            {searchResults.map((item, idx) => {
-              const isSelected = idx === highlightedIndex;
-              const metaParts: string[] = [];
-              if (item.year) metaParts.push(String(item.year));
-
-              if (category === 'movie' || item.category === 'movie') {
-                if (item.secondaryUnitTotal) {
-                  const mins = Number(item.secondaryUnitTotal);
-                  const h = Math.floor(mins / 60);
-                  const m = mins % 60;
-                  const durationStr = h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m} min`;
-                  metaParts.push(durationStr);
-                } else {
-                  metaParts.push('Feature Film');
-                }
-              } else if (item.primaryUnitTotal) {
-                metaParts.push(
-                  `${item.primaryUnitTotal} ${item.primaryUnitTotal === 1 ? 'Season' : 'Seasons'}`,
-                );
-              }
-              if (Array.isArray(item.genres) && item.genres.length > 0) {
-                metaParts.push(item.genres.slice(0, 2).join(', '));
-              }
-
-              return (
-                <div
-                  key={item.sourceId || `${item.title}-${idx}`}
-                  ref={(el) => {
-                    dropdownItemsRef.current[idx] = el;
-                  }}
-                  data-testid="spotlight-item"
-                  className={`flex cursor-pointer select-none items-center gap-[var(--za-space-3)] border-l-[3px] border-l-transparent px-[var(--za-space-4)] py-2 transition-colors duration-[var(--za-motion-fast)] ${
-                    isSelected ? 'border-l-[var(--za-color-border-focus)] bg-surface-subtle' : ''
-                  }`}
-                  onClick={() => onSelectResult(item)}
-                  onMouseEnter={() => setHighlightedIndex(idx)}
-                >
-                  {item.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote covers, unoptimized by design
-                    <img
-                      src={item.coverUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-[3.25rem] w-[2.25rem] shrink-0 rounded-small border border-decorative object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-[3.25rem] w-[2.25rem] shrink-0 items-center justify-center rounded-small border border-decorative bg-surface-subtle text-[0.7rem]">
-                      {getTileInitials(item.title)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
-                      {item.title}
-                    </div>
-                    <div className="mt-[0.15rem] truncate text-xs text-ink-muted">
-                      {metaParts.join(' • ') || 'Catalogue Match'}
-                    </div>
+                {item.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- remote covers, unoptimized by design
+                  <img
+                    src={item.coverUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-[3.25rem] w-[2.25rem] shrink-0 rounded-small border border-decorative object-cover"
+                  />
+                ) : (
+                  <div className="flex h-[3.25rem] w-[2.25rem] shrink-0 items-center justify-center rounded-small border border-decorative bg-surface-subtle text-[0.7rem]">
+                    {getTileInitials(item.title)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+                    {item.title}
+                  </div>
+                  <div className="mt-[0.15rem] truncate text-xs text-ink-muted">
+                    {metaParts.join(' • ') || 'Catalogue Match'}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {hasSearched &&
-          searchResults.length === 0 &&
-          !isSearching &&
-          searchQuery.trim().length >= 2 &&
-          isServiceConfigured && (
-            <div className="p-[var(--za-space-4)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
-              <div>No catalogue matches found for &ldquo;{searchQuery}&rdquo;.</div>
-              <button
-                type="button"
-                onClick={() => onManualEnter(searchQuery.trim())}
-                className="za-button za-button--secondary mt-2 inline-flex items-center text-xs font-[var(--za-weight-emphasis)]"
-              >
-                Add &ldquo;{searchQuery.trim()}&rdquo; manually →
-              </button>
-            </div>
-          )}
-        {searchError && (
-          <div className="p-[var(--za-space-4)] pt-0 text-center text-[length:var(--za-text-fine)] text-danger">
-            {searchError}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
-          <span className="text-[length:var(--za-text-fine)] text-ink-muted">
-            Can&apos;t find a match?
-          </span>
-          <button
-            type="button"
-            className="cursor-pointer border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-accent hover:underline"
-            onClick={() => onManualEnter(searchQuery.trim())}
-          >
-            Create manually instead →
-          </button>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {hasSearched &&
+        searchResults.length === 0 &&
+        !isSearching &&
+        searchQuery.trim().length >= 2 &&
+        isServiceConfigured && (
+          <div className="p-[var(--za-space-4)] text-center text-[length:var(--za-text-fine)] text-ink-muted">
+            <div>No catalogue matches found for &ldquo;{searchQuery}&rdquo;.</div>
+            <button
+              type="button"
+              onClick={() => onManualEnter(searchQuery.trim())}
+              className="za-button za-button--secondary mt-2 inline-flex items-center text-xs font-[var(--za-weight-emphasis)]"
+            >
+              Add &ldquo;{searchQuery.trim()}&rdquo; manually →
+            </button>
+          </div>
+        )}
+      {searchError && (
+        <div className="p-[var(--za-space-4)] pt-0 text-center text-[length:var(--za-text-fine)] text-danger">
+          {searchError}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
+        <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+          Can&apos;t find a match?
+        </span>
+        <button
+          type="button"
+          className="cursor-pointer border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-accent hover:underline"
+          onClick={() => onManualEnter(searchQuery.trim())}
+        >
+          Create manually instead →
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -99,7 +99,34 @@ describe('GET /api/shows/airdate', () => {
     const res = await GET(makeRequest('tvmaze-82'));
     const body = await res.json();
     expect(body['tvmaze-82']).toMatchObject({ season: 2, number: 5, airdate: '2026-09-10' });
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=21600');
   });
+
+  it.each(['Ended', 'In Development'])(
+    'suppresses next episode line for %s shows',
+    async (status) => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            status,
+            _embedded: {
+              nextepisode: {
+                season: 1,
+                number: 10,
+                airdate: '2026-08-30',
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const res = await GET(makeRequest('tvmaze-456'));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body['tvmaze-456']).toBeUndefined();
+    },
+  );
 
   it('computes anime next-episode dates from AnimeSchedule with id cross-checking', async () => {
     fetchMock.mockImplementation(async (input: unknown) => {

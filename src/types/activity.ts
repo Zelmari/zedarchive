@@ -9,5 +9,3 @@ export interface ActivityLog {
   details: Record<string, unknown>;
   createdAt: string;
 }
-
-export type ActivityLogRow = ActivityLog;

@@ -21,15 +21,32 @@ export interface ImportDraft {
   [key: string]: unknown;
 }
 
-export function mapMalStatus(status: unknown): string {
+export function mapListStatus(status: unknown): string {
   const s = String(status ?? '')
     .toLowerCase()
     .trim();
-  if (s === '1' || s === 'watching') return 'in_progress';
+  if (s === '1' || s === 'watching' || s === 'in_progress' || s === 'repeating')
+    return 'in_progress';
   if (s === '2' || s === 'completed') return 'completed';
-  if (s === '3' || s === 'on_hold' || s === 'on-hold' || s === 'onhold') return 'on_hold';
+  if (
+    s === '3' ||
+    s === 'on_hold' ||
+    s === 'on-hold' ||
+    s === 'onhold' ||
+    s === 'hold' ||
+    s === 'paused'
+  )
+    return 'on_hold';
   if (s === '4' || s === 'dropped') return 'dropped';
-  if (s === '6' || s === 'plan_to_watch' || s === 'plantowatch' || s === 'plan-to-watch')
+  if (
+    s === '6' ||
+    s === 'plan_to_watch' ||
+    s === 'plantowatch' ||
+    s === 'plan-to-watch' ||
+    s === 'planning' ||
+    s === 'plantosee' ||
+    s === 'plan_to_see'
+  )
     return 'planning';
   return 'in_progress';
 }
@@ -64,7 +81,7 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
     items.push({
       title,
       category: 'anime',
-      status: mapMalStatus(a.my_status),
+      status: mapListStatus(a.my_status),
       secondaryUnitCurrent: watchedEp,
       secondaryUnitTotal: totalEp && totalEp > 0 ? totalEp : null,
       primaryUnitCurrent: 1,
@@ -77,8 +94,6 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
 
   return items;
 }
-
-const ANILIST_LIST_PATH = 'data.MediaListCollection.lists';
 
 interface AniListNode {
   data?: {
@@ -114,7 +129,7 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
       items.push({
         title: item.media?.title?.english || item.media?.title?.romaji || 'Untitled',
         category: item.media?.type === 'MANGA' ? 'manga' : 'anime',
-        status: item.status === 'COMPLETED' ? 'completed' : 'in_progress',
+        status: mapListStatus(item.status),
         secondaryUnitCurrent: item.progress || 0,
         secondaryUnitTotal: item.media?.episodes ?? item.media?.chapters ?? null,
         coverImage: item.media?.coverImage?.large || null,
@@ -128,32 +143,35 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
 }
 
 function looksLikeGoodreadsHeader(header: string): boolean {
-  return header.includes('book id') || header.includes('title');
+  const h = header.toLowerCase();
+  return h.includes('book id') || h.includes('title');
 }
 
 function parseGoodreadsCsv(text: string): ImportDraft[] {
   const lines = text.split(/\r?\n/).filter(Boolean);
   if (lines.length <= 1) throw new Error('CSV file is empty');
 
-  const header = lines[0]?.toLowerCase() ?? '';
-  if (!looksLikeGoodreadsHeader(header)) return [];
+  const headerLine = lines[0] ?? '';
+  if (!looksLikeGoodreadsHeader(headerLine)) return [];
+
+  const headers = parseCsvCells(headerLine).map((header) => header.toLowerCase());
+  const titleIdx = headers.indexOf('title');
+  if (titleIdx === -1) return [];
 
   const items: ImportDraft[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = (lines[i] ?? '').split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-    if (cols.length >= 2) {
-      const cleanTitle = cols[1]?.replace(/^"|"$/g, '').trim();
-      if (cleanTitle) {
-        items.push({
-          title: cleanTitle,
-          category: 'book',
-          status: 'in_progress',
-          primaryUnitCurrent: 1,
-          primaryUnitTotal: 1,
-          secondaryUnitCurrent: 0,
-          secondaryUnitTotal: null,
-        });
-      }
+    const cols = parseCsvCells(lines[i] ?? '');
+    const cleanTitle = cols[titleIdx]?.trim();
+    if (cleanTitle) {
+      items.push({
+        title: cleanTitle,
+        category: 'book',
+        status: 'in_progress',
+        primaryUnitCurrent: 1,
+        primaryUnitTotal: 1,
+        secondaryUnitCurrent: 0,
+        secondaryUnitTotal: null,
+      });
     }
   }
   return items;
@@ -272,19 +290,6 @@ export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft
  *
  * @throws {Error} With a user-facing message when nothing can be parsed.
  */
-export function mapSimklStatus(status: unknown): string {
-  const s = String(status ?? '')
-    .toLowerCase()
-    .trim();
-  if (s === 'watching' || s === 'in_progress') return 'in_progress';
-  if (s === 'completed') return 'completed';
-  if (s === 'hold' || s === 'on_hold' || s === 'on-hold') return 'on_hold';
-  if (s === 'dropped') return 'dropped';
-  if (s === 'plantowatch' || s === 'plan_to_watch' || s === 'plantosee' || s === 'plan_to_see')
-    return 'planning';
-  return 'in_progress';
-}
-
 export function parseSimklJson(json: unknown): ImportDraft[] | null {
   if (!json || typeof json !== 'object') return null;
 
@@ -324,7 +329,7 @@ export function parseSimklJson(json: unknown): ImportDraft[] | null {
       items.push({
         title,
         category: defaultCategory,
-        status: mapSimklStatus(entry.status),
+        status: mapListStatus(entry.status),
         secondaryUnitCurrent: watchedEp,
         secondaryUnitTotal: totalEp && totalEp > 0 ? totalEp : null,
         primaryUnitCurrent: 1,

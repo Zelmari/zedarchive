@@ -1,8 +1,6 @@
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
 import { getUserGroups } from '@/server/queries/groups';
 import { getAcceptedFriends } from '@/server/queries/friends';
+import { requireSession } from '@/server/internal';
 import { Layers, Users } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import GroupsClient from './GroupsClient';
@@ -13,12 +11,11 @@ export const metadata = {
 };
 
 export default async function GroupsPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) redirect('/login');
+  const session = await requireSession();
 
   const [groups, friends] = await Promise.all([
-    getUserGroups(session.user.id),
-    getAcceptedFriends(session.user.id),
+    getUserGroups(session.id),
+    getAcceptedFriends(session.id),
   ]);
 
   return (

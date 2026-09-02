@@ -6,10 +6,8 @@ const nextConfig = {
   // request hangs on a dead connection until the runtime cancels it
   // (opennextjs-cloudflare#548).
   serverExternalPackages: ['postgres'],
-  serverActions: {
-    bodySizeLimit: '10mb',
-  },
   experimental: {
+    // Next.js 16.3.2 reads this limit from experimental.serverActions.
     serverActions: {
       bodySizeLimit: '10mb',
     },

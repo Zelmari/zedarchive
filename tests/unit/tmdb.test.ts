@@ -83,6 +83,24 @@ describe('searchTmdbMovies', () => {
       year: '2010',
     });
   });
+
+  it('uses the v3 API key query parameter for short tokens', async () => {
+    delete process.env.TMDB_API_READ_TOKEN;
+    process.env.TMDB_API_KEY = '0123456789abcdef0123456789abcdef';
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [{ id: 1, title: 'Dune' }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await searchTmdbMovies('Dune');
+
+    expect(String(mockFetch.mock.calls[0]?.[0])).toContain(
+      'api_key=0123456789abcdef0123456789abcdef',
+    );
+  });
 });
 
 describe('fetchWatchProviders & resolveTmdbId', () => {

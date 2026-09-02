@@ -2,6 +2,7 @@
 import type { RefObject } from 'react';
 import { Activity, BarChart2, Calendar, Database, Search, Share2, Tag, X } from 'lucide-react';
 import type { SortKey } from '@/hooks/use-media-filters';
+import { pillClass } from '@/components/ui/media-controls';
 
 interface DashboardToolbarProps {
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -28,16 +29,6 @@ const SORT_OPTIONS: Array<[SortKey, string]> = [
   ['progress_desc', 'Progress %'],
   ['rating_desc', 'Highest Rated'],
 ];
-
-const STATUS_PILL_BASE =
-  'cursor-pointer whitespace-nowrap rounded-control border border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)]';
-
-function pillClass(active: boolean): string {
-  return (
-    STATUS_PILL_BASE +
-    (active ? ' border-required bg-surface-subtle font-[var(--za-weight-emphasis)] text-ink' : '')
-  );
-}
 
 export default function DashboardToolbar({
   searchInputRef,

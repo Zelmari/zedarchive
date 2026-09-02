@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { stacks, stackItems, mediaEntries, user as userTable } from '@/db/schema';
-import { eq, and, asc, desc } from 'drizzle-orm';
+import { eq, and, asc, desc, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getAuthUser } from './internal';
 import { serializeEntry } from '@/lib/serialize';
@@ -26,6 +26,52 @@ export interface StackWithItems {
   }>;
 }
 
+type StackItems = StackWithItems['items'];
+
+async function loadStackItems(
+  stackId: string,
+  options: { hidePrivate: boolean },
+): Promise<StackItems>;
+async function loadStackItems(
+  stackIds: string[],
+  options: { hidePrivate: boolean },
+): Promise<Map<string, StackItems>>;
+async function loadStackItems(
+  stackIdOrIds: string | string[],
+  { hidePrivate }: { hidePrivate: boolean },
+): Promise<StackItems | Map<string, StackItems>> {
+  const stackIds = Array.isArray(stackIdOrIds) ? stackIdOrIds : [stackIdOrIds];
+  if (stackIds.length === 0) return new Map<string, StackItems>();
+
+  const stackFilter = Array.isArray(stackIdOrIds)
+    ? inArray(stackItems.stackId, stackIds)
+    : eq(stackItems.stackId, stackIdOrIds);
+  const rawItems = await db
+    .select({
+      item: stackItems,
+      media: mediaEntries,
+    })
+    .from(stackItems)
+    .leftJoin(mediaEntries, eq(stackItems.mediaId, mediaEntries.id))
+    .where(hidePrivate ? and(stackFilter, eq(mediaEntries.isPrivate, false)) : stackFilter)
+    .orderBy(asc(stackItems.orderIndex));
+
+  const itemsByStackId = new Map<string, StackItems>();
+  for (const { item, media } of rawItems) {
+    const items = itemsByStackId.get(item.stackId) ?? [];
+    items.push({
+      id: item.id,
+      mediaId: item.mediaId,
+      orderIndex: item.orderIndex,
+      annotation: item.annotation,
+      media: media ? serializeEntry(media) : null,
+    });
+    itemsByStackId.set(item.stackId, items);
+  }
+
+  return Array.isArray(stackIdOrIds) ? itemsByStackId : (itemsByStackId.get(stackIdOrIds) ?? []);
+}
+
 export async function getMyStacks(): Promise<StackWithItems[]> {
   const user = await getAuthUser();
 
@@ -35,32 +81,15 @@ export async function getMyStacks(): Promise<StackWithItems[]> {
     .where(eq(stacks.userId, user.id))
     .orderBy(desc(stacks.updatedAt));
 
-  const result: StackWithItems[] = [];
+  const itemsByStackId = await loadStackItems(
+    userStacks.map((stack) => stack.id),
+    { hidePrivate: false },
+  );
 
-  for (const s of userStacks) {
-    const rawItems = await db
-      .select({
-        item: stackItems,
-        media: mediaEntries,
-      })
-      .from(stackItems)
-      .leftJoin(mediaEntries, eq(stackItems.mediaId, mediaEntries.id))
-      .where(eq(stackItems.stackId, s.id))
-      .orderBy(asc(stackItems.orderIndex));
-
-    result.push({
-      ...s,
-      items: rawItems.map((r) => ({
-        id: r.item.id,
-        mediaId: r.item.mediaId,
-        orderIndex: r.item.orderIndex,
-        annotation: r.item.annotation,
-        media: r.media ? serializeEntry(r.media) : null,
-      })),
-    });
-  }
-
-  return result;
+  return userStacks.map((stack) => ({
+    ...stack,
+    items: itemsByStackId.get(stack.id) ?? [],
+  }));
 }
 
 export async function getPublicStack(
@@ -92,27 +121,9 @@ export async function getPublicStack(
 
   if (!foundStack) return null;
 
-  const rawItems = await db
-    .select({
-      item: stackItems,
-      media: mediaEntries,
-    })
-    .from(stackItems)
-    .leftJoin(mediaEntries, eq(stackItems.mediaId, mediaEntries.id))
-    .where(eq(stackItems.stackId, foundStack.id))
-    .orderBy(asc(stackItems.orderIndex));
-
   const stack: StackWithItems = {
     ...foundStack,
-    items: rawItems
-      .filter((r) => r.media && !r.media.isPrivate)
-      .map((r) => ({
-        id: r.item.id,
-        mediaId: r.item.mediaId,
-        orderIndex: r.item.orderIndex,
-        annotation: r.item.annotation,
-        media: r.media ? serializeEntry(r.media) : null,
-      })),
+    items: await loadStackItems(foundStack.id, { hidePrivate: true }),
   };
 
   return {
@@ -165,34 +176,6 @@ export async function createStackAction(params: {
     ...inserted,
     items: [],
   };
-}
-
-export async function addMediaToStackAction(params: {
-  stackId: string;
-  mediaId: string;
-  annotation?: string | null;
-}): Promise<{ success: boolean }> {
-  const user = await getAuthUser();
-
-  const [stack] = await db
-    .select()
-    .from(stacks)
-    .where(and(eq(stacks.id, params.stackId), eq(stacks.userId, user.id)));
-
-  if (!stack) throw new Error('Stack not found or access denied');
-
-  const id = crypto.randomUUID();
-
-  await db.insert(stackItems).values({
-    id,
-    stackId: params.stackId,
-    mediaId: params.mediaId,
-    orderIndex: 0,
-    annotation: params.annotation?.trim().slice(0, 1000) || null,
-  });
-
-  revalidatePath('/stacks');
-  return { success: true };
 }
 
 export async function deleteStackAction(stackId: string): Promise<{ success: boolean }> {

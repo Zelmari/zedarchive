@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 
-export type ModalName = 'add' | 'theme' | 'activity' | 'share' | 'stats' | 'data' | 'calendar';
+export type ModalName =
+  'add' | 'theme' | 'activity' | 'share' | 'stats' | 'data' | 'calendar' | 'palette' | 'goal';
 
 /**
  * Single source of truth for which dashboard modal is open.

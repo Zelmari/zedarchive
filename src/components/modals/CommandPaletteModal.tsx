@@ -18,7 +18,7 @@ import {
   Users,
   MessageSquare,
 } from 'lucide-react';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import Modal from '@/components/ui/Modal';
 import type { MediaEntry } from '@/types/media';
 
 interface CommandPaletteModalProps {
@@ -56,39 +56,12 @@ export default function CommandPaletteModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useBodyScrollLock(isOpen);
-
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      const modal = document.querySelector('[role="dialog"][aria-label="Command palette"]');
-      if (!modal) return;
-      const focusable = modal.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', handleTab);
-    return () => document.removeEventListener('keydown', handleTab);
   }, [isOpen]);
 
   const staticCommands: CommandItem[] = useMemo(
@@ -252,93 +225,89 @@ export default function CommandPaletteModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-16 backdrop-blur-xs animate-in fade-in duration-100"
-      onClick={onClose}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      placement="top"
+      ariaLabel="Command palette"
+      initialFocusRef={inputRef}
+      contentClassName="max-w-xl overflow-hidden rounded-control text-ink shadow-2xl"
     >
-      <div
-        className="w-full max-w-xl overflow-hidden rounded-control border border-required bg-surface text-ink shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        {/* Search header */}
-        <div className="flex items-center gap-3 border-b border-decorative px-4 py-3 bg-surface-subtle">
-          <Search size={18} className="text-ink-muted shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Type a title or command..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedIndex(0);
-            }}
-            className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
-          />
-          <kbd className="hidden rounded border border-decorative bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted sm:inline-block">
-            ESC
-          </kbd>
-        </div>
-
-        {/* Results List */}
-        <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
-          {filteredItems.length === 0 ? (
-            <div className="py-8 text-center text-xs text-ink-muted">
-              No matching titles or actions found.
-            </div>
-          ) : (
-            filteredItems.map((item, index) => {
-              const isSelected = index === selectedIndex;
-              const ActionIcon = item.Icon || ArrowRight;
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => item.onSelect()}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={`flex cursor-pointer items-center justify-between rounded-small px-3 py-2 text-xs transition-colors ${
-                    isSelected
-                      ? 'bg-accent/15 text-accent font-medium'
-                      : 'text-ink hover:bg-surface-subtle'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    {item.type === 'action' ? (
-                      <ActionIcon size={15} className="shrink-0 text-ink-muted" />
-                    ) : item.category === 'movie' ? (
-                      <Film size={14} className="shrink-0 text-ink-muted" />
-                    ) : item.category === 'book' ? (
-                      <BookOpen size={14} className="shrink-0 text-ink-muted" />
-                    ) : item.category === 'manga' ? (
-                      <Library size={14} className="shrink-0 text-ink-muted" />
-                    ) : (
-                      <Tv size={14} className="shrink-0 text-ink-muted" />
-                    )}
-                    <div className="overflow-hidden">
-                      <div className="truncate font-medium">{item.title}</div>
-                      {item.subtitle && (
-                        <div className="truncate text-[11px] text-ink-muted">{item.subtitle}</div>
-                      )}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <span className="shrink-0 text-[10px] text-accent/80 font-mono">↵ select</span>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Footer shortcuts */}
-        <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-3 py-1.5 text-[11px] text-ink-muted">
-          <span>Navigate with ↑ ↓</span>
-          <span>Open with ↵</span>
-        </div>
+      {/* Search header */}
+      <div className="flex items-center gap-3 border-b border-decorative px-4 py-3 bg-surface-subtle">
+        <Search size={18} className="text-ink-muted shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Type a title or command..."
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSelectedIndex(0);
+          }}
+          onKeyDown={handleKeyDown}
+          className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
+        />
+        <kbd className="hidden rounded border border-decorative bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted sm:inline-block">
+          ESC
+        </kbd>
       </div>
-    </div>
+
+      {/* Results List */}
+      <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
+        {filteredItems.length === 0 ? (
+          <div className="py-8 text-center text-xs text-ink-muted">
+            No matching titles or actions found.
+          </div>
+        ) : (
+          filteredItems.map((item, index) => {
+            const isSelected = index === selectedIndex;
+            const ActionIcon = item.Icon || ArrowRight;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => item.onSelect()}
+                onMouseEnter={() => setSelectedIndex(index)}
+                className={`flex cursor-pointer items-center justify-between rounded-small px-3 py-2 text-xs transition-colors ${
+                  isSelected
+                    ? 'bg-accent/15 text-accent font-medium'
+                    : 'text-ink hover:bg-surface-subtle'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  {item.type === 'action' ? (
+                    <ActionIcon size={15} className="shrink-0 text-ink-muted" />
+                  ) : item.category === 'movie' ? (
+                    <Film size={14} className="shrink-0 text-ink-muted" />
+                  ) : item.category === 'book' ? (
+                    <BookOpen size={14} className="shrink-0 text-ink-muted" />
+                  ) : item.category === 'manga' ? (
+                    <Library size={14} className="shrink-0 text-ink-muted" />
+                  ) : (
+                    <Tv size={14} className="shrink-0 text-ink-muted" />
+                  )}
+                  <div className="overflow-hidden">
+                    <div className="truncate font-medium">{item.title}</div>
+                    {item.subtitle && (
+                      <div className="truncate text-[11px] text-ink-muted">{item.subtitle}</div>
+                    )}
+                  </div>
+                </div>
+                {isSelected && (
+                  <span className="shrink-0 text-[10px] text-accent/80 font-mono">↵ select</span>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Footer shortcuts */}
+      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-3 py-1.5 text-[11px] text-ink-muted">
+        <span>Navigate with ↑ ↓</span>
+        <span>Open with ↵</span>
+      </div>
+    </Modal>
   );
 }

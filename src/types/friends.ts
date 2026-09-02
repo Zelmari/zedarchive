@@ -17,12 +17,3 @@ export interface FriendshipItem {
   createdAt: string;
   updatedAt: string;
 }
-
-export interface PendingRequestItem {
-  id: string;
-  otherUser: FriendUserSummary;
-  status: FriendshipStatus;
-  isSender: boolean;
-  createdAt: string;
-  updatedAt: string;
-}

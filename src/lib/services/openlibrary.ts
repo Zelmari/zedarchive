@@ -1,25 +1,31 @@
 import type { SearchResult } from '@/types/search';
+import { httpsCover } from '@/lib/format';
+
+type SearchCategory = 'book' | 'manga';
+
+interface BookSearchOptions {
+  category: SearchCategory;
+  querySuffix?: string;
+}
 
 interface GBooksItem {
   id: string;
   volumeInfo?: Record<string, unknown>;
 }
 
-function httpsCover(url: string | null | undefined): string | null {
-  if (url && url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
-  }
-  return url ?? null;
+function buildSearchQuery(query: string, querySuffix?: string): string {
+  const suffix = querySuffix?.trim();
+  return suffix ? `${query} ${suffix}` : query;
 }
 
-function toGBooksResult(item: GBooksItem): SearchResult {
+function toGBooksResult(item: GBooksItem, category: SearchCategory): SearchResult {
   const info = item.volumeInfo || {};
   const imageLinks = info.imageLinks as { thumbnail?: string; smallThumbnail?: string } | undefined;
   const coverUrl = httpsCover(imageLinks?.thumbnail || imageLinks?.smallThumbnail);
 
   return {
     sourceId: `gbooks-${item.id}`,
-    category: 'book',
+    category,
     title: (info.title as string) || 'Unknown Title',
     coverUrl,
     primaryUnitTotal: 1,
@@ -30,9 +36,13 @@ function toGBooksResult(item: GBooksItem): SearchResult {
   };
 }
 
-export async function searchOpenLibrary(query: string): Promise<SearchResult[] | null> {
+export async function searchOpenLibrary(
+  query: string,
+  { category, querySuffix }: BookSearchOptions = { category: 'book' },
+): Promise<SearchResult[] | null> {
   try {
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`;
+    const searchQuery = buildSearchQuery(query, querySuffix);
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(searchQuery)}&limit=5`;
     const res = await fetch(url, {
       next: { revalidate: 86400 },
       headers: {
@@ -56,7 +66,7 @@ export async function searchOpenLibrary(query: string): Promise<SearchResult[] |
 
       return {
         sourceId: `openlib-${cleanKey || doc.title || query}`,
-        category: 'book',
+        category,
         title: (doc.title as string) || 'Unknown Title',
         coverUrl,
         primaryUnitTotal: 1,
@@ -72,9 +82,13 @@ export async function searchOpenLibrary(query: string): Promise<SearchResult[] |
   }
 }
 
-export async function searchGoogleBooks(query: string): Promise<SearchResult[] | null> {
+export async function searchGoogleBooks(
+  query: string,
+  { category, querySuffix }: BookSearchOptions = { category: 'book' },
+): Promise<SearchResult[] | null> {
   try {
-    const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`;
+    const searchQuery = buildSearchQuery(query, querySuffix);
+    const gbooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=5`;
     const gbooksRes = await fetch(gbooksUrl, {
       next: { revalidate: 86400 },
       headers: { Accept: 'application/json' },
@@ -84,7 +98,7 @@ export async function searchGoogleBooks(query: string): Promise<SearchResult[] |
 
     const gbooksData = (await gbooksRes.json()) as { items?: GBooksItem[] };
     if (Array.isArray(gbooksData.items) && gbooksData.items.length > 0) {
-      return gbooksData.items.map(toGBooksResult);
+      return gbooksData.items.map((item) => toGBooksResult(item, category));
     }
     return null;
   } catch (err) {
@@ -97,9 +111,12 @@ export async function searchGoogleBooks(query: string): Promise<SearchResult[] |
 }
 
 export async function searchBooks(query: string): Promise<SearchResult[] | null> {
-  const gbooksResults = await searchGoogleBooks(query);
-  if (gbooksResults) {
+  const gbooksResults = await searchGoogleBooks(query, {
+    category: 'book',
+    querySuffix: '',
+  });
+  if (gbooksResults?.length) {
     return gbooksResults;
   }
-  return searchOpenLibrary(query);
+  return searchOpenLibrary(query, { category: 'book', querySuffix: '' });
 }

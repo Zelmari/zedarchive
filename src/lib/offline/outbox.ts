@@ -35,6 +35,56 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+async function withStore<T>(
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => Promise<T>,
+): Promise<T | null> {
+  try {
+    const db = await openDB();
+    try {
+      const transaction = db.transaction(STORE_NAME, mode);
+      return await fn(transaction.objectStore(STORE_NAME));
+    } finally {
+      db.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+function readFallback(): QueuedMutation[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]') as unknown;
+    return Array.isArray(parsed) ? (parsed as QueuedMutation[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFallback(items: QueuedMutation[]): void {
+  try {
+    localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(items));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+function putMutation(store: IDBObjectStore, mutation: QueuedMutation): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = store.put(mutation);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function deleteMutation(store: IDBObjectStore, id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 /**
  * Enqueue a mutation to be replayed when connection is re-established.
  */
@@ -48,28 +98,12 @@ export async function enqueueMutation(
     retryCount: 0,
   };
 
-  try {
-    const db = await openDB();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.put(item);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    console.warn('[OfflineOutbox] IndexedDB write failed, falling back to localStorage:', err);
-    try {
-      const existing = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]');
-      existing.push(item);
-      localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(existing));
-    } catch {
-      // no-op
-    }
+  const idbResult = await withStore('readwrite', (store) => putMutation(store, item));
+  if (idbResult === null) {
+    console.warn('[OfflineOutbox] IndexedDB write failed, using localStorage fallback');
+    const existing = readFallback();
+    existing.push(item);
+    writeFallback(existing);
   }
 
   return item;
@@ -79,31 +113,17 @@ export async function enqueueMutation(
  * Retrieve all pending mutations ordered by timestamp ascending.
  */
 export async function getPendingMutations(): Promise<QueuedMutation[]> {
-  let idbItems: QueuedMutation[] = [];
-  let lsItems: QueuedMutation[] = [];
-
-  try {
-    const db = await openDB();
-    try {
-      idbItems = await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.getAll();
-        req.onsuccess = () => resolve((req.result as QueuedMutation[]) || []);
-        req.onerror = () => reject(req.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch {
-    // IDB unavailable
-  }
-
-  try {
-    lsItems = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]');
-  } catch {
-    // localStorage unavailable
-  }
+  const idbItems =
+    (await withStore(
+      'readonly',
+      (store) =>
+        new Promise<QueuedMutation[]>((resolve, reject) => {
+          const request = store.getAll();
+          request.onsuccess = () => resolve((request.result as QueuedMutation[]) || []);
+          request.onerror = () => reject(request.error);
+        }),
+    )) ?? [];
+  const lsItems = readFallback();
 
   // Deduplicate by id, preferring IDB entries
   const seen = new Set(idbItems.map((m) => m.id));
@@ -115,37 +135,16 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
  * Update an existing mutation (e.g. to increment retryCount).
  */
 export async function updateMutation(mutation: QueuedMutation): Promise<void> {
-  let idbUpdated = false;
-  try {
-    const db = await openDB();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.put(mutation);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-      idbUpdated = true;
-    } finally {
-      db.close();
-    }
-  } catch {
-    // If IndexedDB fails, proceed to update localStorage
-  }
+  const idbResult = await withStore('readwrite', (store) => putMutation(store, mutation));
 
-  try {
-    const existing = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]');
-    const idx = existing.findIndex((item: QueuedMutation) => item.id === mutation.id);
-    if (idx !== -1) {
-      existing[idx] = mutation;
-      localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(existing));
-    } else if (!idbUpdated) {
-      existing.push(mutation);
-      localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(existing));
-    }
-  } catch {
-    // no-op
+  const existing = readFallback();
+  const idx = existing.findIndex((item) => item.id === mutation.id);
+  if (idx !== -1) {
+    existing[idx] = mutation;
+    writeFallback(existing);
+  } else if (idbResult === null) {
+    existing.push(mutation);
+    writeFallback(existing);
   }
 }
 
@@ -153,56 +152,8 @@ export async function updateMutation(mutation: QueuedMutation): Promise<void> {
  * Remove a single processed mutation from the outbox.
  */
 export async function removeMutation(id: string): Promise<void> {
-  try {
-    const db = await openDB();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.delete(id);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch {
-    // IDB unavailable
-  }
+  await withStore('readwrite', (store) => deleteMutation(store, id));
 
-  try {
-    const existing = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]');
-    const filtered = existing.filter((item: QueuedMutation) => item.id !== id);
-    localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(filtered));
-  } catch {
-    // no-op
-  }
-}
-
-/**
- * Clear the entire mutation outbox.
- */
-export async function clearOutbox(): Promise<void> {
-  try {
-    const db = await openDB();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.clear();
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch {
-    // IDB unavailable
-  }
-
-  try {
-    localStorage.removeItem(LS_FALLBACK_KEY);
-  } catch {
-    // no-op
-  }
+  const existing = readFallback();
+  writeFallback(existing.filter((item) => item.id !== id));
 }

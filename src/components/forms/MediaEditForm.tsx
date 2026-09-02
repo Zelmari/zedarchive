@@ -1,10 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Tv, Film, Sparkles, BookOpen, Library, X, Upload } from 'lucide-react';
-import { PRESET_DROP_REASONS, MAX_DROP_REASON_LENGTH } from '@/lib/constants';
+import type { RefObject } from 'react';
+import { X, Upload } from 'lucide-react';
+import { STATUS_OPTIONS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaCategory, StructureItem } from '@/types/media';
+import {
+  CATEGORY_CHIPS,
+  DropReasonPicker,
+  chipClass,
+  pillClass,
+} from '@/components/ui/media-controls';
 
 export interface MediaFormState {
   title: string;
@@ -27,6 +34,7 @@ interface MediaEditFormProps {
   isEditMode: boolean;
   category: MediaCategory;
   onCategoryChange: (category: MediaCategory) => void;
+  titleInputRef?: RefObject<HTMLInputElement | null>;
   form: MediaFormState;
   onFieldChange: <K extends keyof MediaFormState>(field: K, value: MediaFormState[K]) => void;
   /** Category-aware handler for the current-primary-unit field. */
@@ -40,28 +48,80 @@ interface MediaEditFormProps {
   onCancel: () => void;
 }
 
-const STATUS_OPTIONS = [
-  { id: 'in_progress', label: 'In Progress' },
-  { id: 'completed', label: 'Completed' },
-  { id: 'planning', label: 'Planning' },
-  { id: 'on_hold', label: 'On Hold' },
-  { id: 'dropped', label: 'Dropped' },
-] as const;
+type UnitFieldName =
+  'primaryUnitTotal' | 'primaryUnitCurrent' | 'secondaryUnitTotal' | 'secondaryUnitCurrent';
 
-const CHIPS: Array<{ id: MediaCategory; label: string; Icon: typeof Tv }> = [
-  { id: 'show', label: 'TV Show', Icon: Tv },
-  { id: 'movie', label: 'Movie', Icon: Film },
-  { id: 'anime', label: 'Anime', Icon: Sparkles },
-  { id: 'book', label: 'Book', Icon: BookOpen },
-  { id: 'manga', label: 'Manga', Icon: Library },
+interface UnitField {
+  field: UnitFieldName;
+  label: string | ((form: MediaFormState) => string);
+  min: number;
+  placeholder?: string;
+  fallback?: string;
+  usePrimaryUnitHandler?: boolean;
+}
+
+const SHOW_UNIT_FIELDS: UnitField[] = [
+  { field: 'primaryUnitTotal', label: 'Total Seasons', min: 1, placeholder: '1' },
+  {
+    field: 'primaryUnitCurrent',
+    label: 'Current Season',
+    min: 1,
+    usePrimaryUnitHandler: true,
+  },
+  {
+    field: 'secondaryUnitTotal',
+    label: (form) => `Episodes in Season ${form.primaryUnitCurrent}`,
+    min: 1,
+    placeholder: 'e.g. 12',
+  },
+  {
+    field: 'secondaryUnitCurrent',
+    label: 'Current Episode',
+    min: 0,
+  },
 ];
 
-const pillBtn =
-  'cursor-pointer whitespace-nowrap rounded-control border border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)]';
+const BOOK_UNIT_FIELDS: UnitField[] = [
+  { field: 'primaryUnitTotal', label: 'Total Volumes', min: 1, placeholder: '1' },
+  {
+    field: 'primaryUnitCurrent',
+    label: 'Current Volume',
+    min: 1,
+    usePrimaryUnitHandler: true,
+  },
+  {
+    field: 'secondaryUnitTotal',
+    label: 'Total Chapters / Pages',
+    min: 1,
+    placeholder: 'e.g. 350',
+  },
+  {
+    field: 'secondaryUnitCurrent',
+    label: 'Current Chapter / Page',
+    min: 0,
+  },
+];
 
-function pillActive(): string {
-  return ' border-required bg-surface-subtle font-[var(--za-weight-emphasis)] text-ink';
-}
+const UNIT_FIELDS: Record<MediaCategory, UnitField[]> = {
+  show: SHOW_UNIT_FIELDS,
+  anime: SHOW_UNIT_FIELDS,
+  book: BOOK_UNIT_FIELDS,
+  manga: BOOK_UNIT_FIELDS,
+  movie: [
+    {
+      field: 'secondaryUnitTotal',
+      label: 'Runtime (Minutes)',
+      min: 1,
+      placeholder: 'e.g. 148',
+    },
+    {
+      field: 'primaryUnitCurrent',
+      label: 'Times Watched (Rewatches)',
+      min: 0,
+      fallback: '0',
+    },
+  ],
+};
 
 /**
  * Full manual creation / edit form. Purely presentational — all state and
@@ -71,6 +131,7 @@ export default function MediaEditForm({
   isEditMode,
   category,
   onCategoryChange,
+  titleInputRef,
   form,
   onFieldChange,
   onPrimaryUnitCurrentChange,
@@ -83,37 +144,9 @@ export default function MediaEditForm({
   onCancel,
 }: MediaEditFormProps) {
   const [notesTab, setNotesTab] = useState<'write' | 'preview'>('write');
-  const isMovie = category === 'movie';
-  const isShowLike = category === 'show' || category === 'anime';
-  const unitLabels = isMovie
-    ? {
-        primaryTotal: 'Target Views',
-        primaryCurrent: 'Times Watched (Rewatches)',
-        secondaryTotal: 'Runtime (Minutes)',
-        secondaryCurrent: 'Minutes Watched',
-      }
-    : isShowLike
-      ? {
-          primaryTotal: 'Total Seasons',
-          primaryCurrent: 'Current Season',
-          secondaryTotal: `Episodes in Season ${form.primaryUnitCurrent}`,
-          secondaryCurrent: 'Current Episode',
-        }
-      : {
-          primaryTotal: 'Total Volumes',
-          primaryCurrent: 'Current Volume',
-          secondaryTotal: 'Total Chapters / Pages',
-          secondaryCurrent: 'Current Chapter / Page',
-        };
 
   const formInput =
     'w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[0.45rem] text-[length:var(--za-text-supporting)] text-ink focus:border-accent focus:outline-none';
-  const chipClass = (active: boolean) =>
-    `flex cursor-pointer items-center gap-1 rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent ${
-      active
-        ? 'border-accent bg-accent-soft font-[var(--za-weight-heading)] shadow-[inset_0_-2px_0_var(--za-color-accent)]'
-        : ''
-    }`;
 
   return (
     <form
@@ -132,7 +165,7 @@ export default function MediaEditForm({
           Category
         </label>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Media Category">
-          {CHIPS.map(({ id, label, Icon }) => (
+          {CATEGORY_CHIPS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
@@ -157,6 +190,7 @@ export default function MediaEditForm({
           Title <span className="text-danger">*</span>
         </label>
         <input
+          ref={titleInputRef}
           id="media-title"
           type="text"
           className={formInput}
@@ -213,118 +247,38 @@ export default function MediaEditForm({
       </div>
 
       {/* Units */}
-      {isMovie ? (
-        <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
-          <div>
-            <label
-              htmlFor="secondary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              Runtime (Minutes)
-            </label>
-            <input
-              id="secondary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder="e.g. 148"
-              value={form.secondaryUnitTotal}
-              onChange={(e) => onFieldChange('secondaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="primary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              Times Watched (Rewatches)
-            </label>
-            <input
-              id="primary-unit-current"
-              type="number"
-              min="0"
-              className={formInput}
-              value={
-                form.primaryUnitCurrent !== '' &&
-                form.primaryUnitCurrent !== null &&
-                form.primaryUnitCurrent !== undefined
-                  ? form.primaryUnitCurrent
-                  : '0'
-              }
-              onChange={(e) => onPrimaryUnitCurrentChange(e.target.value)}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
-          <div>
-            <label
-              htmlFor="primary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.primaryTotal}
-            </label>
-            <input
-              id="primary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder="1"
-              value={form.primaryUnitTotal}
-              onChange={(e) => onFieldChange('primaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="primary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.primaryCurrent}
-            </label>
-            <input
-              id="primary-unit-current"
-              type="number"
-              min="1"
-              className={formInput}
-              value={form.primaryUnitCurrent}
-              onChange={(e) => onPrimaryUnitCurrentChange(e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="secondary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.secondaryTotal}
-            </label>
-            <input
-              id="secondary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder={isShowLike ? 'e.g. 12' : 'e.g. 350'}
-              value={form.secondaryUnitTotal}
-              onChange={(e) => onFieldChange('secondaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="secondary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.secondaryCurrent}
-            </label>
-            <input
-              id="secondary-unit-current"
-              type="number"
-              min="0"
-              className={formInput}
-              value={form.secondaryUnitCurrent}
-              onChange={(e) => onFieldChange('secondaryUnitCurrent', e.target.value)}
-            />
-          </div>
-        </div>
-      )}
+      <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
+        {UNIT_FIELDS[category].map((unitField) => {
+          const value = form[unitField.field] || unitField.fallback || '';
+          const label =
+            typeof unitField.label === 'function' ? unitField.label(form) : unitField.label;
+          const inputId = unitField.field.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+
+          return (
+            <div key={unitField.field}>
+              <label
+                htmlFor={inputId}
+                className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
+              >
+                {label}
+              </label>
+              <input
+                id={inputId}
+                type="number"
+                min={unitField.min}
+                className={formInput}
+                placeholder={unitField.placeholder}
+                value={value}
+                onChange={(e) =>
+                  unitField.usePrimaryUnitHandler
+                    ? onPrimaryUnitCurrentChange(e.target.value)
+                    : onFieldChange(unitField.field, e.target.value)
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {/* Status */}
       <div className="mb-[var(--za-space-4)]">
@@ -342,7 +296,7 @@ export default function MediaEditForm({
               type="button"
               role="radio"
               aria-checked={form.status === s.id}
-              className={`${pillBtn} ${form.status === s.id ? pillActive() : ''}`}
+              className={pillClass(form.status === s.id)}
               onClick={() => onFieldChange('status', s.id)}
             >
               {s.label}
@@ -354,46 +308,15 @@ export default function MediaEditForm({
       {/* Drop Reason (Only visible when status is 'dropped') */}
       {form.status === 'dropped' && (
         <div className="mb-[var(--za-space-4)] rounded-control border border-danger/25 bg-danger/5 p-[var(--za-space-3)]">
-          <div className="mb-1.5 flex items-center justify-between">
-            <label
-              htmlFor="edit-drop-reason"
-              className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger"
-            >
-              Drop Reason (Optional)
-            </label>
-            <span className="text-[length:var(--za-text-fine)] text-ink-muted">
-              {(form.dropReason || '').length}/{MAX_DROP_REASON_LENGTH}
-            </span>
-          </div>
-
-          <div className="mb-2 flex flex-wrap gap-1">
-            {PRESET_DROP_REASONS.map((preset) => {
-              const isSelected = form.dropReason === preset;
-              return (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => onFieldChange('dropReason', preset)}
-                  className={`cursor-pointer rounded-small border px-2 py-0.5 text-xs transition-[all] duration-[var(--za-motion-fast)] ${
-                    isSelected
-                      ? 'border-danger bg-danger/20 font-[var(--za-weight-emphasis)] text-ink'
-                      : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
-                  }`}
-                >
-                  {preset}
-                </button>
-              );
-            })}
-          </div>
-
-          <input
-            id="edit-drop-reason"
-            type="text"
-            maxLength={MAX_DROP_REASON_LENGTH}
-            className={formInput}
-            placeholder="e.g. Lost interest after season 2..."
-            value={form.dropReason || ''}
-            onChange={(e) => onFieldChange('dropReason', e.target.value)}
+          <DropReasonPicker
+            inputId="edit-drop-reason"
+            label="Drop Reason (Optional)"
+            value={form.dropReason}
+            onChange={(value) => onFieldChange('dropReason', value)}
+            inputClassName={formInput}
+            labelClassName="text-danger"
+            presetClassName="border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink"
+            activePresetClassName="border-danger bg-danger/20 font-[var(--za-weight-emphasis)] text-ink"
           />
         </div>
       )}

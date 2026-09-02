@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, authClient } from '@/lib/client/auth-client';
+import { AuthCard, AuthField } from '@/components/auth/AuthCard';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -71,163 +72,50 @@ export default function LoginForm() {
 
   if (view === 'forgot') {
     return (
-      <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
-        <div className="za-container za-container--narrow">
-          <section
-            className="za-card za-card--raised"
-            style={{ display: 'grid', gap: 'var(--za-space-6)' }}
-          >
-            <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
-              <h1
-                style={{
-                  fontSize: 'var(--za-text-heading-lg)',
-                  fontWeight: 'var(--za-weight-heading)',
-                  lineHeight: 'var(--za-leading-compact)',
-                }}
-              >
-                Reset password
-              </h1>
-              <p
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  color: 'var(--za-color-text-muted)',
-                }}
-              >
-                Enter your email address to receive a secure link to reset your password.
-              </p>
-            </header>
-
-            {error && (
-              <p className="za-notice za-notice--error" role="alert">
-                {error}
-              </p>
-            )}
-
-            {forgotSubmitted ? (
-              <div style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
-                <p className="za-notice za-notice--info" role="status">
-                  If an account exists for {email}, a password reset link has been sent. Check your
-                  inbox (and spam folder). The link is valid for 1 hour.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setView('signin');
-                    setForgotSubmitted(false);
-                  }}
-                  className="za-button za-button--secondary"
-                  style={{ inlineSize: '100%' }}
-                >
-                  Return to sign in
-                </button>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleForgotPassword}
-                style={{ display: 'grid', gap: 'var(--za-space-4)' }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-                  <label
-                    htmlFor="forgot-email"
-                    style={{
-                      fontSize: 'var(--za-text-supporting)',
-                      fontWeight: 'var(--za-weight-emphasis)',
-                    }}
-                  >
-                    Email
-                  </label>
-                  <input
-                    id="forgot-email"
-                    type="email"
-                    required
-                    className="za-field"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="za-button za-button--primary"
-                  style={{ inlineSize: '100%' }}
-                >
-                  {loading ? 'Sending reset link…' : 'Send reset link'}
-                </button>
-              </form>
-            )}
-
-            <p
-              style={{
-                fontSize: 'var(--za-text-supporting)',
-                color: 'var(--za-color-text-muted)',
-                borderTop: 'var(--za-border-width) solid var(--za-color-border-decorative)',
-                paddingTop: 'var(--za-space-4)',
-              }}
-            >
-              Remember your password?{' '}
-              <button
-                type="button"
-                onClick={() => setView('signin')}
-                className="za-link"
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-              >
-                Sign in
-              </button>
-            </p>
-          </section>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main id="main-content" tabIndex={-1} style={{ paddingBlock: 'var(--za-space-6)' }}>
-      <div className="za-container za-container--narrow">
-        <section
-          className="za-card za-card--raised"
-          style={{ display: 'grid', gap: 'var(--za-space-6)' }}
-        >
-          <header style={{ display: 'grid', gap: 'var(--za-space-2)' }}>
-            <h1
-              style={{
-                fontSize: 'var(--za-text-heading-lg)',
-                fontWeight: 'var(--za-weight-heading)',
-                lineHeight: 'var(--za-leading-compact)',
-              }}
+      <AuthCard
+        title="Reset password"
+        subtitle="Enter your email address to receive a secure link to reset your password."
+        footer={
+          <p>
+            Remember your password?{' '}
+            <button
+              type="button"
+              onClick={() => setView('signin')}
+              className="za-link cursor-pointer border-0 bg-transparent p-0 text-[length:var(--za-text-supporting)]"
             >
               Sign in
-            </h1>
-            <p
-              style={{
-                fontSize: 'var(--za-text-supporting)',
-                color: 'var(--za-color-text-muted)',
+            </button>
+          </p>
+        }
+      >
+        {error && (
+          <p className="za-notice za-notice--error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {forgotSubmitted ? (
+          <div className="grid gap-4">
+            <p className="za-notice za-notice--info" role="status">
+              If an account exists for {email}, a password reset link has been sent. Check your
+              inbox (and spam folder). The link is valid for 1 hour.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setView('signin');
+                setForgotSubmitted(false);
               }}
+              className="za-button za-button--secondary w-full"
             >
-              Sign in with the email and password for your account.
-            </p>
-          </header>
-
-          {error && (
-            <p className="za-notice za-notice--error" role="alert">
-              {error}
-            </p>
-          )}
-
-          <form onSubmit={handleSignIn} style={{ display: 'grid', gap: 'var(--za-space-4)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-              <label
-                htmlFor="email"
-                style={{
-                  fontSize: 'var(--za-text-supporting)',
-                  fontWeight: 'var(--za-weight-emphasis)',
-                }}
-              >
-                Email
-              </label>
+              Return to sign in
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotPassword} className="grid gap-4">
+            <AuthField label="Email" htmlFor="forgot-email">
               <input
-                id="email"
+                id="forgot-email"
                 type="email"
                 required
                 className="za-field"
@@ -235,76 +123,85 @@ export default function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
               />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--za-space-1)' }}>
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}
-              >
-                <label
-                  htmlFor="password"
-                  style={{
-                    fontSize: 'var(--za-text-supporting)',
-                    fontWeight: 'var(--za-weight-emphasis)',
-                  }}
-                >
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setView('forgot');
-                    setError('');
-                    setForgotSubmitted(false);
-                  }}
-                  className="za-link"
-                  style={{
-                    fontSize: 'var(--za-text-fine)',
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <input
-                id="password"
-                type="password"
-                required
-                className="za-field"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
+            </AuthField>
 
             <button
               type="submit"
               disabled={loading}
-              className="za-button za-button--primary"
-              style={{ inlineSize: '100%' }}
+              className="za-button za-button--primary w-full"
             >
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? 'Sending reset link…' : 'Send reset link'}
             </button>
           </form>
+        )}
+      </AuthCard>
+    );
+  }
 
-          <p
-            style={{
-              fontSize: 'var(--za-text-supporting)',
-              color: 'var(--za-color-text-muted)',
-              borderTop: 'var(--za-border-width) solid var(--za-color-border-decorative)',
-              paddingTop: 'var(--za-space-4)',
-            }}
-          >
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="za-link">
-              Register
-            </Link>
-          </p>
-        </section>
-      </div>
-    </main>
+  return (
+    <AuthCard
+      title="Sign in"
+      subtitle="Sign in with the email and password for your account."
+      footer={
+        <p>
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className="za-link">
+            Register
+          </Link>
+        </p>
+      }
+    >
+      {error && (
+        <p className="za-notice za-notice--error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <form onSubmit={handleSignIn} className="grid gap-4">
+        <AuthField label="Email" htmlFor="email">
+          <input
+            id="email"
+            type="email"
+            required
+            className="za-field"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@example.com"
+          />
+        </AuthField>
+
+        <AuthField
+          label="Password"
+          htmlFor="password"
+          labelAction={
+            <button
+              type="button"
+              onClick={() => {
+                setView('forgot');
+                setError('');
+                setForgotSubmitted(false);
+              }}
+              className="za-link cursor-pointer border-0 bg-transparent p-0 text-[length:var(--za-text-fine)]"
+            >
+              Forgot password?
+            </button>
+          }
+        >
+          <input
+            id="password"
+            type="password"
+            required
+            className="za-field"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </AuthField>
+
+        <button type="submit" disabled={loading} className="za-button za-button--primary w-full">
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+    </AuthCard>
   );
 }

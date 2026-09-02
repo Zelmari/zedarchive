@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { mediaActivityLogs, mediaEntries } from '@/db/schema';
-import { eq, desc, sql, and, gte, type SQL } from 'drizzle-orm';
+import { eq, desc, sql, and, gte, isNull, type SQL } from 'drizzle-orm';
 import type { ActivityLog } from '@/types/activity';
 
 export async function getActivityLogsByUserId(userId: string, limit = 40): Promise<ActivityLog[]> {
@@ -82,8 +82,8 @@ export async function getYearlyActivityHeatmapForUser(
   const countExpr: SQL = sql`COUNT(*)::int`;
 
   // Phase 3: when the viewer is not the owner, join against media_entries and
-  // filter out logs that originate from private entries.
-  const isPublicView = viewerUserId !== undefined && viewerUserId !== userId;
+  // filter out logs that originate from private or group entries.
+  const isPublicView = viewerUserId !== userId;
 
   let rows: Array<{ day: unknown; count: unknown }>;
 
@@ -100,6 +100,7 @@ export async function getYearlyActivityHeatmapForUser(
           eq(mediaActivityLogs.userId, userId),
           gte(mediaActivityLogs.createdAt, oneYearAgo),
           eq(mediaEntries.isPrivate, false),
+          isNull(mediaEntries.groupId),
         ),
       )
       .groupBy(sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`);
