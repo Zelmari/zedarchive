@@ -33,11 +33,16 @@ test.describe('media lifecycle', () => {
     await expect(firstResult).toBeVisible({ timeout: 30_000 });
     await firstResult.click();
 
-    // Selecting a result prefills the manual form (title + season structure).
-    const titleInput = page.getByPlaceholder(/e\.g\. Frieren: Beyond Journey's End/);
-    await expect(titleInput).toBeVisible();
-    await expect(titleInput).toHaveValue(/Frieren/i);
-    await page.locator('button[type="submit"]').click();
+    // Search hit creates the row and opens the folio inspector.
+    const folio = page
+      .getByRole('dialog', { name: /Frieren/i })
+      .or(page.getByRole('heading', { name: /Frieren/i }))
+      .first();
+    await expect(folio).toBeVisible({ timeout: 30_000 });
+
+    // Close the folio (Done button) so the dashboard card is interactable.
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(folio).toBeHidden();
 
     // Card appears on the dashboard grid.
     const card = page.locator('article', { hasText: /Frieren/i }).first();

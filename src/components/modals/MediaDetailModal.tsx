@@ -1,15 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Pencil,
   Star,
   RotateCcw,
   Tag,
-  FileText,
-  Film,
-  Tv,
-  BookOpen,
   BookmarkX,
   Trash2,
   Check,
@@ -21,11 +17,15 @@ import {
 import Modal from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
-import { pillClass } from '@/components/ui/media-controls';
-import { STATUS_OPTIONS } from '@/lib/constants';
-import { formatDisplayDate, getTileInitials, pageToPercent } from '@/lib/format';
+import { CATEGORY_CHIPS, pillClass } from '@/components/ui/media-controls';
+import { MAX_TITLE_LENGTH, MAX_NOTES_LENGTH, STATUS_OPTIONS } from '@/lib/constants';
+import { formatDisplayDate, pageToPercent } from '@/lib/format';
 import { seasonTotal } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
+import { useCoverUpload } from '@/hooks/use-cover-upload';
+import FolioCover from '@/components/modals/folio/FolioCover';
+import FolioNotes from '@/components/modals/folio/FolioNotes';
+import FolioUnitTotals from '@/components/modals/folio/FolioUnitTotals';
 import type { MediaCategory, MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
 import type { WatchProviderItem, WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
@@ -41,7 +41,7 @@ interface MediaDetailModalProps {
   onClose: () => void;
   item: MediaEntry | null;
   onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
-  onEdit?: (item: MediaEntry) => void;
+  isGroup?: boolean; // hide privacy when true
 }
 
 interface ProviderChipsProps {
@@ -421,7 +421,7 @@ export default function MediaDetailModal({
   onClose,
   item,
   onUpdate,
-  onEdit,
+  isGroup = false,
 }: MediaDetailModalProps) {
   const [activeSeason, setActiveSeason] = useState(1);
   const [newTagInput, setNewTagInput] = useState('');
@@ -462,7 +462,59 @@ export default function MediaDetailModal({
   });
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
 
+  // Stable references for async callbacks and closures
+  const itemRef = useRef<MediaEntry | null>(item);
+  const onUpdateRef = useRef(onUpdate);
+
+  // Title and notes draft state for debounced editing
+  const [titleDraft, setTitleDraft] = useState('');
+  const [notesDraft, setNotesDraft] = useState('');
+  const [titleError, setTitleError] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+
+  const titleDraftRef = useRef(titleDraft);
+  const notesDraftRef = useRef(notesDraft);
+
   useEffect(() => {
+    itemRef.current = item;
+    onUpdateRef.current = onUpdate;
+    titleDraftRef.current = titleDraft;
+    notesDraftRef.current = notesDraft;
+  });
+
+  const titleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const notesTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const runUpdate = useCallback(async (updates: Record<string, unknown>) => {
+    const currentItem = itemRef.current;
+    if (!currentItem) return;
+    try {
+      setIsUpdating(true);
+      await onUpdateRef.current(currentItem.id, updates);
+    } finally {
+      setIsUpdating(false);
+    }
+  }, []);
+
+  const coverUpload = useCoverUpload({
+    onCoverChange: (coverImage) => {
+      return runUpdate({ coverImage });
+    },
+  });
+
+  const clearCoverError = coverUpload.clearError;
+
+  // Reset detail state and drafts when switching entries
+  useEffect(() => {
+    if (titleTimerRef.current) {
+      clearTimeout(titleTimerRef.current);
+      titleTimerRef.current = null;
+    }
+    if (notesTimerRef.current) {
+      clearTimeout(notesTimerRef.current);
+      notesTimerRef.current = null;
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset detail state when switching entries
     setActiveSeason(1);
     setFillerMap(null);
@@ -472,7 +524,143 @@ export default function MediaDetailModal({
     setProvidersCountry('US');
     setIsSelectingDroppedStatus(false);
     setIsDropReasonOpen(false);
-  }, [item?.id]);
+    setIsEditingTitle(false);
+    clearCoverError();
+
+    if (item) {
+      setTitleDraft(item.title);
+      titleDraftRef.current = item.title;
+      setNotesDraft(item.notes ?? '');
+      notesDraftRef.current = item.notes ?? '';
+      setTitleError('');
+    } else {
+      setTitleDraft('');
+      titleDraftRef.current = '';
+      setNotesDraft('');
+      notesDraftRef.current = '';
+      setTitleError('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- synchronize on item id switch
+  }, [item?.id, clearCoverError]);
+
+  useEffect(() => {
+    return () => {
+      if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
+      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    };
+  }, []);
+
+  const saveTitle = useCallback(
+    async (draft: string) => {
+      const currentItem = itemRef.current;
+      if (!currentItem) return;
+      const trimmed = draft.trim();
+      if (!trimmed) {
+        setTitleError('Title is required');
+        return;
+      }
+      setTitleError('');
+      if (trimmed === currentItem.title) return;
+      await runUpdate({ title: trimmed });
+    },
+    [runUpdate],
+  );
+
+  const handleTitleChange = useCallback(
+    (val: string) => {
+      const capped = val.slice(0, MAX_TITLE_LENGTH);
+      setTitleDraft(capped);
+      if (capped.trim()) {
+        setTitleError('');
+      }
+      if (titleTimerRef.current) {
+        clearTimeout(titleTimerRef.current);
+      }
+      titleTimerRef.current = setTimeout(() => {
+        void saveTitle(capped);
+      }, 500);
+    },
+    [saveTitle],
+  );
+
+  const handleTitleBlur = useCallback(() => {
+    if (titleTimerRef.current) {
+      clearTimeout(titleTimerRef.current);
+      titleTimerRef.current = null;
+    }
+    void saveTitle(titleDraftRef.current);
+  }, [saveTitle]);
+
+  const saveNotes = useCallback(
+    async (draft: string) => {
+      const currentItem = itemRef.current;
+      if (!currentItem) return;
+      const currentNotes = currentItem.notes ?? '';
+      if (draft === currentNotes) return;
+      await runUpdate({ notes: draft.trim() ? draft : null });
+    },
+    [runUpdate],
+  );
+
+  const handleNotesChange = useCallback(
+    (val: string) => {
+      const capped = val.slice(0, MAX_NOTES_LENGTH);
+      setNotesDraft(capped);
+      if (notesTimerRef.current) {
+        clearTimeout(notesTimerRef.current);
+      }
+      notesTimerRef.current = setTimeout(() => {
+        void saveNotes(capped);
+      }, 500);
+    },
+    [saveNotes],
+  );
+
+  const handleNotesBlur = useCallback(() => {
+    if (notesTimerRef.current) {
+      clearTimeout(notesTimerRef.current);
+      notesTimerRef.current = null;
+    }
+    void saveNotes(notesDraftRef.current);
+  }, [saveNotes]);
+
+  const flushPendingText = useCallback(async () => {
+    if (titleTimerRef.current) {
+      clearTimeout(titleTimerRef.current);
+      titleTimerRef.current = null;
+    }
+    if (notesTimerRef.current) {
+      clearTimeout(notesTimerRef.current);
+      notesTimerRef.current = null;
+    }
+    const currentItem = itemRef.current;
+    if (!currentItem) return;
+
+    const patch: Record<string, unknown> = {};
+    const trimmedTitle = titleDraftRef.current.trim();
+    if (trimmedTitle && trimmedTitle !== currentItem.title) {
+      patch.title = trimmedTitle;
+    } else if (!trimmedTitle && titleDraftRef.current !== currentItem.title) {
+      setTitleError('Title is required');
+    }
+
+    const currentNotes = currentItem.notes ?? '';
+    const currentDraftNotes = notesDraftRef.current;
+    if (currentDraftNotes !== currentNotes) {
+      patch.notes = currentDraftNotes.trim() ? currentDraftNotes : null;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await runUpdate(patch);
+    }
+  }, [runUpdate]);
+
+  const handleClose = useCallback(() => {
+    void (async () => {
+      await flushPendingText();
+      onClose();
+    })();
+  }, [flushPendingText, onClose]);
 
   useEffect(() => {
     if (!isOpen || !item) return;
@@ -555,19 +743,73 @@ export default function MediaDetailModal({
           },
         ];
 
-  const primaryCurrent = item.primaryUnitCurrent ?? 1;
+  const primaryCurrent = item.primaryUnitCurrent ?? (isMovie ? 0 : 1);
   const primaryTotal = item.primaryUnitTotal ?? 1;
   const secondaryCurrent = item.secondaryUnitCurrent ?? 0;
   const secondaryTotal = item.secondaryUnitTotal ?? null;
   const structure = Array.isArray(item.structure) ? item.structure : [];
 
-  const runUpdate = async (updates: Record<string, unknown>) => {
-    try {
-      setIsUpdating(true);
-      await onUpdate(item.id, updates);
-    } finally {
-      setIsUpdating(false);
+  const handleCategoryChange = async (nextCategory: MediaCategory) => {
+    if (nextCategory === category) return;
+
+    const getFamily = (cat: MediaCategory): 'show_anime' | 'book_manga' | 'movie' => {
+      if (cat === 'show' || cat === 'anime') return 'show_anime';
+      if (cat === 'book' || cat === 'manga') return 'book_manga';
+      return 'movie';
+    };
+
+    const currentFamily = getFamily(category);
+    const targetFamily = getFamily(nextCategory);
+
+    if (currentFamily !== targetFamily) {
+      const confirmed = window.confirm(
+        'Switching category changes how progress is counted. Continue?',
+      );
+      if (!confirmed) return;
     }
+
+    const isLeavingShowAnime = currentFamily === 'show_anime' && targetFamily !== 'show_anime';
+
+    if (isLeavingShowAnime && structure.length > 0) {
+      const confirmed = window.confirm('Season breakdown will be removed.');
+      if (!confirmed) return;
+    }
+
+    const patch: Record<string, unknown> = {
+      category: nextCategory,
+    };
+
+    if (targetFamily === 'movie') {
+      patch.primaryUnitCurrent = item.rewatchCount ?? 0;
+      if (item.secondaryUnitTotal != null) {
+        // If old secondary is episode-scale, keep secondaryTotal as runtime only if it looks like minutes;
+        // otherwise leave as-is if already a runtime. If secondaryUnitTotal missing, do not invent one.
+        if (currentFamily === 'show_anime') {
+          if (item.secondaryUnitTotal > 40) {
+            patch.secondaryUnitTotal = item.secondaryUnitTotal;
+          } else {
+            patch.secondaryUnitTotal = null;
+          }
+        } else {
+          patch.secondaryUnitTotal = item.secondaryUnitTotal;
+        }
+      }
+    } else if (currentFamily === 'movie') {
+      // Switching out of movie: runtime minutes (e.g. > 50) do not translate to
+      // episode or chapter numbers, so reset secondaryUnitCurrent to 0.
+      if ((item.secondaryUnitCurrent ?? 0) > 50) {
+        patch.secondaryUnitCurrent = 0;
+      }
+      if ((item.primaryUnitCurrent ?? 0) < 1) {
+        patch.primaryUnitCurrent = 1;
+      }
+    }
+
+    if (isLeavingShowAnime) {
+      patch.structure = [];
+    }
+
+    await runUpdate(patch);
   };
 
   const handleRatingChange = (nextRating: number) => {
@@ -751,12 +993,12 @@ export default function MediaDetailModal({
 
     const nextTags = [...tags, clean];
     setNewTagInput('');
-    await onUpdate(item.id, { tags: nextTags });
+    await runUpdate({ tags: nextTags });
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
     const nextTags = tags.filter((t) => t !== tagToRemove);
-    await onUpdate(item.id, { tags: nextTags });
+    await runUpdate({ tags: nextTags });
   };
 
   // Determine episodes for current selected season
@@ -777,7 +1019,7 @@ export default function MediaDetailModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       labelledBy="media-detail-title"
       ariaLabel="Media detail folio"
       contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
@@ -786,7 +1028,7 @@ export default function MediaDetailModal({
         <button
           type="button"
           aria-label="Close modal"
-          onClick={onClose}
+          onClick={handleClose}
           className="za-modal-close absolute right-[var(--za-space-4)] top-[var(--za-space-4)] z-10"
         >
           <X size={18} strokeWidth={2} />
@@ -795,22 +1037,17 @@ export default function MediaDetailModal({
         <div className="za-folio-spread">
           {/* Left Column */}
           <aside className="min-w-0 bg-canvas p-[var(--za-space-6)] md:border-r md:border-decorative">
-            <div className="mx-auto w-full max-w-[18rem] border border-required bg-surface p-2 shadow-raised">
-              <div className="aspect-[2/3] overflow-hidden border border-decorative bg-surface-subtle">
-                {item.coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
-                  <img
-                    src={item.coverImage}
-                    alt={item.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center font-bold text-[1.5rem]">
-                    {getTileInitials(item.title)}
-                  </div>
-                )}
-              </div>
-            </div>
+            <FolioCover
+              coverImage={item.coverImage}
+              title={item.title}
+              sourceId={item.sourceId}
+              isCompressing={coverUpload.isCompressing}
+              isUpdating={isUpdating}
+              error={coverUpload.error}
+              onOpenFilePicker={coverUpload.openFilePicker}
+              onRemoveCover={coverUpload.handleImageRemove}
+              fileInputProps={coverUpload.fileInputProps}
+            />
 
             {/* Gold-foil rating selector */}
             <div
@@ -951,27 +1188,106 @@ export default function MediaDetailModal({
                 </button>
               </form>
             </div>
+
+            {/* Privacy Plate (personal archives only) */}
+            {!isGroup && (
+              <div className="mt-[var(--za-space-4)] rounded-control border border-decorative bg-surface p-3">
+                <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+                  <span>Private Title (Hide from public profile & RSS)</span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(item.isPrivate)}
+                    disabled={isUpdating}
+                    onChange={(e) => void runUpdate({ isPrivate: e.target.checked })}
+                    className="h-4 w-4 rounded accent-accent"
+                  />
+                </label>
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  When checked, this entry is only visible to you on your private dashboard and
+                  excluded from public showcases.
+                </p>
+              </div>
+            )}
           </aside>
 
           {/* Right Column */}
           <section className="min-w-0 p-[var(--za-space-6)] md:p-[var(--za-space-8)]">
             <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)] pr-10">
-              <div className="mb-1 flex items-center gap-1.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.1em] text-accent">
-                {category === 'movie' ? (
-                  <Film size={14} />
-                ) : isBookLike ? (
-                  <BookOpen size={14} />
-                ) : (
-                  <Tv size={14} />
-                )}
-                <span>{category} folio</span>
-              </div>
-              <h2
-                id="media-detail-title"
-                className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink"
+              <div
+                className="mb-2 flex flex-wrap gap-1.5"
+                role="radiogroup"
+                aria-label="Media Category"
               >
-                {item.title}
-              </h2>
+                {CATEGORY_CHIPS.map(({ id, label, Icon }) => {
+                  const active = category === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      disabled={isUpdating}
+                      onClick={() => void handleCategoryChange(id)}
+                      className={`za-button ${active ? 'za-button--selected' : 'za-button--secondary'} min-h-0 px-2 py-0.5 text-xs inline-flex items-center gap-1`}
+                    >
+                      <Icon size={12} strokeWidth={2} />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {isEditingTitle ? (
+                <input
+                  id="media-detail-title"
+                  type="text"
+                  autoFocus
+                  aria-label="Title"
+                  value={titleDraft}
+                  maxLength={MAX_TITLE_LENGTH}
+                  placeholder="e.g. Frieren: Beyond Journey's End"
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  onBlur={() => {
+                    handleTitleBlur();
+                    setIsEditingTitle(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      setTitleDraft(item.title);
+                      setTitleError('');
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  className="w-full rounded-small border border-accent bg-surface px-1.5 py-0.5 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink outline-none"
+                />
+              ) : (
+                <h2
+                  id="media-detail-title"
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => setIsEditingTitle(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setIsEditingTitle(true);
+                    }
+                  }}
+                  title="Click to edit title"
+                  className="cursor-pointer rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
+                >
+                  {titleDraft.trim() || item.title}
+                </h2>
+              )}
+              {titleError && (
+                <div
+                  className="mt-1 text-xs font-[var(--za-weight-emphasis)] text-danger"
+                  role="alert"
+                >
+                  {titleError}
+                </div>
+              )}
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--za-text-fine)] text-ink-muted">
                 {genres.length > 0 && <span>{genres.join(' · ')}</span>}
                 <span>Added {formatDisplayDate(item.createdAt)}</span>
@@ -1018,7 +1334,7 @@ export default function MediaDetailModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() => runUpdate({ status: 'in_progress' })}
+                      onClick={() => void runUpdate({ status: 'in_progress' })}
                       className="za-button za-button--primary min-h-0 px-2 py-1 text-xs"
                     >
                       Resume
@@ -1047,6 +1363,18 @@ export default function MediaDetailModal({
                     ? 'WATCH PROGRESS'
                     : 'EPISODE MATRIX'}
               </div>
+
+              <FolioUnitTotals
+                category={category}
+                primaryUnitTotal={item.primaryUnitTotal ?? null}
+                primaryUnitCurrent={primaryCurrent}
+                secondaryUnitTotal={secondaryTotal}
+                secondaryUnitCurrent={secondaryCurrent}
+                structure={structure}
+                activeSeason={activeSeason}
+                isUpdating={isUpdating}
+                onCommit={runUpdate}
+              />
 
               {isMovie && (
                 <div className="mb-3 rounded-small border border-decorative bg-surface-subtle p-3">
@@ -1269,16 +1597,13 @@ export default function MediaDetailModal({
             />
 
             {/* Personal Notes */}
-            {item.notes && (
-              <div className="mt-[var(--za-space-4)]">
-                <div className={sectionLabel}>
-                  <FileText size={12} /> PERSONAL NOTES
-                </div>
-                <div className="rounded-control border border-decorative bg-surface-subtle p-[var(--za-space-3)] text-[length:var(--za-text-fine)]">
-                  <MarkdownNotes content={item.notes} />
-                </div>
-              </div>
-            )}
+            <FolioNotes
+              notesDraft={notesDraft}
+              onNotesChange={handleNotesChange}
+              onNotesBlur={handleNotesBlur}
+              sectionLabelClass={sectionLabel}
+              disabled={isUpdating}
+            />
 
             {/* Quotes & Excerpts */}
             <div className="mt-[var(--za-space-4)]">
@@ -1450,19 +1775,8 @@ export default function MediaDetailModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
-          <button
-            type="button"
-            className="za-button za-button--secondary"
-            onClick={() => {
-              onClose();
-              onEdit?.(item);
-            }}
-          >
-            <Pencil size={14} className="mr-1.5" /> Edit All Details
-          </button>
-
-          <button type="button" className="za-button za-button--primary" onClick={onClose}>
+        <div className="flex items-center justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
+          <button type="button" className="za-button za-button--primary" onClick={handleClose}>
             Done
           </button>
         </div>

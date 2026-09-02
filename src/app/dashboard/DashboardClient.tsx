@@ -116,7 +116,6 @@ export default function DashboardClient({
   const [readingGoals, setReadingGoals] = useState<Record<string, ReadingGoalConfig>>(
     user?.readingGoals || {},
   );
-  const [editingItem, setEditingItem] = useState<MediaEntry | null>(null);
   const [detailItem, setDetailItem] = useState<MediaEntry | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [confirmModal, setConfirmModal] = useState<ConfirmState>(CONFIRM_CLOSED);
@@ -138,7 +137,7 @@ export default function DashboardClient({
           return;
         }
         // Don't open command palette if another modal is already open
-        if (detailItem || editingItem || confirmModal.isOpen || modals.anyOpen) {
+        if (detailItem || confirmModal.isOpen || modals.anyOpen) {
           return;
         }
         modals.open('palette');
@@ -146,7 +145,7 @@ export default function DashboardClient({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [detailItem, editingItem, confirmModal.isOpen, modals]);
+  }, [detailItem, confirmModal.isOpen, modals]);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -165,7 +164,6 @@ export default function DashboardClient({
 
   const closeAddModal = () => {
     modals.close();
-    setEditingItem(null);
   };
 
   // Theme synchronization on mount and when theme changes
@@ -208,7 +206,7 @@ export default function DashboardClient({
 
   // Derive active detail item dynamically from latest entries state
   const activeDetailItem = detailItem
-    ? entries.find((e) => e.id === detailItem.id) || detailItem
+    ? (entries.find((e) => e.id === detailItem.id) ?? detailItem)
     : null;
 
   const openConfirm = (partial: Omit<ConfirmState, 'isOpen'>) => {
@@ -337,34 +335,6 @@ export default function DashboardClient({
     return newEntry;
   };
 
-  const handleSaveEdit = async (id: string, updates: Record<string, unknown>) => {
-    const previousEntries = [...entries];
-    const existingItem = entries.find((e) => e.id === id);
-    // Optimistic update: map only the matching entry and stamp its local update time.
-    setEntries((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item,
-      ),
-    );
-
-    const updated = await mutate({
-      actionType: 'UPDATE_PROGRESS',
-      id,
-      payload: updates,
-      mutation: (payload) => updateMediaProgress(id, payload),
-      originalUpdatedAt: existingItem?.updatedAt,
-      successMessage: (result) => `Updated "${result.title}"`,
-      offlineMessage: 'Offline: changes queued for sync',
-      errorMessage: 'Failed to save changes',
-      onSuccess: (result) => {
-        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...result } : item)));
-      },
-      rollback: () => setEntries(previousEntries),
-    });
-    setEditingItem(null);
-    return updated;
-  };
-
   const handleDeleteClick = (id: string) => {
     const itemToDelete = entries.find((e) => e.id === id);
     const itemTitle = itemToDelete ? itemToDelete.title : 'this item';
@@ -413,7 +383,6 @@ export default function DashboardClient({
   const cardHandlers = {
     onUpdate: handleUpdate,
     onDelete: handleDeleteClick,
-    onEdit: (item: MediaEntry) => setEditingItem(item),
     onOpenDetail: (itemToOpen: MediaEntry) => setDetailItem(itemToOpen),
   };
 
@@ -722,20 +691,15 @@ export default function DashboardClient({
 
       {/* Modals */}
       <AddMediaModal
-        isOpen={modals.isOpen('add') || !!editingItem}
-        type={
-          editingItem?.category
-            ? (editingItem.category as import('@/types/media').MediaCategory)
-            : activeTab === 'books'
-              ? 'book'
-              : activeTab === 'movies'
-                ? 'movie'
-                : 'show'
-        }
+        isOpen={modals.isOpen('add')}
+        type={activeTab === 'books' ? 'book' : activeTab === 'movies' ? 'movie' : 'show'}
         onClose={closeAddModal}
         onAdd={handleCreate}
-        editItem={editingItem}
-        onSave={handleSaveEdit}
+        onCreated={(entry) => {
+          if (entry && typeof entry === 'object' && entry !== null && 'id' in entry) {
+            setDetailItem(entry as MediaEntry);
+          }
+        }}
       />
 
       <MediaDetailModal
@@ -743,10 +707,7 @@ export default function DashboardClient({
         item={activeDetailItem}
         onClose={() => setDetailItem(null)}
         onUpdate={handleUpdate}
-        onEdit={(itemToEdit: MediaEntry) => {
-          setDetailItem(null);
-          setEditingItem(itemToEdit);
-        }}
+        isGroup={isGroup}
       />
 
       <ThemeModal

@@ -17,7 +17,6 @@ import UnitStepperRow from './UnitStepperRow';
 export interface MediaCardHandlers {
   onUpdate: (id: string, updates: UpdateMediaInput) => Promise<void>;
   onDelete?: (id: string) => void;
-  onEdit?: (item: MediaEntry) => void;
   onOpenDetail?: (item: MediaEntry) => void;
 }
 
@@ -71,7 +70,6 @@ export default function MediaCard({
   nextAir,
   onUpdate,
   onDelete,
-  onEdit,
   onOpenDetail,
 }: MediaCardProps) {
   const [showNotes, setShowNotes] = useState(false);
@@ -278,11 +276,11 @@ export default function MediaCard({
                   <Eye size={13} strokeWidth={1.75} />
                 </button>
               )}
-              {onEdit && (
+              {onOpenDetail && (
                 <button
                   type="button"
                   className={`${miniActionBtn} text-ink-muted hover:border-[var(--za-color-border-focus)] hover:bg-surface-hover hover:text-ink`}
-                  onClick={() => onEdit(item)}
+                  onClick={() => onOpenDetail(item)}
                   title={`Edit ${item.title}`}
                   aria-label={`Edit ${item.title}`}
                 >

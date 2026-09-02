@@ -58,8 +58,16 @@ export default function SpotlightSearchModal({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [manualError, setManualError] = useState('');
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+
   const [hasSearched, setHasSearched] = useState(false);
   const [isServiceConfigured, setIsServiceConfigured] = useState(true);
+
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
+    setManualError('');
+  }
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
@@ -150,6 +158,17 @@ export default function SpotlightSearchModal({
 
   if (!isOpen) return null;
 
+  const requestManualEnter = () => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setManualError('Title required');
+      searchInputRef.current?.focus();
+      return;
+    }
+    setManualError('');
+    onManualEnter(trimmed);
+  };
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -173,8 +192,8 @@ export default function SpotlightSearchModal({
       e.preventDefault();
       if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
         onSelectResult(searchResults[highlightedIndex] as SpotlightResult);
-      } else if (searchQuery.trim()) {
-        onManualEnter(searchQuery.trim());
+      } else {
+        requestManualEnter();
       }
     }
   };
@@ -182,6 +201,7 @@ export default function SpotlightSearchModal({
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
+    setManualError('');
     searchInputRef.current?.focus();
   };
 
@@ -231,7 +251,10 @@ export default function SpotlightSearchModal({
           className="za-field min-w-0 flex-1 border-0 bg-transparent px-0 py-0 shadow-none focus:border-0 focus:shadow-none"
           placeholder={PLACEHOLDERS[category]}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setManualError('');
+          }}
           onKeyDown={handleSearchKeyDown}
           autoComplete="off"
         />
@@ -262,7 +285,7 @@ export default function SpotlightSearchModal({
           {searchQuery.trim() && (
             <button
               type="button"
-              onClick={() => onManualEnter(searchQuery.trim())}
+              onClick={requestManualEnter}
               className="za-button za-button--primary mt-2.5 inline-flex items-center gap-1 text-xs"
             >
               <span>Add &ldquo;{searchQuery.trim()}&rdquo; as Movie</span>
@@ -359,7 +382,7 @@ export default function SpotlightSearchModal({
             <div>No catalogue matches found for &ldquo;{searchQuery}&rdquo;.</div>
             <button
               type="button"
-              onClick={() => onManualEnter(searchQuery.trim())}
+              onClick={requestManualEnter}
               className="za-button za-button--secondary mt-2 inline-flex items-center text-xs font-[var(--za-weight-emphasis)]"
             >
               Add &ldquo;{searchQuery.trim()}&rdquo; manually →
@@ -377,13 +400,23 @@ export default function SpotlightSearchModal({
         <span className="text-[length:var(--za-text-fine)] text-ink-muted">
           Can&apos;t find a match?
         </span>
-        <button
-          type="button"
-          className="cursor-pointer border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-accent hover:underline"
-          onClick={() => onManualEnter(searchQuery.trim())}
-        >
-          Create manually instead →
-        </button>
+        <div className="flex items-center gap-2">
+          {manualError && (
+            <span
+              role="alert"
+              className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger"
+            >
+              {manualError}
+            </span>
+          )}
+          <button
+            type="button"
+            className="cursor-pointer border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-accent hover:underline"
+            onClick={requestManualEnter}
+          >
+            Create manually instead →
+          </button>
+        </div>
       </div>
     </Modal>
   );
