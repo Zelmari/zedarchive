@@ -36,7 +36,7 @@ export default function DashboardLoading() {
           {Array.from({ length: 12 }).map((_, i) => (
             <div
               key={i}
-              className="flex flex-col gap-2 rounded-base border border-required bg-surface p-3 shadow-surface"
+              className="flex flex-col gap-2 rounded-control border border-required bg-surface p-3 shadow-raised"
             >
               <div className="aspect-[2/3] w-full rounded-small bg-surface-subtle" />
               <div className="h-4 w-3/4 rounded-small bg-surface-subtle" />

@@ -16,51 +16,55 @@ test.describe('unified site header navigation', () => {
     await registerAndAuthenticate(page, user);
   });
 
-  test('friends page renders header with zedarchive wordmark and links back to home', async ({
-    page,
-  }) => {
-    await page.goto('/friends');
-    await expect(page.locator('h1')).toHaveText('Friends');
+  const navigationCases = [
+    {
+      name: 'friends',
+      path: '/friends',
+      heading: 'Friends',
+      headingMatch: 'exact',
+      dashboardLink: true,
+    },
+    {
+      name: 'groups',
+      path: '/groups',
+      heading: 'Groups',
+      headingMatch: 'exact',
+      dashboardLink: true,
+    },
+    {
+      name: 'stacks',
+      path: '/stacks',
+      heading: 'Curated Stacks',
+      headingMatch: 'contains',
+      dashboardLink: false,
+    },
+    {
+      name: 'settings',
+      path: '/settings',
+      heading: 'Settings & Account',
+      headingMatch: 'exact',
+      dashboardLink: false,
+    },
+  ] as const;
 
-    // Brand wordmark exists and links to '/'
-    const brandLink = page.locator('header a.za-wordmark');
-    await expect(brandLink).toBeVisible();
-    await expect(brandLink).toHaveAttribute('href', '/');
+  for (const navigationCase of navigationCases) {
+    test(`${navigationCase.name} page renders the shared header`, async ({ page }) => {
+      await page.goto(navigationCase.path);
 
-    // Quick navigation link to Dashboard exists
-    const dashboardLink = page.locator('header nav a[href="/dashboard"]');
-    await expect(dashboardLink).toBeVisible();
-  });
+      if (navigationCase.headingMatch === 'exact') {
+        await expect(page.locator('h1')).toHaveText(navigationCase.heading);
+      } else {
+        await expect(page.locator('h1')).toContainText(navigationCase.heading);
+      }
 
-  test('groups page renders header with zedarchive wordmark and links back to home', async ({
-    page,
-  }) => {
-    await page.goto('/groups');
-    await expect(page.locator('h1')).toHaveText('Groups');
+      const brandLink = page.locator('header a.za-wordmark');
+      await expect(brandLink).toBeVisible();
+      await expect(brandLink).toHaveAttribute('href', '/');
 
-    const brandLink = page.locator('header a.za-wordmark');
-    await expect(brandLink).toBeVisible();
-    await expect(brandLink).toHaveAttribute('href', '/');
-
-    const dashboardLink = page.locator('header nav a[href="/dashboard"]');
-    await expect(dashboardLink).toBeVisible();
-  });
-
-  test('stacks page renders header with zedarchive wordmark and breadcrumbs', async ({ page }) => {
-    await page.goto('/stacks');
-    await expect(page.locator('h1')).toContainText('Curated Stacks');
-
-    const brandLink = page.locator('header a.za-wordmark');
-    await expect(brandLink).toBeVisible();
-    await expect(brandLink).toHaveAttribute('href', '/');
-  });
-
-  test('settings page renders sticky header with zedarchive wordmark', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.locator('h1')).toHaveText('Settings & Account');
-
-    const brandLink = page.locator('header a.za-wordmark');
-    await expect(brandLink).toBeVisible();
-    await expect(brandLink).toHaveAttribute('href', '/');
-  });
+      if (navigationCase.dashboardLink) {
+        const dashboardLink = page.locator('header nav a[href="/dashboard"]');
+        await expect(dashboardLink).toBeVisible();
+      }
+    });
+  }
 });

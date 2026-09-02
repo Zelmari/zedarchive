@@ -24,13 +24,13 @@ export default function SettingsLoading() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-base border border-required bg-surface p-6 shadow-surface space-y-4">
+          <div className="rounded-control border border-required bg-surface p-6 shadow-raised space-y-4">
             <div className="h-5 w-32 rounded-small bg-surface-subtle" />
             <div className="h-10 w-full rounded-control bg-surface-subtle" />
             <div className="h-10 w-full rounded-control bg-surface-subtle" />
           </div>
 
-          <div className="rounded-base border border-required bg-surface p-6 shadow-surface space-y-4">
+          <div className="rounded-control border border-required bg-surface p-6 shadow-raised space-y-4">
             <div className="h-5 w-32 rounded-small bg-surface-subtle" />
             <div className="h-20 w-full rounded-control bg-surface-subtle" />
           </div>
