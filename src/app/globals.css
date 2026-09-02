@@ -1022,76 +1022,31 @@ html[data-theme='cyber'] body {
   }
 }
 
-/* 11. Landing Page (Watermark) */
+/* 11. Landing Page (Tactile Folio) */
 .za-landing {
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: clip;
 }
 
-.za-hero__ghost {
+.za-landing .za-hero__ghost {
   position: fixed;
-  inset: -12vmin;
+  inset: -18vmin;
   z-index: 0;
   display: grid;
   place-items: center;
   pointer-events: none;
 }
 
-.za-hero__ghost img {
+.za-landing .za-hero__ghost img {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
   filter: invert(1); /* white ink -> black ink */
   mix-blend-mode: multiply; /* let the linen show through */
-  opacity: 0.07;
-}
-
-.za-hero {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--za-space-6);
-  min-block-size: 100%;
-  padding-block: clamp(var(--za-space-8), 7vw, var(--za-space-12));
-  padding-inline: var(--za-page-gutter);
-  font-family: var(--za-font-editorial);
-  text-align: center;
-}
-
-.za-hero__eyebrow {
-  font-family: var(--za-font-mono);
-  font-size: var(--za-text-fine);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--za-color-text-muted);
-}
-
-.za-hero__title {
-  font-family: var(--za-font-display);
-  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
-  font-weight: var(--za-weight-heading);
-  line-height: 1.12;
-  letter-spacing: -0.025em;
-  overflow-wrap: anywhere;
-}
-
-.za-hero__title em {
-  font-family: var(--za-font-editorial);
-  font-style: italic;
-  color: var(--za-color-text-muted);
-}
-
-.za-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--za-space-3);
+  opacity: 0.035;
 }
 
 .za-site-header,
@@ -1099,6 +1054,375 @@ html[data-theme='cyber'] body {
 .za-landing main {
   position: relative;
   z-index: 1;
+}
+
+/* Monograph masthead and editorial hero spread. */
+.za-landing__content {
+  padding-block: clamp(2rem, 6vw, 4rem) 5rem;
+}
+
+.za-landing__masthead {
+  position: relative;
+  margin-block-end: clamp(2.5rem, 7vw, 4.5rem);
+  padding-block-end: clamp(2rem, 5vw, 3rem);
+  text-align: center;
+  border-block-end: 3px double var(--za-color-border-required);
+}
+
+.za-landing__masthead-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.za-landing__masthead-meta::before,
+.za-landing__masthead-meta::after {
+  inline-size: 2.5rem;
+  block-size: 1px;
+  flex: 0 0 auto;
+  background: var(--za-color-border-required);
+  content: '';
+}
+
+.za-landing .za-hero__title {
+  max-inline-size: 18ch;
+  margin: 1.5rem auto 0.75rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: clamp(2.35rem, 7vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.za-landing .za-hero__title em {
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-style: italic;
+  font-weight: 600;
+}
+
+.za-landing__subtitle {
+  max-inline-size: 44rem;
+  margin: 0 auto 1.5rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.za-landing__motto {
+  margin: 0;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-supporting);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* 12. Landing Hero Bookplate */
+.za-landing .za-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 3.5rem);
+  min-block-size: auto;
+  margin-block-end: clamp(3.5rem, 8vw, 5.5rem);
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.5rem, 5vw, 2.5rem);
+  border: 2px solid var(--za-color-border-required);
+  outline: 2px solid var(--za-color-border-decorative);
+  outline-offset: -8px;
+  box-shadow: var(--za-shadow-layered);
+  font-family: var(--za-font-serif-body);
+  text-align: start;
+}
+
+.za-landing .za-hero__copy {
+  min-inline-size: 0;
+}
+
+.za-landing .za-hero__eyebrow {
+  margin-block-end: 1rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__lead {
+  margin: 0 0 1.5rem;
+  padding-inline-start: 1.5rem;
+  border-inline-start: 3px solid var(--za-color-accent);
+  color: var(--za-color-text);
+  font-family: var(--za-font-editorial);
+  font-size: clamp(1.35rem, 2.8vw, 1.65rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.za-landing .za-hero__description {
+  max-inline-size: 58ch;
+  margin: 0 0 2rem;
+  color: var(--za-color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.za-landing .za-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 1rem;
+}
+
+.za-landing .za-hero__ex-libris {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 2rem);
+  border: 1px solid var(--za-color-border-required);
+  outline: 1px solid var(--za-color-border-decorative);
+  outline-offset: -6px;
+  background: var(--za-color-canvas);
+  text-align: center;
+}
+
+.za-landing .za-hero__ex-libris-label {
+  inline-size: 100%;
+  margin: 0 0 1.25rem;
+  padding-block-end: 0.6rem;
+  border-block-end: 1px solid var(--za-color-border-decorative);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-supporting);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__seal {
+  margin-block-end: 0.5rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: 2.8rem;
+  line-height: 1;
+}
+
+.za-landing .za-hero__owner {
+  margin: 0 0 0.25rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__caption {
+  margin: 0 0 1.25rem;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.za-landing .za-hero__inscription {
+  margin: 0;
+  padding-block-start: 0.75rem;
+  border-block-start: 1px dashed var(--za-color-border-decorative);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Manifesto bookplates. */
+.za-landing__manifesto {
+  margin-block-end: clamp(3.5rem, 8vw, 5.5rem);
+}
+
+.za-landing__section-heading {
+  margin-block-end: 2rem;
+  text-align: center;
+}
+
+.za-landing__section-kicker {
+  margin: 0 0 0.5rem;
+  color: var(--za-color-accent);
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.za-landing__section-heading h2 {
+  margin: 0;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.za-landing__section-heading > p:last-child {
+  max-inline-size: 42rem;
+  margin: 0.75rem auto 0;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-editorial);
+  font-size: 1.05rem;
+  font-style: italic;
+}
+
+.za-landing .za-manifesto__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.za-landing .za-manifesto__plate {
+  block-size: 100%;
+  padding: 2rem 1.75rem;
+}
+
+.za-landing .za-manifesto__title {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.8rem;
+  margin: 0 0 1rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+}
+
+.za-landing .za-manifesto__dropcap {
+  color: var(--za-color-accent);
+  font-family: var(--za-font-display);
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+
+.za-landing .za-manifesto__plate > p {
+  margin: 0;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-serif-body);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+/* Static decorative cover studies. */
+.za-landing__specimens {
+  margin-block-start: clamp(3.5rem, 8vw, 5.5rem);
+}
+
+.za-landing .za-specimen__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.za-landing .za-specimen {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 0.7fr) 1fr;
+  align-items: center;
+  gap: 1rem;
+  block-size: 100%;
+  padding: 1.25rem;
+}
+
+.za-landing .za-specimen__cover {
+  display: flex;
+  aspect-ratio: 2 / 3;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--za-color-text) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 25%, transparent);
+  color: var(--za-color-on-accent);
+  text-align: center;
+}
+
+.za-landing .za-specimen__cover--ember {
+  background: linear-gradient(145deg, var(--za-color-accent-active), var(--za-color-accent));
+}
+
+.za-landing .za-specimen__cover--ink {
+  background: linear-gradient(145deg, var(--za-color-text), var(--za-color-text-muted));
+}
+
+.za-landing .za-specimen__cover--gold {
+  color: var(--za-color-text);
+  background: linear-gradient(145deg, var(--za-color-gold-dark), var(--za-color-gold));
+}
+
+.za-landing .za-specimen__cover span {
+  font-family: var(--za-font-display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.za-landing .za-specimen__cover small {
+  max-inline-size: 10ch;
+  font-family: var(--za-font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.za-landing .za-specimen__details {
+  min-inline-size: 0;
+}
+
+.za-landing .za-specimen__details p,
+.za-landing .za-specimen__details span {
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.za-landing .za-specimen__details p {
+  margin: 0 0 0.5rem;
+}
+
+.za-landing .za-specimen__details h3 {
+  margin: 0 0 0.5rem;
+  color: var(--za-color-text);
+  font-family: var(--za-font-editorial);
+  font-size: 1.2rem;
+  line-height: 1.2;
 }
 
 /* 13. Site Footer */
@@ -1138,7 +1462,7 @@ html[data-theme='cyber'] body {
   text-decoration-color: var(--za-color-text);
 }
 
-/* Landing-page overrides — emblem-centered front page */
+/* Landing-page overrides — keep account actions compact in the masthead. */
 .za-landing .za-button {
   border-radius: var(--za-radius-small);
   min-block-size: 2.4rem;
@@ -1159,8 +1483,61 @@ html[data-theme='cyber'] body {
   border-bottom-color: var(--za-color-text);
 }
 
-.za-landing .za-hero {
-  gap: 1.3rem;
+.za-landing .za-site-footer {
+  border-block-start: 3px double var(--za-color-border-required);
+  background: color-mix(in srgb, var(--za-color-canvas) 92%, var(--za-color-surface));
+}
+
+.za-landing .za-site-footer__inner {
+  padding-block: 1.5rem;
+}
+
+.za-landing .za-site-footer__link {
+  color: var(--za-color-accent);
+}
+
+@media (max-width: 48rem) {
+  .za-landing .za-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .za-landing .za-hero__ex-libris {
+    min-block-size: auto;
+  }
+
+  .za-landing .za-manifesto__grid,
+  .za-landing .za-specimen__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 40rem) {
+  .za-landing__masthead-meta {
+    gap: 0.5rem 0.75rem;
+    font-size: 0.65rem;
+  }
+
+  .za-landing__masthead-meta::before,
+  .za-landing__masthead-meta::after {
+    display: none;
+  }
+
+  .za-landing .za-hero {
+    padding: 2rem 1.25rem;
+  }
+
+  .za-landing .za-hero__actions {
+    flex-direction: column;
+  }
+
+  .za-landing .za-hero__actions .za-button {
+    inline-size: 100%;
+  }
+
+  .za-landing .za-site-footer__inner {
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 /* 11. Accessibility Preferences */
