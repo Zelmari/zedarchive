@@ -28,4 +28,20 @@ describe('serializeEntry', () => {
     const out = serializeEntry({ id: '3', completedAt: iso });
     expect(out?.completedAt).toBe(iso);
   });
+
+  it('keeps fallback child IDs and quote dates stable across serializations', () => {
+    const entry = {
+      id: 'legacy-entry',
+      cycles: [{ cycleNumber: 1, startedAt: '2026-01-01T00:00:00.000Z' }],
+      quotes: [{ text: 'A remembered line.' }],
+    };
+
+    const first = serializeEntry(entry);
+    const second = serializeEntry(entry);
+
+    expect(second?.cycles[0]?.id).toBe(first?.cycles[0]?.id);
+    expect(second?.quotes[0]?.id).toBe(first?.quotes[0]?.id);
+    expect(first?.quotes[0]?.createdAt).toBe('1970-01-01T00:00:00.000Z');
+    expect(second?.quotes[0]?.createdAt).toBe(first?.quotes[0]?.createdAt);
+  });
 });

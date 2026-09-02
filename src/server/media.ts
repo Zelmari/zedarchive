@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { mediaEntries } from '@/db/schema';
-import { eq, and, desc, inArray, isNotNull, ne, asc } from 'drizzle-orm';
+import { groupMembers, mediaEntries } from '@/db/schema';
+import { eq, and, desc, isNotNull, ne, asc, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
   VALID_CATEGORIES,
@@ -23,11 +23,16 @@ import type {
   MediaCycleInput,
   MediaQuote,
 } from '@/types/media';
-import { serializeEntry } from '@/lib/serialize';
-import { getAuthUser, logActivity } from './internal';
+import { serializeEntry, stableMediaChildDate, stableMediaChildId } from '@/lib/serialize';
+import { getAuthUser, logActivity, type DbClient } from './internal';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
+import { getMediaEntriesByUserId } from './queries/media';
 
 type MediaRow = typeof mediaEntries.$inferSelect;
+type MediaPayload = Omit<
+  typeof mediaEntries.$inferInsert,
+  'id' | 'userId' | 'createdAt' | 'groupId' | 'isPrivate'
+>;
 
 function toInt(value: unknown, fallback: number): number;
 function toInt(value: unknown, fallback: null): number | null;
@@ -93,12 +98,14 @@ function sanitizeCycles(
   cycles: unknown,
   fallbackStart?: Date | string | null,
   fallbackEnd?: Date | string | null,
+  mediaId = '',
 ): MediaCycle[] {
   if (Array.isArray(cycles) && cycles.length > 0) {
     const list = (cycles as Record<string, unknown>[])
       .filter((c) => c && typeof c === 'object')
       .map((c, i) => {
-        const id = typeof c.id === 'string' && c.id ? c.id : crypto.randomUUID();
+        const id =
+          typeof c.id === 'string' && c.id ? c.id : stableMediaChildId('cycle', mediaId, i, c);
         const cycleNumber = typeof c.cycleNumber === 'number' ? c.cycleNumber : i + 1;
         const startedAt = toDateOrNull(c.startedAt);
         const completedAt = toDateOrNull(c.completedAt);
@@ -117,25 +124,309 @@ function sanitizeCycles(
     if (list.length > 0) return list;
   }
 
+  const fallbackSeed = {
+    cycleNumber: 1,
+    startedAt:
+      fallbackStart instanceof Date ? fallbackStart.toISOString() : (fallbackStart ?? null),
+    completedAt: fallbackEnd instanceof Date ? fallbackEnd.toISOString() : (fallbackEnd ?? null),
+    rating: null,
+    notes: null,
+  };
   const startIso = fallbackStart
     ? (toDateOrNull(fallbackStart)?.toISOString() ?? null)
     : new Date().toISOString();
   const endIso = fallbackEnd ? (toDateOrNull(fallbackEnd)?.toISOString() ?? null) : null;
   return [
     {
-      id: crypto.randomUUID(),
-      cycleNumber: 1,
+      id: stableMediaChildId('cycle', mediaId, 0, fallbackSeed),
+      ...fallbackSeed,
       startedAt: startIso,
       completedAt: endIso,
-      rating: null,
-      notes: null,
     },
   ];
 }
 
-import { getMediaEntriesByUserId } from './queries/media';
-import { groupMembers } from '@/db/schema';
-import { isNull } from 'drizzle-orm';
+function sanitizeQuotes(quotes: unknown, mediaId: string): MediaQuote[] {
+  if (!Array.isArray(quotes)) return [];
+
+  return quotes.map((rawQuote, index) => {
+    const quote =
+      rawQuote && typeof rawQuote === 'object' ? (rawQuote as Record<string, unknown>) : {};
+    return {
+      id:
+        typeof quote.id === 'string' && quote.id
+          ? quote.id
+          : stableMediaChildId('quote', mediaId, index, quote),
+      text: typeof quote.text === 'string' ? quote.text : '',
+      speaker: typeof quote.speaker === 'string' ? quote.speaker : null,
+      citation: typeof quote.citation === 'string' ? quote.citation : null,
+      isFavorite: Boolean(quote.isFavorite),
+      createdAt: stableMediaChildDate(quote.createdAt),
+    };
+  });
+}
+
+async function assertCanWriteMedia(
+  mediaId: string,
+  userId: string,
+  tx: DbClient = db,
+): Promise<MediaRow> {
+  const [entry] = await tx.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
+
+  if (!entry) {
+    throw new Error('Entry not found');
+  }
+
+  if (!entry.groupId) {
+    if (entry.userId !== userId) {
+      throw new Error('Entry not found');
+    }
+    return entry;
+  }
+
+  const [membership] = await tx
+    .select({ id: groupMembers.id })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, entry.groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+
+  if (!membership) {
+    throw new Error('Entry not found');
+  }
+
+  return entry;
+}
+
+async function compactPriorityQueue(
+  tx: DbClient,
+  userId: string,
+  excludeId: string,
+): Promise<void> {
+  const remaining = await tx
+    .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, userId),
+        isNotNull(mediaEntries.priorityIndex),
+        ne(mediaEntries.id, excludeId),
+      ),
+    )
+    .orderBy(asc(mediaEntries.priorityIndex));
+
+  for (let i = 0; i < remaining.length; i++) {
+    const item = remaining[i]!;
+    if (item.priorityIndex != null && item.priorityIndex !== i + 1) {
+      await tx
+        .update(mediaEntries)
+        .set({ priorityIndex: i + 1 })
+        .where(eq(mediaEntries.id, item.id));
+    }
+  }
+}
+
+async function mutateQuotes(
+  mediaId: string,
+  userId: string,
+  fn: (quotes: MediaQuote[]) => MediaQuote[],
+): Promise<MediaRow> {
+  const updated = await db.transaction(async (tx) => {
+    const existing = await assertCanWriteMedia(mediaId, userId, tx);
+    const quotes = sanitizeQuotes(existing.quotes, existing.id);
+    const [row] = await tx
+      .update(mediaEntries)
+      .set({
+        quotes: fn(quotes),
+        updatedAt: new Date(),
+      })
+      .where(eq(mediaEntries.id, mediaId))
+      .returning();
+
+    if (!row) {
+      throw new Error('Entry not found');
+    }
+    return row;
+  });
+
+  revalidatePath('/dashboard');
+  if (updated.groupId) revalidatePath(`/groups/${updated.groupId}`);
+  return updated;
+}
+
+interface CycleMutationOptions {
+  recalculateRewatchCount?: boolean;
+  getAdditionalFields?: () => Partial<MediaRow>;
+}
+
+async function mutateCycles(
+  mediaId: string,
+  userId: string,
+  fn: (cycles: MediaCycle[], existing: MediaRow) => MediaCycle[],
+  options: CycleMutationOptions = {},
+): Promise<MediaRow> {
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(mediaEntries)
+      .where(
+        and(
+          eq(mediaEntries.id, mediaId),
+          eq(mediaEntries.userId, userId),
+          isNull(mediaEntries.groupId),
+        ),
+      )
+      .limit(1);
+
+    if (!existing || existing.groupId || existing.userId !== userId) {
+      throw new Error('Entry not found');
+    }
+
+    const cycles = fn(
+      sanitizeCycles(existing.cycles, existing.startedAt, existing.completedAt, existing.id),
+      existing,
+    );
+    const setFields: Partial<MediaRow> = {
+      cycles,
+      updatedAt: new Date(),
+      ...(options.getAdditionalFields?.() ?? {}),
+    };
+    if (options.recalculateRewatchCount) {
+      setFields.rewatchCount = Math.max(0, cycles.length - 1);
+    }
+
+    const [row] = await tx
+      .update(mediaEntries)
+      .set(setFields)
+      .where(
+        and(
+          eq(mediaEntries.id, mediaId),
+          eq(mediaEntries.userId, userId),
+          isNull(mediaEntries.groupId),
+        ),
+      )
+      .returning();
+
+    if (!row) {
+      throw new Error('Entry not found');
+    }
+    return row;
+  });
+
+  revalidatePath('/dashboard');
+  return updated;
+}
+
+function buildMediaPayload(
+  input: Record<string, unknown>,
+  {
+    category,
+    title,
+    mode,
+  }: {
+    category: MediaRow['category'];
+    title: string;
+    mode: 'create' | 'bulk';
+  },
+): MediaPayload {
+  const status = sanitizeStatus(input.status);
+  const primaryUnitCurrent =
+    mode === 'create'
+      ? category === 'movie'
+        ? Math.max(0, toInt(input.primaryUnitCurrent, status === 'completed' ? 1 : 0))
+        : Math.max(1, toInt(input.primaryUnitCurrent, 1))
+      : Math.max(1, toInt(input.primaryUnitCurrent, 1));
+  const primaryUnitTotal =
+    input.primaryUnitTotal !== undefined && input.primaryUnitTotal !== null
+      ? Math.max(1, toInt(input.primaryUnitTotal, 1))
+      : null;
+  const secondaryUnitCurrent = Math.max(0, toInt(input.secondaryUnitCurrent, 0));
+  const secondaryUnitTotal =
+    input.secondaryUnitTotal !== undefined && input.secondaryUnitTotal !== null
+      ? Math.max(0, toInt(input.secondaryUnitTotal, 0))
+      : null;
+  const startedAt =
+    mode === 'create'
+      ? (toDateOrNull(input.startedAt) ?? new Date())
+      : toDateOrNull(input.startedAt);
+  const completedAt =
+    status === 'completed' ? (toDateOrNull(input.completedAt) ?? new Date()) : null;
+  const droppedAt = status === 'dropped' ? (toDateOrNull(input.droppedAt) ?? new Date()) : null;
+  const trimMaybeCap = (value: string, maxLength: number) =>
+    mode === 'bulk' ? value.trim().slice(0, maxLength) : value.trim();
+  const dropReason =
+    status === 'dropped' && input.dropReason
+      ? trimMaybeCap(String(input.dropReason), MAX_DROP_REASON_LENGTH)
+      : null;
+  const cycles = sanitizeCycles(
+    input.cycles,
+    startedAt,
+    completedAt,
+    typeof input.id === 'string' ? input.id : '',
+  );
+  const droppedProgressPrimary =
+    status === 'dropped'
+      ? mode === 'bulk' && input.droppedProgressPrimary != null
+        ? toInt(input.droppedProgressPrimary, null)
+        : primaryUnitTotal !== null
+          ? Math.min(primaryUnitCurrent, primaryUnitTotal)
+          : primaryUnitCurrent
+      : null;
+  const droppedProgressSecondary =
+    status === 'dropped'
+      ? mode === 'bulk' && input.droppedProgressSecondary != null
+        ? toInt(input.droppedProgressSecondary, null)
+        : secondaryUnitTotal !== null
+          ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
+          : secondaryUnitCurrent
+      : null;
+  const rewatchCount =
+    input.rewatchCount != null
+      ? Math.max(0, toInt(input.rewatchCount, 0))
+      : Math.max(0, cycles.length - 1);
+
+  return {
+    title,
+    category,
+    status,
+    dropReason,
+    droppedAt,
+    droppedProgressPrimary,
+    droppedProgressSecondary,
+    rating: sanitizeRating(input.rating),
+    tags:
+      mode === 'create' && Array.isArray(input.tags)
+        ? (input.tags as string[])
+        : sanitizeTags(input.tags),
+    completedAt,
+    startedAt,
+    rewatchCount,
+    cycles,
+    synopsis: input.synopsis ? trimMaybeCap(String(input.synopsis), MAX_SYNOPSIS_LENGTH) : null,
+    genres: Array.isArray(input.genres) ? (input.genres as string[]).slice(0, 20) : [],
+    primaryUnitCurrent:
+      primaryUnitTotal !== null
+        ? Math.min(primaryUnitCurrent, primaryUnitTotal)
+        : primaryUnitCurrent,
+    primaryUnitTotal,
+    secondaryUnitCurrent:
+      secondaryUnitTotal !== null
+        ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
+        : secondaryUnitCurrent,
+    secondaryUnitTotal,
+    structure: sanitizeStructure(input.structure),
+    coverImage:
+      typeof input.coverImage === 'string' &&
+      (mode === 'create' || input.coverImage.length <= MAX_COVER_IMAGE_LENGTH)
+        ? input.coverImage
+        : null,
+    sourceId:
+      typeof input.sourceId === 'string'
+        ? trimMaybeCap(input.sourceId, MAX_SOURCE_ID_LENGTH)
+        : null,
+    notes: input.notes ? trimMaybeCap(String(input.notes), MAX_NOTES_LENGTH) : null,
+    updatedAt: new Date(),
+  };
+}
 
 export async function getMediaEntries(): Promise<MediaEntry[]> {
   const user = await getAuthUser();
@@ -165,75 +456,15 @@ export async function createMediaEntry(
   }
 
   const id = crypto.randomUUID();
-  const category = (
-    isInList(VALID_CATEGORIES, zodData.category)
-      ? zodData.category
-      : data.type === 'book'
-        ? 'book'
-        : 'show'
-  ) as MediaRow['category'];
-
-  // Business-logic: movie vs non-movie min value for primaryUnitCurrent
-  const primaryUnitCurrent =
-    category === 'movie'
-      ? Math.max(0, toInt(zodData.primaryUnitCurrent, zodData.status === 'completed' ? 1 : 0))
-      : Math.max(1, toInt(zodData.primaryUnitCurrent, 1));
-  const primaryUnitTotal =
-    zodData.primaryUnitTotal !== undefined && zodData.primaryUnitTotal !== null
-      ? Math.max(1, toInt(zodData.primaryUnitTotal, 1))
-      : null;
-
-  const secondaryUnitCurrent = Math.max(0, toInt(zodData.secondaryUnitCurrent, 0));
-  const secondaryUnitTotal =
-    zodData.secondaryUnitTotal !== undefined && zodData.secondaryUnitTotal !== null
-      ? Math.max(0, toInt(zodData.secondaryUnitTotal, 0))
-      : null;
-
-  // Business-logic sanitizers remain authoritative for complex objects
-  const structure = sanitizeStructure(zodData.structure);
-  const status = sanitizeStatus(zodData.status);
-  const rating = sanitizeRating(zodData.rating);
-  // Tags: Zod already trimmed/lowercased, sanitizeTags handles slice(0,50)
-  const tags = sanitizeTags(zodData.tags);
-  const genres = Array.isArray(zodData.genres) ? (zodData.genres as string[]).slice(0, 20) : [];
-  const synopsis = zodData.synopsis
-    ? String(zodData.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
-    : null;
-
-  // Status-driven date derivation
-  const startedAt = toDateOrNull(zodData.startedAt) ?? new Date();
-  const completedAt =
-    status === 'completed' ? (toDateOrNull(zodData.completedAt) ?? new Date()) : null;
-  const droppedAt = status === 'dropped' ? (toDateOrNull(zodData.droppedAt) ?? new Date()) : null;
-  const dropReason =
-    status === 'dropped' && zodData.dropReason
-      ? String(zodData.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
-      : null;
-
-  // Bidirectional clamping for dropped progress
-  const droppedProgressPrimary =
-    status === 'dropped'
-      ? primaryUnitTotal !== null
-        ? Math.min(primaryUnitCurrent, primaryUnitTotal)
-        : primaryUnitCurrent
-      : null;
-  const droppedProgressSecondary =
-    status === 'dropped'
-      ? secondaryUnitTotal !== null
-        ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
-        : secondaryUnitCurrent
-      : null;
-
-  // Cycle management: sanitizeCycles handles UUID generation and fallback
-  const cycles = sanitizeCycles(zodData.cycles ?? [], startedAt, completedAt);
-
-  const coverImage =
-    typeof zodData.coverImage === 'string' && zodData.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-      ? zodData.coverImage
-      : null;
-  const sourceId =
-    typeof zodData.sourceId === 'string' ? zodData.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null;
-  const notes = zodData.notes ? String(zodData.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
+  const category = zodData.category as MediaRow['category'];
+  const payload = buildMediaPayload(
+    { ...zodData, id },
+    {
+      category,
+      title,
+      mode: 'create',
+    },
+  );
   /** Per-title privacy — validated/normalised by Zod */
   const rawIsPrivate = Boolean(zodData.isPrivate);
 
@@ -256,38 +487,9 @@ export async function createMediaEntry(
       .values({
         id,
         userId: user.id,
-        title,
-        category,
-        status,
-        dropReason,
-        droppedAt,
-        droppedProgressPrimary,
-        droppedProgressSecondary,
-        completedAt,
-        startedAt,
-        rewatchCount: Math.max(0, cycles.length - 1),
-        cycles,
-        rating,
-        tags,
-        genres,
-        synopsis,
+        ...payload,
         isPrivate,
         groupId,
-        primaryUnitCurrent:
-          primaryUnitTotal !== null
-            ? Math.min(primaryUnitCurrent, primaryUnitTotal)
-            : primaryUnitCurrent,
-        primaryUnitTotal,
-        secondaryUnitCurrent:
-          secondaryUnitTotal !== null
-            ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
-            : secondaryUnitCurrent,
-        secondaryUnitTotal,
-        structure,
-        coverImage,
-        sourceId,
-        notes,
-        updatedAt: new Date(),
       })
       .returning();
 
@@ -299,8 +501,10 @@ export async function createMediaEntry(
         details: {
           title,
           category,
-          status,
-          ...(status === 'dropped' ? { dropReason, droppedAt } : {}),
+          status: payload.status,
+          ...(payload.status === 'dropped'
+            ? { dropReason: payload.dropReason, droppedAt: payload.droppedAt }
+            : {}),
         },
       },
       tx,
@@ -331,7 +535,7 @@ export async function updateMediaProgress(
   };
 
   if (validatedUpdates.title !== undefined) {
-    const title = String(validatedUpdates.title).trim().slice(0, MAX_TITLE_LENGTH);
+    const title = validatedUpdates.title;
     if (!title) {
       throw new Error('Title is required');
     }
@@ -346,7 +550,7 @@ export async function updateMediaProgress(
   }
 
   if (validatedUpdates.status !== undefined) {
-    const status = sanitizeStatus(validatedUpdates.status);
+    const status = validatedUpdates.status;
     updateFields.status = status;
     if (status === 'completed') {
       updateFields.completedAt = toDateOrNull(validatedUpdates.completedAt) ?? new Date();
@@ -358,21 +562,13 @@ export async function updateMediaProgress(
       updateFields.completedAt = null;
       updateFields.droppedAt = toDateOrNull(validatedUpdates.droppedAt) ?? new Date();
       if (validatedUpdates.dropReason !== undefined) {
-        updateFields.dropReason = validatedUpdates.dropReason
-          ? String(validatedUpdates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
-          : null;
+        updateFields.dropReason = validatedUpdates.dropReason ? validatedUpdates.dropReason : null;
       }
       if (validatedUpdates.droppedProgressPrimary !== undefined) {
-        updateFields.droppedProgressPrimary =
-          validatedUpdates.droppedProgressPrimary !== null
-            ? toInt(validatedUpdates.droppedProgressPrimary, null)
-            : null;
+        updateFields.droppedProgressPrimary = validatedUpdates.droppedProgressPrimary;
       }
       if (validatedUpdates.droppedProgressSecondary !== undefined) {
-        updateFields.droppedProgressSecondary =
-          validatedUpdates.droppedProgressSecondary !== null
-            ? toInt(validatedUpdates.droppedProgressSecondary, null)
-            : null;
+        updateFields.droppedProgressSecondary = validatedUpdates.droppedProgressSecondary;
       }
     } else {
       updateFields.completedAt = null;
@@ -382,25 +578,22 @@ export async function updateMediaProgress(
       updateFields.droppedProgressSecondary = null;
     }
   } else if (validatedUpdates.dropReason !== undefined) {
-    updateFields.dropReason = validatedUpdates.dropReason
-      ? String(validatedUpdates.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
-      : null;
+    updateFields.dropReason = validatedUpdates.dropReason ? validatedUpdates.dropReason : null;
   }
 
   if (validatedUpdates.rating !== undefined) {
-    updateFields.rating = sanitizeRating(validatedUpdates.rating);
+    updateFields.rating = validatedUpdates.rating;
   }
 
   if (validatedUpdates.cycles !== undefined) {
-    updateFields.cycles = sanitizeCycles(validatedUpdates.cycles);
+    updateFields.cycles = sanitizeCycles(validatedUpdates.cycles, undefined, undefined, id);
+    updateFields.rewatchCount = Math.max(0, updateFields.cycles.length - 1);
   }
   if (validatedUpdates.tags !== undefined) {
-    updateFields.tags = sanitizeTags(validatedUpdates.tags);
+    updateFields.tags = validatedUpdates.tags;
   }
   if (validatedUpdates.synopsis !== undefined) {
-    updateFields.synopsis = validatedUpdates.synopsis
-      ? String(validatedUpdates.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH)
-      : null;
+    updateFields.synopsis = validatedUpdates.synopsis ? validatedUpdates.synopsis.trim() : null;
   }
   if (validatedUpdates.genres !== undefined) {
     updateFields.genres = Array.isArray(validatedUpdates.genres)
@@ -410,34 +603,29 @@ export async function updateMediaProgress(
   if (validatedUpdates.startedAt !== undefined) {
     updateFields.startedAt = toDateOrNull(validatedUpdates.startedAt);
   }
-  if (updates.rewatchCount !== undefined) {
-    updateFields.rewatchCount = Math.max(0, toInt(updates.rewatchCount, 0));
-  }
 
   if (validatedUpdates.primaryUnitCurrent !== undefined) {
     updateFields.primaryUnitCurrent =
       validatedUpdates.primaryUnitCurrent !== null
-        ? Math.max(0, toInt(validatedUpdates.primaryUnitCurrent, 0))
+        ? Math.max(0, validatedUpdates.primaryUnitCurrent)
         : 0;
   }
   if (validatedUpdates.primaryUnitTotal !== undefined) {
     updateFields.primaryUnitTotal =
-      validatedUpdates.primaryUnitTotal !== null &&
-      (validatedUpdates.primaryUnitTotal as any) !== ''
-        ? Math.max(1, toInt(validatedUpdates.primaryUnitTotal, 1))
+      validatedUpdates.primaryUnitTotal !== null
+        ? Math.max(1, validatedUpdates.primaryUnitTotal)
         : null;
   }
   if (validatedUpdates.secondaryUnitCurrent !== undefined) {
     updateFields.secondaryUnitCurrent =
       validatedUpdates.secondaryUnitCurrent !== null
-        ? Math.max(0, toInt(validatedUpdates.secondaryUnitCurrent, 0))
+        ? Math.max(0, validatedUpdates.secondaryUnitCurrent)
         : 0;
   }
   if (validatedUpdates.secondaryUnitTotal !== undefined) {
     updateFields.secondaryUnitTotal =
-      validatedUpdates.secondaryUnitTotal !== null &&
-      (validatedUpdates.secondaryUnitTotal as any) !== ''
-        ? Math.max(0, toInt(validatedUpdates.secondaryUnitTotal, 0))
+      validatedUpdates.secondaryUnitTotal !== null
+        ? Math.max(0, validatedUpdates.secondaryUnitTotal)
         : null;
   }
 
@@ -446,43 +634,28 @@ export async function updateMediaProgress(
   }
   if (validatedUpdates.coverImage !== undefined) {
     updateFields.coverImage =
-      typeof validatedUpdates.coverImage === 'string' &&
-      validatedUpdates.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-        ? validatedUpdates.coverImage
-        : null;
+      validatedUpdates.coverImage === null ? null : validatedUpdates.coverImage;
   }
   if (validatedUpdates.sourceId !== undefined) {
     updateFields.sourceId =
-      typeof validatedUpdates.sourceId === 'string'
-        ? validatedUpdates.sourceId.slice(0, MAX_SOURCE_ID_LENGTH)
-        : null;
+      typeof validatedUpdates.sourceId === 'string' ? validatedUpdates.sourceId.trim() : null;
   }
   if (validatedUpdates.priorityIndex !== undefined) {
     updateFields.priorityIndex =
-      validatedUpdates.priorityIndex !== null && (validatedUpdates.priorityIndex as any) !== ''
-        ? Math.max(1, toInt(validatedUpdates.priorityIndex, 1))
-        : null;
+      validatedUpdates.priorityIndex !== null ? Math.max(1, validatedUpdates.priorityIndex) : null;
   }
   if (validatedUpdates.notes !== undefined) {
-    updateFields.notes =
-      validatedUpdates.notes == null
-        ? null
-        : String(validatedUpdates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+    updateFields.notes = validatedUpdates.notes == null ? null : validatedUpdates.notes.trim();
   }
   // Per-title privacy — validated as boolean (group entries forced false)
-  const incomingGroupId =
-    typeof (updates as Record<string, unknown>).groupId === 'string'
-      ? ((updates as Record<string, unknown>).groupId as string)
-      : null;
+  const incomingGroupId = validatedUpdates.groupId;
   // isPrivate ignored for group entries
   if (validatedUpdates.isPrivate !== undefined && !incomingGroupId) {
     updateFields.isPrivate = Boolean(validatedUpdates.isPrivate);
   }
 
   const updated = await db.transaction(async (tx) => {
-    // Fetch existing without user filter to detect group entries
-    const [existing] = await tx.select().from(mediaEntries).where(eq(mediaEntries.id, id));
-    if (!existing) throw new Error('Entry not found');
+    const existing = await assertCanWriteMedia(id, user.id, tx);
 
     if (validatedUpdates._offlineUpdatedAt) {
       if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {
@@ -491,15 +664,13 @@ export async function updateMediaProgress(
     }
 
     const isGroupEntry = Boolean(existing.groupId);
+    if (
+      isGroupEntry &&
+      (validatedUpdates.rewatch === true || validatedUpdates.cycles !== undefined)
+    ) {
+      throw new Error('Entry not found');
+    }
     if (isGroupEntry) {
-      const groupIdToCheck = existing.groupId as string;
-      if (!groupIdToCheck) throw new Error('Group entry missing groupId');
-      const [membership] = await tx
-        .select({ id: groupMembers.id })
-        .from(groupMembers)
-        .where(and(eq(groupMembers.groupId, groupIdToCheck), eq(groupMembers.userId, user.id)))
-        .limit(1);
-      if (!membership) throw new Error('You are not a member of this group');
       // Force isPrivate false for group entries
       updateFields.isPrivate = false;
       // Prevent groupId changes via update
@@ -513,39 +684,20 @@ export async function updateMediaProgress(
       if (existing.groupId) throw new Error('Unexpected groupId');
     }
 
-    if (updateFields.status === 'completed' && updates.priorityIndex === undefined) {
+    if (updateFields.status === 'completed' && validatedUpdates.priorityIndex === undefined) {
       updateFields.priorityIndex = null;
     }
 
     if (existing.priorityIndex != null && updateFields.priorityIndex === null) {
-      const otherQueued = await tx
-        .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
-        .from(mediaEntries)
-        .where(
-          and(
-            eq(mediaEntries.userId, user.id),
-            isNotNull(mediaEntries.priorityIndex),
-            ne(mediaEntries.id, id),
-          ),
-        )
-        .orderBy(asc(mediaEntries.priorityIndex));
-
-      for (let i = 0; i < otherQueued.length; i++) {
-        const qItem = otherQueued[i]!;
-        if (qItem.id !== id && qItem.priorityIndex != null && qItem.priorityIndex !== i + 1) {
-          await tx
-            .update(mediaEntries)
-            .set({ priorityIndex: i + 1 })
-            .where(eq(mediaEntries.id, qItem.id));
-        }
-      }
+      await compactPriorityQueue(tx, user.id, id);
     }
 
-    if (updates.rewatch === true) {
+    if (validatedUpdates.rewatch === true) {
       const existingCycles = sanitizeCycles(
         existing.cycles,
         existing.startedAt,
         existing.completedAt,
+        existing.id,
       );
       const nextCycleNumber = existingCycles.length + 1;
       const newCycle: MediaCycle = {
@@ -569,7 +721,7 @@ export async function updateMediaProgress(
     } else if (updateFields.status === 'completed') {
       const currentCycles =
         updateFields.cycles ??
-        sanitizeCycles(existing.cycles, existing.startedAt, existing.completedAt);
+        sanitizeCycles(existing.cycles, existing.startedAt, existing.completedAt, existing.id);
       const latestCycle = currentCycles[currentCycles.length - 1];
       if (latestCycle && !latestCycle.completedAt) {
         latestCycle.completedAt = (updateFields.completedAt ?? new Date()).toISOString();
@@ -635,14 +787,14 @@ export async function updateMediaProgress(
 
     let actionType: 'progress_update' | 'completed' | 'rewatch' | 'rating' | 'status_change' =
       'progress_update';
-    if (updates.rewatch === true || updates.rewatchCount !== undefined) actionType = 'rewatch';
-    else if (updates.status === 'completed') actionType = 'completed';
+    if (validatedUpdates.rewatch === true) actionType = 'rewatch';
+    else if (validatedUpdates.status === 'completed') actionType = 'completed';
     else if (
-      updates.status === 'dropped' ||
-      (updates.status !== undefined && updates.status !== existing.status)
+      validatedUpdates.status === 'dropped' ||
+      (validatedUpdates.status !== undefined && validatedUpdates.status !== existing.status)
     )
       actionType = 'status_change';
-    else if (updates.rating !== undefined) actionType = 'rating';
+    else if (validatedUpdates.rating !== undefined) actionType = 'rating';
 
     await logActivity(
       {
@@ -726,78 +878,15 @@ export async function bulkImportMediaEntries(
       continue;
     }
 
-    const rawPrimaryCurrent = Math.max(1, toInt(item.primaryUnitCurrent, 1));
-    const rawPrimaryTotal =
-      item.primaryUnitTotal != null ? Math.max(1, toInt(item.primaryUnitTotal, 1)) : null;
-    const rawSecondaryCurrent = Math.max(0, toInt(item.secondaryUnitCurrent, 0));
-    const rawSecondaryTotal =
-      item.secondaryUnitTotal != null ? Math.max(0, toInt(item.secondaryUnitTotal, 0)) : null;
-
-    const status = sanitizeStatus(item.status);
-    const dropReason =
-      status === 'dropped' && item.dropReason
-        ? String(item.dropReason).trim().slice(0, MAX_DROP_REASON_LENGTH)
-        : null;
-    const droppedAt = status === 'dropped' ? (toDateOrNull(item.droppedAt) ?? new Date()) : null;
-    const droppedProgressPrimary =
-      status === 'dropped'
-        ? item.droppedProgressPrimary != null
-          ? toInt(item.droppedProgressPrimary, null)
-          : rawPrimaryTotal !== null
-            ? Math.min(rawPrimaryCurrent, rawPrimaryTotal)
-            : rawPrimaryCurrent
-        : null;
-    const droppedProgressSecondary =
-      status === 'dropped'
-        ? item.droppedProgressSecondary != null
-          ? toInt(item.droppedProgressSecondary, null)
-          : rawSecondaryTotal !== null
-            ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
-            : rawSecondaryCurrent
-        : null;
-    const startedAt = toDateOrNull(item.startedAt);
-    const completedAt =
-      status === 'completed' ? (toDateOrNull(item.completedAt) ?? new Date()) : null;
-    const cycles = sanitizeCycles(item.cycles, startedAt, completedAt);
-    const rewatchCount =
-      item.rewatchCount != null
-        ? Math.max(0, toInt(item.rewatchCount, 0))
-        : Math.max(0, cycles.length - 1);
-
-    const payload = {
-      title,
-      category,
-      status,
-      dropReason,
-      droppedAt,
-      droppedProgressPrimary,
-      droppedProgressSecondary,
-      rating: sanitizeRating(item.rating),
-      tags: sanitizeTags(item.tags),
-      completedAt,
-      startedAt,
-      rewatchCount,
-      cycles,
-      synopsis: item.synopsis ? String(item.synopsis).trim().slice(0, MAX_SYNOPSIS_LENGTH) : null,
-      genres: Array.isArray(item.genres) ? (item.genres as string[]).slice(0, 20) : [],
-      primaryUnitCurrent:
-        rawPrimaryTotal !== null ? Math.min(rawPrimaryCurrent, rawPrimaryTotal) : rawPrimaryCurrent,
-      primaryUnitTotal: rawPrimaryTotal,
-      secondaryUnitCurrent:
-        rawSecondaryTotal !== null
-          ? Math.min(rawSecondaryCurrent, rawSecondaryTotal)
-          : rawSecondaryCurrent,
-      secondaryUnitTotal: rawSecondaryTotal,
-      structure: sanitizeStructure(item.structure),
-      coverImage:
-        typeof item.coverImage === 'string' && item.coverImage.length <= MAX_COVER_IMAGE_LENGTH
-          ? item.coverImage
-          : null,
-      sourceId:
-        typeof item.sourceId === 'string' ? item.sourceId.slice(0, MAX_SOURCE_ID_LENGTH) : null,
-      notes: item.notes ? String(item.notes).trim().slice(0, MAX_NOTES_LENGTH) : null,
-      updatedAt: new Date(),
-    };
+    const rowId = match && conflictStrategy === 'overwrite' ? match.id : crypto.randomUUID();
+    const payload = buildMediaPayload(
+      { ...item, id: rowId },
+      {
+        category,
+        title,
+        mode: 'bulk',
+      },
+    );
 
     if (match && conflictStrategy === 'overwrite') {
       await db.update(mediaEntries).set(payload).where(eq(mediaEntries.id, match.id));
@@ -805,14 +894,13 @@ export async function bulkImportMediaEntries(
       existingBySourceOrTitle.set(titleKey, match);
       updated++;
     } else {
-      const newId = crypto.randomUUID();
       await db.insert(mediaEntries).values({
         ...payload,
-        id: newId,
+        id: rowId,
         userId: user.id,
         createdAt: toDateOrNull(item.createdAt) ?? new Date(),
       });
-      const inserted = { id: newId };
+      const inserted = { id: rowId };
       if (sourceKey) existingBySourceOrTitle.set(sourceKey, inserted);
       existingBySourceOrTitle.set(titleKey, inserted);
       added++;
@@ -826,53 +914,29 @@ export async function bulkImportMediaEntries(
 export async function addMediaCycle(mediaId: string, input: MediaCycleInput): Promise<MediaEntry> {
   const user = await getAuthUser();
 
-  const updated = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+  const updated = await mutateCycles(
+    mediaId,
+    user.id,
+    (existingCycles) => {
+      const cycleNumber = existingCycles.length + 1;
+      const startedAt = input.startedAt ? toDateOrNull(input.startedAt) : new Date();
+      const completedAt = input.completedAt ? toDateOrNull(input.completedAt) : null;
+      const rating = sanitizeRating(input.rating);
+      const notes = input.notes ? String(input.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
 
-    if (!existing) {
-      throw new Error('Entry not found');
-    }
+      const newCycle: MediaCycle = {
+        id: crypto.randomUUID(),
+        cycleNumber,
+        startedAt: startedAt ? startedAt.toISOString() : null,
+        completedAt: completedAt ? completedAt.toISOString() : null,
+        rating,
+        notes,
+      };
 
-    const existingCycles = sanitizeCycles(
-      existing.cycles,
-      existing.startedAt,
-      existing.completedAt,
-    );
-    const cycleNumber = existingCycles.length + 1;
-    const startedAt = input.startedAt ? toDateOrNull(input.startedAt) : new Date();
-    const completedAt = input.completedAt ? toDateOrNull(input.completedAt) : null;
-    const rating = sanitizeRating(input.rating);
-    const notes = input.notes ? String(input.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
-
-    const newCycle: MediaCycle = {
-      id: crypto.randomUUID(),
-      cycleNumber,
-      startedAt: startedAt ? startedAt.toISOString() : null,
-      completedAt: completedAt ? completedAt.toISOString() : null,
-      rating,
-      notes,
-    };
-
-    const newCycles = [...existingCycles, newCycle];
-    const newRewatchCount = Math.max(0, newCycles.length - 1);
-
-    const [row] = await tx
-      .update(mediaEntries)
-      .set({
-        cycles: newCycles,
-        rewatchCount: newRewatchCount,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-      .returning();
-
-    return row;
-  });
-
-  revalidatePath('/dashboard');
+      return [...existingCycles, newCycle];
+    },
+    { recalculateRewatchCount: true },
+  );
   return serializeEntry(updated) as MediaEntry;
 }
 
@@ -883,126 +947,81 @@ export async function updateMediaCycle(
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
 
-  const updated = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+  const additionalFields: Partial<MediaRow> = {};
+  const updated = await mutateCycles(
+    mediaId,
+    user.id,
+    (existingCycles) => {
+      const cycleIndex = existingCycles.findIndex((c) => c.id === cycleId);
+      if (cycleIndex === -1) {
+        throw new Error('Cycle not found');
+      }
 
-    if (!existing) {
-      throw new Error('Entry not found');
-    }
+      const targetCycle = existingCycles[cycleIndex]!;
+      if (updates.startedAt !== undefined) {
+        const parsed = toDateOrNull(updates.startedAt);
+        targetCycle.startedAt = parsed ? parsed.toISOString() : null;
+      }
+      if (updates.completedAt !== undefined) {
+        const parsed = toDateOrNull(updates.completedAt);
+        targetCycle.completedAt = parsed ? parsed.toISOString() : null;
+      }
+      if (updates.rating !== undefined) {
+        targetCycle.rating = sanitizeRating(updates.rating);
+      }
+      if (updates.notes !== undefined) {
+        targetCycle.notes =
+          updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
+      }
 
-    const existingCycles = sanitizeCycles(
-      existing.cycles,
-      existing.startedAt,
-      existing.completedAt,
-    );
-    const cycleIndex = existingCycles.findIndex((c) => c.id === cycleId);
-    if (cycleIndex === -1) {
-      throw new Error('Cycle not found');
-    }
+      // If cycle 1 startedAt changed, sync root startedAt
+      if (cycleIndex === 0 && targetCycle.startedAt) {
+        additionalFields.startedAt = new Date(targetCycle.startedAt);
+      }
+      // If latest cycle completedAt changed, sync root completedAt
+      if (cycleIndex === existingCycles.length - 1 && targetCycle.completedAt) {
+        additionalFields.completedAt = new Date(targetCycle.completedAt);
+      }
 
-    const targetCycle = existingCycles[cycleIndex]!;
-    if (updates.startedAt !== undefined) {
-      const parsed = toDateOrNull(updates.startedAt);
-      targetCycle.startedAt = parsed ? parsed.toISOString() : null;
-    }
-    if (updates.completedAt !== undefined) {
-      const parsed = toDateOrNull(updates.completedAt);
-      targetCycle.completedAt = parsed ? parsed.toISOString() : null;
-    }
-    if (updates.rating !== undefined) {
-      targetCycle.rating = sanitizeRating(updates.rating);
-    }
-    if (updates.notes !== undefined) {
-      targetCycle.notes =
-        updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
-    }
-
-    const setFields: Partial<MediaRow> = {
-      cycles: existingCycles,
-      updatedAt: new Date(),
-    };
-
-    // If cycle 1 startedAt changed, sync root startedAt
-    if (cycleIndex === 0 && targetCycle.startedAt) {
-      setFields.startedAt = new Date(targetCycle.startedAt);
-    }
-    // If latest cycle completedAt changed, sync root completedAt
-    if (cycleIndex === existingCycles.length - 1 && targetCycle.completedAt) {
-      setFields.completedAt = new Date(targetCycle.completedAt);
-    }
-
-    const [row] = await tx
-      .update(mediaEntries)
-      .set(setFields)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-      .returning();
-
-    return row;
-  });
-
-  revalidatePath('/dashboard');
+      return existingCycles;
+    },
+    { getAdditionalFields: () => additionalFields },
+  );
   return serializeEntry(updated) as MediaEntry;
 }
 
 export async function deleteMediaCycle(mediaId: string, cycleId: string): Promise<MediaEntry> {
   const user = await getAuthUser();
 
-  const updated = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)));
+  const updated = await mutateCycles(
+    mediaId,
+    user.id,
+    (existingCycles, existing) => {
+      const filteredCycles = existingCycles.filter((c) => c.id !== cycleId);
+      const renumberedCycles = (
+        filteredCycles.length > 0
+          ? filteredCycles
+          : [
+              {
+                id: crypto.randomUUID(),
+                cycleNumber: 1,
+                startedAt: existing.startedAt
+                  ? existing.startedAt.toISOString()
+                  : new Date().toISOString(),
+                completedAt: existing.completedAt ? existing.completedAt.toISOString() : null,
+                rating: null,
+                notes: null,
+              },
+            ]
+      ).map((c, i) => ({
+        ...c,
+        cycleNumber: i + 1,
+      }));
 
-    if (!existing) {
-      throw new Error('Entry not found');
-    }
-
-    const existingCycles = sanitizeCycles(
-      existing.cycles,
-      existing.startedAt,
-      existing.completedAt,
-    );
-    const filteredCycles = existingCycles.filter((c) => c.id !== cycleId);
-
-    const renumberedCycles = (
-      filteredCycles.length > 0
-        ? filteredCycles
-        : [
-            {
-              id: crypto.randomUUID(),
-              cycleNumber: 1,
-              startedAt: existing.startedAt
-                ? existing.startedAt.toISOString()
-                : new Date().toISOString(),
-              completedAt: existing.completedAt ? existing.completedAt.toISOString() : null,
-              rating: null,
-              notes: null,
-            },
-          ]
-    ).map((c, i) => ({
-      ...c,
-      cycleNumber: i + 1,
-    }));
-
-    const newRewatchCount = Math.max(0, renumberedCycles.length - 1);
-
-    const [row] = await tx
-      .update(mediaEntries)
-      .set({
-        cycles: renumberedCycles,
-        rewatchCount: newRewatchCount,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id)))
-      .returning();
-
-    return row;
-  });
-
-  revalidatePath('/dashboard');
+      return renumberedCycles;
+    },
+    { recalculateRewatchCount: true },
+  );
   return serializeEntry(updated) as MediaEntry;
 }
 
@@ -1027,27 +1046,7 @@ export async function togglePriorityQueue(id: string): Promise<MediaEntry> {
         .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)))
         .returning();
 
-      const remaining = await tx
-        .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
-        .from(mediaEntries)
-        .where(
-          and(
-            eq(mediaEntries.userId, user.id),
-            isNotNull(mediaEntries.priorityIndex),
-            ne(mediaEntries.id, id),
-          ),
-        )
-        .orderBy(asc(mediaEntries.priorityIndex));
-
-      for (let i = 0; i < remaining.length; i++) {
-        const item = remaining[i]!;
-        if (item.id !== id && item.priorityIndex != null && item.priorityIndex !== i + 1) {
-          await tx
-            .update(mediaEntries)
-            .set({ priorityIndex: i + 1 })
-            .where(eq(mediaEntries.id, item.id));
-        }
-      }
+      await compactPriorityQueue(tx, user.id, id);
 
       return row;
     } else {
@@ -1095,19 +1094,11 @@ export async function reorderPriorityQueue(orderedIds: string[]): Promise<void> 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
   const user = await getAuthUser();
 
-  const [existing] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, id)).limit(1);
-  if (!existing) throw new Error('Entry not found');
+  const existing = await assertCanWriteMedia(id, user.id);
   if (existing.groupId) {
-    const [membership] = await db
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, existing.groupId), eq(groupMembers.userId, user.id)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
     await db.delete(mediaEntries).where(eq(mediaEntries.id, id));
     revalidatePath(`/groups/${existing.groupId}`);
   } else {
-    if (existing.userId !== user.id) throw new Error('Entry not found');
     await db
       .delete(mediaEntries)
       .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, user.id)));
@@ -1127,19 +1118,6 @@ export async function addMediaQuote(
     throw new Error('Quote text is required.');
   }
 
-  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
-  if (!row) throw new Error('Media entry not found.');
-  if (row.groupId) {
-    const [membership] = await db
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
-  } else if (row.userId !== user.id) {
-    throw new Error('Media entry not found.');
-  }
-
   const newQuote: MediaQuote = {
     id: crypto.randomUUID(),
     text: trimmedText,
@@ -1149,23 +1127,10 @@ export async function addMediaQuote(
     createdAt: new Date().toISOString(),
   };
 
-  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
-  const updatedQuotes = [...existingQuotes, newQuote];
-
-  const whereCond = row.groupId
-    ? eq(mediaEntries.id, mediaId)
-    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
-  const [updated] = await db
-    .update(mediaEntries)
-    .set({
-      quotes: updatedQuotes,
-      updatedAt: new Date(),
-    })
-    .where(whereCond)
-    .returning();
-
-  revalidatePath('/dashboard');
-  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
+  const updated = await mutateQuotes(mediaId, user.id, (existingQuotes) => [
+    ...existingQuotes,
+    newQuote,
+  ]);
   return serializeEntry(updated) as MediaEntry;
 }
 
@@ -1175,83 +1140,33 @@ export async function updateMediaQuote(
   updates: Partial<MediaQuote>,
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
-  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
-  if (!row) throw new Error('Media entry not found.');
-  if (row.groupId) {
-    const [membership] = await db
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
-  } else if (row.userId !== user.id) {
-    throw new Error('Media entry not found.');
-  }
-
-  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
-  const updatedQuotes = existingQuotes.map((q) => {
-    if (q.id !== quoteId) return q;
-    return {
-      ...q,
-      text: updates.text !== undefined ? updates.text.trim().slice(0, 2000) : q.text,
-      speaker:
-        updates.speaker !== undefined ? updates.speaker?.trim().slice(0, 100) || null : q.speaker,
-      citation:
-        updates.citation !== undefined
-          ? updates.citation?.trim().slice(0, 100) || null
-          : q.citation,
-      isFavorite: updates.isFavorite !== undefined ? Boolean(updates.isFavorite) : q.isFavorite,
-    };
-  });
-
-  const whereCond2 = row.groupId
-    ? eq(mediaEntries.id, mediaId)
-    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
-  const [updated] = await db
-    .update(mediaEntries)
-    .set({
-      quotes: updatedQuotes,
-      updatedAt: new Date(),
-    })
-    .where(whereCond2)
-    .returning();
-
-  revalidatePath('/dashboard');
-  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
+  const updated = await mutateQuotes(mediaId, user.id, (existingQuotes) =>
+    existingQuotes.map((quote) => {
+      if (quote.id !== quoteId) return quote;
+      return {
+        ...quote,
+        // Preserve the existing behavior: quote updates may write empty text.
+        text: updates.text !== undefined ? updates.text.trim().slice(0, 2000) : quote.text,
+        speaker:
+          updates.speaker !== undefined
+            ? updates.speaker?.trim().slice(0, 100) || null
+            : quote.speaker,
+        citation:
+          updates.citation !== undefined
+            ? updates.citation?.trim().slice(0, 100) || null
+            : quote.citation,
+        isFavorite:
+          updates.isFavorite !== undefined ? Boolean(updates.isFavorite) : quote.isFavorite,
+      };
+    }),
+  );
   return serializeEntry(updated) as MediaEntry;
 }
 
 export async function deleteMediaQuote(mediaId: string, quoteId: string): Promise<MediaEntry> {
   const user = await getAuthUser();
-  const [row] = await db.select().from(mediaEntries).where(eq(mediaEntries.id, mediaId)).limit(1);
-  if (!row) throw new Error('Media entry not found.');
-  if (row.groupId) {
-    const [membership] = await db
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, row.groupId), eq(groupMembers.userId, user.id)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
-  } else if (row.userId !== user.id) {
-    throw new Error('Media entry not found.');
-  }
-
-  const existingQuotes = Array.isArray(row.quotes) ? (row.quotes as MediaQuote[]) : [];
-  const updatedQuotes = existingQuotes.filter((q) => q.id !== quoteId);
-
-  const whereCond3 = row.groupId
-    ? eq(mediaEntries.id, mediaId)
-    : and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, user.id));
-  const [updated] = await db
-    .update(mediaEntries)
-    .set({
-      quotes: updatedQuotes,
-      updatedAt: new Date(),
-    })
-    .where(whereCond3)
-    .returning();
-
-  revalidatePath('/dashboard');
-  if (row.groupId) revalidatePath(`/groups/${row.groupId}`);
+  const updated = await mutateQuotes(mediaId, user.id, (existingQuotes) =>
+    existingQuotes.filter((quote) => quote.id !== quoteId),
+  );
   return serializeEntry(updated) as MediaEntry;
 }

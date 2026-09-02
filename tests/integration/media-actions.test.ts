@@ -9,7 +9,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type Row = Record<string, unknown>;
 
-const dbState = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }));
+const dbState = vi.hoisted(() => ({
+  rows: [] as Array<Record<string, unknown>>,
+  memberships: [] as Array<Record<string, unknown>>,
+}));
 
 const { getAuthUserMock, logActivityMock, revalidatePathMock } = vi.hoisted(() => ({
   getAuthUserMock: vi.fn(),
@@ -38,6 +41,9 @@ import {
   addMediaCycle,
   updateMediaCycle,
   deleteMediaCycle,
+  addMediaQuote,
+  updateMediaQuote,
+  deleteMediaQuote,
   togglePriorityQueue,
   reorderPriorityQueue,
 } from '@/server/media';
@@ -45,6 +51,7 @@ import {
 describe('createMediaEntry', () => {
   beforeEach(() => {
     dbState.rows.length = 0;
+    dbState.memberships.length = 0;
     vi.clearAllMocks();
     getAuthUserMock.mockResolvedValue({ id: 'user-1' });
   });
@@ -90,6 +97,7 @@ describe('createMediaEntry', () => {
 describe('updateMediaProgress', () => {
   beforeEach(() => {
     dbState.rows.length = 0;
+    dbState.memberships.length = 0;
     vi.clearAllMocks();
     getAuthUserMock.mockResolvedValue({ id: 'user-1' });
   });
@@ -192,6 +200,7 @@ describe('updateMediaProgress', () => {
 describe('bulkImportMediaEntries', () => {
   beforeEach(() => {
     dbState.rows.length = 0;
+    dbState.memberships.length = 0;
     vi.clearAllMocks();
     getAuthUserMock.mockResolvedValue({ id: 'user-1' });
   });
@@ -536,5 +545,74 @@ describe('bulkImportMediaEntries', () => {
     // 6. Toggle out of queue
     const unqueued = await togglePriorityQueue(entry1.id);
     expect(unqueued.priorityIndex).toBeNull();
+  });
+});
+
+describe('group media authorization', () => {
+  const groupEntryId = 'group-entry-1';
+
+  beforeEach(() => {
+    dbState.rows.length = 0;
+    dbState.memberships.length = 0;
+    vi.clearAllMocks();
+    getAuthUserMock.mockResolvedValue({ id: 'user-1' });
+    dbState.rows.push({
+      id: groupEntryId,
+      userId: 'group-owner',
+      groupId: 'group-1',
+      title: 'Shared Archive',
+      category: 'show',
+      status: 'in_progress',
+      isPrivate: false,
+      cycles: [],
+      quotes: [],
+      updatedAt: new Date('2026-08-25T00:00:00Z'),
+      startedAt: null,
+      completedAt: null,
+      rewatchCount: 0,
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 0,
+      secondaryUnitTotal: null,
+      priorityIndex: null,
+    });
+    dbState.memberships.push({
+      id: 'membership-1',
+      groupId: 'group-1',
+      userId: 'user-1',
+    });
+  });
+
+  it('lets a group member add, update, and delete a quote', async () => {
+    const added = await addMediaQuote(groupEntryId, {
+      text: 'The archive remembers.',
+      speaker: 'Archivist',
+    });
+    const quoteId = added.quotes[0]!.id;
+
+    const updated = await updateMediaQuote(groupEntryId, quoteId, {
+      text: 'The archive remembers everything.',
+    });
+    expect(updated.quotes[0]?.text).toBe('The archive remembers everything.');
+
+    const deleted = await deleteMediaQuote(groupEntryId, quoteId);
+    expect(deleted.quotes).toHaveLength(0);
+  });
+
+  it('hides group entries from non-members', async () => {
+    dbState.memberships.length = 0;
+
+    await expect(addMediaQuote(groupEntryId, { text: 'A private group quote.' })).rejects.toThrow(
+      'Entry not found',
+    );
+  });
+
+  it('rejects group cycle writes through both cycle APIs', async () => {
+    await expect(addMediaCycle(groupEntryId, {})).rejects.toThrow('Entry not found');
+    await expect(
+      updateMediaProgress(groupEntryId, {
+        cycles: [{ startedAt: '2026-08-25T00:00:00.000Z' }],
+      }),
+    ).rejects.toThrow('Entry not found');
   });
 });

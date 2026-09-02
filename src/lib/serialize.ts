@@ -1,5 +1,7 @@
 import type { MediaEntry } from '@/types/media';
 
+const STABLE_MISSING_DATE = '1970-01-01T00:00:00.000Z';
+
 type SerializedEntryInput = {
   status?: string | null;
   rating?: number | null;
@@ -23,6 +25,69 @@ function toIso(value: Date | string | null | undefined): string | null {
 
 function toGroupId(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value) ?? String(value);
+  }
+
+  if (value instanceof Date) {
+    return JSON.stringify(value.toISOString());
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(',')}}`;
+}
+
+function hashToHex(value: string): string {
+  let result = '';
+
+  for (let seed = 0; seed < 4; seed++) {
+    let hash = (0x811c9dc5 ^ Math.imul(seed + 1, 0x9e3779b9)) >>> 0;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    result += hash.toString(16).padStart(8, '0');
+  }
+
+  return result;
+}
+
+/**
+ * Returns the deterministic UUID used for legacy JSONB children that predate
+ * persisted child IDs. Keep this shared by serialization and write sanitizers.
+ */
+export function stableMediaChildId(
+  kind: 'cycle' | 'quote',
+  mediaId: unknown,
+  index: number,
+  child: unknown,
+): string {
+  const hex = hashToHex(
+    `${kind}|${String(mediaId ?? '')}|${index}|${stableStringify(child)}`,
+  ).split('');
+  hex[12] = '4';
+  const variant = Number.parseInt(hex[16] ?? '0', 16);
+  hex[16] = ((variant & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex
+    .slice(12, 16)
+    .join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
+}
+
+export function stableMediaChildDate(value: unknown): string {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? STABLE_MISSING_DATE : value.toISOString();
+  }
+  return typeof value === 'string' ? value : STABLE_MISSING_DATE;
 }
 
 /**
@@ -49,35 +114,59 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
       entry.droppedProgressSecondary != null ? Number(entry.droppedProgressSecondary) : null,
     cycles:
       Array.isArray(entry.cycles) && entry.cycles.length > 0
-        ? (entry.cycles as Record<string, unknown>[]).map((c, i) => ({
-            id: typeof c.id === 'string' && c.id ? c.id : crypto.randomUUID(),
-            cycleNumber: typeof c.cycleNumber === 'number' ? c.cycleNumber : i + 1,
-            startedAt: toIso(c.startedAt as Date | string),
-            completedAt: toIso(c.completedAt as Date | string),
-            rating: c.rating != null ? Number(c.rating) : null,
-            notes: typeof c.notes === 'string' ? c.notes : null,
-          }))
+        ? (entry.cycles as unknown[]).map((rawCycle, i) => {
+            const cycle =
+              rawCycle && typeof rawCycle === 'object' ? (rawCycle as Record<string, unknown>) : {};
+            return {
+              id:
+                typeof cycle.id === 'string' && cycle.id
+                  ? cycle.id
+                  : stableMediaChildId('cycle', entry.id, i, cycle),
+              cycleNumber: typeof cycle.cycleNumber === 'number' ? cycle.cycleNumber : i + 1,
+              startedAt: toIso(cycle.startedAt as Date | string),
+              completedAt: toIso(cycle.completedAt as Date | string),
+              rating: cycle.rating != null ? Number(cycle.rating) : null,
+              notes: typeof cycle.notes === 'string' ? cycle.notes : null,
+            };
+          })
         : toIso(entry.startedAt) || toIso(entry.completedAt)
           ? [
-              {
-                id: crypto.randomUUID(),
-                cycleNumber: 1,
-                startedAt: toIso(entry.startedAt),
-                completedAt: toIso(entry.completedAt),
-                rating: entry.rating != null ? Number(entry.rating) : null,
-                notes: null,
-              },
+              (() => {
+                const cycle = {
+                  cycleNumber: 1,
+                  startedAt: toIso(entry.startedAt),
+                  completedAt: toIso(entry.completedAt),
+                  rating: entry.rating != null ? Number(entry.rating) : null,
+                  notes: null,
+                };
+                return {
+                  // The write sanitizer has no root-rating input for this legacy
+                  // fallback, so keep the ID seed limited to shared fields.
+                  id: stableMediaChildId('cycle', entry.id, 0, {
+                    ...cycle,
+                    rating: null,
+                  }),
+                  ...cycle,
+                };
+              })(),
             ]
           : [],
     quotes: Array.isArray(entry.quotes)
-      ? (entry.quotes as Record<string, unknown>[]).map((q) => ({
-          id: typeof q.id === 'string' && q.id ? q.id : crypto.randomUUID(),
-          text: typeof q.text === 'string' ? q.text : '',
-          speaker: typeof q.speaker === 'string' ? q.speaker : null,
-          citation: typeof q.citation === 'string' ? q.citation : null,
-          isFavorite: Boolean(q.isFavorite),
-          createdAt: typeof q.createdAt === 'string' ? q.createdAt : new Date().toISOString(),
-        }))
+      ? (entry.quotes as unknown[]).map((rawQuote, i) => {
+          const quote =
+            rawQuote && typeof rawQuote === 'object' ? (rawQuote as Record<string, unknown>) : {};
+          return {
+            id:
+              typeof quote.id === 'string' && quote.id
+                ? quote.id
+                : stableMediaChildId('quote', entry.id, i, quote),
+            text: typeof quote.text === 'string' ? quote.text : '',
+            speaker: typeof quote.speaker === 'string' ? quote.speaker : null,
+            citation: typeof quote.citation === 'string' ? quote.citation : null,
+            isFavorite: Boolean(quote.isFavorite),
+            createdAt: stableMediaChildDate(quote.createdAt),
+          };
+        })
       : [],
     priorityIndex: entry.priorityIndex != null ? Number(entry.priorityIndex) : null,
     groupId: toGroupId((entry as Record<string, unknown>).groupId),

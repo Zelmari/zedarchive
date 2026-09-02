@@ -112,33 +112,17 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     return null;
   }
 
-  let entries: (typeof mediaEntries.$inferSelect)[];
-  try {
-    entries = await db
-      .select()
-      .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.userId, foundUser.id),
-          eq(mediaEntries.isPrivate, false),
-          isNull(mediaEntries.groupId),
-        ),
-      )
-      .orderBy(desc(mediaEntries.updatedAt));
-  } catch (err: any) {
-    if (
-      String(err?.message || '').includes('group_id') ||
-      String(err?.cause?.message || '').includes('group_id')
-    ) {
-      entries = await db
-        .select()
-        .from(mediaEntries)
-        .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
-        .orderBy(desc(mediaEntries.updatedAt));
-    } else {
-      throw err;
-    }
-  }
+  const entries = await db
+    .select()
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, foundUser.id),
+        eq(mediaEntries.isPrivate, false),
+        isNull(mediaEntries.groupId),
+      ),
+    )
+    .orderBy(desc(mediaEntries.updatedAt));
 
   return {
     user: foundUser,
@@ -173,7 +157,11 @@ export async function searchPublicProfiles(
     .from(userTable)
     .leftJoin(
       mediaEntries,
-      and(eq(mediaEntries.userId, userTable.id), eq(mediaEntries.isPrivate, false)),
+      and(
+        eq(mediaEntries.userId, userTable.id),
+        eq(mediaEntries.isPrivate, false),
+        isNull(mediaEntries.groupId),
+      ),
     )
     .where(
       and(
