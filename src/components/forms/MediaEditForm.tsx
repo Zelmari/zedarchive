@@ -6,12 +6,7 @@ import { X, Upload } from 'lucide-react';
 import { STATUS_OPTIONS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaCategory, StructureItem } from '@/types/media';
-import {
-  CATEGORY_CHIPS,
-  DropReasonPicker,
-  chipClass,
-  pillClass,
-} from '@/components/ui/media-controls';
+import { CATEGORY_CHIPS, DropReasonPicker, pillClass } from '@/components/ui/media-controls';
 
 export interface MediaFormState {
   title: string;
@@ -46,6 +41,10 @@ interface MediaEditFormProps {
   error: string;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+}
+
+function categoryButtonClass(active: boolean): string {
+  return `za-button ${active ? 'za-button--selected' : 'za-button--secondary'} px-2.5 py-1 text-xs`;
 }
 
 type UnitFieldName =
@@ -145,8 +144,7 @@ export default function MediaEditForm({
 }: MediaEditFormProps) {
   const [notesTab, setNotesTab] = useState<'write' | 'preview'>('write');
 
-  const formInput =
-    'w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[0.45rem] text-[length:var(--za-text-supporting)] text-ink focus:border-accent focus:outline-none';
+  const formInput = 'za-field';
 
   return (
     <form
@@ -171,7 +169,7 @@ export default function MediaEditForm({
               type="button"
               role="radio"
               aria-checked={category === id}
-              className={chipClass(category === id)}
+              className={categoryButtonClass(category === id)}
               onClick={() => onCategoryChange(id)}
             >
               <Icon size={14} strokeWidth={2} />

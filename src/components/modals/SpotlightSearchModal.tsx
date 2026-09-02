@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Tv, Film, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
+import { X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
 import { endpointFor } from '@/lib/search';
 import Modal from '@/components/ui/Modal';
-import { CATEGORY_CHIPS, chipClass } from '@/components/ui/media-controls';
+import { CATEGORY_CHIPS } from '@/components/ui/media-controls';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface SpotlightResult {
@@ -36,6 +36,10 @@ const PLACEHOLDERS: Record<MediaCategory, string> = {
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
 };
+
+function categoryButtonClass(active: boolean): string {
+  return `za-button ${active ? 'za-button--selected' : 'za-button--secondary'} shrink-0 px-2.5 py-1 text-xs`;
+}
 
 /**
  * Spotlight search-first window for adding media. Owns search state and
@@ -188,18 +192,22 @@ export default function SpotlightSearchModal({
       placement="top"
       ariaLabel="Search for media to add to your archive"
       initialFocusRef={searchInputRef}
-      contentClassName="flex max-w-[38rem] flex-col overflow-hidden"
+      contentClassName="flex max-w-[44rem] flex-col overflow-hidden"
     >
       {/* Header with Category Chips and Close */}
-      <div className="flex items-center justify-between border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Media Category">
+      <div className="flex items-center justify-between gap-3 border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
+        <div
+          className="flex min-w-0 flex-wrap gap-1.5"
+          role="radiogroup"
+          aria-label="Media Category"
+        >
           {CATEGORY_CHIPS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               role="radio"
               aria-checked={category === id}
-              className={chipClass(category === id)}
+              className={categoryButtonClass(category === id)}
               onClick={() => onCategoryChange(id)}
             >
               <Icon size={14} strokeWidth={2} />
@@ -208,24 +216,19 @@ export default function SpotlightSearchModal({
           ))}
         </div>
 
-        <button
-          type="button"
-          aria-label="Close modal"
-          onClick={onClose}
-          className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
-        >
+        <button type="button" aria-label="Close modal" onClick={onClose} className="za-modal-close">
           <X size={18} strokeWidth={2} />
         </button>
       </div>
 
       {/* Search box */}
-      <div className="flex items-center gap-[var(--za-space-3)] border-b border-decorative px-[var(--za-space-4)] py-[var(--za-space-3)]">
+      <div className="flex items-center gap-[var(--za-space-3)] border-b border-decorative bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)]">
         <Search size={18} className="shrink-0 text-ink-muted" />
         <input
           ref={searchInputRef}
           type="text"
           aria-label="Search for movies, shows, books, or anime"
-          className="min-w-0 flex-1 border-none bg-transparent text-[length:var(--za-text-base)] font-[var(--za-weight-body)] leading-[1.5] text-ink outline-none"
+          className="za-field min-w-0 flex-1 border-0 bg-transparent px-0 py-0 shadow-none focus:border-0 focus:shadow-none"
           placeholder={PLACEHOLDERS[category]}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -278,7 +281,6 @@ export default function SpotlightSearchModal({
           {searchResults.map((item, idx) => {
             const isSelected = idx === highlightedIndex;
             const metaParts: string[] = [];
-            if (item.year) metaParts.push(String(item.year));
 
             if (category === 'movie' || item.category === 'movie') {
               if (item.secondaryUnitTotal) {
@@ -306,8 +308,16 @@ export default function SpotlightSearchModal({
                   dropdownItemsRef.current[idx] = el;
                 }}
                 data-testid="spotlight-item"
-                className={`flex cursor-pointer select-none items-center gap-[var(--za-space-3)] border-l-[3px] border-l-transparent px-[var(--za-space-4)] py-2 transition-colors duration-[var(--za-motion-fast)] ${
-                  isSelected ? 'border-l-[var(--za-color-border-focus)] bg-surface-subtle' : ''
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectResult(item);
+                  }
+                }}
+                className={`za-bookplate relative mx-2 my-1 flex cursor-pointer select-none items-center gap-[var(--za-space-3)] p-2 transition-[border-color,background-color] duration-[var(--za-motion-fast)] ${
+                  isSelected ? 'border-accent bg-accent-soft' : 'hover:border-required'
                 }`}
                 onClick={() => onSelectResult(item)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
@@ -318,10 +328,10 @@ export default function SpotlightSearchModal({
                     src={item.coverUrl}
                     alt=""
                     loading="lazy"
-                    className="h-[3.25rem] w-[2.25rem] shrink-0 rounded-small border border-decorative object-cover"
+                    className="h-16 w-11 shrink-0 rounded-small border border-decorative object-cover"
                   />
                 ) : (
-                  <div className="flex h-[3.25rem] w-[2.25rem] shrink-0 items-center justify-center rounded-small border border-decorative bg-surface-subtle text-[0.7rem]">
+                  <div className="flex h-16 w-11 shrink-0 items-center justify-center rounded-small border border-decorative bg-surface-subtle text-[0.7rem]">
                     {getTileInitials(item.title)}
                   </div>
                 )}
@@ -329,8 +339,9 @@ export default function SpotlightSearchModal({
                   <div className="truncate text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
                     {item.title}
                   </div>
-                  <div className="mt-[0.15rem] truncate text-xs text-ink-muted">
-                    {metaParts.join(' • ') || 'Catalogue Match'}
+                  <div className="mt-[0.15rem] truncate font-[var(--za-font-mono)] text-xs text-ink-muted">
+                    {item.year ? String(item.year) : 'Year unknown'}
+                    {metaParts.length > 0 ? ` • ${metaParts.join(' • ')}` : ''}
                   </div>
                 </div>
               </div>

@@ -48,17 +48,18 @@ export default function DropReasonModal({
       onClose={onCancel}
       labelledBy="drop-reason-modal-title"
       initialFocusRef={inputRef}
-      contentClassName="max-w-[32rem] overflow-hidden"
+      contentClassName="max-w-[36rem] overflow-hidden"
     >
-      <div className="p-[var(--za-space-6)]">
+      <div className="za-bookplate relative rounded-none border-0 p-[var(--za-space-6)] shadow-none">
+        <span className="za-ribbon-bookmark" aria-hidden="true" />
         <div className="flex items-start gap-[var(--za-space-4)]">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-required bg-surface-subtle text-ink">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-danger/30 bg-danger-surface text-danger">
             <BookmarkX size={20} strokeWidth={2} />
           </div>
           <div className="min-w-0 flex-1">
             <h2
               id="drop-reason-modal-title"
-              className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+              className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
             >
               Drop {itemTitle ? `"${itemTitle}"` : 'Media'}
             </h2>
@@ -86,8 +87,9 @@ export default function DropReasonModal({
               handleSave();
             }
           }}
-          presetClassName="rounded-control border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted"
-          inputClassName="w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-body)] text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none"
+          presetClassName="rounded-small border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted"
+          activePresetClassName="border-danger bg-danger-surface text-danger"
+          inputClassName="za-field"
         />
       </div>
 

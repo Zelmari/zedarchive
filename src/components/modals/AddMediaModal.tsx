@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tv, Sparkles, BookOpen, Library, X, ArrowLeft } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
 import Modal from '@/components/ui/Modal';
 import SpotlightSearchModal, {
@@ -307,7 +307,7 @@ export default function AddMediaModal({
       type="button"
       onClick={resetAndClose}
       aria-label="Close modal"
-      className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
+      className="za-modal-close"
     >
       <X size={18} strokeWidth={2} />
     </button>
@@ -319,14 +319,14 @@ export default function AddMediaModal({
       onClose={resetAndClose}
       labelledBy="add-media-modal-title"
       initialFocusRef={titleInputRef}
-      contentClassName="max-w-2xl overflow-y-auto"
+      contentClassName="max-w-[44rem] overflow-y-auto"
     >
       <div className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
         {!isEditMode && (
           <button
             type="button"
             onClick={() => setViewMode('search')}
-            className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[length:var(--za-text-supporting)] text-ink-muted hover:text-ink"
+            className="za-button za-button--tertiary min-h-0 gap-1 px-0 py-0 text-xs"
           >
             <ArrowLeft size={14} />
             <span>Back to Search</span>
