@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Layers,
   Tv,
@@ -14,6 +13,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import SyncIndicator from '@/components/ui/SyncIndicator';
+import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
 interface DashboardHeaderProps {
@@ -55,18 +55,7 @@ export default function DashboardHeader({
   return (
     <header className="za-site-header">
       <div className="za-container za-container--wide za-site-header__inner">
-        <Link href="/" className="za-wordmark za-link za-site-header__brand">
-          <Image
-            alt=""
-            aria-hidden="true"
-            className="za-wordmark__mark"
-            height={36}
-            src="/transparentlogo.png"
-            width={36}
-            unoptimized
-          />
-          <span className="za-wordmark__text">zedarchive</span>
-        </Link>
+        <BrandWordmark />
 
         <nav aria-label="Primary" className="za-site-header__nav">
           {TABS.map(({ id, icon: Icon, label, title }) => (

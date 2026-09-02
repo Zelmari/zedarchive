@@ -1,8 +1,6 @@
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
 import { getUserProfileById } from '@/server/queries/user';
 import { getMediaEntriesByUserId } from '@/server/queries/media';
+import { requireSession } from '@/server/internal';
 import { calculateYearlyStats } from '@/lib/stats';
 import WrappedClient from '@/app/wrapped/WrappedClient';
 
@@ -20,25 +18,19 @@ export async function generateMetadata({ params }: PageParams) {
 
 export default async function AuthenticatedWrappedPage({ params }: PageParams) {
   const { year } = await params;
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user?.id) {
-    redirect('/login');
-  }
+  const session = await requireSession();
 
   const targetYear = parseInt(year, 10) || new Date().getFullYear();
 
-  const dbUser = await getUserProfileById(session.user.id);
-  const entries = await getMediaEntriesByUserId(session.user.id);
+  const dbUser = await getUserProfileById(session.id);
+  const entries = await getMediaEntriesByUserId(session.id);
 
   const stats = calculateYearlyStats(entries, targetYear);
 
   return (
     <WrappedClient
       stats={stats}
-      userName={dbUser?.name || session.user.name || 'You'}
+      userName={dbUser?.name || session.name || 'You'}
       userHandle={dbUser?.username || null}
       isPublicView={false}
       basePath="/wrapped"

@@ -1,6 +1,4 @@
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
+import { redirectIfAuthenticated } from '@/server/internal';
 import SignUpForm from './SignUpForm';
 
 export const metadata = {
@@ -9,9 +7,6 @@ export const metadata = {
 };
 
 export default async function SignUpPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (session?.user?.id) {
-    redirect('/dashboard');
-  }
+  await redirectIfAuthenticated();
   return <SignUpForm />;
 }

@@ -1,15 +1,14 @@
-import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { auth } from '@/lib/auth';
 import { MAX_COVER_IMAGE_LENGTH } from '@/lib/constants';
+import { getSessionUser } from '@/server/internal';
 
 const ALLOWED_FORMATS = new Set(['png', 'jpeg', 'jpg', 'webp', 'gif', 'avif']);
 
 export async function POST(request: Request) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

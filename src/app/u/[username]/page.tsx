@@ -1,21 +1,22 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { headers } from 'next/headers';
 import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
 import { getCommentsByProfileUserId } from '@/server/queries/comments';
 import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
 import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
-import { auth } from '@/lib/auth';
-import { Star, ShieldAlert, Sparkles } from 'lucide-react';
+import { getSessionUser } from '@/server/internal';
+import { Star, Sparkles } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
+import BrandWordmark from '@/components/navigation/BrandWordmark';
 import FriendButton from './FriendButton';
 import { getFriendshipStatus } from '@/server/queries/friends';
 
 import { THEME_LABELS } from '@/lib/constants';
 import { MarkdownNotes } from '@/lib/markdown';
+import ArchiveUnavailable from '@/components/ui/ArchiveUnavailable';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -54,38 +55,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   if (!data?.user) {
     return (
-      <div
-        className="flex min-h-screen flex-col bg-canvas text-ink"
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div
-          className={`za-card col-span-full flex flex-col items-center justify-center rounded-control border border-dashed border-required px-[var(--za-space-6)] py-[var(--za-space-12)] text-center [box-shadow:none]`}
-          style={{ maxWidth: '28rem', textAlign: 'center' }}
-        >
-          <ShieldAlert
-            size={36}
-            style={{ margin: '0 auto var(--za-space-3)', color: 'var(--za-color-text-muted)' }}
-          />
-          <h1 className="mb-[var(--za-space-1)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink">
-            Archive Unavailable
-          </h1>
-          <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-            This archive is either private or does not exist.
-          </p>
-          <Link
-            href="/"
-            className="za-button za-button--primary"
-            style={{ marginTop: 'var(--za-space-3)' }}
-          >
-            Go to ZedArchive Home
-          </Link>
-        </div>
-      </div>
+      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" ctaClassName="mt-[var(--za-space-3)]" />
     );
   }
 
@@ -100,9 +70,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
     image: string | null;
     isPublic: boolean;
   } = { isLoggedIn: false, id: null, username: null, name: null, image: null, isPublic: false };
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (session?.user?.id) {
-    const meRow = await getUserProfileById(session.user.id);
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.id) {
+    const meRow = await getUserProfileById(sessionUser.id);
     if (meRow) {
       viewer = {
         isLoggedIn: true,
@@ -134,8 +104,8 @@ export default async function PublicProfilePage({ params }: PageParams) {
   }
 
   // Guestbook comments (auto-purges expired rows for this profile)
-  const initialComments = await getCommentsByProfileUserId(user.id, session?.user?.id);
-  const activityHeatmap = await getYearlyActivityHeatmapForUser(user.id, session?.user?.id);
+  const initialComments = await getCommentsByProfileUserId(user.id, sessionUser?.id);
+  const activityHeatmap = await getYearlyActivityHeatmapForUser(user.id, sessionUser?.id);
 
   const stats = calculateArchiveStats(entries);
   const currentYear = new Date().getFullYear();
@@ -169,23 +139,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
     <div
       className="flex min-h-screen flex-col bg-canvas text-ink"
       data-theme={user.theme || 'parchment'}
-      style={{ minHeight: '100vh', ...customStyles }}
+      style={customStyles}
     >
       {/* Public Header */}
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">
-          <Link href="/" className="za-wordmark za-link za-site-header__brand">
-            <Image
-              alt=""
-              aria-hidden="true"
-              className="za-wordmark__mark"
-              height={36}
-              src="/transparentlogo.png"
-              width={36}
-              unoptimized
-            />
-            <span className="za-wordmark__text">zedarchive</span>
-          </Link>
+          <BrandWordmark />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--za-space-3)' }}>
             <Link href="/signup" className="za-button za-button--primary">

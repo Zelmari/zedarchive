@@ -1,7 +1,9 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mediaActivityLogs } from '@/db/schema';
+import type { UserProfile } from '@/types/user';
 
 export interface SessionUser {
   id: string;
@@ -10,21 +12,19 @@ export interface SessionUser {
   image?: string | null;
   username?: string | null;
   isPublic?: boolean;
+  emailVerified?: boolean;
 }
 
 type TransactionHandle = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type DbClient = typeof db | TransactionHandle;
 
 export async function getAuthUser(): Promise<SessionUser> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user?.id) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser?.id) {
     throw new Error('Unauthorized');
   }
 
-  return session.user as SessionUser;
+  return sessionUser;
 }
 
 /**
@@ -37,6 +37,57 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   });
 
   return (session?.user as SessionUser | undefined) ?? null;
+}
+
+export async function requireSession(loginPath = '/login'): Promise<SessionUser> {
+  const sessionUser = await getSessionUser();
+
+  if (!sessionUser?.id) {
+    redirect(loginPath);
+  }
+
+  return sessionUser;
+}
+
+export async function redirectIfAuthenticated(): Promise<void> {
+  const sessionUser = await getSessionUser();
+
+  if (sessionUser?.id) {
+    redirect('/dashboard');
+  }
+}
+
+export function toDashboardUser(
+  session: SessionUser,
+  dbUser: UserProfile | null,
+): {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  theme: string;
+  customTheme: UserProfile['customTheme'];
+  username?: string | null;
+  isPublic: boolean;
+  bio?: string | null;
+  emailVerified: boolean;
+  readingGoals: UserProfile['readingGoals'];
+  verificationDismissedAt?: string | null;
+} {
+  return {
+    id: session.id,
+    name: dbUser?.name || session.name,
+    email: dbUser?.email || session.email,
+    image: dbUser?.image || session.image,
+    theme: dbUser?.theme || 'parchment',
+    customTheme: dbUser?.customTheme || null,
+    username: dbUser?.username || null,
+    isPublic: Boolean(dbUser?.isPublic),
+    bio: dbUser?.bio || null,
+    emailVerified: dbUser?.emailVerified ?? session.emailVerified ?? false,
+    readingGoals: dbUser?.readingGoals || {},
+    verificationDismissedAt: dbUser?.verificationDismissedAt || null,
+  };
 }
 
 interface ActivityLogInput {
@@ -54,7 +105,7 @@ interface ActivityLogInput {
  */
 export async function logActivity(
   { userId, mediaId, actionType, details }: ActivityLogInput,
-  tx: DbClient = db
+  tx: DbClient = db,
 ): Promise<void> {
   try {
     await tx.insert(mediaActivityLogs).values({

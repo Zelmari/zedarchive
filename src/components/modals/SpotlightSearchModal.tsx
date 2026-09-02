@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tv, Film, Sparkles, BookOpen, Library, X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
+import { endpointFor } from '@/lib/search';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type { MediaCategory, StructureItem } from '@/types/media';
@@ -43,22 +44,6 @@ const PLACEHOLDERS: Record<MediaCategory, string> = {
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
 };
-
-function endpointFor(category: MediaCategory, query: string): string {
-  const q = encodeURIComponent(query);
-  switch (category) {
-    case 'movie':
-      return `/api/search/movies?q=${q}`;
-    case 'book':
-      return `/api/search/books?q=${q}`;
-    case 'anime':
-      return `/api/search/anime?q=${q}&category=anime`;
-    case 'manga':
-      return `/api/search/anime?q=${q}&category=manga`;
-    default:
-      return `/api/search/shows?q=${q}`;
-  }
-}
 
 /**
  * Spotlight search-first window for adding media. Owns search state and

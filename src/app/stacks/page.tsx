@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
 import { getMyStacks } from '@/server/stacks';
+import { requireSession } from '@/server/internal';
 import { Layers } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import StacksClient from './StacksClient';
@@ -12,16 +10,10 @@ export const metadata = {
 };
 
 export default async function StacksPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.user) {
-    redirect('/login');
-  }
+  const session = await requireSession();
 
   const initialStacks = await getMyStacks();
-  const username = (session.user as typeof session.user & { username?: string | null }).username;
+  const username = session.username;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">

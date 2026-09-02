@@ -1,16 +1,15 @@
-import { headers } from 'next/headers';
 import { eq, desc, asc, and, or, ilike, isNotNull, isNull, ne, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { auth } from '@/lib/auth';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
+import { getSessionUser } from '@/server/internal';
 import type { MediaEntry } from '@/types/media';
 import type { UserProfile, PublicUserSearchResult, ReadingGoalConfig } from '@/types/user';
 
 export async function isAuthenticated(): Promise<boolean> {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    return Boolean(session?.user?.id);
+    const sessionUser = await getSessionUser();
+    return Boolean(sessionUser?.id);
   } catch {
     return false;
   }
@@ -18,14 +17,14 @@ export async function isAuthenticated(): Promise<boolean> {
 
 export async function getSessionTheme(): Promise<string> {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.id) {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser?.id) {
       return 'parchment';
     }
     const [row] = await db
       .select({ theme: userTable.theme })
       .from(userTable)
-      .where(eq(userTable.id, session.user.id));
+      .where(eq(userTable.id, sessionUser.id));
     return row?.theme || 'parchment';
   } catch {
     return 'parchment';
