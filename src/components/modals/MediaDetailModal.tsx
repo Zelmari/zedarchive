@@ -12,7 +12,6 @@ import {
   BookmarkX,
   Plus,
   Trash2,
-  Calendar,
   Check,
   ExternalLink,
   Quote,
@@ -22,10 +21,11 @@ import Modal from '@/components/ui/Modal';
 import { Badge, RatingBadge } from '@/components/ui/Badge';
 import DropReasonModal from '@/components/modals/DropReasonModal';
 import { pillClass } from '@/components/ui/media-controls';
-import { getTileInitials, pageToPercent, percentToPage } from '@/lib/format';
+import { formatDisplayDate, getTileInitials, pageToPercent } from '@/lib/format';
+import { seasonTotal } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, MediaCycle, MediaQuote } from '@/types/media';
-import type { WatchProvidersResult } from '@/lib/services/tmdb';
+import type { WatchProviderItem, WatchProvidersResult } from '@/lib/services/tmdb';
 import type { AnimeFillerMap } from '@/lib/services/anime';
 import {
   addMediaQuote,
@@ -38,19 +38,45 @@ interface MediaDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: MediaEntry | null;
-  onUpdate: (
-    id: string,
-    updates: Record<string, unknown>,
-    skipOptimistic?: boolean,
-  ) => Promise<void>;
+  onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
   onEdit?: (item: MediaEntry) => void;
 }
 
-function formatDisplayDate(iso: string | null | undefined): string {
-  if (!iso) return 'Present';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return 'Present';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+interface ProviderChipsProps {
+  label: string;
+  providers?: WatchProviderItem[];
+  link?: string;
+  titlePrefix: string;
+}
+
+function ProviderChips({ label, providers, link, titlePrefix }: ProviderChipsProps) {
+  if (!providers?.length) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {providers.map((provider) => (
+          <a
+            key={provider.id}
+            href={link || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${titlePrefix} ${provider.name}`}
+            className="inline-flex items-center gap-1.5 rounded-small border border-decorative bg-surface px-2 py-1 text-xs text-ink transition-[border-color,transform] hover:border-required hover:scale-105"
+          >
+            {provider.logoPath && (
+              // eslint-disable-next-line @next/next/no-img-element -- external provider logos
+              <img src={provider.logoPath} alt="" className="h-4 w-4 rounded-sm object-cover" />
+            )}
+            <span>{provider.name}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function toDateInputVal(iso: string | null | undefined): string {
@@ -111,10 +137,22 @@ export default function MediaDetailModal({
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset detail state when switching entries
+    setActiveSeason(1);
+    setFillerMap(null);
+    setWatchProviders(null);
+    setProvidersLoading(false);
+    setFillerFilter('all');
+    setProvidersCountry('US');
+  }, [item?.id]);
+
+  useEffect(() => {
     if (!isOpen || !item) return;
     const cat = item.category || 'movie';
     if (cat === 'book' || cat === 'manga') return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before provider request
+    setProvidersLoading(true);
     let isMounted = true;
 
     const params = new URLSearchParams({
@@ -144,7 +182,7 @@ export default function MediaDetailModal({
 
   useEffect(() => {
     if (!isOpen || !item) return;
-    const cat = item.category || (item as unknown as Record<string, unknown>).type;
+    const cat = item.category;
     if (cat !== 'anime') return;
 
     let isMounted = true;
@@ -168,10 +206,7 @@ export default function MediaDetailModal({
 
   if (!isOpen || !item) return null;
 
-  const legacy = item as unknown as Record<string, unknown>;
-  const category =
-    legacy.category ||
-    (legacy.type === 'anime' ? 'anime' : legacy.type === 'book' ? 'book' : 'show');
+  const category = item.category || 'show';
   const isBookLike = category === 'book' || category === 'manga';
   const status = item.status || 'in_progress';
   const rating = item.rating;
@@ -199,7 +234,7 @@ export default function MediaDetailModal({
   const runUpdate = async (updates: Record<string, unknown>) => {
     try {
       setIsUpdating(true);
-      await onUpdate(item.id, updates, true);
+      await onUpdate(item.id, updates);
     } finally {
       setIsUpdating(false);
     }
@@ -352,10 +387,9 @@ export default function MediaDetailModal({
     const updates: Record<string, unknown> = {};
     if (seasonNumber && seasonNumber !== primaryCurrent) {
       updates.primaryUnitCurrent = seasonNumber;
-      const seasonObj = structure.find((s) => s.number === seasonNumber);
       // Always reset the secondary total on season switches so a season
       // with an unknown total never inherits the previous season's count.
-      updates.secondaryUnitTotal = seasonObj?.total ?? null;
+      updates.secondaryUnitTotal = seasonTotal(structure, seasonNumber);
     }
     updates.secondaryUnitCurrent = epNumber;
     await runUpdate(updates);
@@ -368,18 +402,25 @@ export default function MediaDetailModal({
 
     const nextTags = [...tags, clean];
     setNewTagInput('');
-    await onUpdate(item.id, { tags: nextTags }, true);
+    await onUpdate(item.id, { tags: nextTags });
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
     const nextTags = tags.filter((t) => t !== tagToRemove);
-    await onUpdate(item.id, { tags: nextTags }, true);
+    await onUpdate(item.id, { tags: nextTags });
   };
 
   // Determine episodes for current selected season
-  const currentSeasonObj = structure.find((s) => s.number === activeSeason);
   const totalUnitsInSeason =
-    currentSeasonObj?.total || (activeSeason === primaryCurrent ? secondaryTotal : null) || 24;
+    seasonTotal(structure, activeSeason) ||
+    (activeSeason === primaryCurrent ? secondaryTotal : null) ||
+    24;
+  const fillerCount = fillerMap
+    ? Object.values(fillerMap.episodes).filter(
+        (episode) => episode.type === 'filler' || episode.type === 'recap',
+      ).length
+    : 0;
+  const hasFillerOrRecap = fillerCount > 0;
 
   const sectionLabel =
     'mb-1 flex items-center gap-1 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted';
@@ -449,11 +490,7 @@ export default function MediaDetailModal({
                   : '+ Add to Up Next'}
               </button>
               <Badge className="capitalize">{status.replace('_', ' ')}</Badge>
-              {rating != null && (
-                <span className="inline-flex items-center gap-[0.2rem] rounded-small border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[0.45rem] py-[0.12rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-[#b45309]">
-                  <Star size={11} fill="currentColor" /> {rating}/10
-                </span>
-              )}
+              {rating != null && <RatingBadge rating={rating} />}
               <Badge>
                 {isBookLike
                   ? `Vol ${primaryCurrent}/${primaryTotal}`
@@ -687,13 +724,7 @@ export default function MediaDetailModal({
                     <div>
                       <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger">
                         Dropped
-                        {item.droppedAt
-                          ? ` on ${new Date(item.droppedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}`
-                          : ''}
+                        {item.droppedAt ? ` on ${formatDisplayDate(item.droppedAt)}` : ''}
                         {(() => {
                           const pri = item.droppedProgressPrimary ?? primaryCurrent;
                           const sec = item.droppedProgressSecondary ?? secondaryCurrent;
@@ -767,67 +798,30 @@ export default function MediaDetailModal({
                   </p>
                 ) : null}
 
-                {/* Subscription Streaming (Flatrate) */}
-                {watchProviders?.flatrate && watchProviders.flatrate.length > 0 && (
-                  <div className="mt-2">
-                    <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
-                      STREAM ON SUBSCRIPTION:
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {watchProviders.flatrate.map((prov) => (
-                        <a
-                          key={prov.id}
-                          href={watchProviders.link || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`Stream on ${prov.name}`}
-                          className="inline-flex items-center gap-1.5 rounded-small border border-decorative bg-surface px-2 py-1 text-xs font-[var(--za-weight-emphasis)] text-ink transition-[border-color,transform] hover:border-required hover:scale-105"
-                        >
-                          {prov.logoPath && (
-                            // eslint-disable-next-line @next/next/no-img-element -- external provider logos
-                            <img
-                              src={prov.logoPath}
-                              alt=""
-                              className="h-4 w-4 rounded-sm object-cover"
-                            />
-                          )}
-                          <span>{prov.name}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Free / Ads Streaming */}
-                {watchProviders?.free && watchProviders.free.length > 0 && (
-                  <div className="mt-2">
-                    <div className="mb-1 text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
-                      FREE / WITH ADS:
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {watchProviders.free.map((prov) => (
-                        <a
-                          key={prov.id}
-                          href={watchProviders.link || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`Watch free on ${prov.name}`}
-                          className="inline-flex items-center gap-1.5 rounded-small border border-decorative bg-surface px-1.5 py-0.5 text-xs text-ink"
-                        >
-                          {prov.logoPath && (
-                            // eslint-disable-next-line @next/next/no-img-element -- external provider logos
-                            <img
-                              src={prov.logoPath}
-                              alt=""
-                              className="h-3.5 w-3.5 rounded-sm object-cover"
-                            />
-                          )}
-                          <span>{prov.name}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <ProviderChips
+                  label="STREAM ON SUBSCRIPTION:"
+                  providers={watchProviders?.flatrate}
+                  link={watchProviders?.link}
+                  titlePrefix="Stream on"
+                />
+                <ProviderChips
+                  label="FREE / WITH ADS:"
+                  providers={watchProviders?.free}
+                  link={watchProviders?.link}
+                  titlePrefix="Watch free on"
+                />
+                <ProviderChips
+                  label="RENT:"
+                  providers={watchProviders?.rent}
+                  link={watchProviders?.link}
+                  titlePrefix="Rent on"
+                />
+                <ProviderChips
+                  label="BUY:"
+                  providers={watchProviders?.buy}
+                  link={watchProviders?.link}
+                  titlePrefix="Buy on"
+                />
 
                 {/* JustWatch attribution and deep link */}
                 {watchProviders?.link && (
@@ -903,9 +897,7 @@ export default function MediaDetailModal({
                     >
                       All ({totalUnitsInSeason})
                     </button>
-                    {Object.values(fillerMap.episodes).some(
-                      (e) => e.type === 'filler' || e.type === 'recap',
-                    ) && (
+                    {hasFillerOrRecap && (
                       <button
                         type="button"
                         onClick={() => setFillerFilter('canon_only')}
@@ -919,17 +911,9 @@ export default function MediaDetailModal({
                       </button>
                     )}
                   </div>
-                  {Object.values(fillerMap.episodes).filter(
-                    (e) => e.type === 'filler' || e.type === 'recap',
-                  ).length > 0 && (
+                  {hasFillerOrRecap && (
                     <span className="text-[11px] text-ink-muted">
-                      ✦{' '}
-                      {
-                        Object.values(fillerMap.episodes).filter(
-                          (e) => e.type === 'filler' || e.type === 'recap',
-                        ).length
-                      }{' '}
-                      filler episodes detected
+                      ✦ {fillerCount} filler/recap episodes detected
                     </span>
                   )}
                 </div>

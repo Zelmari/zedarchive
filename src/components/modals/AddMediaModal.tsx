@@ -8,6 +8,7 @@ import SpotlightSearchModal, {
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
 import MediaEditForm, { type MediaFormState } from '@/components/forms/MediaEditForm';
+import { seasonTotal } from '@/lib/season';
 import type { MediaCategory, MediaEntry } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session
@@ -201,9 +202,9 @@ export default function AddMediaModal({
     setField('primaryUnitCurrent', val);
     const seasonNum = parseInt(val, 10);
     if (!isNaN(seasonNum) && form.structure.length > 0) {
-      const seasonObj = form.structure.find((s) => s.number === seasonNum);
-      if (seasonObj && seasonObj.total !== null && seasonObj.total !== undefined) {
-        setField('secondaryUnitTotal', String(seasonObj.total));
+      const total = seasonTotal(form.structure, seasonNum);
+      if (total !== null) {
+        setField('secondaryUnitTotal', String(total));
         return;
       }
     }

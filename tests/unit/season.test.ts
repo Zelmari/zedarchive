@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNextSeason, getPrevSeason, sortedSeasonStructure } from '@/lib/season';
+import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from '@/lib/season';
 
 describe('sortedSeasonStructure', () => {
   it('sorts contiguous season numbers', () => {
@@ -18,6 +18,17 @@ describe('sortedSeasonStructure', () => {
   it('returns an empty list for non-arrays', () => {
     expect(sortedSeasonStructure(undefined)).toEqual([]);
     expect(sortedSeasonStructure({ number: 1 })).toEqual([]);
+  });
+});
+
+describe('seasonTotal', () => {
+  it('returns the known total for a season or volume', () => {
+    expect(seasonTotal([{ number: 3, total: 12 }], 3)).toBe(12);
+  });
+
+  it('returns null when the season or volume total is unknown', () => {
+    expect(seasonTotal([{ number: 3, total: null }], 3)).toBeNull();
+    expect(seasonTotal([{ number: 3 }], 1)).toBeNull();
   });
 });
 

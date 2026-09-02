@@ -19,7 +19,8 @@ import CommandPaletteModal from '@/components/modals/CommandPaletteModal';
 import ToastContainer, { type Toast } from '@/components/ui/ToastContainer';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
-import MediaGrid from '@/components/dashboard/MediaGrid';
+import EmptyState from '@/components/dashboard/EmptyState';
+import MediaCard from '@/components/cards/MediaCard';
 import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
 import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
@@ -38,8 +39,6 @@ import {
 } from '@/server/media';
 import { offlineAwareMutation } from '@/lib/offline/offlineAwareMutation';
 
-type CardItem = MediaEntry;
-
 interface ConfirmState {
   isOpen: boolean;
   title: string;
@@ -48,6 +47,22 @@ interface ConfirmState {
   cancelText: string;
   variant: 'primary' | 'destructive' | 'secondary';
   onConfirm: (() => Promise<void>) | null;
+}
+
+type MutationAction =
+  'UPDATE_PROGRESS' | 'UPDATE_STATUS' | 'CREATE_ENTRY' | 'UPDATE_NOTES' | 'DELETE_ENTRY';
+
+interface MutateOptions<T> {
+  actionType: MutationAction;
+  id: string;
+  payload: Record<string, unknown>;
+  mutation: (payload: Record<string, unknown>) => Promise<T>;
+  originalUpdatedAt?: string;
+  successMessage?: string | ((result: T) => string);
+  offlineMessage?: string;
+  errorMessage: string;
+  onSuccess?: (result: T) => void;
+  rollback?: () => void;
 }
 
 const CONFIRM_CLOSED: ConfirmState = {
@@ -101,8 +116,8 @@ export default function DashboardClient({
   const [readingGoals, setReadingGoals] = useState<Record<string, ReadingGoalConfig>>(
     user?.readingGoals || {},
   );
-  const [editingItem, setEditingItem] = useState<CardItem | null>(null);
-  const [detailItem, setDetailItem] = useState<CardItem | null>(null);
+  const [editingItem, setEditingItem] = useState<MediaEntry | null>(null);
+  const [detailItem, setDetailItem] = useState<MediaEntry | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [confirmModal, setConfirmModal] = useState<ConfirmState>(CONFIRM_CLOSED);
   const [verificationDismissed, setVerificationDismissed] = useState(
@@ -196,9 +211,12 @@ export default function DashboardClient({
     ? entries.find((e) => e.id === detailItem.id) || detailItem
     : null;
 
+  const openConfirm = (partial: Omit<ConfirmState, 'isOpen'>) => {
+    setConfirmModal({ ...CONFIRM_CLOSED, ...partial, isOpen: true });
+  };
+
   const handleSignOut = () => {
-    setConfirmModal({
-      isOpen: true,
+    openConfirm({
       title: 'Sign Out',
       message: 'Are you sure you want to sign out of your ZedArchive account?',
       confirmText: 'Sign Out',
@@ -227,109 +245,131 @@ export default function DashboardClient({
   const withGroup = (payload: Record<string, unknown>) =>
     isGroup && groupId ? { ...payload, groupId } : payload;
 
+  const mutate = async <T,>({
+    actionType,
+    id,
+    payload,
+    mutation,
+    originalUpdatedAt,
+    successMessage,
+    offlineMessage,
+    errorMessage,
+    onSuccess,
+    rollback,
+  }: MutateOptions<T>): Promise<T | null> => {
+    const groupedPayload = withGroup(payload);
+
+    try {
+      const result = await offlineAwareMutation(
+        actionType,
+        id,
+        groupedPayload,
+        () => mutation(groupedPayload),
+        originalUpdatedAt,
+      );
+
+      if (result === null) {
+        if (offlineMessage) addToast(offlineMessage, 'info');
+        return null;
+      }
+
+      onSuccess?.(result);
+      if (successMessage) {
+        addToast(
+          typeof successMessage === 'function' ? successMessage(result) : successMessage,
+          'success',
+        );
+      }
+      return result;
+    } catch (err) {
+      console.error(`${errorMessage}:`, err);
+      rollback?.();
+      addToast(err instanceof Error && err.message ? err.message : errorMessage, 'error');
+      throw err;
+    }
+  };
+
   const handleUpdate = async (id: string, updates: Record<string, unknown>) => {
     const previousEntries = [...entries];
     const existingItem = entries.find((e) => e.id === id);
 
+    // Optimistic update: map only the matching entry and stamp its local update time.
     setEntries((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const next: MediaEntry = { ...item, ...updates, updatedAt: new Date().toISOString() };
-        if (updates.primaryUnitCurrent !== undefined) {
-          if (next.structure && next.structure.length > 0) {
-            const seasonObj = next.structure.find((s) => s.number === updates.primaryUnitCurrent);
-            next.secondaryUnitTotal = seasonObj?.total ?? null;
-          }
-        }
-        return next;
-      }),
+      prev.map((item) =>
+        item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item,
+      ),
     );
 
     try {
-      const updated = await offlineAwareMutation(
-        'UPDATE_PROGRESS',
+      await mutate({
+        actionType: 'UPDATE_PROGRESS',
         id,
-        withGroup(updates),
-        () => updateMediaProgress(id, withGroup(updates)),
-        existingItem?.updatedAt,
-      );
-      if (updated) {
-        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
-      } else {
-        addToast('Offline: progress update queued for sync', 'info');
-      }
-    } catch (err) {
-      console.error('Update failed:', err);
-      setEntries(previousEntries);
-      addToast(
-        err instanceof Error && err.message ? err.message : 'Failed to update progress',
-        'error',
-      );
+        payload: updates,
+        mutation: (payload) => updateMediaProgress(id, payload),
+        originalUpdatedAt: existingItem?.updatedAt,
+        offlineMessage: 'Offline: progress update queued for sync',
+        errorMessage: 'Failed to update progress',
+        onSuccess: (updated) => {
+          setEntries((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, ...updated } : item)),
+          );
+        },
+        rollback: () => setEntries(previousEntries),
+      });
+    } catch {
+      // mutate restores the previous entries and reports the error.
     }
   };
 
   const handleCreate = async (data: Record<string, unknown>) => {
-    try {
-      const payload = withGroup(data);
-      const newEntry = await offlineAwareMutation(
-        'CREATE_ENTRY',
-        (data.id as string) || crypto.randomUUID(),
-        payload,
-        () => createMediaEntry(payload),
-      );
-      if (newEntry) {
-        setEntries((prev) => [newEntry, ...prev]);
-        addToast(`Added "${newEntry.title}" to ${isGroup ? 'group' : ''} archive`, 'success');
-        return newEntry;
-      } else {
-        addToast('Offline: new title queued for creation', 'info');
-        return null as any;
-      }
-    } catch (err) {
-      console.error('Creation failed:', err);
-      addToast(
-        err instanceof Error && err.message ? err.message : 'Failed to create entry',
-        'error',
-      );
-      throw err;
-    }
+    const newEntry = await mutate({
+      actionType: 'CREATE_ENTRY',
+      id: (data.id as string) || crypto.randomUUID(),
+      payload: data,
+      mutation: (payload) => createMediaEntry(payload),
+      successMessage: (result) =>
+        `Added "${result.title}" to ${isGroup ? 'group archive' : 'archive'}`,
+      offlineMessage: 'Offline: new title queued for creation',
+      errorMessage: 'Failed to create entry',
+      // Optimistic create waits for the server entry; offline creates remain queued only.
+      onSuccess: (result) => setEntries((prev) => [result, ...prev]),
+    });
+    return newEntry;
   };
 
   const handleSaveEdit = async (id: string, updates: Record<string, unknown>) => {
+    const previousEntries = [...entries];
     const existingItem = entries.find((e) => e.id === id);
-    try {
-      const payload = withGroup(updates);
-      const updated = await offlineAwareMutation(
-        'UPDATE_PROGRESS',
-        id,
-        payload,
-        () => updateMediaProgress(id, payload),
-        existingItem?.updatedAt,
-      );
-      if (updated) {
-        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
-        addToast(`Updated "${updated.title}"`, 'success');
-      } else {
-        addToast('Offline: changes queued for sync', 'info');
-      }
-      setEditingItem(null);
-      return updated;
-    } catch (err) {
-      console.error('Edit save failed:', err);
-      addToast(
-        err instanceof Error && err.message ? err.message : 'Failed to save changes',
-        'error',
-      );
-      throw err;
-    }
+    // Optimistic update: map only the matching entry and stamp its local update time.
+    setEntries((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item,
+      ),
+    );
+
+    const updated = await mutate({
+      actionType: 'UPDATE_PROGRESS',
+      id,
+      payload: updates,
+      mutation: (payload) => updateMediaProgress(id, payload),
+      originalUpdatedAt: existingItem?.updatedAt,
+      successMessage: (result) => `Updated "${result.title}"`,
+      offlineMessage: 'Offline: changes queued for sync',
+      errorMessage: 'Failed to save changes',
+      onSuccess: (result) => {
+        setEntries((prev) => prev.map((item) => (item.id === id ? { ...item, ...result } : item)));
+      },
+      rollback: () => setEntries(previousEntries),
+    });
+    setEditingItem(null);
+    return updated;
   };
 
   const handleDeleteClick = (id: string) => {
     const itemToDelete = entries.find((e) => e.id === id);
     const itemTitle = itemToDelete ? itemToDelete.title : 'this item';
 
-    setConfirmModal({
-      isOpen: true,
+    openConfirm({
       title: 'Remove Media Entry',
       message: `Are you sure you want to remove "${itemTitle}" from your archive? This action cannot be undone.`,
       confirmText: 'Remove Entry',
@@ -337,18 +377,23 @@ export default function DashboardClient({
       variant: 'destructive',
       onConfirm: async () => {
         const previousEntries = [...entries];
+
+        // Optimistic delete: filter immediately and restore if the mutation fails.
         setEntries((prev) => prev.filter((item) => item.id !== id));
 
         try {
-          await offlineAwareMutation('DELETE_ENTRY', id, {}, () => deleteMediaEntry(id));
-          addToast(`Removed "${itemTitle}" from archive`, 'info');
-        } catch (err) {
-          console.error('Delete failed:', err);
-          setEntries(previousEntries);
-          addToast(
-            err instanceof Error && err.message ? err.message : 'Failed to delete entry',
-            'error',
-          );
+          await mutate({
+            actionType: 'DELETE_ENTRY',
+            id,
+            payload: {},
+            mutation: () => deleteMediaEntry(id),
+            successMessage: `Removed "${itemTitle}" from archive`,
+            offlineMessage: 'Offline: removal queued for sync',
+            errorMessage: 'Failed to delete entry',
+            rollback: () => setEntries(previousEntries),
+          });
+        } catch {
+          // mutate restores the previous entries and reports the error.
         }
       },
     });
@@ -368,8 +413,8 @@ export default function DashboardClient({
   const cardHandlers = {
     onUpdate: handleUpdate,
     onDelete: handleDeleteClick,
-    onEdit: (item: CardItem) => setEditingItem(item),
-    onOpenDetail: (itemToOpen: CardItem) => setDetailItem(itemToOpen),
+    onEdit: (item: MediaEntry) => setEditingItem(item),
+    onOpenDetail: (itemToOpen: MediaEntry) => setDetailItem(itemToOpen),
   };
 
   const handleResendVerification = async () => {
@@ -595,14 +640,22 @@ export default function DashboardClient({
 
           {/* Media grid */}
           <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
-            <MediaGrid
-              entries={displayedEntries}
-              activeTab={activeTab}
-              hasActiveFilters={hasActiveFilters}
-              onAddClick={() => modals.open('add')}
-              nextAirMap={nextAirMap}
-              {...cardHandlers}
-            />
+            {displayedEntries.length === 0 ? (
+              <EmptyState
+                activeTab={activeTab}
+                hasActiveFilters={hasActiveFilters}
+                onAddClick={() => modals.open('add')}
+              />
+            ) : (
+              displayedEntries.map((item) => (
+                <MediaCard
+                  key={item.id}
+                  item={item}
+                  nextAir={item.sourceId ? nextAirMap[item.sourceId] : undefined}
+                  {...cardHandlers}
+                />
+              ))
+            )}
           </div>
         </div>
       </main>
@@ -630,7 +683,7 @@ export default function DashboardClient({
         item={activeDetailItem}
         onClose={() => setDetailItem(null)}
         onUpdate={handleUpdate}
-        onEdit={(itemToEdit: CardItem) => {
+        onEdit={(itemToEdit: MediaEntry) => {
           setDetailItem(null);
           setEditingItem(itemToEdit);
         }}

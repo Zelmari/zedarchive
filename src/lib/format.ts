@@ -62,6 +62,16 @@ export function formatAirdate(airdate: string): string {
 }
 
 /**
+ * Format an ISO date for display, falling back to "Present".
+ */
+export function formatDisplayDate(iso: string | null | undefined): string {
+  if (!iso) return 'Present';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Present';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
  * Format a date as "Aug 2026" — used for membership tenure on public profiles.
  */
 export function formatMonthYear(date: Date | string | null | undefined): string {

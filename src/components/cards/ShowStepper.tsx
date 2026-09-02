@@ -8,7 +8,6 @@ interface ShowStepperProps {
   total: number | null;
   hasNextUnit: boolean;
   disabled?: boolean;
-  subtitle?: string | null;
   onStep: (delta: number) => void;
 }
 
@@ -18,7 +17,6 @@ export default function ShowStepper({
   total,
   hasNextUnit,
   disabled = false,
-  subtitle,
   onStep,
 }: ShowStepperProps) {
   const formattedCurrent =
@@ -36,18 +34,11 @@ export default function ShowStepper({
       >
         <Minus size={15} strokeWidth={2.2} />
       </button>
-      <div
-        className={`flex ${subtitle ? 'min-h-[var(--za-control-min-block-size)] flex-col py-[0.25rem]' : 'h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)]'} flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center`}
-      >
+      <div className="flex h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] flex-1 items-center justify-center rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] text-center">
         <span className="text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] leading-tight text-ink">
           Ep {formattedCurrent}
           {total ? ` / ${total}` : ''}
         </span>
-        {subtitle && (
-          <span className="mt-0.5 text-[0.68rem] font-normal leading-tight text-ink-muted">
-            {subtitle}
-          </span>
-        )}
       </div>
       <button
         type="button"

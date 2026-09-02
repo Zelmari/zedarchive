@@ -1,5 +1,6 @@
 export interface SeasonRef {
   number: number;
+  total?: number | null;
 }
 
 /**
@@ -11,6 +12,14 @@ export function sortedSeasonStructure(structure: unknown): SeasonRef[] {
   return (structure as SeasonRef[])
     .filter((s) => s && typeof s === 'object' && typeof s.number === 'number')
     .sort((a, b) => a.number - b.number);
+}
+
+/**
+ * Find the known episode/chapter total for a season or volume.
+ */
+export function seasonTotal(structure: SeasonRef[], seasonNumber: number): number | null {
+  const match = structure.find((s) => s.number === seasonNumber);
+  return match?.total ?? null;
 }
 
 /**

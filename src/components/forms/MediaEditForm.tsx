@@ -48,6 +48,81 @@ interface MediaEditFormProps {
   onCancel: () => void;
 }
 
+type UnitFieldName =
+  'primaryUnitTotal' | 'primaryUnitCurrent' | 'secondaryUnitTotal' | 'secondaryUnitCurrent';
+
+interface UnitField {
+  field: UnitFieldName;
+  label: string | ((form: MediaFormState) => string);
+  min: number;
+  placeholder?: string;
+  fallback?: string;
+  usePrimaryUnitHandler?: boolean;
+}
+
+const SHOW_UNIT_FIELDS: UnitField[] = [
+  { field: 'primaryUnitTotal', label: 'Total Seasons', min: 1, placeholder: '1' },
+  {
+    field: 'primaryUnitCurrent',
+    label: 'Current Season',
+    min: 1,
+    usePrimaryUnitHandler: true,
+  },
+  {
+    field: 'secondaryUnitTotal',
+    label: (form) => `Episodes in Season ${form.primaryUnitCurrent}`,
+    min: 1,
+    placeholder: 'e.g. 12',
+  },
+  {
+    field: 'secondaryUnitCurrent',
+    label: 'Current Episode',
+    min: 0,
+  },
+];
+
+const BOOK_UNIT_FIELDS: UnitField[] = [
+  { field: 'primaryUnitTotal', label: 'Total Volumes', min: 1, placeholder: '1' },
+  {
+    field: 'primaryUnitCurrent',
+    label: 'Current Volume',
+    min: 1,
+    usePrimaryUnitHandler: true,
+  },
+  {
+    field: 'secondaryUnitTotal',
+    label: 'Total Chapters / Pages',
+    min: 1,
+    placeholder: 'e.g. 350',
+  },
+  {
+    field: 'secondaryUnitCurrent',
+    label: 'Current Chapter / Page',
+    min: 0,
+  },
+];
+
+const UNIT_FIELDS: Record<MediaCategory, UnitField[]> = {
+  show: SHOW_UNIT_FIELDS,
+  anime: SHOW_UNIT_FIELDS,
+  book: BOOK_UNIT_FIELDS,
+  manga: BOOK_UNIT_FIELDS,
+  movie: [
+    {
+      field: 'secondaryUnitTotal',
+      label: 'Runtime (Minutes)',
+      min: 1,
+      placeholder: 'e.g. 148',
+    },
+    {
+      field: 'primaryUnitCurrent',
+      label: 'Times Watched (Rewatches)',
+      min: 0,
+      fallback: '0',
+    },
+  ],
+};
+
 /**
  * Full manual creation / edit form. Purely presentational — all state and
  * submission logic live in the parent orchestrator.
@@ -69,28 +144,6 @@ export default function MediaEditForm({
   onCancel,
 }: MediaEditFormProps) {
   const [notesTab, setNotesTab] = useState<'write' | 'preview'>('write');
-  const isMovie = category === 'movie';
-  const isShowLike = category === 'show' || category === 'anime';
-  const unitLabels = isMovie
-    ? {
-        primaryTotal: 'Target Views',
-        primaryCurrent: 'Times Watched (Rewatches)',
-        secondaryTotal: 'Runtime (Minutes)',
-        secondaryCurrent: 'Minutes Watched',
-      }
-    : isShowLike
-      ? {
-          primaryTotal: 'Total Seasons',
-          primaryCurrent: 'Current Season',
-          secondaryTotal: `Episodes in Season ${form.primaryUnitCurrent}`,
-          secondaryCurrent: 'Current Episode',
-        }
-      : {
-          primaryTotal: 'Total Volumes',
-          primaryCurrent: 'Current Volume',
-          secondaryTotal: 'Total Chapters / Pages',
-          secondaryCurrent: 'Current Chapter / Page',
-        };
 
   const formInput =
     'w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[0.45rem] text-[length:var(--za-text-supporting)] text-ink focus:border-accent focus:outline-none';
@@ -194,118 +247,38 @@ export default function MediaEditForm({
       </div>
 
       {/* Units */}
-      {isMovie ? (
-        <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
-          <div>
-            <label
-              htmlFor="secondary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              Runtime (Minutes)
-            </label>
-            <input
-              id="secondary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder="e.g. 148"
-              value={form.secondaryUnitTotal}
-              onChange={(e) => onFieldChange('secondaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="primary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              Times Watched (Rewatches)
-            </label>
-            <input
-              id="primary-unit-current"
-              type="number"
-              min="0"
-              className={formInput}
-              value={
-                form.primaryUnitCurrent !== '' &&
-                form.primaryUnitCurrent !== null &&
-                form.primaryUnitCurrent !== undefined
-                  ? form.primaryUnitCurrent
-                  : '0'
-              }
-              onChange={(e) => onPrimaryUnitCurrentChange(e.target.value)}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
-          <div>
-            <label
-              htmlFor="primary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.primaryTotal}
-            </label>
-            <input
-              id="primary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder="1"
-              value={form.primaryUnitTotal}
-              onChange={(e) => onFieldChange('primaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="primary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.primaryCurrent}
-            </label>
-            <input
-              id="primary-unit-current"
-              type="number"
-              min="1"
-              className={formInput}
-              value={form.primaryUnitCurrent}
-              onChange={(e) => onPrimaryUnitCurrentChange(e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="secondary-unit-total"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.secondaryTotal}
-            </label>
-            <input
-              id="secondary-unit-total"
-              type="number"
-              min="1"
-              className={formInput}
-              placeholder={isShowLike ? 'e.g. 12' : 'e.g. 350'}
-              value={form.secondaryUnitTotal}
-              onChange={(e) => onFieldChange('secondaryUnitTotal', e.target.value)}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="secondary-unit-current"
-              className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
-            >
-              {unitLabels.secondaryCurrent}
-            </label>
-            <input
-              id="secondary-unit-current"
-              type="number"
-              min="0"
-              className={formInput}
-              value={form.secondaryUnitCurrent}
-              onChange={(e) => onFieldChange('secondaryUnitCurrent', e.target.value)}
-            />
-          </div>
-        </div>
-      )}
+      <div className="mb-[var(--za-space-4)] grid grid-cols-2 gap-[var(--za-space-3)]">
+        {UNIT_FIELDS[category].map((unitField) => {
+          const value = form[unitField.field] || unitField.fallback || '';
+          const label =
+            typeof unitField.label === 'function' ? unitField.label(form) : unitField.label;
+          const inputId = unitField.field.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+
+          return (
+            <div key={unitField.field}>
+              <label
+                htmlFor={inputId}
+                className="mb-1 block text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
+              >
+                {label}
+              </label>
+              <input
+                id={inputId}
+                type="number"
+                min={unitField.min}
+                className={formInput}
+                placeholder={unitField.placeholder}
+                value={value}
+                onChange={(e) =>
+                  unitField.usePrimaryUnitHandler
+                    ? onPrimaryUnitCurrentChange(e.target.value)
+                    : onFieldChange(unitField.field, e.target.value)
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {/* Status */}
       <div className="mb-[var(--za-space-4)]">
