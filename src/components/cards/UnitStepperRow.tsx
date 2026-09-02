@@ -36,10 +36,7 @@ export default function UnitStepperRow({
 
   const prevDisabled = disabled || (canPrev !== undefined ? !canPrev : current <= 1);
   const nextDisabled = disabled || (canNext !== undefined ? !canNext : current >= total);
-  const unitText =
-    unitLabel === 'Season'
-      ? `S${current} · ${unitLabel} ${current} of ${total}`
-      : `${unitLabel} ${current} of ${total}`;
+  const unitText = `${unitLabel} ${current} of ${total}`;
 
   return (
     <div className="flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted">

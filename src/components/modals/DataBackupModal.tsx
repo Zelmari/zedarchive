@@ -140,11 +140,10 @@ export default function DataBackupModal({
       contentClassName="max-w-[42rem] rounded-small"
     >
       {/* Tab Buttons */}
-      <div className="flex border-b border-decorative bg-canvas" role="tablist">
+      <div className="flex border-b border-decorative bg-canvas">
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === 'export'}
+          aria-pressed={activeTab === 'export'}
           className={tabButton(activeTab === 'export')}
           onClick={() => setActiveTab('export')}
         >
@@ -153,8 +152,7 @@ export default function DataBackupModal({
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={activeTab === 'import'}
+          aria-pressed={activeTab === 'import'}
           className={tabButton(activeTab === 'import')}
           onClick={() => setActiveTab('import')}
         >
