@@ -13,9 +13,42 @@ describe('serializeEntry', () => {
     const out = serializeEntry({ id: '2' });
     expect(out?.tags).toEqual([]);
     expect(out?.genres).toEqual([]);
+    expect(out?.quotes).toEqual([]);
     expect(out?.rewatchCount).toBe(0);
     expect(out?.status).toBe('in_progress');
     expect(out?.rating).toBeNull();
+  });
+
+  it('serializes quotes and supplies defaults for missing fields', () => {
+    const serialized = serializeEntry({
+      id: 'm1',
+      quotes: [
+        {
+          id: 'q1',
+          text: 'Fear is the mind-killer.',
+          speaker: 'Paul Atreides',
+          citation: 'Chapter 1, p. 8',
+          isFavorite: true,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          text: 'A process cannot be understood by stopping it.',
+        },
+      ],
+    });
+
+    expect(serialized?.quotes).toHaveLength(2);
+    expect(serialized?.quotes[0]).toMatchObject({
+      text: 'Fear is the mind-killer.',
+      speaker: 'Paul Atreides',
+      citation: 'Chapter 1, p. 8',
+      isFavorite: true,
+    });
+    expect(serialized?.quotes[1]?.id).toBeDefined();
+    expect(serialized?.quotes[1]?.text).toBe('A process cannot be understood by stopping it.');
+    expect(serialized?.quotes[1]?.speaker).toBeNull();
+    expect(serialized?.quotes[1]?.citation).toBeNull();
+    expect(serialized?.quotes[1]?.isFavorite).toBe(false);
   });
 
   it('returns null for nullish rows', () => {
