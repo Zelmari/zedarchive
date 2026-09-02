@@ -1,4 +1,14 @@
 /**
+ * Normalize external cover URLs for secure image loading.
+ */
+export function httpsCover(url: string | null | undefined): string | null {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url ?? null;
+}
+
+/**
  * Derive up-to-two leading initials from a display name or title.
  *
  * @param name - Display name or title.

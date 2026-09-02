@@ -19,57 +19,50 @@ interface TmdbMovieDetails {
   tagline?: string | null;
 }
 
-function getAuthHeaders(token: string): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
-  // TMDB v4 Read Access Tokens are JWT-like Bearer tokens (long string)
-  // TMDB v3 API Keys are 32 hex characters
+type TmdbParams = Record<string, string | number | boolean>;
+
+function getTmdbToken(): string | null {
+  return process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY || null;
+}
+
+async function tmdbFetch(path: string, params: TmdbParams = {}): Promise<Response | null> {
+  const token = getTmdbToken();
+  if (!token) return null;
+
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, String(value));
+  }
+  if (token.length <= 40) {
+    url.searchParams.set('api_key', token);
+  }
+
+  const headers: Record<string, string> = { Accept: 'application/json' };
   if (token.length > 40) {
     headers.Authorization = `Bearer ${token}`;
   }
-  return headers;
-}
 
-function getSearchUrl(query: string, token: string): string {
-  const base = 'https://api.themoviedb.org/3/search/movie';
-  const params = new URLSearchParams({
-    query: query.trim(),
-    include_adult: 'false',
-    language: 'en-US',
-    page: '1',
+  return fetch(url.toString(), {
+    next: { revalidate: 86400 },
+    headers,
   });
-  if (token.length <= 40) {
-    params.set('api_key', token);
-  }
-  return `${base}?${params.toString()}`;
-}
-
-function getDetailsUrl(id: number, token: string): string {
-  const base = `https://api.themoviedb.org/3/movie/${id}`;
-  const params = new URLSearchParams({ language: 'en-US' });
-  if (token.length <= 40) {
-    params.set('api_key', token);
-  }
-  return `${base}?${params.toString()}`;
 }
 
 export async function searchTmdbMovies(query: string): Promise<SearchResult[] | null> {
-  const token = process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY;
-  if (!token) {
-    return null;
-  }
+  if (!getTmdbToken()) return null;
 
   const cleanQuery = query.trim();
   if (!cleanQuery) {
     return [];
   }
 
-  const searchUrl = getSearchUrl(cleanQuery, token);
-  const searchRes = await fetch(searchUrl, {
-    next: { revalidate: 86400 },
-    headers: getAuthHeaders(token),
+  const searchRes = await tmdbFetch('/search/movie', {
+    query: cleanQuery,
+    include_adult: false,
+    language: 'en-US',
+    page: 1,
   });
+  if (!searchRes) return null;
 
   if (!searchRes.ok) {
     throw new Error(`TMDB search failed with status ${searchRes.status}`);
@@ -87,12 +80,8 @@ export async function searchTmdbMovies(query: string): Promise<SearchResult[] | 
       let runtime: number | null = null;
 
       try {
-        const detailsUrl = getDetailsUrl(movie.id, token);
-        const detailsRes = await fetch(detailsUrl, {
-          next: { revalidate: 86400 },
-          headers: getAuthHeaders(token),
-        });
-        if (detailsRes.ok) {
+        const detailsRes = await tmdbFetch(`/movie/${movie.id}`, { language: 'en-US' });
+        if (detailsRes?.ok) {
           const details = (await detailsRes.json()) as TmdbMovieDetails;
           if (typeof details.runtime === 'number' && details.runtime > 0) {
             runtime = details.runtime;
@@ -145,26 +134,15 @@ export async function fetchWatchProviders(
   category: 'movie' | 'show' | 'anime' = 'movie',
   countryCode = 'US',
 ): Promise<WatchProvidersResult | null> {
-  const token = process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY;
-  if (!token) {
-    return null;
-  }
+  if (!getTmdbToken()) return null;
 
   const endpoint = category === 'movie' ? 'movie' : 'tv';
-  const base = `https://api.themoviedb.org/3/${endpoint}/${tmdbId}/watch/providers`;
-  const params = new URLSearchParams();
-  if (token.length <= 40) {
-    params.set('api_key', token);
-  }
-  const url = params.toString() ? `${base}?${params.toString()}` : base;
+  const path = `/${endpoint}/${tmdbId}/watch/providers`;
 
   try {
-    const res = await fetch(url, {
-      next: { revalidate: 86400 },
-      headers: getAuthHeaders(token),
-    });
+    const res = await tmdbFetch(path);
 
-    if (!res.ok) {
+    if (!res?.ok) {
       return null;
     }
 
@@ -200,8 +178,7 @@ export async function resolveTmdbId(
   title?: string | null,
   category: 'movie' | 'show' | 'anime' = 'movie',
 ): Promise<number | null> {
-  const token = process.env.TMDB_API_READ_TOKEN || process.env.TMDB_API_KEY;
-  if (!token) return null;
+  if (!getTmdbToken()) return null;
 
   // 1. Direct TMDB source ID
   if (sourceId?.startsWith('tmdb-')) {
@@ -221,14 +198,10 @@ export async function resolveTmdbId(
         const tvmData = (await tvmRes.json()) as { externals?: { imdb?: string | null } };
         const imdbId = tvmData.externals?.imdb;
         if (imdbId) {
-          const findUrl = `https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id${
-            token.length <= 40 ? `&api_key=${token}` : ''
-          }`;
-          const findRes = await fetch(findUrl, {
-            next: { revalidate: 86400 },
-            headers: getAuthHeaders(token),
+          const findRes = await tmdbFetch(`/find/${imdbId}`, {
+            external_source: 'imdb_id',
           });
-          if (findRes.ok) {
+          if (findRes?.ok) {
             const findData = (await findRes.json()) as {
               movie_results?: Array<{ id: number }>;
               tv_results?: Array<{ id: number }>;
@@ -250,14 +223,13 @@ export async function resolveTmdbId(
   if (title?.trim()) {
     try {
       const endpoint = category === 'movie' ? 'movie' : 'tv';
-      const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(
-        title.trim(),
-      )}&include_adult=false&language=en-US&page=1${token.length <= 40 ? `&api_key=${token}` : ''}`;
-      const searchRes = await fetch(searchUrl, {
-        next: { revalidate: 86400 },
-        headers: getAuthHeaders(token),
+      const searchRes = await tmdbFetch(`/search/${endpoint}`, {
+        query: title.trim(),
+        include_adult: false,
+        language: 'en-US',
+        page: 1,
       });
-      if (searchRes.ok) {
+      if (searchRes?.ok) {
         const searchData = (await searchRes.json()) as { results?: Array<{ id: number }> };
         if (searchData.results && searchData.results.length > 0 && searchData.results[0]?.id) {
           return searchData.results[0].id;

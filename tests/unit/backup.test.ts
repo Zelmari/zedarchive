@@ -59,6 +59,37 @@ describe('parseImportFile', () => {
     });
   });
 
+  it('maps AniList list statuses to archive statuses', () => {
+    const statuses = ['PLANNING', 'DROPPED', 'PAUSED', 'REPEATING'];
+    const payload = {
+      data: {
+        MediaListCollection: {
+          lists: [
+            {
+              entries: statuses.map((status, index) => ({
+                status,
+                media: {
+                  id: index + 1,
+                  type: 'ANIME',
+                  title: { english: status },
+                },
+              })),
+            },
+          ],
+        },
+      },
+    };
+
+    const items = parseImportFile('anilist.json', JSON.stringify(payload));
+
+    expect(items.map((item) => item.status)).toEqual([
+      'planning',
+      'dropped',
+      'on_hold',
+      'in_progress',
+    ]);
+  });
+
   it('rejects unrecognized JSON with a friendly message', () => {
     expect(() => parseImportFile('x.json', '{"hello":1}')).toThrow(
       'Unrecognized JSON format. Please upload a ZedArchive backup or supported export.',
