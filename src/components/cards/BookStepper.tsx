@@ -108,7 +108,7 @@ export default function BookStepper({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-[var(--za-space-2)]" data-testid="book-stepper">
       <button
         type="button"
         className={stepperBtn}
@@ -125,7 +125,7 @@ export default function BookStepper({
           type="number"
           min="0"
           max={mode === 'percent' && hasTotal ? 100 : total || undefined}
-          className="h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] w-full rounded-control border border-required bg-surface px-2 text-center text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] text-ink outline-none focus:border-accent"
+          className="h-[var(--za-control-min-block-size)] min-h-[var(--za-control-min-block-size)] w-full rounded-small border border-required bg-surface px-2 text-center font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink outline-none focus:border-accent"
           value={displayVal}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
@@ -139,7 +139,7 @@ export default function BookStepper({
           aria-label={mode === 'percent' ? 'Reading percentage' : 'Current chapter or page'}
         />
         {mode === 'percent' && hasTotal && (
-          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-muted">
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 font-[family-name:var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-ink-muted">
             %
           </span>
         )}
@@ -167,9 +167,9 @@ export default function BookStepper({
             : 'Set total pages in edit modal to enable percentage mode'
         }
         aria-label="Toggle Page or Percentage Mode"
-        className={`inline-flex h-[var(--za-control-min-block-size)] px-2 shrink-0 cursor-pointer items-center justify-center rounded-control border text-xs font-[var(--za-weight-emphasis)] transition-[all] duration-[var(--za-motion-fast)] ${
+        className={`inline-flex h-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border px-2 font-[family-name:var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] transition-[all] duration-[var(--za-motion-fast)] ${
           !hasTotal
-            ? 'border-decorative bg-surface-subtle text-ink-muted opacity-40 cursor-not-allowed'
+            ? 'cursor-not-allowed border-decorative bg-surface-subtle text-ink-muted opacity-40'
             : mode === 'percent'
               ? 'border-accent bg-accent/15 text-accent'
               : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'

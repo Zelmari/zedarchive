@@ -55,33 +55,34 @@ export default function DashboardToolbar({
   ];
 
   return (
-    <div className="mb-[var(--za-space-6)] flex flex-col gap-[var(--za-space-3)]">
+    <div className="mb-[var(--za-space-6)] flex flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
       {/* Top row: search & sort (left) + auxiliary actions (right) */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
         <div className="flex max-w-[32rem] flex-[1_1_20rem] items-center gap-2">
           <div className="relative min-w-40 flex-1">
             <Search
               size={15}
-              className="pointer-events-none absolute left-[0.65rem] top-1/2 -translate-y-1/2 text-ink-muted"
+              className="pointer-events-none absolute left-[0.7rem] top-1/2 z-[1] -translate-y-1/2 text-ink-muted"
             />
             <input
               ref={searchInputRef}
               type="text"
               placeholder="Search archive, tags, notes..."
               aria-label="Search archive by title, tags, or notes"
-              className="h-9 w-full rounded-control border border-required bg-surface px-[2.2rem] py-[0.45rem] text-[length:var(--za-text-fine)] text-ink transition-colors duration-[var(--za-motion-fast)] focus:border-accent"
+              className="za-field h-[var(--za-control-min-block-size)] w-full pl-[2.2rem] pr-9 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
             />
             {searchQuery ? (
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-none text-[1.1rem] leading-none text-ink-muted hover:text-ink"
+                className="absolute right-2 top-1/2 z-[1] inline-flex -translate-y-1/2 cursor-pointer items-center justify-center border-none bg-transparent p-1 text-ink-muted hover:text-ink"
                 onClick={() => {
                   onSearchChange('');
                   searchInputRef.current?.focus();
                 }}
                 title="Clear search"
+                aria-label="Clear search"
               >
                 <X size={14} strokeWidth={2} />
               </button>
@@ -89,7 +90,7 @@ export default function DashboardToolbar({
           </div>
 
           <select
-            className="h-9 shrink-0 cursor-pointer rounded-control border border-required bg-surface px-3 py-[0.45rem] text-[length:var(--za-text-fine)] text-ink"
+            className="za-field h-[var(--za-control-min-block-size)] w-auto min-w-40 shrink-0 cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
             value={sortBy}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
             aria-label="Sort Archive"
@@ -102,7 +103,7 @@ export default function DashboardToolbar({
           </select>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
           {[
             {
               label: 'Calendar',
@@ -138,9 +139,10 @@ export default function DashboardToolbar({
             <button
               key={modal}
               type="button"
-              className="za-button za-button--secondary"
+              className="za-button za-button--secondary px-[var(--za-space-3)]"
               onClick={() => onOpenModal(modal)}
               title={title}
+              aria-label={label}
             >
               <Icon size={15} strokeWidth={1.75} />
               <span>{label}</span>
@@ -149,8 +151,8 @@ export default function DashboardToolbar({
         </div>
       </div>
 
-      {/* Bottom row: status filter pills + shelves */}
-      <div className="flex flex-col gap-2">
+      {/* Bottom row: status filter radios + shelves */}
+      <div className="flex flex-col gap-[var(--za-space-3)] border-t border-dashed border-decorative pt-[var(--za-space-3)]">
         <div
           className="flex items-center gap-[var(--za-space-1)] overflow-x-auto pb-1"
           role="radiogroup"
@@ -161,6 +163,7 @@ export default function DashboardToolbar({
               key={pill.id}
               type="button"
               role="radio"
+              id={pill.id}
               aria-checked={statusFilter === pill.id}
               className={pillClass(statusFilter === pill.id)}
               onClick={() => onStatusFilterChange(pill.id)}
@@ -171,12 +174,19 @@ export default function DashboardToolbar({
         </div>
 
         {tags.length > 0 && (
-          <div className="flex items-center gap-[var(--za-space-1)] overflow-x-auto pb-1">
-            <span className="flex shrink-0 items-center gap-[3px] text-xs text-ink-muted">
+          <div
+            className="flex items-center gap-[var(--za-space-1)] overflow-x-auto pb-1"
+            role="radiogroup"
+            aria-label="Catalogue shelves"
+          >
+            <span className="flex shrink-0 items-center gap-[3px] font-[family-name:var(--za-font-mono)] text-xs uppercase tracking-[0.08em] text-ink-muted">
               <Tag size={12} /> Shelves:
             </span>
             <button
               type="button"
+              role="radio"
+              aria-checked={selectedTag === 'all'}
+              id="shelf-all"
               className={`${pillClass(selectedTag === 'all')} px-2 py-[0.15rem] text-xs`}
               onClick={() => onTagChange('all')}
             >
@@ -186,6 +196,9 @@ export default function DashboardToolbar({
               <button
                 key={tag}
                 type="button"
+                role="radio"
+                aria-checked={selectedTag === tag}
+                id={`shelf-${tag}`}
                 className={`${pillClass(selectedTag === tag)} px-2 py-[0.15rem] text-xs`}
                 onClick={() => onTagChange(selectedTag === tag ? 'all' : tag)}
               >

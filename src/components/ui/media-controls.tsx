@@ -20,16 +20,17 @@ export const CATEGORY_CHIPS: Array<{
 
 export function chipClass(active: boolean): string {
   return cn(
-    'flex cursor-pointer items-center gap-1 rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-accent',
+    'flex cursor-pointer items-center gap-1 rounded-small border border-decorative bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-required hover:text-ink',
     active &&
-      'border-accent bg-accent-soft font-[var(--za-weight-heading)] shadow-[inset_0_-2px_0_var(--za-color-accent)]',
+      'border-required bg-surface-subtle font-[var(--za-weight-heading)] text-accent shadow-[inset_0_-2px_0_var(--za-color-accent)]',
   );
 }
 
 export function pillClass(active: boolean): string {
   return cn(
-    'cursor-pointer whitespace-nowrap rounded-control border border-decorative bg-surface px-[0.65rem] py-[0.3rem] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)]',
-    active && 'border-required bg-surface-subtle font-[var(--za-weight-emphasis)] text-ink',
+    'inline-flex min-h-8 cursor-pointer items-center whitespace-nowrap rounded-small border border-decorative bg-transparent px-[0.65rem] py-[0.3rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)] hover:border-required hover:text-ink',
+    active &&
+      'border-accent bg-accent font-[var(--za-weight-emphasis)] text-on-accent shadow-[0_2px_6px_color-mix(in_srgb,var(--za-color-accent)_20%,transparent)]',
   );
 }
 

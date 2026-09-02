@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertTriangle, X } from 'lucide-react';
+import { Plus, AlertTriangle, X, BookOpen, Check, TrendingDown, TrendingUp } from 'lucide-react';
 import { signOut } from '@/lib/client/auth-client';
 import { dismissVerificationNotice, resendVerificationEmailAction } from '@/server/profile';
 import AddMediaModal from '@/components/modals/AddMediaModal';
@@ -517,79 +517,137 @@ export default function DashboardClient({
           )}
 
           {/* Masthead — group name when in group mode */}
-          <div className="mb-[var(--za-space-6)] flex flex-wrap items-end justify-between gap-[var(--za-space-4)] rounded-control border border-required bg-surface px-[var(--za-space-6)] py-[var(--za-space-4)] shadow-raised">
-            <div className="flex flex-col gap-[var(--za-space-1)]">
-              <h1 className="text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] tracking-[-0.025em] text-ink">
-                {isGroup && groupName
-                  ? groupName
-                  : activeTab === 'total'
-                    ? 'Your Media Archive'
-                    : activeTab === 'shows'
-                      ? 'Shows & Anime'
-                      : activeTab === 'movies'
-                        ? 'Movies & Films'
-                        : 'Books & Manga'}
-              </h1>
-              <p className="text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-                {isGroup && groupName
-                  ? `Shared archive · ${entries.length} titles · collaborative`
-                  : activeTab === 'total'
-                    ? `Tracking ${entries.length} items across shows, movies, and books`
-                    : `Tracking ${tabNoun} in your collection`}
-              </p>
-            </div>
+          <div className="mb-[var(--za-space-6)] border-b-4 border-double border-required pb-[var(--za-space-5)]">
+            <div className="flex flex-wrap items-end justify-between gap-[var(--za-space-5)]">
+              <div className="flex min-w-0 flex-col gap-[var(--za-space-1)]">
+                <p className="font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-sm)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                  {isGroup && groupName
+                    ? `The shared collection of ${groupName}`
+                    : `The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
+                </p>
+                <h1 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
+                  {isGroup && groupName
+                    ? groupName
+                    : activeTab === 'total'
+                      ? 'Your Media Archive'
+                      : activeTab === 'shows'
+                        ? 'Shows & Anime'
+                        : activeTab === 'movies'
+                          ? 'Movies & Films'
+                          : 'Books & Manga'}
+                </h1>
+                <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+                  {isGroup && groupName
+                    ? `Shared archive · ${entries.length} titles · collaborative`
+                    : activeTab === 'total'
+                      ? `Tracking ${entries.length} items across shows, movies, and books`
+                      : `Tracking ${tabNoun} in your collection`}
+                </p>
+              </div>
 
-            <div className="flex items-center gap-[var(--za-space-3)]">
-              <button
-                type="button"
-                className="za-button za-button--primary"
-                onClick={() => modals.open('add')}
-                title="Add media"
-              >
-                <Plus size={16} strokeWidth={2.2} />
-                <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
-              </button>
+              <div className="flex flex-wrap items-end gap-[var(--za-space-4)]">
+                <dl className="flex items-end gap-[var(--za-space-4)] font-[family-name:var(--za-font-mono)]">
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {entries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Total
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.showEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Shows
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.movieEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Films
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.bookEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Books
+                    </dt>
+                  </div>
+                </dl>
+
+                <button
+                  type="button"
+                  className="za-button za-button--primary"
+                  onClick={() => modals.open('add')}
+                  title="Add media"
+                  aria-label={activeTab === 'total' ? 'Add Media' : undefined}
+                >
+                  <Plus size={16} strokeWidth={2.2} />
+                  <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Reading Goal Banner (shown when on Books tab or when goal exists) */}
           {(activeTab === 'books' || goalProgress) && (
-            <div className="mb-[var(--za-space-4)] rounded-control border border-required bg-surface p-4 shadow-raised">
+            <section
+              aria-label="Reading goal"
+              className="mb-[var(--za-space-4)] rounded-small border border-decorative bg-surface-sunken p-[var(--za-space-4)] shadow-raised"
+            >
               {goalProgress ? (
-                <div className="flex flex-col gap-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">📖</span>
+                <div className="flex flex-col gap-[var(--za-space-3)]">
+                  <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
+                    <div className="flex items-center gap-[var(--za-space-3)]">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold bg-surface text-gold-dark">
+                        <BookOpen size={18} strokeWidth={1.75} aria-hidden="true" />
+                      </span>
                       <div>
-                        <span className="font-[var(--za-weight-heading)] text-sm text-ink">
-                          {currentYear} Reading Challenge:
-                        </span>
-                        <span className="ml-1.5 text-xs text-ink-muted">
-                          {goalProgress.completedCount} of {goalProgress.annualTarget} books
-                          completed ({goalProgress.percentage}%)
-                        </span>
+                        <p className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
+                          {currentYear} Reading Challenge
+                        </p>
+                        <p className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                          {goalProgress.completedCount} of {goalProgress.annualTarget} books ·{' '}
+                          {goalProgress.percentage}% complete
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <span
-                        className={`inline-flex items-center rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] ${
+                        className={`inline-flex items-center gap-1.5 rounded-small border px-2 py-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] ${
                           goalProgress.status === 'ahead'
-                            ? 'bg-success/15 text-success'
+                            ? 'border-success/30 bg-success-surface text-success'
                             : goalProgress.status === 'behind'
-                              ? 'bg-[rgba(234,179,8,0.15)] text-[#b45309]'
-                              : 'bg-surface-subtle text-ink-muted'
+                              ? 'border-warning/30 bg-warning-surface text-warning'
+                              : 'border-decorative bg-surface text-ink-muted'
                         }`}
                       >
-                        {goalProgress.status === 'ahead'
-                          ? `✦ ${goalProgress.paceDiff} ${goalProgress.paceDiff === 1 ? 'book' : 'books'} ahead of schedule!`
-                          : goalProgress.status === 'behind'
-                            ? `○ ${Math.abs(goalProgress.paceDiff)} ${Math.abs(goalProgress.paceDiff) === 1 ? 'book' : 'books'} behind pace`
-                            : '✓ Right on track!'}
+                        {goalProgress.status === 'ahead' ? (
+                          <TrendingUp size={13} strokeWidth={2} aria-hidden="true" />
+                        ) : goalProgress.status === 'behind' ? (
+                          <TrendingDown size={13} strokeWidth={2} aria-hidden="true" />
+                        ) : (
+                          <Check size={13} strokeWidth={2} aria-hidden="true" />
+                        )}
+                        <span>
+                          {goalProgress.status === 'ahead'
+                            ? `${goalProgress.paceDiff} ${goalProgress.paceDiff === 1 ? 'book' : 'books'} ahead of schedule`
+                            : goalProgress.status === 'behind'
+                              ? `${Math.abs(goalProgress.paceDiff)} ${Math.abs(goalProgress.paceDiff) === 1 ? 'book' : 'books'} behind pace`
+                              : 'Right on track'}
+                        </span>
                       </span>
                       <button
                         type="button"
                         onClick={() => modals.open('goal')}
-                        className="za-button za-button--secondary px-2 py-1 text-xs"
+                        className="za-button za-button--secondary px-2.5 py-1 text-xs"
                       >
                         Edit Goal
                       </button>
@@ -597,7 +655,7 @@ export default function DashboardClient({
                   </div>
 
                   {/* Progress bar */}
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-surface-subtle">
+                  <div className="h-2 w-full overflow-hidden rounded-small border border-decorative bg-surface-sunken">
                     <div
                       className="h-full bg-accent transition-[width] duration-300"
                       style={{ width: `${goalProgress.percentage}%` }}
@@ -605,10 +663,12 @@ export default function DashboardClient({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs text-ink-muted">
-                    <span className="text-base">📖</span>
-                    <span>Set your {currentYear} Reading Challenge to track targets & pacing!</span>
+                <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
+                  <div className="flex items-center gap-[var(--za-space-3)] text-[length:var(--za-text-supporting)] text-ink-muted">
+                    <BookOpen size={18} className="shrink-0 text-gold-dark" aria-hidden="true" />
+                    <span className="font-[family-name:var(--za-font-editorial)] italic">
+                      Set your {currentYear} Reading Challenge to track targets & pacing.
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -619,7 +679,7 @@ export default function DashboardClient({
                   </button>
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           {/* Controls toolbar */}

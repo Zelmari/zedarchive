@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock } from 'lucide-react';
-import { getInitials, formatAirdate } from '@/lib/format';
+import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock, Eye } from 'lucide-react';
+import { formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
@@ -44,6 +44,21 @@ function statusLabel(status: string, category: string): string {
       return 'Dropped';
     default:
       return isMovie ? 'In Progress' : bookish ? 'Reading' : 'In Progress';
+  }
+}
+
+function categoryLabel(category: string): string {
+  switch (category) {
+    case 'anime':
+      return 'Anime';
+    case 'manga':
+      return 'Manga';
+    case 'movie':
+      return 'Film';
+    case 'book':
+      return 'Book';
+    default:
+      return 'Television';
   }
 }
 
@@ -155,6 +170,8 @@ export default function MediaCard({
   const progressPercentage = secondaryUnitTotal
     ? Math.min(100, Math.round((secondaryUnitCurrent / secondaryUnitTotal) * 100))
     : 0;
+  const itemStatusLabel = statusLabel(status, rawCategory);
+  const catalogueNumber = item.id.slice(-4).toUpperCase();
 
   const openDetailProps = onOpenDetail
     ? {
@@ -172,24 +189,46 @@ export default function MediaCard({
     : {};
 
   const miniActionBtn =
-    'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-control border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+    'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
 
   return (
     <article
       aria-label={`${item.title} card`}
-      className="za-card za-card--raised flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] [overflow-wrap:anywhere] rounded-control p-[var(--za-space-4)] shadow-raised transition-[box-shadow] duration-[var(--za-motion-fast)] hover:shadow-[0_4px_12px_rgb(36_35_33/12%),0_12px_24px_rgb(36_35_33/8%)]"
+      className="za-bookplate za-card za-card--raised group relative flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] overflow-hidden [overflow-wrap:anywhere] p-[var(--za-space-4)] shadow-raised transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgb(36_35_33/12%),0_12px_24px_rgb(36_35_33/8%)]"
     >
-      {/* Top: 2:3 cover tile + details */}
-      <div className="flex items-start gap-[var(--za-space-4)]">
+      {item.priorityIndex != null && (
+        <span
+          className="za-ribbon-bookmark"
+          title="Priority Up Next Queue"
+          aria-label={`Up Next queue position ${item.priorityIndex}`}
+        />
+      )}
+
+      {/* Ex-libris catalogue header */}
+      <div className="-mx-[var(--za-space-4)] -mt-[var(--za-space-4)] flex items-center justify-between gap-3 border-b border-dashed border-decorative bg-surface-subtle/70 px-[var(--za-space-4)] py-[var(--za-space-2)]">
+        <span className="min-w-0 truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+          EX LIBRIS · ZA-{catalogueNumber}
+        </span>
+        <span className="shrink-0 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
+          {categoryLabel(rawCategory)}
+        </span>
+      </div>
+
+      {/* 2:3 cover tile + catalogue details */}
+      <div className="flex flex-col gap-[var(--za-space-4)]">
         <MediaCover
           title={item.title}
           coverImage={item.coverImage}
           category={rawCategory}
+          variant="card"
+          status={status}
+          statusLabel={itemStatusLabel}
+          rating={rating}
           onOpenDetail={onOpenDetail ? () => onOpenDetail(item) : undefined}
           openDetailProps={openDetailProps}
         />
 
-        <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
           <div className="flex flex-col gap-1">
             {/* Top action buttons (anchored top-right) */}
             <div className="flex items-center justify-end gap-[var(--za-space-1)]">
@@ -228,6 +267,17 @@ export default function MediaCard({
                   className={item.priorityIndex != null ? 'fill-accent' : ''}
                 />
               </button>
+              {onOpenDetail && (
+                <button
+                  type="button"
+                  className={`${miniActionBtn} text-ink-muted hover:border-accent hover:bg-accent-soft hover:text-accent`}
+                  onClick={() => onOpenDetail(item)}
+                  title={`Inspect ${item.title}`}
+                  aria-label={`Inspect ${item.title}`}
+                >
+                  <Eye size={13} strokeWidth={1.75} />
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"
@@ -255,7 +305,7 @@ export default function MediaCard({
             {/* Title & Privacy Badge: full horizontal width */}
             <div className="min-w-0">
               <h3
-                className={`[overflow-wrap:anywhere] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink ${onOpenDetail ? 'cursor-pointer' : ''}`}
+                className={`[overflow-wrap:anywhere] font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink ${onOpenDetail ? 'cursor-pointer' : ''}`}
                 title={item.title}
                 {...openDetailProps}
               >
@@ -271,13 +321,16 @@ export default function MediaCard({
                   Private
                 </span>
               )}
+              <span className="mt-1 block truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                {item.sourceId || 'Local catalogue record'}
+              </span>
             </div>
           </div>
 
           {/* Badges */}
           <MediaBadges
             status={status as import('@/types/media').MediaStatus}
-            statusLabel={statusLabel(status, rawCategory)}
+            statusLabel={itemStatusLabel}
             rating={rating}
             category={rawCategory}
             primaryUnitCurrent={primaryUnitCurrent}
@@ -287,6 +340,8 @@ export default function MediaCard({
             droppedProgressPrimary={item.droppedProgressPrimary}
             droppedProgressSecondary={item.droppedProgressSecondary}
             priorityIndex={item.priorityIndex}
+            showStatus={false}
+            showRating={rating != null && rating < 9}
           />
 
           {/* Season / volume row */}
@@ -334,11 +389,11 @@ export default function MediaCard({
 
       {/* Completion nudge */}
       {isAtFinalUnit && status !== 'completed' && rawCategory !== 'movie' && (
-        <div className="mt-2 flex items-center justify-between rounded-control border border-success/25 bg-success/10 px-[var(--za-space-3)] py-[var(--za-space-2)] text-success">
+        <div className="mt-2 flex items-center justify-between rounded-small border border-success/25 bg-success-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-success">
           <span>{bookish ? 'Finished reading!' : 'Series completed!'}</span>
           <button
             type="button"
-            className="cursor-pointer rounded-control border-0 bg-[#2e7d32] px-[0.6rem] py-[0.2rem] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-white hover:brightness-110"
+            className="za-button za-button--secondary cursor-pointer px-[0.6rem] py-[0.2rem] text-[length:var(--za-text-fine)] text-success hover:border-success"
             onClick={() =>
               runUpdate({ status: 'completed', completedAt: new Date().toISOString() })
             }
@@ -416,7 +471,7 @@ export default function MediaCard({
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
-            <span className="min-w-7 text-right text-[length:var(--za-text-fine)] text-ink-muted">
+            <span className="min-w-7 text-right font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
               {progressPercentage}%
             </span>
           </div>
