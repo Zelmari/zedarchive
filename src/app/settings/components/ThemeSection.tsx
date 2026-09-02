@@ -35,10 +35,11 @@ export default function ThemeSection({
   };
 
   return (
-    <section className="za-card za-card--raised rounded-control border border-required bg-surface p-6 shadow-raised">
-      <div className="mb-4 flex items-center gap-2 border-b border-decorative pb-3">
-        <Sparkles size={18} className="text-ink-muted" />
-        <h2 className="text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-ink">
+    <section className="za-bookplate relative p-6 sm:p-8">
+      <span className="za-ribbon-bookmark" aria-hidden="true" />
+      <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
+        <Sparkles size={18} className="text-accent" />
+        <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
           Interface Theme
         </h2>
       </div>

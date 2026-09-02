@@ -112,12 +112,13 @@ export default function LoginForm() {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleForgotPassword} className="grid gap-4">
+          <form onSubmit={handleForgotPassword} className="grid gap-5">
             <AuthField label="Email" htmlFor="forgot-email">
               <input
                 id="forgot-email"
                 type="email"
                 required
+                autoComplete="email"
                 className="za-field"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -157,12 +158,13 @@ export default function LoginForm() {
         </p>
       )}
 
-      <form onSubmit={handleSignIn} className="grid gap-4">
+      <form onSubmit={handleSignIn} className="grid gap-5">
         <AuthField label="Email" htmlFor="email">
           <input
             id="email"
             type="email"
             required
+            autoComplete="email"
             className="za-field"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -191,6 +193,7 @@ export default function LoginForm() {
             id="password"
             type="password"
             required
+            autoComplete="current-password"
             className="za-field"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

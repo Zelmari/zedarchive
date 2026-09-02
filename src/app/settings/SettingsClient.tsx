@@ -16,14 +16,14 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
     <div className="min-h-screen bg-canvas text-ink">
       {/* Header */}
       <SubPageHeader variant="sticky" backLink={{ href: '/dashboard', label: 'Dashboard' }}>
-        <h1 className="text-base font-[var(--za-weight-heading)] tracking-[-0.02em] text-ink truncate">
+        <h1 className="truncate font-[var(--za-font-display)] text-base font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
           Settings & Account
         </h1>
       </SubPageHeader>
 
       {/* Main Content */}
-      <main id="main-content" className="pb-16 pt-8">
-        <div className="za-container max-w-[42rem] space-y-8">
+      <main id="main-content" className="pb-16 pt-8 sm:pt-10">
+        <div className="za-container max-w-[var(--za-content-medium)] space-y-6 sm:space-y-8">
           <ProfileSection profile={profile} />
           <ThemeSection initialTheme={profile.theme} customTheme={profile.customTheme} />
           <SecuritySection profile={profile} />

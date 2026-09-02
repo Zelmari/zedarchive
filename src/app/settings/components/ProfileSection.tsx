@@ -103,29 +103,37 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
   const handleRemoveAvatar = () => void applyAvatar(null);
 
   return (
-    <section className="za-card za-card--raised rounded-control border border-required bg-surface p-6 shadow-raised">
-      <div className="mb-4 flex items-center gap-2 border-b border-decorative pb-3">
-        <User size={18} className="text-ink-muted" />
-        <h2 className="text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-ink">
+    <section className="za-bookplate relative p-6 sm:p-8">
+      <span className="za-ribbon-bookmark" aria-hidden="true" />
+      <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
+        <User size={18} className="text-accent" />
+        <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
           Profile Information
         </h2>
       </div>
 
       {profileSuccess && (
-        <div className="mb-4 flex items-center gap-2 rounded-control bg-success/10 p-3 text-xs text-success">
+        <div
+          className="za-notice za-notice--info mb-4 flex items-center gap-2 text-xs"
+          role="status"
+          aria-live="polite"
+        >
           <Check size={14} />
           <span>Profile changes saved successfully!</span>
         </div>
       )}
 
       {profileError && (
-        <div className="mb-4 flex items-center gap-2 rounded-control bg-danger-surface p-3 text-xs text-danger">
+        <div
+          className="za-notice za-notice--error mb-4 flex items-center gap-2 text-xs"
+          role="alert"
+        >
           <AlertTriangle size={14} />
           <span>{profileError}</span>
         </div>
       )}
 
-      <form onSubmit={handleSaveProfile} className="space-y-4">
+      <form onSubmit={handleSaveProfile} className="space-y-5">
         {/* Avatar & Profile Picture */}
         <div className="mb-2 flex items-center gap-4 rounded-control border border-decorative bg-surface-subtle p-4">
           {avatarPreview ? (
@@ -193,13 +201,18 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+          <label
+            htmlFor="profile-name"
+            className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink"
+          >
             Display Name
           </label>
           <input
+            id="profile-name"
             type="text"
             required
             maxLength={MAX_NAME_LENGTH}
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="za-field w-full"
@@ -207,12 +220,17 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+          <label
+            htmlFor="profile-username"
+            className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink"
+          >
             Username (Handle)
           </label>
           <input
+            id="profile-username"
             type="text"
             placeholder="e.g. johnsmith"
+            autoComplete="nickname"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="za-field w-full"
@@ -224,10 +242,14 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+          <label
+            htmlFor="profile-bio"
+            className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink"
+          >
             Bio / Description
           </label>
           <textarea
+            id="profile-bio"
             rows={2}
             maxLength={160}
             value={bio}
@@ -238,10 +260,14 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink">
+          <label
+            htmlFor="profile-country"
+            className="mb-1 block text-xs font-[var(--za-weight-emphasis)] text-ink"
+          >
             Streaming Region (Watch Providers)
           </label>
           <select
+            id="profile-country"
             value={countryCode}
             onChange={(e) => setCountryCode(e.target.value)}
             className="za-field w-full cursor-pointer"
@@ -263,7 +289,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
             id="isPublic"
             checked={isPublic}
             onChange={(e) => setIsPublic(e.target.checked)}
-            className="h-4 w-4 rounded border-decorative"
+            className="h-4 w-4 rounded border-decorative accent-accent"
           />
           <label htmlFor="isPublic" className="cursor-pointer text-xs text-ink">
             Make my media archive publicly accessible
@@ -284,7 +310,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
           </div>
         )}
 
-        <div className="pt-2">
+        <div className="border-t border-decorative pt-4">
           <button
             type="submit"
             disabled={savingProfile}

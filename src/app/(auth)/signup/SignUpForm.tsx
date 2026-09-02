@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp, signIn, authClient } from '@/lib/client/auth-client';
+import { signUp, signIn } from '@/lib/client/auth-client';
 import { AuthCard, AuthField } from '@/components/auth/AuthCard';
 
 export default function SignUpForm() {
@@ -94,12 +94,13 @@ export default function SignUpForm() {
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="grid gap-4">
+      <form onSubmit={handleSubmit} className="grid gap-5">
         <AuthField label="Username" htmlFor="name">
           <input
             id="name"
             type="text"
             required
+            autoComplete="name"
             className="za-field"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -112,6 +113,7 @@ export default function SignUpForm() {
             id="email"
             type="email"
             required
+            autoComplete="email"
             className="za-field"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -125,6 +127,7 @@ export default function SignUpForm() {
             type="password"
             required
             minLength={8}
+            autoComplete="new-password"
             className="za-field"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
