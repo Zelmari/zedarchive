@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPublicStack } from '@/server/stacks';
-import { Layers, ArrowLeft, Star, BookOpen, Tv, Film, Sparkles, Library } from 'lucide-react';
+import { Layers, Star } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 

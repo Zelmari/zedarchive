@@ -32,17 +32,6 @@ export async function getSessionTheme(): Promise<string> {
   }
 }
 
-export async function getUserById(id: string) {
-  const [row] = await db.select().from(userTable).where(eq(userTable.id, id));
-  return row ?? null;
-}
-
-export async function getUserByUsername(username: string) {
-  const clean = username.trim().toLowerCase().replace(/^@/, '');
-  const [row] = await db.select().from(userTable).where(eq(userTable.username, clean));
-  return row ?? null;
-}
-
 export async function getUserProfileById(id: string): Promise<UserProfile | null> {
   const [row] = await db
     .select({

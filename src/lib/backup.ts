@@ -78,8 +78,6 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
   return items;
 }
 
-const ANILIST_LIST_PATH = 'data.MediaListCollection.lists';
-
 interface AniListNode {
   data?: {
     MediaListCollection?: {

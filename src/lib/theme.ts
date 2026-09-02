@@ -1,4 +1,4 @@
-import type { CustomThemePalette, ThemeId } from '@/types/user';
+import type { CustomThemePalette } from '@/types/user';
 
 /**
  * Injects CSS custom properties dynamically for custom user palettes.

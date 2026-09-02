@@ -148,7 +148,6 @@ export async function updateMutation(mutation: QueuedMutation): Promise<void> {
     // no-op
   }
 }
-
 /**
  * Remove a single processed mutation from the outbox.
  */
@@ -174,34 +173,6 @@ export async function removeMutation(id: string): Promise<void> {
     const existing = JSON.parse(localStorage.getItem(LS_FALLBACK_KEY) || '[]');
     const filtered = existing.filter((item: QueuedMutation) => item.id !== id);
     localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(filtered));
-  } catch {
-    // no-op
-  }
-}
-
-/**
- * Clear the entire mutation outbox.
- */
-export async function clearOutbox(): Promise<void> {
-  try {
-    const db = await openDB();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.clear();
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch {
-    // IDB unavailable
-  }
-
-  try {
-    localStorage.removeItem(LS_FALLBACK_KEY);
   } catch {
     // no-op
   }

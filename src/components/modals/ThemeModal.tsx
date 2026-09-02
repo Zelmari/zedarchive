@@ -8,7 +8,7 @@ import { THEMES, CUSTOM_THEME_PRESETS } from '@/lib/constants';
 import { applyCustomThemeTokens } from '@/lib/theme';
 import { getContrastRatio, getWcagLevel } from '@/lib/color';
 import type { CustomThemePalette } from '@/types/user';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/cn';
 
 interface ThemeModalProps {
   isOpen: boolean;

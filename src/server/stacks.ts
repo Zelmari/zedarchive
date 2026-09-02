@@ -167,34 +167,6 @@ export async function createStackAction(params: {
   };
 }
 
-export async function addMediaToStackAction(params: {
-  stackId: string;
-  mediaId: string;
-  annotation?: string | null;
-}): Promise<{ success: boolean }> {
-  const user = await getAuthUser();
-
-  const [stack] = await db
-    .select()
-    .from(stacks)
-    .where(and(eq(stacks.id, params.stackId), eq(stacks.userId, user.id)));
-
-  if (!stack) throw new Error('Stack not found or access denied');
-
-  const id = crypto.randomUUID();
-
-  await db.insert(stackItems).values({
-    id,
-    stackId: params.stackId,
-    mediaId: params.mediaId,
-    orderIndex: 0,
-    annotation: params.annotation?.trim().slice(0, 1000) || null,
-  });
-
-  revalidatePath('/stacks');
-  return { success: true };
-}
-
 export async function deleteStackAction(stackId: string): Promise<{ success: boolean }> {
   const user = await getAuthUser();
 

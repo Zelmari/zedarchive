@@ -45,7 +45,6 @@ export default async function FriendsPage() {
             initialFriends={friends}
             initialIncoming={incoming}
             initialOutgoing={outgoing}
-            currentUserId={session.user.id}
           />
         </div>
       </main>

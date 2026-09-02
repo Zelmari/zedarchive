@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { friendships, user as userTable } from '@/db/schema';
-import { eq, and, or, ilike, desc, isNotNull, ne, count } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, isNotNull, ne } from 'drizzle-orm';
 import type { FriendUserSummary, FriendshipItem } from '@/types/friends';
 
 function toIso(d: Date | string | null | undefined): string {
@@ -217,13 +217,4 @@ export async function searchUsersForFriendDiscovery(
 export async function getFriendIds(userId: string): Promise<string[]> {
   const friends = await getAcceptedFriends(userId);
   return friends.map((f) => f.friend.id);
-}
-
-/** Count pending incoming for badge */
-export async function countPendingIncoming(userId: string): Promise<number> {
-  const [row] = await db
-    .select({ value: count() })
-    .from(friendships)
-    .where(and(eq(friendships.receiverId, userId), eq(friendships.status, 'pending')));
-  return Number(row?.value ?? 0);
 }

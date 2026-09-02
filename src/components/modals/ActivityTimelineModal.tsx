@@ -7,7 +7,7 @@ import { getActivityLogs, getUserStreak, getActivityHeatmap } from '@/server/act
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
 import { ACTIVITY_LOG_FETCH_LIMIT } from '@/lib/constants';
 import type { ActivityLog } from '@/types/activity';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/cn';
 
 interface ActivityTimelineModalProps {
   isOpen: boolean;

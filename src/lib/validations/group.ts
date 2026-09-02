@@ -40,13 +40,3 @@ export const transferGroupOwnershipSchema = z.object({
   groupId: z.string().min(1),
   newOwnerUserId: z.string().min(1),
 });
-
-export const addGroupMembersSchema = z.object({
-  groupId: z.string().min(1),
-  userIds: z.array(z.string().min(1)).min(1),
-});
-
-export const kickGroupMemberSchema = z.object({
-  groupId: z.string().min(1),
-  memberUserId: z.string().min(1),
-});

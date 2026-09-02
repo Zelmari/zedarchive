@@ -134,7 +134,6 @@ export default function GroupWorkspaceClient({
         <GroupChatView
           groupId={group.id}
           initialMessages={messages}
-          currentUserId={currentUserId}
           isOwner={group.isOwner}
           onUpdate={setMessages}
         />

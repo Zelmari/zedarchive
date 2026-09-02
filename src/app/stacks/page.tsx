@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { getMyStacks } from '@/server/stacks';
 import { Layers } from 'lucide-react';
@@ -22,6 +21,7 @@ export default async function StacksPage() {
   }
 
   const initialStacks = await getMyStacks();
+  const username = (session.user as typeof session.user & { username?: string | null }).username;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -42,7 +42,7 @@ export default async function StacksPage() {
             </p>
           </div>
 
-          <StacksClient initialStacks={initialStacks} username={session.user.name || 'user'} />
+          <StacksClient initialStacks={initialStacks} username={username || 'user'} />
         </div>
       </main>
     </div>

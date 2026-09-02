@@ -2,12 +2,9 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Layers, Tv, BookOpen, Plus, AlertTriangle, X } from 'lucide-react';
-import { signOut, authClient } from '@/lib/client/auth-client';
+import { Plus, AlertTriangle, X } from 'lucide-react';
+import { signOut } from '@/lib/client/auth-client';
 import { dismissVerificationNotice, resendVerificationEmailAction } from '@/server/profile';
-import MediaCard from '@/components/cards/MediaCard';
 import AddMediaModal from '@/components/modals/AddMediaModal';
 import MediaDetailModal from '@/components/modals/MediaDetailModal';
 import ThemeModal from '@/components/modals/ThemeModal';
@@ -39,7 +36,6 @@ import {
   updateMediaProgress,
   deleteMediaEntry,
 } from '@/server/media';
-import { initSyncEngine } from '@/lib/offline/syncEngine';
 import { offlineAwareMutation } from '@/lib/offline/offlineAwareMutation';
 
 type CardItem = MediaEntry;
@@ -112,12 +108,6 @@ export default function DashboardClient({
   const [nextAirMap, setNextAirMap] = useState<NextAirMap>({});
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
-  // Initialize offline sync engine on mount
-  useEffect(() => {
-    const cleanup = initSyncEngine();
-    return cleanup;
-  }, []);
-
   const modals = useModalManager();
 
   // Global Cmd+K / Ctrl+K keyboard listener
@@ -149,8 +139,7 @@ export default function DashboardClient({
   }, []);
 
   const filters = useMediaFilters(entries, activeTab);
-  const { searchQuery, setSearchQuery, statusFilter, selectedTag, displayedEntries, counts } =
-    filters;
+  const { searchQuery, setSearchQuery, statusFilter, selectedTag, displayedEntries } = filters;
 
   const closeAddModal = () => {
     modals.close();
@@ -603,14 +592,7 @@ export default function DashboardClient({
             selectedTag={selectedTag}
             onTagChange={filters.setSelectedTag}
             tags={filters.allTags}
-            counts={{
-              all: counts.all,
-              in_progress: counts.in_progress,
-              completed: counts.completed,
-              planning: counts.planning,
-              on_hold: counts.on_hold,
-              dropped: counts.dropped,
-            }}
+            counts={filters.counts}
             onOpenModal={(m) => modals.open(m)}
           />
 
