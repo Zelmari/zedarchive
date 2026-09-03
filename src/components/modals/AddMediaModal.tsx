@@ -1,362 +1,197 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, ArrowLeft } from 'lucide-react';
-import { compressImageFile, fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
-import Modal from '@/components/ui/Modal';
+import { useState, useEffect } from 'react';
+import { fetchAndCompressRemoteImage } from '@/lib/client/image-utils';
 import SpotlightSearchModal, {
   type SpotlightResult,
 } from '@/components/modals/SpotlightSearchModal';
-import MediaEditForm, { type MediaFormState } from '@/components/forms/MediaEditForm';
-import { seasonTotal } from '@/lib/season';
-import type { MediaCategory, MediaEntry } from '@/types/media';
+import type { MediaCategory } from '@/types/media';
 
 // Persist the last-used category across modal open/close within this page session
 let lastCategory: MediaCategory | null = null;
-
-const EMPTY_FORM: MediaFormState = {
-  title: '',
-  status: 'in_progress',
-  dropReason: '',
-  rating: null,
-  primaryUnitTotal: '1',
-  primaryUnitCurrent: '1',
-  secondaryUnitTotal: '',
-  secondaryUnitCurrent: '0',
-  structure: [],
-  sourceId: '',
-  notes: '',
-  coverImage: null,
-  isPrivate: false,
-};
 
 interface AddMediaModalProps {
   isOpen: boolean;
   onClose: () => void;
   type?: MediaCategory;
-  onAdd?: (payload: Record<string, unknown>) => Promise<unknown>;
-  editItem?: MediaEntry | null;
-  onSave?: ((id: string, payload: Record<string, unknown>) => Promise<unknown>) | null;
+  onAdd: (payload: Record<string, unknown>) => Promise<unknown>;
+  onCreated?: (entry: unknown) => void;
 }
 
 /**
- * Orchestrator for media creation/editing. Delegates the spotlight search
- * view and the manual form to dedicated components.
+ * Search-only create-then-folio flow.
+ * Mounts SpotlightSearchModal and stub-creates or commits the selected search result,
+ * then closes and reports the created entry via onCreated.
  */
 export default function AddMediaModal({
   isOpen,
   onClose,
   type = 'show',
   onAdd,
-  editItem = null,
-  onSave = null,
+  onCreated,
 }: AddMediaModalProps) {
-  const isEditMode = !!editItem;
   const initialCategory: MediaCategory = type ?? 'show';
   const [category, setCategory] = useState<MediaCategory>(() => lastCategory || initialCategory);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+
   const updateCategory = (next: MediaCategory) => {
     lastCategory = next;
     setCategory(next);
   };
 
-  // View Mode: 'search' (Spotlight-first) or 'manual' (Full form)
-  const [viewMode, setViewMode] = useState<'search' | 'manual'>(() =>
-    isEditMode ? 'manual' : 'search',
-  );
-
-  // Form state
-  const [form, setForm] = useState<MediaFormState>(EMPTY_FORM);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverRequestRef = useRef(0);
-
-  const resetForm = useCallback(() => {
-    if (editItem) {
-      const cat = editItem.category || 'show';
-      setCategory(cat);
-      setForm({
-        title: String(editItem.title || ''),
-        status: String(editItem.status || 'in_progress'),
-        dropReason: String(editItem.dropReason || ''),
-        rating: editItem.rating != null ? Number(editItem.rating) : null,
-        primaryUnitTotal:
-          editItem.primaryUnitTotal != null ? String(editItem.primaryUnitTotal) : '',
-        primaryUnitCurrent:
-          editItem.primaryUnitCurrent != null
-            ? String(editItem.primaryUnitCurrent)
-            : cat === 'movie'
-              ? '0'
-              : '1',
-        secondaryUnitTotal:
-          editItem.secondaryUnitTotal != null ? String(editItem.secondaryUnitTotal) : '',
-        secondaryUnitCurrent:
-          editItem.secondaryUnitCurrent != null ? String(editItem.secondaryUnitCurrent) : '0',
-        structure: Array.isArray(editItem.structure) ? editItem.structure : [],
-        sourceId: String(editItem.sourceId || ''),
-        notes: String(editItem.notes || ''),
-        coverImage: (editItem.coverImage as string | null) || null,
-        isPrivate: Boolean(editItem.isPrivate),
-      });
-    } else {
-      setCategory(initialCategory);
-      setForm(EMPTY_FORM);
-    }
-  }, [editItem, initialCategory]);
-
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
-      resetForm();
-      setViewMode(isEditMode ? 'manual' : 'search');
-      setError('');
+      if (lastCategory) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync category on open
+        setCategory(lastCategory);
+      } else if (type) {
+        setCategory(type);
+      }
+      setCreateError('');
     }
-  }, [isOpen, resetForm, isEditMode]);
-
-  const resetAndClose = useCallback(() => {
-    if (isSubmitting || isCompressing) return;
-    setError('');
-    onClose();
-  }, [onClose, isSubmitting, isCompressing]);
+  }, [isOpen, type]);
 
   if (!isOpen) return null;
 
-  const setField = <K extends keyof MediaFormState>(field: K, value: MediaFormState[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleClose = () => {
+    if (isSubmitting) return;
+    setCreateError('');
+    onClose();
   };
 
   const handleSelectResult = async (item: SpotlightResult) => {
-    const isMovie = category === 'movie';
-
-    setForm({
-      title: item.title || '',
-      status: 'in_progress',
-      dropReason: '',
-      rating: null,
-      primaryUnitTotal: String(item.primaryUnitTotal || 1),
-      primaryUnitCurrent: isMovie ? '0' : '1',
-      secondaryUnitTotal: item.secondaryUnitTotal ? String(item.secondaryUnitTotal) : '',
-      secondaryUnitCurrent: '0',
-      structure: item.structure || [],
-      sourceId: item.sourceId || '',
-      notes: '',
-      coverImage: item.coverUrl || null,
-      isPrivate: false,
-    });
-    setViewMode('manual');
-
-    // Fetch and compress remote poster
-    if (item.coverUrl) {
-      const requestId = ++coverRequestRef.current;
-      setIsCompressing(true);
-      try {
-        const compressedBase64 = await fetchAndCompressRemoteImage(item.coverUrl, 320, 480, 0.7);
-        if (coverRequestRef.current !== requestId) return;
-        setForm((prev) => ({ ...prev, coverImage: compressedBase64 || item.coverUrl || null }));
-      } catch (imgErr) {
-        console.warn('Failed to compress remote cover:', imgErr);
-        if (coverRequestRef.current !== requestId) return;
-        setForm((prev) => ({ ...prev, coverImage: item.coverUrl || null }));
-      } finally {
-        if (coverRequestRef.current === requestId) {
-          setIsCompressing(false);
-        }
-      }
-    }
-  };
-
-  // =========================================================================
-  // VIEW MODE 1: SPOTLIGHT SEARCH-FIRST WINDOW
-  // =========================================================================
-  if (viewMode === 'search') {
-    // Spotlight owns Escape and closes the complete add flow; AddMedia only
-    // mounts its own Modal for the manual view so one focus trap is active.
-    return (
-      <SpotlightSearchModal
-        isOpen
-        category={category}
-        onCategoryChange={updateCategory}
-        onClose={resetAndClose}
-        onManualEnter={(query) => {
-          setForm((prev) => ({
-            ...prev,
-            title: query || prev.title || '',
-            primaryUnitCurrent: category === 'movie' ? '0' : '1',
-            primaryUnitTotal: category === 'movie' ? '1' : prev.primaryUnitTotal,
-            secondaryUnitCurrent: '0',
-          }));
-          setViewMode('manual');
-        }}
-        onSelectResult={handleSelectResult}
-      />
-    );
-  }
-
-  // =========================================================================
-  // VIEW MODE 2: FULL EDIT / MANUAL CREATION VIEW
-  // =========================================================================
-  const handlePrimaryUnitChange = (val: string) => {
-    setField('primaryUnitCurrent', val);
-    const seasonNum = parseInt(val, 10);
-    if (!isNaN(seasonNum) && form.structure.length > 0) {
-      const total = seasonTotal(form.structure, seasonNum);
-      if (total !== null) {
-        setField('secondaryUnitTotal', String(total));
-        return;
-      }
-    }
-    setField('secondaryUnitTotal', '');
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setError('');
-    setIsCompressing(true);
-    try {
-      const compressedDataUrl = await compressImageFile(file, 320, 480, 0.7);
-      setField('coverImage', compressedDataUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process image');
-    } finally {
-      setIsCompressing(false);
-    }
-  };
-
-  const handleImageRemove = () => {
-    setField('coverImage', null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) {
-      setError('Please enter a title');
+    if (isSubmitting) return;
+    if (!onAdd) {
+      console.error('onAdd is required');
       return;
     }
 
-    setError('');
+    const isMovie = category === 'movie';
+    const rawPrimaryTot = item.primaryUnitTotal != null ? item.primaryUnitTotal : 1;
+    const parsedPrimaryTot = parseInt(String(rawPrimaryTot), 10);
+    const primaryUnitTotal = isNaN(parsedPrimaryTot) ? 1 : Math.max(1, parsedPrimaryTot);
+    const primaryUnitCurrent = isMovie ? 0 : 1;
+
+    let secondaryUnitTotal: number | null = null;
+    if (item.secondaryUnitTotal != null && String(item.secondaryUnitTotal).trim() !== '') {
+      const parsedSecTot = parseInt(String(item.secondaryUnitTotal), 10);
+      if (!isNaN(parsedSecTot)) {
+        secondaryUnitTotal = Math.max(0, parsedSecTot);
+      }
+    }
+    const secondaryUnitCurrent = 0;
+
     setIsSubmitting(true);
+    setCreateError('');
+
+    let coverImage: string | null = item.coverUrl || null;
+    if (item.coverUrl) {
+      try {
+        const compressedBase64 = await fetchAndCompressRemoteImage(item.coverUrl, 320, 480, 0.7);
+        if (compressedBase64) {
+          coverImage = compressedBase64;
+        }
+      } catch (imgErr) {
+        console.warn('Failed to compress remote cover:', imgErr);
+        coverImage = item.coverUrl;
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      title: (item.title || '').trim(),
+      category,
+      status: 'in_progress',
+      dropReason: null,
+      rating: null,
+      primaryUnitCurrent,
+      primaryUnitTotal,
+      secondaryUnitCurrent,
+      secondaryUnitTotal,
+      structure: item.structure || [],
+      sourceId: item.sourceId || null,
+      notes: null,
+      coverImage,
+      isPrivate: false,
+    };
 
     try {
-      const parsedPrimaryCur = parseInt(form.primaryUnitCurrent, 10);
-      const parsedPrimaryTot =
-        form.primaryUnitTotal && String(form.primaryUnitTotal).trim()
-          ? parseInt(String(form.primaryUnitTotal), 10)
-          : null;
-      const parsedSecCur = parseInt(form.secondaryUnitCurrent, 10);
-      const parsedSecTot =
-        form.secondaryUnitTotal && String(form.secondaryUnitTotal).trim()
-          ? parseInt(String(form.secondaryUnitTotal), 10)
-          : null;
-
-      const payload: Record<string, unknown> = {
-        title: form.title.trim(),
-        category,
-        status: form.status,
-        dropReason:
-          form.status === 'dropped' && form.dropReason?.trim() ? form.dropReason.trim() : null,
-        rating: form.rating != null ? parseInt(String(form.rating), 10) : null,
-        primaryUnitCurrent: isNaN(parsedPrimaryCur)
-          ? category === 'movie'
-            ? 0
-            : 1
-          : Math.max(category === 'movie' ? 0 : 1, parsedPrimaryCur),
-        primaryUnitTotal:
-          parsedPrimaryTot === null || isNaN(parsedPrimaryTot)
-            ? null
-            : Math.max(1, parsedPrimaryTot),
-        secondaryUnitCurrent: isNaN(parsedSecCur) ? 0 : Math.max(0, parsedSecCur),
-        secondaryUnitTotal:
-          parsedSecTot === null || isNaN(parsedSecTot) ? null : Math.max(0, parsedSecTot),
-        structure: form.structure || [],
-        coverImage: form.coverImage || null,
-        sourceId: form.sourceId || null,
-        notes: form.notes.trim() || null,
-        isPrivate: Boolean(form.isPrivate),
-      };
-
-      if (isEditMode && onSave) {
-        await onSave(editItem!.id, payload);
-      } else if (onAdd) {
-        await onAdd(payload);
-      }
-      setError('');
+      const created = await onAdd(payload);
       onClose();
+      if (created && typeof created === 'object') {
+        onCreated?.(created);
+      }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : isEditMode
-            ? 'Failed to update entry'
-            : 'Failed to create entry',
-      );
+      console.error('Failed to create entry from search:', err);
+      setCreateError(err instanceof Error ? err.message : 'Failed to create entry');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const headerCloseBtn = (
-    <button
-      type="button"
-      onClick={resetAndClose}
-      aria-label="Close modal"
-      className="za-modal-close"
-    >
-      <X size={18} strokeWidth={2} />
-    </button>
-  );
+  const handleManualEnter = async (query: string) => {
+    if (isSubmitting) return;
+    if (!onAdd) {
+      console.error('onAdd is required');
+      return;
+    }
+
+    const isMovie = category === 'movie';
+    const payload: Record<string, unknown> = {
+      title: query.trim(),
+      category,
+      status: 'in_progress',
+      dropReason: null,
+      rating: null,
+      primaryUnitCurrent: isMovie ? 0 : 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 0,
+      secondaryUnitTotal: null,
+      structure: [],
+      sourceId: null,
+      notes: null,
+      coverImage: null,
+      isPrivate: false,
+    };
+
+    try {
+      setIsSubmitting(true);
+      setCreateError('');
+      const created = await onAdd(payload);
+      onClose();
+      if (created && typeof created === 'object') {
+        onCreated?.(created);
+      }
+    } catch (err) {
+      console.error('Failed to create entry manually:', err);
+      setCreateError(err instanceof Error ? err.message : 'Failed to create entry');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={resetAndClose}
-      labelledBy="add-media-modal-title"
-      initialFocusRef={titleInputRef}
-      contentClassName="max-w-[44rem] overflow-y-auto"
-    >
-      <div className="flex items-center justify-between border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
-        {!isEditMode && (
-          <button
-            type="button"
-            onClick={() => setViewMode('search')}
-            className="za-button za-button--tertiary min-h-0 gap-1 px-0 py-0 text-xs"
-          >
-            <ArrowLeft size={14} />
-            <span>Back to Search</span>
-          </button>
-        )}
-        <h2
-          id="add-media-modal-title"
-          className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+    <>
+      {(createError || isSubmitting) && (
+        <div
+          role={createError ? 'alert' : 'status'}
+          className={`fixed top-4 left-1/2 z-[70] max-w-md -translate-x-1/2 rounded-md border px-4 py-2 text-xs font-[var(--za-weight-emphasis)] shadow-lg backdrop-blur ${
+            createError
+              ? 'border-danger/40 bg-danger/10 text-danger'
+              : 'border-decorative bg-surface text-ink'
+          }`}
         >
-          {isEditMode ? 'Edit Entry' : 'Manual Entry'}
-        </h2>
-        {headerCloseBtn}
-      </div>
-
-      <MediaEditForm
-        isEditMode={isEditMode}
+          {createError || 'Adding to archive…'}
+        </div>
+      )}
+      <SpotlightSearchModal
+        isOpen={isOpen}
         category={category}
         onCategoryChange={updateCategory}
-        titleInputRef={titleInputRef}
-        form={form}
-        onFieldChange={(field, value) => setField(field, value)}
-        onPrimaryUnitCurrentChange={handlePrimaryUnitChange}
-        onImageUpload={handleImageUpload}
-        onImageRemove={handleImageRemove}
-        isCompressing={isCompressing}
-        isSubmitting={isSubmitting}
-        error={error}
-        onSubmit={handleSubmit}
-        onCancel={resetAndClose}
+        onClose={handleClose}
+        onManualEnter={handleManualEnter}
+        onSelectResult={handleSelectResult}
       />
-    </Modal>
+    </>
   );
 }

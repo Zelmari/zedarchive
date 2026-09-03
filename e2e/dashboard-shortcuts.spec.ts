@@ -26,14 +26,32 @@ test.describe('mouse-first dashboard navigation & dialogs', () => {
     await expect(spotlight).toBeVisible();
     await expect(spotlight).toBeFocused();
 
-    // Click "Create manually instead →" button
+    // Click "Create manually instead →" button with empty query
     await page.getByRole('button', { name: /Create manually instead/i }).click();
-    const titleInput = page.getByPlaceholder(/e\.g\. Frieren: Beyond Journey's End/);
-    await expect(titleInput).toBeVisible();
 
-    // Escape closes the manual form
+    // Empty query stays on Spotlight with "Title required"
+    await expect(spotlight).toBeVisible();
+    await expect(
+      page
+        .getByRole('alert')
+        .or(page.getByText(/Title required/i))
+        .first(),
+    ).toBeVisible();
+
+    // Type a title and create manually
+    await spotlight.fill('Manual Folio Title');
+    await page.getByRole('button', { name: /Create manually instead/i }).click();
+
+    // Opens folio inspector
+    const folio = page
+      .getByRole('dialog', { name: /Manual Folio Title/i })
+      .or(page.getByRole('heading', { name: /Manual Folio Title/i }))
+      .first();
+    await expect(folio).toBeVisible({ timeout: 15_000 });
+
+    // Escape closes the folio
     await page.keyboard.press('Escape');
-    await expect(titleInput).toBeHidden();
+    await expect(folio).toBeHidden();
   });
 
   test('mouse clicking tabs switches views without relying on hotkeys', async ({ page }) => {
