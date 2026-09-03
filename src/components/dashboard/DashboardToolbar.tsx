@@ -58,8 +58,8 @@ export default function DashboardToolbar({
     <div className="mb-[var(--za-space-6)] flex flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
       {/* Top row: search & sort (left) + auxiliary actions (right) */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
-        <div className="flex max-w-[32rem] flex-[1_1_20rem] items-center gap-2">
-          <div className="relative min-w-40 flex-1">
+        <div className="flex min-w-0 w-full flex-col gap-2 sm:max-w-[32rem] sm:flex-[1_1_20rem] sm:flex-row sm:items-center">
+          <div className="relative min-w-0 w-full flex-1">
             <Search
               size={15}
               className="pointer-events-none absolute left-[0.7rem] top-1/2 z-[1] -translate-y-1/2 text-ink-muted"
@@ -90,7 +90,7 @@ export default function DashboardToolbar({
           </div>
 
           <select
-            className="za-field h-[var(--za-control-min-block-size)] w-auto min-w-40 shrink-0 cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
+            className="za-field h-[var(--za-control-min-block-size)] w-full min-w-0 sm:w-auto cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
             value={sortBy}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
             aria-label="Sort Archive"
