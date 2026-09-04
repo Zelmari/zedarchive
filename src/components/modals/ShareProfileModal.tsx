@@ -224,14 +224,14 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
 
           {/* Link preview + copy */}
           {publicUrl ? (
-            <div className="mb-[var(--za-space-4)] flex items-center justify-between gap-3 rounded-small border border-required bg-surface px-[var(--za-space-3)] py-2 shadow-raised">
-              <span className="truncate font-[var(--za-font-mono)] text-[0.68rem] text-ink">
+            <div className="mb-[var(--za-space-4)] flex flex-col gap-2 rounded-small border border-required bg-surface px-[var(--za-space-3)] py-2 shadow-raised sm:flex-row sm:items-center sm:justify-between">
+              <span className="min-w-0 [overflow-wrap:anywhere] font-[var(--za-font-mono)] text-[0.68rem] text-ink">
                 {publicUrl}
               </span>
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="za-button za-button--secondary ml-2 min-h-0 shrink-0 gap-1 px-2 py-1 text-[0.68rem] text-accent"
+                className="za-button za-button--secondary shrink-0 gap-1 px-2 text-[0.68rem] text-accent"
               >
                 {copied ? <Check size={13} /> : <Copy size={13} />}
                 {copied ? 'Copied!' : 'Copy'}
@@ -240,7 +240,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
           ) : null}
 
           {/* Footer */}
-          <div className="mt-[var(--za-space-5)] flex justify-end gap-[var(--za-space-3)]">
+          <div className="mt-[var(--za-space-5)] flex flex-wrap justify-end gap-[var(--za-space-3)]">
             <button type="button" className="za-button za-button--secondary" onClick={onClose}>
               Cancel
             </button>

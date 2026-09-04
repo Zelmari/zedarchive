@@ -555,7 +555,7 @@ export default function DashboardClient({
                   className="za-button za-button--primary"
                   onClick={() => modals.open('add')}
                   title="Add media"
-                  aria-label={activeTab === 'total' ? 'Add Media' : undefined}
+                  aria-label={`Add ${activeTab === 'books' ? 'Book' : 'Media'}`}
                 >
                   <Plus size={16} strokeWidth={2.2} />
                   <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>

@@ -1025,14 +1025,16 @@ export default function MediaDetailModal({
       contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
     >
       <div className="relative">
-        <button
-          type="button"
-          aria-label="Close modal"
-          onClick={handleClose}
-          className="za-modal-close absolute right-[var(--za-space-4)] top-[var(--za-space-4)] z-10"
-        >
-          <X size={18} strokeWidth={2} />
-        </button>
+        <div className="sticky top-0 z-20 flex justify-end border-b border-decorative bg-canvas/95 px-[var(--za-space-4)] py-[var(--za-space-2)] backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close modal"
+            onClick={handleClose}
+            className="za-modal-close"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
 
         <div className="za-folio-spread">
           {/* Left Column */}
@@ -1063,7 +1065,7 @@ export default function MediaDetailModal({
                 </span>
               </div>
               <div
-                className="flex flex-wrap gap-0.5"
+                className="flex flex-wrap gap-[var(--za-space-1)]"
                 role="radiogroup"
                 aria-label="Rating from 1 to 10"
               >
@@ -1080,7 +1082,7 @@ export default function MediaDetailModal({
                       title={`Rate ${score} out of 10`}
                       onClick={() => handleRatingChange(score)}
                       disabled={isUpdating}
-                      className={`flex h-7 w-6 cursor-pointer items-center justify-center rounded-small border text-gold transition-[all] duration-[var(--za-motion-fast)] hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed ${
+                      className={`za-icon-hit cursor-pointer rounded-small border text-gold transition-[all] duration-[var(--za-motion-fast)] hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed ${
                         isRated ? 'border-gold/50 bg-gold/10' : 'border-transparent'
                       }`}
                     >
@@ -1212,7 +1214,7 @@ export default function MediaDetailModal({
 
           {/* Right Column */}
           <section className="min-w-0 p-[var(--za-space-6)] md:p-[var(--za-space-8)]">
-            <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)] pr-10">
+            <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)]">
               <div
                 className="mb-2 flex flex-wrap gap-1.5"
                 role="radiogroup"
@@ -1228,7 +1230,7 @@ export default function MediaDetailModal({
                       aria-checked={active}
                       disabled={isUpdating}
                       onClick={() => void handleCategoryChange(id)}
-                      className={`za-button ${active ? 'za-button--selected' : 'za-button--secondary'} min-h-0 px-2 py-0.5 text-xs inline-flex items-center gap-1`}
+                      className={`za-button ${active ? 'za-button--selected' : 'za-button--secondary'} px-2 text-xs inline-flex items-center gap-1`}
                     >
                       <Icon size={12} strokeWidth={2} />
                       <span>{label}</span>
@@ -1296,8 +1298,8 @@ export default function MediaDetailModal({
 
             {status === 'dropped' && (
               <div className="za-notice za-notice--error mb-[var(--za-space-5)]">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2">
+                <div className="flex flex-col gap-[var(--za-space-3)] sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-2">
                     <BookmarkX size={16} className="mt-0.5 shrink-0 text-danger" />
                     <div>
                       <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger">
@@ -1324,18 +1326,18 @@ export default function MediaDetailModal({
                       )}
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
                     <button
                       type="button"
                       onClick={openDropReason}
-                      className="za-button za-button--secondary min-h-0 px-2 py-1 text-xs"
+                      className="za-button za-button--secondary text-xs"
                     >
                       Edit Reason
                     </button>
                     <button
                       type="button"
                       onClick={() => void runUpdate({ status: 'in_progress' })}
-                      className="za-button za-button--primary min-h-0 px-2 py-1 text-xs"
+                      className="za-button za-button--primary text-xs"
                     >
                       Resume
                     </button>

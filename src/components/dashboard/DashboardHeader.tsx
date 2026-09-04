@@ -75,19 +75,39 @@ export default function DashboardHeader({
               </span>
             </button>
           ))}
-          <Link href="/friends" className="za-button za-button--tertiary" title="Friends">
+          <Link
+            href="/friends"
+            className="za-button za-button--tertiary"
+            title="Friends"
+            aria-label="Friends"
+          >
             <Users size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Friends</span>
           </Link>
-          <Link href="/groups" className="za-button za-button--tertiary" title="Groups">
+          <Link
+            href="/groups"
+            className="za-button za-button--tertiary"
+            title="Groups"
+            aria-label="Groups"
+          >
             <MessageSquare size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Groups</span>
           </Link>
-          <Link href="/stacks" className="za-button za-button--tertiary" title="Stacks">
+          <Link
+            href="/stacks"
+            className="za-button za-button--tertiary"
+            title="Stacks"
+            aria-label="Stacks"
+          >
             <Library size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Stacks</span>
           </Link>
-          <Link href="/wrapped" className="za-button za-button--tertiary" title="Wrapped">
+          <Link
+            href="/wrapped"
+            className="za-button za-button--tertiary"
+            title="Wrapped"
+            aria-label="Wrapped"
+          >
             <Sparkles size={16} strokeWidth={1.75} />
             <span className="hidden sm:inline">Wrapped</span>
           </Link>

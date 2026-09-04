@@ -47,7 +47,7 @@ export default function ErrorFallback({
         <p className="mb-6 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           {message}
         </p>
-        <div className={`flex justify-center ${buttonGapClass}`}>
+        <div className={`flex flex-wrap justify-center ${buttonGapClass}`}>
           <button type="button" className="za-button za-button--primary" onClick={() => reset()}>
             Try Again
           </button>

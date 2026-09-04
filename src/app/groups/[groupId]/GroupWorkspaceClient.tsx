@@ -123,19 +123,19 @@ export default function GroupWorkspaceClient({
       <div className="flex flex-wrap gap-2 border-b border-decorative pb-4">
         <button
           onClick={() => setTab('chat')}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'chat' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
+          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'chat' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <MessageSquare size={14} /> Group Chat
         </button>
         <button
           onClick={() => setTab('archive')}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'archive' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
+          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'archive' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <Library size={14} /> Group Archive
         </button>
         <button
           onClick={() => setTab('members')}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'members' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
+          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'members' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
         >
           <Users size={14} /> Members ({group.members.length})
         </button>

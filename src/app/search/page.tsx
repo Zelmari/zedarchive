@@ -37,7 +37,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </Link>
             ) : (
               <div className="flex items-center gap-3">
-                <Link href="/login" className="za-link text-xs">
+                <Link
+                  href="/login"
+                  className="za-link inline-flex min-h-[var(--za-control-min-block-size)] items-center text-xs"
+                >
                   Log in
                 </Link>
                 <Link href="/signup" className="za-button za-button--primary text-xs">

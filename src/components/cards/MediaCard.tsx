@@ -187,7 +187,7 @@ export default function MediaCard({
     : {};
 
   const miniActionBtn =
-    'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+    'za-icon-hit cursor-pointer rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
 
   return (
     <article
@@ -229,7 +229,7 @@ export default function MediaCard({
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
           <div className="flex flex-col gap-1">
             {/* Top action buttons (anchored top-right) */}
-            <div className="flex items-center justify-end gap-[var(--za-space-1)]">
+            <div className="flex items-center justify-end gap-[var(--za-space-2)]">
               <button
                 type="button"
                 className={`${miniActionBtn} ${

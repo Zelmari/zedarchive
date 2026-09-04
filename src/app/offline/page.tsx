@@ -34,8 +34,8 @@ export default function OfflinePage() {
             </p>
           </header>
 
-          <div className="flex justify-center gap-3">
-            <Link href="/dashboard" className="za-button za-button--primary">
+          <div className="flex w-full justify-center">
+            <Link href="/dashboard" className="za-button za-button--primary w-full">
               Retry connection
             </Link>
           </div>

@@ -32,7 +32,7 @@ export default function FolioNotes({
           <button
             type="button"
             onClick={() => setNotesTab('write')}
-            className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+            className={`min-h-[var(--za-control-min-block-size)] rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
               notesTab === 'write'
                 ? 'border border-required bg-surface text-ink'
                 : 'text-ink-muted hover:text-ink'
@@ -43,7 +43,7 @@ export default function FolioNotes({
           <button
             type="button"
             onClick={() => setNotesTab('preview')}
-            className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+            className={`min-h-[var(--za-control-min-block-size)] rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
               notesTab === 'preview'
                 ? 'border border-accent bg-accent/15 text-accent'
                 : 'text-ink-muted hover:text-ink'

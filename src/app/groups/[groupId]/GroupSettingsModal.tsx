@@ -271,7 +271,7 @@ export default function GroupSettingsModal({
                       <button
                         onClick={() => handleTransfer(m.userId)}
                         disabled={pending}
-                        className="za-button za-button--tertiary min-h-0 px-2 py-1 text-[length:var(--za-text-fine)] disabled:opacity-50"
+                        className="za-button za-button--tertiary text-[length:var(--za-text-fine)] disabled:opacity-50"
                         title="Transfer ownership"
                       >
                         Transfer
@@ -279,7 +279,7 @@ export default function GroupSettingsModal({
                       <button
                         onClick={() => handleKick(m.userId)}
                         disabled={pending}
-                        className="za-button za-button--tertiary min-h-0 px-2 py-1 text-[length:var(--za-text-fine)] disabled:opacity-50"
+                        className="za-button za-button--tertiary text-[length:var(--za-text-fine)] disabled:opacity-50"
                         title="Kick member"
                       >
                         <UserMinus size={12} />

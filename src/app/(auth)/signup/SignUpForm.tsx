@@ -61,8 +61,8 @@ export default function SignUpForm() {
         title="Check your email"
         subtitle={
           <>
-            We sent a verification link to <strong>{email}</strong>. Please check your inbox and
-            click the link to activate your account.
+            We sent a verification link to <strong className="break-all">{email}</strong>. Please
+            check your inbox and click the link to activate your account.
           </>
         }
       >

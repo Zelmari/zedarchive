@@ -195,7 +195,7 @@ export default function UserSearchCombobox({
             <button
               type="button"
               onClick={handleClear}
-              className="flex cursor-pointer items-center justify-center rounded-small p-1 text-ink-muted hover:text-ink"
+              className="za-icon-hit cursor-pointer rounded-small p-0 text-ink-muted hover:text-ink"
               aria-label="Clear search query"
             >
               <X size={14} />
@@ -249,11 +249,11 @@ export default function UserSearchCombobox({
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline gap-1.5 truncate">
-                            <span className="font-[var(--za-font-editorial)] text-base text-ink">
+                          <div className="flex min-w-0 items-baseline gap-1.5">
+                            <span className="min-w-0 truncate font-[var(--za-font-editorial)] text-base text-ink">
                               {item.name}
                             </span>
-                            <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                            <span className="min-w-0 truncate font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                               @{item.username}
                             </span>
                           </div>

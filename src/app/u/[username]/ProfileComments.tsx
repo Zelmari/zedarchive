@@ -258,7 +258,7 @@ export default function ProfileComments({
                 {canDelete && !comment._pending && (
                   <button
                     type="button"
-                    className="za-button za-button--tertiary min-h-0 shrink-0 cursor-pointer border-none p-1 text-ink-muted hover:text-danger"
+                    className="za-button za-button--tertiary za-icon-hit shrink-0 cursor-pointer border-none p-0 text-ink-muted hover:text-danger"
                     onClick={() => handleDelete(comment.id)}
                     aria-label={`Delete comment by ${comment.authorUsername ? `@${comment.authorUsername}` : comment.authorName || 'Anonymous'}`}
                     title={

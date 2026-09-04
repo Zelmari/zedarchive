@@ -965,10 +965,19 @@ select.za-field {
   box-shadow: var(--za-shadow-layered);
 }
 
+.za-icon-hit {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--za-control-min-block-size);
+  block-size: var(--za-control-min-block-size);
+}
+
 .za-modal-close {
   display: inline-flex;
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: var(--za-control-min-block-size);
+  block-size: var(--za-control-min-block-size);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -1488,12 +1497,15 @@ select.za-field {
 /* Landing-page overrides — keep account actions compact in the masthead. */
 .za-landing .za-button {
   border-radius: var(--za-radius-small);
-  min-block-size: 2.4rem;
+  min-block-size: var(--za-control-min-block-size);
   padding: 0 1.1rem;
   font-size: 0.875rem;
 }
 
 .za-landing .za-site-header__nav .za-link {
+  display: inline-flex;
+  min-block-size: var(--za-control-min-block-size);
+  align-items: center;
   font-size: 0.875rem;
   color: var(--za-color-text-muted);
   text-decoration: none;

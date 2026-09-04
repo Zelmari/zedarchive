@@ -72,7 +72,7 @@ export default function ConfirmModal({
         </div>
       </div>
 
-      <div className="flex justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-sunken px-[var(--za-space-6)] py-[var(--za-space-4)]">
+      <div className="flex flex-wrap justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-sunken px-[var(--za-space-6)] py-[var(--za-space-4)]">
         <button type="button" className="za-button za-button--secondary" onClick={onCancel}>
           {cancelText}
         </button>

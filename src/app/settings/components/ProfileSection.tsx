@@ -186,7 +186,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
                   onClick={() => void applyAvatar(preset.url)}
                   title={preset.label}
                   aria-label={`Use ${preset.label} preset avatar`}
-                  className="h-8 w-8 cursor-pointer overflow-hidden rounded-full border border-decorative transition-transform hover:scale-105 disabled:opacity-60"
+                  className="h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] cursor-pointer overflow-hidden rounded-full border border-decorative transition-transform hover:scale-105 disabled:opacity-60"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG presets */}
                   <img src={preset.url} alt="" className="h-full w-full object-cover" />

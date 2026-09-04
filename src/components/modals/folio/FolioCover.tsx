@@ -52,7 +52,7 @@ export default function FolioCover({
             type="button"
             onClick={onOpenFilePicker}
             disabled={isCompressing || isUpdating}
-            className="za-button za-button--secondary min-h-0 bg-surface/90 px-2.5 py-1 text-[11px] backdrop-blur-sm hover:bg-surface"
+            className="za-button za-button--secondary bg-surface/90 px-2.5 text-[11px] backdrop-blur-sm hover:bg-surface"
           >
             {coverImage ? 'Replace' : 'Upload'}
           </button>
@@ -61,7 +61,7 @@ export default function FolioCover({
               type="button"
               onClick={() => void onRemoveCover()}
               disabled={isCompressing || isUpdating}
-              className="za-button za-button--secondary min-h-0 bg-surface/90 px-2.5 py-1 text-[11px] text-danger backdrop-blur-sm hover:bg-danger-surface hover:text-danger"
+              className="za-button za-button--secondary bg-surface/90 px-2.5 text-[11px] text-danger backdrop-blur-sm hover:bg-danger-surface hover:text-danger"
             >
               Remove
             </button>

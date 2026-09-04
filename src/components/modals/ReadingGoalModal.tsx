@@ -140,7 +140,7 @@ export default function ReadingGoalModal({
                   key={t}
                   type="button"
                   onClick={() => setTargetInput(String(t))}
-                  className={`cursor-pointer rounded-small border px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] transition-[all] ${
+                  className={`min-h-[var(--za-control-min-block-size)] cursor-pointer rounded-small border px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] transition-[all] ${
                     targetInput === String(t)
                       ? 'border-accent bg-accent text-on-accent'
                       : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'

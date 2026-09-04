@@ -16,7 +16,7 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
     <div className="min-h-screen bg-canvas text-ink">
       {/* Header */}
       <SubPageHeader variant="sticky" backLink={{ href: '/dashboard', label: 'Dashboard' }}>
-        <h1 className="truncate font-[var(--za-font-display)] text-base font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
+        <h1 className="min-w-0 font-[var(--za-font-display)] text-base font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.06em] text-ink [overflow-wrap:anywhere]">
           Settings & Account
         </h1>
       </SubPageHeader>

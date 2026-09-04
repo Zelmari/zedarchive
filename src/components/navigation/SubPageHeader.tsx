@@ -60,10 +60,10 @@ export default function SubPageHeader({
   const isSticky = variant === 'sticky';
   const headerClass = isSticky ? 'za-site-header za-site-header--sticky' : 'za-site-header';
   const innerClass = isSticky
-    ? `${getContainerClass()} flex h-14 items-center justify-between gap-4`
+    ? `${getContainerClass()} flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-2 py-[var(--za-space-2)]`
     : `${getContainerClass()} za-site-header__inner`;
   const leadingClass = isSticky
-    ? 'flex items-center gap-3 min-w-0'
+    ? 'flex min-w-0 flex-1 flex-wrap items-center gap-3'
     : 'flex flex-wrap items-center gap-3 min-w-0';
   const backClass = `za-button za-button--secondary p-2 text-xs font-[var(--za-weight-heading)]${
     isSticky ? ' shrink-0' : ''
@@ -77,7 +77,7 @@ export default function SubPageHeader({
     <header className={headerClass}>
       <div className={innerClass}>
         <div className={leadingClass}>
-          <BrandWordmark href={brandHref} />
+          <BrandWordmark href={brandHref} className={isSticky ? 'max-sm:hidden' : ''} />
 
           {backLink && (
             <Link href={backLink.href} className={backClass} title={backLink.label}>
@@ -129,6 +129,7 @@ export default function SubPageHeader({
                     href={item.href}
                     className={`za-button ${buttonVariantClass} ${item.active ? 'za-button--selected za-current-page' : ''}`}
                     title={item.title || item.label}
+                    aria-label={item.label}
                   >
                     {Icon && <Icon size={16} strokeWidth={1.75} />}
                     <span className="hidden sm:inline">{item.label}</span>

@@ -91,6 +91,7 @@ export default function WrappedClient({
             onClick={handleShare}
             className="za-button za-button--primary text-xs shrink-0"
             title="Copy share link to clipboard"
+            aria-label="Copy share link"
           >
             {copied ? (
               <>
@@ -108,7 +109,7 @@ export default function WrappedClient({
       >
         <div className="flex min-w-0 items-center gap-1.5 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           <Sparkles size={16} className="shrink-0 text-gold" />
-          <span className="truncate">ZedArchive Wrapped</span>
+          <span className="min-w-0 [overflow-wrap:anywhere]">ZedArchive Wrapped</span>
         </div>
       </SubPageHeader>
 
@@ -126,7 +127,7 @@ export default function WrappedClient({
                   key={yr}
                   type="button"
                   onClick={() => handleYearChange(yr)}
-                  className={`rounded-full border px-3 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${
+                  className={`min-h-[var(--za-control-min-block-size)] rounded-full border px-3 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${
                     yr === stats.year
                       ? 'border-accent bg-accent text-on-accent shadow-sm'
                       : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'

@@ -76,7 +76,7 @@ export default function DashboardToolbar({
             {searchQuery ? (
               <button
                 type="button"
-                className="absolute right-2 top-1/2 z-[1] inline-flex -translate-y-1/2 cursor-pointer items-center justify-center border-none bg-transparent p-1 text-ink-muted hover:text-ink"
+                className="absolute right-1 top-1/2 z-[1] za-icon-hit -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-ink-muted hover:text-ink"
                 onClick={() => {
                   onSearchChange('');
                   searchInputRef.current?.focus();

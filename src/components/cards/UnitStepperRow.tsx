@@ -32,7 +32,7 @@ export default function UnitStepperRow({
   nextTitle,
 }: UnitStepperRowProps) {
   const miniBtn =
-    'inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-small border border-required bg-surface text-ink transition-[all] duration-[var(--za-motion-fast)] hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+    'za-icon-hit cursor-pointer rounded-small border border-required bg-surface text-ink transition-[all] duration-[var(--za-motion-fast)] hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
   const prevDisabled = disabled || (canPrev !== undefined ? !canPrev : current <= 1);
   const nextDisabled = disabled || (canNext !== undefined ? !canNext : current >= total);
@@ -41,7 +41,7 @@ export default function UnitStepperRow({
   return (
     <div className="flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted">
       <span className="font-[family-name:var(--za-font-mono)]">{unitText}</span>
-      <div className="flex items-center gap-[var(--za-space-1)]">
+      <div className="flex items-center gap-[var(--za-space-2)]">
         <button
           type="button"
           className={`${miniBtn} font-[family-name:var(--za-font-mono)]`}

@@ -145,7 +145,7 @@ export default function FriendsClient({
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === id ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
+            className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === id ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
           >
             <Icon size={14} /> {label}
           </button>
@@ -329,15 +329,18 @@ export default function FriendsClient({
 
       {tab === 'find' && (
         <div className="space-y-4">
-          <div className="za-bookplate flex items-center gap-2 p-3">
+          <div className="za-bookplate flex min-w-0 items-center gap-2 p-3">
             <Search size={16} className="shrink-0 text-ink-muted" />
             <input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by username or name..."
+              aria-label="Find friends by username or name"
               className="za-field min-w-0 flex-1 border-0 bg-transparent py-1 shadow-none"
             />
-            {searchLoading && <span className="shrink-0 whitespace-nowrap text-xs text-ink-muted">Searching...</span>}
+            {searchLoading && (
+              <span className="shrink-0 whitespace-nowrap text-xs text-ink-muted">Searching…</span>
+            )}
           </div>
 
           {searchQuery.trim().length < 2 ? (

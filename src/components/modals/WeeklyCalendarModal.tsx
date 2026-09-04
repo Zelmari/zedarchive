@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, CheckCircle2, Clock3, Tv } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock3, Tv, X } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { buildWeeklySchedule, ORDERED_DAYS, type DayOfWeek } from '@/lib/calendar';
 import type { MediaEntry, NextAirMap, UpdateMediaInput } from '@/types/media';
@@ -70,76 +70,86 @@ export default function WeeklyCalendarModal({
       labelledBy="weekly-calendar-modal-title"
       contentClassName="flex max-w-[72rem] flex-col overflow-hidden rounded-small p-0"
     >
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-decorative bg-canvas px-4 py-5 sm:px-6">
-        <div className="flex items-start gap-3">
-          <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-required bg-surface text-accent shadow-raised">
-            <Calendar size={19} strokeWidth={1.75} aria-hidden="true" />
-          </div>
-          <div>
-            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
-              Broadcast Radar &amp; Schedule
+      <header className="flex items-start gap-3 border-b border-decorative bg-canvas px-4 py-5 sm:px-6">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-required bg-surface text-accent shadow-raised">
+              <Calendar size={19} strokeWidth={1.75} aria-hidden="true" />
             </div>
-            <h2
-              id="weekly-calendar-modal-title"
-              className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+            <div>
+              <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
+                Broadcast Radar &amp; Schedule
+              </div>
+              <h2
+                id="weekly-calendar-modal-title"
+                className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+              >
+                Weekly Airing Schedule
+              </h2>
+              <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+                {totalAiring} ongoing {totalAiring === 1 ? 'title' : 'titles'} airing in your
+                watchlist
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-1 border-b border-decorative"
+            role="tablist"
+            aria-label="Calendar filters"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={filter === 'all'}
+              onClick={() => setFilter('all')}
+              className={cn(
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                filter === 'all'
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-ink-muted hover:text-ink',
+              )}
             >
-              Weekly Airing Schedule
-            </h2>
-            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
-              {totalAiring} ongoing {totalAiring === 1 ? 'title' : 'titles'} airing in your
-              watchlist
-            </p>
+              All
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={filter === 'show'}
+              onClick={() => setFilter('show')}
+              className={cn(
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                filter === 'show'
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-ink-muted hover:text-ink',
+              )}
+            >
+              Shows Only
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={filter === 'anime'}
+              onClick={() => setFilter('anime')}
+              className={cn(
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                filter === 'anime'
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-ink-muted hover:text-ink',
+              )}
+            >
+              Anime Only
+            </button>
           </div>
         </div>
-
-        <div
-          className="flex items-center gap-1 border-b border-decorative"
-          role="tablist"
-          aria-label="Calendar filters"
+        <button
+          type="button"
+          aria-label="Close calendar"
+          onClick={onClose}
+          className="za-modal-close shrink-0"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'all'}
-            onClick={() => setFilter('all')}
-            className={cn(
-              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
-              filter === 'all'
-                ? 'border-accent text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink',
-            )}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'show'}
-            onClick={() => setFilter('show')}
-            className={cn(
-              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
-              filter === 'show'
-                ? 'border-accent text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink',
-            )}
-          >
-            Shows Only
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === 'anime'}
-            onClick={() => setFilter('anime')}
-            className={cn(
-              'border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
-              filter === 'anime'
-                ? 'border-accent text-ink'
-                : 'border-transparent text-ink-muted hover:text-ink',
-            )}
-          >
-            Anime Only
-          </button>
-        </div>
+          <X size={18} strokeWidth={2} />
+        </button>
       </header>
 
       <div className="flex-1 overflow-y-auto bg-surface-subtle p-4 sm:p-6">
@@ -221,7 +231,7 @@ export default function WeeklyCalendarModal({
                             )}
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="truncate font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
+                                className="[overflow-wrap:anywhere] font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
                                 title={media.title}
                               >
                                 {media.title}
@@ -239,7 +249,7 @@ export default function WeeklyCalendarModal({
                               type="button"
                               disabled={updatingId === media.id}
                               onClick={(e) => handleQuickLog(media, e)}
-                              className="za-button za-button--primary mt-2 flex min-h-0 w-full gap-1 px-2 py-1 text-[0.65rem] disabled:opacity-50"
+                              className="za-button za-button--primary mt-2 flex w-full gap-1 px-2 text-[0.65rem] disabled:opacity-50"
                               title="Mark watched / +1 episode"
                             >
                               <CheckCircle2 size={11} aria-hidden="true" />

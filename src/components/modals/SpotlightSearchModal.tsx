@@ -215,9 +215,9 @@ export default function SpotlightSearchModal({
       contentClassName="flex max-w-[44rem] flex-col overflow-hidden"
     >
       {/* Header with Category Chips and Close */}
-      <div className="flex items-center justify-between gap-3 border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
+      <div className="flex items-start justify-between gap-3 border-b border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-3)]">
         <div
-          className="flex min-w-0 flex-wrap gap-1.5"
+          className="flex min-w-0 flex-1 flex-wrap gap-1.5"
           role="radiogroup"
           aria-label="Media Category"
         >
@@ -236,7 +236,12 @@ export default function SpotlightSearchModal({
           ))}
         </div>
 
-        <button type="button" aria-label="Close modal" onClick={onClose} className="za-modal-close">
+        <button
+          type="button"
+          aria-label="Close modal"
+          onClick={onClose}
+          className="za-modal-close shrink-0"
+        >
           <X size={18} strokeWidth={2} />
         </button>
       </div>
@@ -262,7 +267,7 @@ export default function SpotlightSearchModal({
         {searchQuery && !isSearching && (
           <button
             type="button"
-            className="cursor-pointer border-none bg-transparent p-0 text-ink-muted"
+            className="za-icon-hit cursor-pointer border-none bg-transparent text-ink-muted"
             onClick={clearSearch}
             aria-label="Clear search"
           >

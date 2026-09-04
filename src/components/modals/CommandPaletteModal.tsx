@@ -17,6 +17,7 @@ import {
   Library,
   Users,
   MessageSquare,
+  X,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { cn } from '@/lib/cn';
@@ -253,11 +254,21 @@ export default function CommandPaletteModal({
       contentClassName="max-w-[40rem] overflow-hidden rounded-small text-ink shadow-layered"
     >
       <div className="border-b border-decorative bg-canvas px-4 py-4 sm:px-6">
-        <div className="mb-2 flex items-center justify-between font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-ink-faint">
+        <div className="mb-2 flex items-center justify-between gap-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-ink-faint">
           <span>Commands &amp; Navigation</span>
-          <kbd className="rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] tracking-normal text-ink-muted">
-            ⌘K
-          </kbd>
+          <div className="flex items-center gap-2">
+            <kbd className="hidden rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] tracking-normal text-ink-muted sm:inline-block">
+              ⌘K
+            </kbd>
+            <button
+              type="button"
+              aria-label="Close command palette"
+              onClick={onClose}
+              className="za-modal-close"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Search size={19} className="shrink-0 text-accent" aria-hidden="true" />
@@ -273,7 +284,7 @@ export default function CommandPaletteModal({
             onKeyDown={handleKeyDown}
             className="min-w-0 flex-1 bg-transparent font-[var(--za-font-display)] text-[1.05rem] tracking-[0.02em] text-ink outline-none placeholder:text-ink-muted"
           />
-          <kbd className="hidden shrink-0 rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted sm:inline-block">
+          <kbd className="shrink-0 rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
             ESC
           </kbd>
         </div>

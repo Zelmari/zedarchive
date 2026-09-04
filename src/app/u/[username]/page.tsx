@@ -383,8 +383,8 @@ export default async function PublicProfilePage({ params }: PageParams) {
                         <span>Ex libris · {item.category}</span>
                         <span>No. {String(index + 1).padStart(2, '0')}</span>
                       </div>
-                      <div className="flex items-start gap-4">
-                        <div className="relative block w-28 min-w-28 flex-none basis-28 overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3]">
+                      <div className="flex items-start gap-[var(--za-space-3)]">
+                        <div className="relative block w-20 min-w-20 flex-none overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3] sm:w-28 sm:min-w-28">
                           {item.coverImage ? (
                             // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
                             <img
@@ -403,7 +403,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           )}
                         </div>
 
-                        <div className="flex min-w-0 flex-1 basis-40 flex-col justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
                           <h3
                             className="font-[var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
                             title={item.title}
@@ -440,7 +440,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           </div>
 
                           {item.notes && (
-                            <div className="mt-3 max-h-20 overflow-hidden text-ellipsis font-[var(--za-font-serif-body)] text-sm text-ink-muted">
+                            <div className="mt-3 max-h-32 overflow-y-auto pr-1 font-[var(--za-font-serif-body)] text-sm text-ink-muted">
                               <MarkdownNotes content={item.notes} />
                             </div>
                           )}

@@ -71,7 +71,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         type="button"
         aria-label="Dismiss notification"
         onClick={() => onDismiss(toast.id)}
-        className="flex cursor-pointer items-center justify-center rounded-small p-[var(--za-space-1)] text-ink-muted hover:text-ink"
+        className="za-icon-hit cursor-pointer rounded-small p-0 text-ink-muted hover:text-ink"
       >
         <X size={14} strokeWidth={2} />
       </button>

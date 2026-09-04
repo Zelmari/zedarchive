@@ -202,7 +202,7 @@ export default function ThemeStudio({
                     >
                       Aa
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
                         {theme.name}
                       </div>
@@ -236,7 +236,7 @@ export default function ThemeStudio({
                   key={preset.name}
                   type="button"
                   onClick={() => handleLoadStarterPreset(preset)}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] text-ink hover:border-accent"
+                  className="flex min-h-[var(--za-control-min-block-size)] cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] text-ink hover:border-accent"
                 >
                   <span
                     className="h-3 w-3 rounded-full border border-decorative"
@@ -260,7 +260,7 @@ export default function ThemeStudio({
                     value={customPalette[key]}
                     onChange={(event) => handlePaletteFieldChange(key, event.target.value)}
                     aria-label={`${label} color`}
-                    className="h-8 w-9 cursor-pointer rounded-small border border-decorative bg-transparent"
+                    className="h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] cursor-pointer rounded-small border border-decorative bg-transparent"
                   />
                   <input
                     type="text"

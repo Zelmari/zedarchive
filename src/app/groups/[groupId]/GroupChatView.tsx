@@ -129,7 +129,7 @@ export default function GroupChatView({
                   {(msg.isOwn || isOwner) && (
                     <button
                       onClick={() => handleDelete(msg.id)}
-                      className="za-button za-button--tertiary ml-auto min-h-0 p-1"
+                      className="za-button za-button--tertiary za-icon-hit ml-auto p-0"
                       title="Delete"
                       aria-label="Delete message"
                     >

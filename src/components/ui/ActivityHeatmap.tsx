@@ -153,7 +153,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
 
   return (
     <div className={`za-bookplate rounded-small p-[var(--za-space-4)] ${className}`}>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           Activity Over Past Year
         </div>

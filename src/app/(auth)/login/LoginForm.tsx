@@ -183,7 +183,7 @@ export default function LoginForm() {
                 setError('');
                 setForgotSubmitted(false);
               }}
-              className="za-link cursor-pointer border-0 bg-transparent p-0 text-[length:var(--za-text-fine)]"
+              className="za-link inline-flex min-h-[var(--za-control-min-block-size)] cursor-pointer items-center border-0 bg-transparent px-[var(--za-space-2)] text-[length:var(--za-text-supporting)]"
             >
               Forgot password?
             </button>

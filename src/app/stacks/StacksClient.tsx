@@ -537,12 +537,12 @@ export default function StacksClient({
                                 {mediaTitle}
                               </h3>
                             </div>
-                            <div className="flex shrink-0 items-center gap-1">
+                            <div className="flex shrink-0 items-center gap-[var(--za-space-2)]">
                               <button
                                 type="button"
                                 onClick={() => void handleMoveItem(stack.id, item.id, -1)}
                                 disabled={index === 0 || reorderPending}
-                                className="za-button za-button--tertiary inline-flex h-7 w-7 items-center justify-center p-0 disabled:cursor-not-allowed disabled:opacity-30"
+                                className="za-button za-button--tertiary za-icon-hit p-0 disabled:cursor-not-allowed disabled:opacity-30"
                                 aria-label={`Move ${mediaTitle} up`}
                                 title="Move up"
                               >
@@ -552,7 +552,7 @@ export default function StacksClient({
                                 type="button"
                                 onClick={() => void handleMoveItem(stack.id, item.id, 1)}
                                 disabled={index === stack.items.length - 1 || reorderPending}
-                                className="za-button za-button--tertiary inline-flex h-7 w-7 items-center justify-center p-0 disabled:cursor-not-allowed disabled:opacity-30"
+                                className="za-button za-button--tertiary za-icon-hit p-0 disabled:cursor-not-allowed disabled:opacity-30"
                                 aria-label={`Move ${mediaTitle} down`}
                                 title="Move down"
                               >
@@ -569,7 +569,7 @@ export default function StacksClient({
                                   })
                                 }
                                 disabled={pendingKey === `remove-${item.id}`}
-                                className="za-button za-button--tertiary inline-flex h-7 w-7 items-center justify-center p-0 text-danger hover:border-danger hover:bg-danger-surface disabled:opacity-30"
+                                className="za-button za-button--tertiary za-icon-hit p-0 text-danger hover:border-danger hover:bg-danger-surface disabled:opacity-30"
                                 aria-label={`Remove ${mediaTitle} from ${stack.title}`}
                                 title="Remove from anthology"
                               >

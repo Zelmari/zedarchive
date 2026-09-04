@@ -202,7 +202,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
                 No overlapping titles found between these two public archives.
               </div>
             ) : (
-              <div className="za-bookplate overflow-hidden p-0">
+              <div className="za-bookplate p-[var(--za-space-2)]">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[38rem] border-collapse text-left text-xs">
                     <caption className="sr-only">

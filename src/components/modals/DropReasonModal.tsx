@@ -94,25 +94,25 @@ export default function DropReasonModal({
       </div>
 
       {/* Modal Actions */}
-      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
+      <div className="flex flex-col-reverse gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-4)] py-[var(--za-space-4)] sm:flex-row sm:items-center sm:justify-between sm:px-[var(--za-space-6)]">
         <button
           type="button"
-          className="za-button za-button--secondary text-[length:var(--za-text-fine)]"
+          className="za-button za-button--secondary w-full text-[length:var(--za-text-fine)] sm:w-auto"
           onClick={handleSkip}
         >
           Drop without reason
         </button>
-        <div className="flex gap-[var(--za-space-2)]">
+        <div className="flex w-full flex-wrap gap-[var(--za-space-2)] sm:w-auto sm:justify-end">
           <button
             type="button"
-            className="za-button za-button--secondary text-[length:var(--za-text-fine)]"
+            className="za-button za-button--secondary min-w-0 flex-1 text-[length:var(--za-text-fine)] sm:flex-none"
             onClick={onCancel}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="za-button za-button--primary text-[length:var(--za-text-fine)]"
+            className="za-button za-button--primary min-w-0 flex-1 text-[length:var(--za-text-fine)] sm:flex-none"
             onClick={handleSave}
           >
             Confirm Drop
