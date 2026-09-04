@@ -869,6 +869,19 @@ html[data-theme='cyber'] body {
     box-shadow var(--za-motion-fast) var(--za-ease-standard);
 }
 
+.za-field--icon-start {
+  padding-inline-start: 2.75rem;
+}
+
+.za-field--icon-end {
+  padding-inline-end: 2.25rem;
+}
+
+select.za-field {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .za-field:focus {
   border-color: var(--za-color-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--za-color-accent) 15%, transparent);
