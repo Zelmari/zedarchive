@@ -164,7 +164,7 @@ export default function UserSearchCombobox({
       <div className="relative flex items-center">
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 text-ink-muted"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
           aria-hidden="true"
         />
         <input
@@ -187,7 +187,7 @@ export default function UserSearchCombobox({
           aria-haspopup="listbox"
           aria-autocomplete="list"
           aria-label="Search public user profiles"
-          className="za-field min-w-0 w-full py-2 pl-9 pr-9 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
+          className="za-field za-field--icon-start za-field--icon-end min-w-0 w-full py-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
         />
         <div className="absolute right-2.5 flex items-center gap-1">
           {isLoading && <Loader2 size={15} className="za-spin text-ink-muted" />}
@@ -286,8 +286,12 @@ export default function UserSearchCombobox({
                   highlightedIndex === results.length ? 'bg-surface underline' : 'hover:underline'
                 }`}
               >
-                <span className="min-w-0 truncate">View all search results for &ldquo;{query.trim()}&rdquo;</span>
-                <span className="shrink-0 hidden font-normal text-ink-muted sm:inline">Enter ↵</span>
+                <span className="min-w-0 truncate">
+                  View all search results for &ldquo;{query.trim()}&rdquo;
+                </span>
+                <span className="shrink-0 hidden font-normal text-ink-muted sm:inline">
+                  Enter ↵
+                </span>
               </div>
             </div>
           ) : hasSearched && !isLoading ? (
