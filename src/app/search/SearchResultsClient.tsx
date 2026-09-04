@@ -36,11 +36,11 @@ export default function SearchResultsClient({
 
       {/* Results Header */}
       {initialQuery ? (
-        <div className="flex items-baseline justify-between border-b border-decorative pb-2">
-          <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-decorative pb-2">
+          <h1 className="min-w-0 flex-1 [overflow-wrap:anywhere] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Search Results for &ldquo;{initialQuery}&rdquo;
           </h1>
-          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+          <span className="shrink-0 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
             {initialResults.length}{' '}
             {initialResults.length === 1 ? 'archive found' : 'archives found'}
           </span>
@@ -109,13 +109,13 @@ export default function SearchResultsClient({
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between gap-3 border-t border-decorative pt-3">
-                <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.03em] text-ink-faint">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-decorative pt-3">
+                <span className="min-w-0 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.03em] text-ink-faint">
                   Member since {formatMonthYear(user.createdAt)}
                 </span>
                 <Link
                   href={`/u/${user.username}`}
-                  className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs"
+                  className="za-button za-button--primary inline-flex shrink-0 items-center gap-1.5 text-xs"
                 >
                   <span>View Archive</span>
                   <ArrowRight size={13} />
@@ -130,7 +130,7 @@ export default function SearchResultsClient({
           <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             No public archives found
           </h2>
-          <p className="mx-auto mt-2 max-w-md font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+          <p className="mx-auto mt-2 max-w-md font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted [overflow-wrap:anywhere]">
             We couldn&rsquo;t find any public members matching &ldquo;{initialQuery}&rdquo;. Check
             the spelling or search for another username.
           </p>

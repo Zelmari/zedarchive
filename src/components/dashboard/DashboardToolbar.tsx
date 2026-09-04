@@ -55,11 +55,11 @@ export default function DashboardToolbar({
   ];
 
   return (
-    <div className="mb-[var(--za-space-6)] flex flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
+    <div className="mb-[var(--za-space-6)] flex min-w-0 max-w-full flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
       {/* Top row: search & sort (left) + auxiliary actions (right) */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
-        <div className="flex max-w-[32rem] flex-[1_1_20rem] items-center gap-2">
-          <div className="relative min-w-40 flex-1">
+        <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:max-w-[32rem] sm:flex-[1_1_20rem] sm:flex-row sm:items-center">
+          <div className="relative min-w-0 w-full flex-1">
             <Search
               size={15}
               className="pointer-events-none absolute left-[0.7rem] top-1/2 z-[1] -translate-y-1/2 text-ink-muted"
@@ -69,7 +69,7 @@ export default function DashboardToolbar({
               type="text"
               placeholder="Search archive, tags, notes..."
               aria-label="Search archive by title, tags, or notes"
-              className="za-field h-[var(--za-control-min-block-size)] w-full pl-[2.2rem] pr-9 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
+              className="za-field za-field--icon-start za-field--icon-end h-[var(--za-control-min-block-size)] w-full font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
             />
@@ -89,21 +89,23 @@ export default function DashboardToolbar({
             ) : null}
           </div>
 
-          <select
-            className="za-field h-[var(--za-control-min-block-size)] w-auto min-w-40 shrink-0 cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
-            value={sortBy}
-            onChange={(e) => onSortChange(e.target.value as SortKey)}
-            aria-label="Sort Archive"
-          >
-            {SORT_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <div className="w-full min-w-0 max-w-full sm:w-[min(100%,14rem)] sm:shrink-0">
+            <select
+              className="za-field h-[var(--za-control-min-block-size)] w-full min-w-0 max-w-full cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
+              value={sortBy}
+              onChange={(e) => onSortChange(e.target.value as SortKey)}
+              aria-label="Sort Archive"
+            >
+              {SORT_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
+        <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-[var(--za-space-2)]">
           {[
             {
               label: 'Calendar',
@@ -145,7 +147,7 @@ export default function DashboardToolbar({
               aria-label={label}
             >
               <Icon size={15} strokeWidth={1.75} />
-              <span>{label}</span>
+              <span className="hidden md:inline">{label}</span>
             </button>
           ))}
         </div>
@@ -154,7 +156,7 @@ export default function DashboardToolbar({
       {/* Bottom row: status filter radios + shelves */}
       <div className="flex flex-col gap-[var(--za-space-3)] border-t border-dashed border-decorative pt-[var(--za-space-3)]">
         <div
-          className="flex items-center gap-[var(--za-space-1)] overflow-x-auto pb-1"
+          className="flex w-full min-w-0 max-w-full items-center gap-[var(--za-space-1)] overflow-x-auto overscroll-x-contain pb-1"
           role="radiogroup"
           aria-label="Status filter"
         >
@@ -175,7 +177,7 @@ export default function DashboardToolbar({
 
         {tags.length > 0 && (
           <div
-            className="flex items-center gap-[var(--za-space-1)] overflow-x-auto pb-1"
+            className="flex w-full min-w-0 max-w-full items-center gap-[var(--za-space-1)] overflow-x-auto overscroll-x-contain pb-1"
             role="radiogroup"
             aria-label="Catalogue shelves"
           >

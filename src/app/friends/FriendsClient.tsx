@@ -165,28 +165,28 @@ export default function FriendsClient({
                 key={item.id}
                 className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-11 w-11 rounded-small border border-required object-cover"
+                      className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <div>
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
                       {item.friend.name}
                     </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
                       @{item.friend.username || 'unknown'}{' '}
                     </div>
                     {item.friend.bio && (
-                      <p className="mt-1 max-w-xl font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                      <p className="mt-1 max-w-xl font-[var(--za-font-serif-body)] text-sm italic text-ink-muted [overflow-wrap:anywhere]">
                         {item.friend.bio.slice(0, 100)}
                       </p>
                     )}
@@ -236,24 +236,24 @@ export default function FriendsClient({
                 key={item.id}
                 className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-11 w-11 rounded-small border border-required object-cover"
+                      className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <div>
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
                       {item.friend.name}
                     </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
                       @{item.friend.username} wants to be friends
                     </div>
                   </div>
@@ -292,24 +292,24 @@ export default function FriendsClient({
                 key={item.id}
                 className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.friend.image}
                       alt={item.friend.name}
-                      className="h-11 w-11 rounded-small border border-required object-cover"
+                      className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                  <div>
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
                       {item.friend.name}
                     </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
                       @{item.friend.username} · pending
                     </div>
                   </div>
@@ -330,14 +330,14 @@ export default function FriendsClient({
       {tab === 'find' && (
         <div className="space-y-4">
           <div className="za-bookplate flex items-center gap-2 p-3">
-            <Search size={16} className="text-ink-muted" />
+            <Search size={16} className="shrink-0 text-ink-muted" />
             <input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by username or name..."
-              className="za-field flex-1 border-0 bg-transparent py-1 shadow-none"
+              className="za-field min-w-0 flex-1 border-0 bg-transparent py-1 shadow-none"
             />
-            {searchLoading && <span className="text-xs text-ink-muted">Searching...</span>}
+            {searchLoading && <span className="shrink-0 whitespace-nowrap text-xs text-ink-muted">Searching...</span>}
           </div>
 
           {searchQuery.trim().length < 2 ? (
@@ -355,28 +355,28 @@ export default function FriendsClient({
                   key={u.id}
                   className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     {u.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={u.image}
                         alt={u.name}
-                        className="h-11 w-11 rounded-small border border-required object-cover"
+                        className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                       />
                     ) : (
-                      <span className="flex h-11 w-11 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
                         {u.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <div>
-                      <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
                         {u.name}
                       </div>
-                      <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
                         @{u.username || 'unknown'}
                       </div>
                       {u.bio && (
-                        <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                        <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted [overflow-wrap:anywhere]">
                           {u.bio.slice(0, 100)}
                         </p>
                       )}
