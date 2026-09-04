@@ -1,0 +1,65 @@
+# Mirrors the root .gitignore, scoped to this directory.
+# Patterns here are relative to bot/ (no leading slash needed).
+
+# dependencies
+node_modules
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+coverage
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# next.js (harmless if unused here)
+.next/
+out/
+
+# production
+build
+dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# agents
+AGENTS.md
+CLAUDE.md
+agents/
+prompts/
+examples/
+skills/
+
+# OpenNext / Cloudflare (harmless if unused here)
+.open-next
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+# plans
+plans/
