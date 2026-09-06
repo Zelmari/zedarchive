@@ -33,5 +33,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".open-next", "out", "build", "examples", "bot"]
+  "exclude": ["node_modules", ".open-next", "out", "build", "examples", "bot", "tests", "e2e"]
 }
