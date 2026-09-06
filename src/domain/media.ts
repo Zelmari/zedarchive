@@ -1237,3 +1237,84 @@ export async function listPersonalLibraryLite(
     updatedAt: r.updatedAt ? r.updatedAt.toISOString() : new Date().toISOString(),
   }));
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface TitleResolutionResult {
+  entry?: MediaRow;
+  ambiguous?: MediaRow[];
+  notFound?: boolean;
+}
+
+/**
+ * Resolves a title option from a slash command or component interaction.
+ * Supports exact UUIDs (from autocomplete) or fuzzy title matching.
+ */
+export async function resolvePersonalTitle(
+  userId: string,
+  queryOrId: string,
+): Promise<TitleResolutionResult> {
+  const trimmed = queryOrId.trim();
+  if (!trimmed) {
+    return { notFound: true };
+  }
+
+  // 1. Direct UUID lookup (standard autocomplete selection)
+  if (UUID_REGEX.test(trimmed)) {
+    const [entry] = await domainDb()
+      .select()
+      .from(mediaEntries)
+      .where(
+        and(
+          eq(mediaEntries.id, trimmed),
+          eq(mediaEntries.userId, userId),
+          isNull(mediaEntries.groupId),
+        ),
+      )
+      .limit(1);
+
+    if (entry) {
+      return { entry };
+    }
+  }
+
+  // 2. Exact match (case-insensitive)
+  const exactMatches = await domainDb()
+    .select()
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, userId),
+        isNull(mediaEntries.groupId),
+        ilike(mediaEntries.title, trimmed),
+      ),
+    )
+    .limit(2);
+
+  if (exactMatches.length === 1) {
+    return { entry: exactMatches[0] };
+  }
+
+  // 3. Substring match
+  const substringMatches = await domainDb()
+    .select()
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, userId),
+        isNull(mediaEntries.groupId),
+        ilike(mediaEntries.title, `%${trimmed}%`),
+      ),
+    )
+    .limit(25);
+
+  if (substringMatches.length === 1) {
+    return { entry: substringMatches[0] };
+  }
+
+  if (substringMatches.length > 1) {
+    return { ambiguous: substringMatches };
+  }
+
+  return { notFound: true };
+}
