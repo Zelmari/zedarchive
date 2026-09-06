@@ -69,7 +69,7 @@ describe('sendEmail', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'ZedArchive <noreply@auth.zedarchive.com>',
+          from: 'ZedArchive <noreply@zedarchive.com>',
           to: ['user@example.com'],
           subject: 'Test Subject',
           html: '<p>Hello world</p>',
@@ -83,7 +83,7 @@ describe('sendEmail', () => {
 
   it('uses custom EMAIL_FROM when configured', async () => {
     process.env.RESEND_API_KEY = 're_test_12345';
-    process.env.EMAIL_FROM = 'ZedArchive <noreply@auth.zedarchive.com>';
+    process.env.EMAIL_FROM = 'ZedArchive <hello@zedarchive.com>';
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ id: 'msg_123' }), { status: 200 }));
@@ -97,7 +97,7 @@ describe('sendEmail', () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://api.resend.com/emails',
       expect.objectContaining({
-        body: expect.stringContaining('"from":"ZedArchive <noreply@auth.zedarchive.com>"'),
+        body: expect.stringContaining('"from":"ZedArchive <hello@zedarchive.com>"'),
       }),
     );
 
