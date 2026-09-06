@@ -11,6 +11,7 @@ import { createDraft, type MediaDraft } from '../drafts';
 import { stashSearchHits } from '../search-cache';
 import { createBaseEmbed, applyCoverThumbnail } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
+import { formatShelf, formatCategory } from '../format/labels';
 import { endpointFor } from '@/lib/search';
 import type { SearchResult } from '@/types/search';
 import type { MediaCategory } from '@/types/media';
@@ -52,14 +53,14 @@ export function buildDraftInspector(draft: MediaDraft): {
   components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
 } {
   const progressStr = formatProgressString(draft);
-  const statusLabel = draft.status.replace('_', ' ');
+  const statusLabel = formatShelf(draft.status);
 
   const embed = createBaseEmbed(`New Title Draft: ${draft.title}`)
     .setDescription(
       'Review your draft before saving. You can adjust season/chapter numbers, set a status, or rate it before committing to your archive.',
     )
     .addFields(
-      { name: 'Category', value: draft.category, inline: true },
+      { name: 'Category', value: formatCategory(draft.category), inline: true },
       {
         name: 'Source',
         value: draft.sourceId ? `Catalog (\`${draft.sourceId}\`)` : 'Manual Title',
