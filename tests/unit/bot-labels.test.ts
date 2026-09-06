@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { formatShelf, formatCategory } from '../../bot/src/format/labels';
+import {
+  formatCategory,
+  formatCategoryRibbon,
+  formatShelf,
+  formatShelfBadge,
+} from '../../bot/src/format/labels';
 
 describe('formatShelf', () => {
   it('maps known shelf statuses', () => {
@@ -17,8 +22,8 @@ describe('formatShelf', () => {
 
 describe('formatCategory', () => {
   it('maps known media categories', () => {
-    expect(formatCategory('show')).toBe('TV Show');
-    expect(formatCategory('movie')).toBe('Movie');
+    expect(formatCategory('show')).toBe('Television');
+    expect(formatCategory('movie')).toBe('Film');
     expect(formatCategory('book')).toBe('Book');
     expect(formatCategory('anime')).toBe('Anime');
     expect(formatCategory('manga')).toBe('Manga');
@@ -26,5 +31,11 @@ describe('formatCategory', () => {
 
   it('title-cases unknown categories', () => {
     expect(formatCategory('podcast')).toBe('Podcast');
+  });
+
+  it('uppercases ribbon and shelf badges', () => {
+    expect(formatCategoryRibbon('movie')).toBe('FILM');
+    expect(formatCategoryRibbon('show')).toBe('TELEVISION');
+    expect(formatShelfBadge('in_progress')).toBe('IN PROGRESS');
   });
 });

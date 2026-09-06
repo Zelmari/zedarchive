@@ -1,55 +1,73 @@
 import type {
-  AttachmentBuilder,
   InteractionEditReplyOptions,
   InteractionReplyOptions,
   InteractionUpdateOptions,
 } from 'discord.js';
+import { MessageFlags, TextDisplayBuilder } from 'discord.js';
+import type { FolioMessage } from './folio';
 
-export type CoverMessagePayload = {
-  embeds: InteractionEditReplyOptions['embeds'];
-  components?: InteractionEditReplyOptions['components'];
-  files: AttachmentBuilder[];
-  content?: string | null;
-};
+const V2 = MessageFlags.IsComponentsV2;
 
-export function coverEditReplyOptions(payload: CoverMessagePayload): InteractionEditReplyOptions {
+export function folioEditReplyOptions(folio: FolioMessage): InteractionEditReplyOptions {
   return {
-    content: payload.content ?? null,
-    embeds: payload.embeds,
-    components: payload.components,
-    files: payload.files,
-    attachments: [],
-  };
-}
-
-export function coverReplyOptions(
-  payload: CoverMessagePayload & { ephemeral?: boolean },
-): InteractionReplyOptions {
-  return {
-    content: payload.content ?? undefined,
-    embeds: payload.embeds,
-    components: payload.components,
-    files: payload.files,
-    ephemeral: payload.ephemeral ?? true,
-  };
-}
-
-export function coverUpdateOptions(payload: CoverMessagePayload): InteractionUpdateOptions {
-  return {
-    content: payload.content === undefined ? undefined : payload.content,
-    embeds: payload.embeds,
-    components: payload.components,
-    files: payload.files,
-    attachments: [],
-  };
-}
-
-export function clearCoverMessageOptions(content: string): InteractionEditReplyOptions {
-  return {
-    content,
+    content: null,
     embeds: [],
-    components: [],
+    components: folio.components,
+    files: folio.files,
+    attachments: [],
+    flags: V2,
+    withComponents: true,
+  };
+}
+
+export function folioReplyOptions(
+  folio: FolioMessage,
+  options?: { ephemeral?: boolean },
+): InteractionReplyOptions {
+  const ephemeral = options?.ephemeral ?? true;
+  return {
+    embeds: [],
+    components: folio.components,
+    files: folio.files,
+    flags: ephemeral ? V2 | MessageFlags.Ephemeral : V2,
+  };
+}
+
+export function folioUpdateOptions(folio: FolioMessage): InteractionUpdateOptions {
+  return {
+    content: null,
+    embeds: [],
+    components: folio.components,
+    files: folio.files,
+    attachments: [],
+    flags: V2,
+  };
+}
+
+function v2TextComponents(content: string) {
+  return [new TextDisplayBuilder().setContent(content)];
+}
+
+/** Replace a V2 plate with plain copy (cancel, save, empty page). */
+export function folioPlainEditReplyOptions(content: string): InteractionEditReplyOptions {
+  return {
+    content: null,
+    embeds: [],
+    components: v2TextComponents(content),
     files: [],
     attachments: [],
+    flags: V2,
+    withComponents: true,
+  };
+}
+
+export function folioPlainUpdateOptions(content: string): InteractionUpdateOptions {
+  return {
+    content: null,
+    embeds: [],
+    components: v2TextComponents(content),
+    files: [],
+    attachments: [],
+    flags: V2,
   };
 }

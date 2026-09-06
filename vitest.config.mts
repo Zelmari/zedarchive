@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      'discord.js': fileURLToPath(new URL('./bot/node_modules/discord.js', import.meta.url)),
     },
   },
   test: {

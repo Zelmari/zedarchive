@@ -2,7 +2,8 @@ import type { ChatInputCommandInteraction } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { listPersonalLibraryLite } from '@/domain/media';
 import { getUpcomingAirdates } from '@/domain/airdate';
-import { createBaseEmbed } from '../format/embeds';
+import { folioEditReplyOptions } from '../format/reply-cover';
+import { buildChromeFolio } from '../format/folio';
 
 export async function handleAiringCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const user = await requireLinkedUser(interaction);
@@ -42,15 +43,12 @@ export async function handleAiringCommand(interaction: ChatInputCommandInteracti
     }
   }
 
-  const embed = createBaseEmbed('Upcoming Broadcast Radar');
+  const body =
+    lines.length === 0
+      ? 'No upcoming broadcast dates announced for your active shows and anime right now. Check back soon!'
+      : lines.join('\n\n');
 
-  if (lines.length === 0) {
-    embed.setDescription(
-      'No upcoming broadcast dates announced for your active shows and anime right now. Check back soon!',
-    );
-  } else {
-    embed.setDescription(lines.join('\n\n'));
-  }
-
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(
+    folioEditReplyOptions(buildChromeFolio({ heading: 'Upcoming Broadcast Radar', body })),
+  );
 }

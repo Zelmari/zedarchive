@@ -26,11 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install bot dependencies
+        run: npm ci --prefix bot
+
       - name: Run linter
         run: npm run lint
 
       - name: Type check
         run: npm run typecheck
+
+      - name: Type check bot
+        run: npm run bot:typecheck
 
       - name: Run unit & integration tests
         run: npm test

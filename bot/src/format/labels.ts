@@ -7,8 +7,8 @@ const SHELF_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  show: 'TV Show',
-  movie: 'Movie',
+  show: 'Television',
+  movie: 'Film',
   book: 'Book',
   anime: 'Anime',
   manga: 'Manga',
@@ -28,6 +28,14 @@ export function formatShelf(status: string): string {
 
 export function formatCategory(category: string): string {
   return CATEGORY_LABELS[category] ?? titleCase(category);
+}
+
+export function formatCategoryRibbon(category: string): string {
+  return formatCategory(category).toUpperCase();
+}
+
+export function formatShelfBadge(status: string): string {
+  return formatShelf(status).toUpperCase();
 }
 
 export const TITLE_NOT_FOUND = 'No title in your archive. `/add` it first.';
