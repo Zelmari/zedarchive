@@ -1,9 +1,8 @@
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { listPersonalLibraryLite } from '@/domain/media';
-import { createBaseEmbed } from '../format/embeds';
-import { formatProgressString } from '../format/progress';
-import { formatCategory } from '../format/labels';
+import { folioEditReplyOptions } from '../format/reply-cover';
+import { buildListFolio, formatLibraryLine } from '../format/folio';
 
 export async function handleNowCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const user = await requireLinkedUser(interaction);
@@ -23,18 +22,10 @@ export async function handleNowCommand(interaction: ChatInputCommandInteraction)
     return;
   }
 
-  const embed = createBaseEmbed('Currently In Progress');
-
-  const lines = entries.map((e, index) => {
-    const progress = formatProgressString(e);
-    const ratingPart = e.rating ? ` ★ ${e.rating}/10` : '';
-    return (
-      `**${index + 1}. ${e.title}** (${formatCategory(e.category)})\n` +
-      `└ \`${progress}\`${ratingPart}`
-    );
+  const folio = buildListFolio({
+    heading: 'Currently In Progress',
+    lines: entries.map((entry, index) => formatLibraryLine(entry, { index: index + 1 })),
   });
 
-  embed.setDescription(lines.join('\n\n'));
-
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(folioEditReplyOptions(folio));
 }

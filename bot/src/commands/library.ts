@@ -7,9 +7,14 @@ import {
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { listPersonalLibraryLite, type MediaLiteEntry } from '@/domain/media';
-import { createBaseEmbed } from '../format/embeds';
-import { formatProgressString } from '../format/progress';
-import { formatShelf, formatCategory } from '../format/labels';
+import { folioEditReplyOptions, folioPlainEditReplyOptions } from '../format/reply-cover';
+import {
+  buildListFolio,
+  formatLibraryLine,
+  type FolioActionRow,
+  type FolioMessage,
+} from '../format/folio';
+import { formatShelf } from '../format/labels';
 import {
   createLibraryPageQuery,
   getLibraryPageQuery,
@@ -18,33 +23,30 @@ import {
   type LibraryPageQuery,
 } from '../library/pending-page';
 
-export function buildLibraryPageEmbed(
+export function buildLibraryPageFolio(
   entries: MediaLiteEntry[],
   page: number,
   query: Pick<LibraryPageQuery, 'status' | 'category' | 'query'>,
   hasNextPage: boolean,
-): ReturnType<typeof createBaseEmbed> {
-  const titleHeader =
+  actions: FolioActionRow[],
+): FolioMessage {
+  const heading =
     query.status === 'any' ? 'Personal Archive' : `Archive — ${formatShelf(query.status)}`;
-  const embed = createBaseEmbed(titleHeader);
-
   const startIndex = page * LIBRARY_PAGE_SIZE;
-  const lines = entries.map((e, index) => {
-    const progress = formatProgressString(e);
-    const ratingPart = e.rating ? ` • ★ ${e.rating}` : '';
-    const statusBadge = query.status === 'any' ? ` [${formatShelf(e.status)}]` : '';
-    return (
-      `**${startIndex + index + 1}. ${e.title}** (${formatCategory(e.category)})${statusBadge}\n` +
-      `└ \`${progress}\`${ratingPart}`
-    );
-  });
+  const includeShelf = query.status === 'any';
+  const lines = entries.map((entry, index) =>
+    formatLibraryLine(entry, {
+      includeShelf,
+      index: startIndex + index + 1,
+    }),
+  );
 
-  embed.setDescription(lines.join('\n\n'));
-  embed.setFooter({
-    text: `ZedArchive • Page ${page + 1}${hasNextPage ? '+' : ''} • ${LIBRARY_PAGE_SIZE} per page`,
+  return buildListFolio({
+    heading,
+    footer: `Page ${page + 1}${hasNextPage ? '+' : ''} · ${LIBRARY_PAGE_SIZE} per page`,
+    lines,
+    actions,
   });
-
-  return embed;
 }
 
 export function buildLibraryPageComponents(
@@ -73,10 +75,7 @@ export async function renderLibraryPage(
   pageQuery: LibraryPageQuery,
   page: number,
   cacheId: string,
-): Promise<{
-  embed: ReturnType<typeof createBaseEmbed>;
-  components: ActionRowBuilder<ButtonBuilder>[];
-}> {
+): Promise<FolioMessage | null> {
   const offset = page * LIBRARY_PAGE_SIZE;
   const entries = await listPersonalLibraryLite(pageQuery.userId, {
     status: pageQuery.status,
@@ -88,11 +87,10 @@ export async function renderLibraryPage(
 
   const hasNextPage = entries.length > LIBRARY_PAGE_SIZE;
   const pageEntries = hasNextPage ? entries.slice(0, LIBRARY_PAGE_SIZE) : entries;
+  if (pageEntries.length === 0) return null;
 
-  const embed = buildLibraryPageEmbed(pageEntries, page, pageQuery, hasNextPage);
   const components = buildLibraryPageComponents(cacheId, page, page > 0, hasNextPage);
-
-  return { embed, components };
+  return buildLibraryPageFolio(pageEntries, page, pageQuery, hasNextPage, components);
 }
 
 export async function handleLibraryCommand(
@@ -117,18 +115,17 @@ export async function handleLibraryCommand(
     query,
   });
 
-  const { embed, components } = await renderLibraryPage(pageQuery, 0, cacheId);
+  const folio = await renderLibraryPage(pageQuery, 0, cacheId);
 
-  if (!embed.data.description) {
+  if (!folio) {
     await interaction.editReply({
       content: 'No matching titles found in your personal archive.',
-      embeds: [],
       components: [],
     });
     return;
   }
 
-  await interaction.editReply({ embeds: [embed], components });
+  await interaction.editReply(folioEditReplyOptions(folio));
 }
 
 export async function handleLibraryPageButton(interaction: ButtonInteraction): Promise<void> {
@@ -157,16 +154,12 @@ export async function handleLibraryPageButton(interaction: ButtonInteraction): P
 
   await interaction.deferUpdate();
 
-  const { embed, components } = await renderLibraryPage(pageQuery, page, cacheId);
+  const folio = await renderLibraryPage(pageQuery, page, cacheId);
 
-  if (!embed.data.description) {
-    await interaction.editReply({
-      content: 'No matching titles on this page.',
-      embeds: [],
-      components: [],
-    });
+  if (!folio) {
+    await interaction.editReply(folioPlainEditReplyOptions('No matching titles on this page.'));
     return;
   }
 
-  await interaction.editReply({ embeds: [embed], components });
+  await interaction.editReply(folioEditReplyOptions(folio));
 }

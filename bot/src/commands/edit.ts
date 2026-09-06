@@ -3,47 +3,18 @@ import {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
-  type AttachmentBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
 import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
-import { coverToDiscordMedia } from '../format/cover-attachment';
-import { coverEditReplyOptions } from '../format/reply-cover';
-import { createBaseEmbed, truncateText } from '../format/embeds';
-import { formatProgressString } from '../format/progress';
-import { formatShelf, formatCategory } from '../format/labels';
+import { folioEditReplyOptions } from '../format/reply-cover';
+import { buildEditFolio, type FolioActionRow, type FolioMessage } from '../format/folio';
+import { formatShelf } from '../format/labels';
 import type { MediaRow } from '@/domain/media';
 
-export function buildEditInspector(entry: MediaRow): {
-  embed: ReturnType<typeof createBaseEmbed>;
-  components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
-  files: AttachmentBuilder[];
-} {
-  const progressStr = formatProgressString(entry);
+function editActionRows(entry: MediaRow): FolioActionRow[] {
   const statusLabel = formatShelf(entry.status);
-
-  const embed = createBaseEmbed(`Editing: ${entry.title}`)
-    .setDescription(
-      'Select an action below to update progress, shelf status, rating, or personal notes.',
-    )
-    .addFields(
-      { name: 'Category', value: formatCategory(entry.category), inline: true },
-      { name: 'Current Status', value: statusLabel, inline: true },
-      { name: 'Current Progress', value: `\`${progressStr}\``, inline: true },
-    );
-
-  if (entry.rating) {
-    embed.addFields({ name: 'Rating', value: `★ ${entry.rating}/10`, inline: true });
-  }
-
-  if (entry.notes) {
-    embed.addFields({ name: 'Notes', value: truncateText(entry.notes, 200) });
-  }
-
-  const cover = coverToDiscordMedia(entry.coverImage);
-  if (cover.thumbnailUrl) embed.setThumbnail(cover.thumbnailUrl);
 
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -90,7 +61,11 @@ export function buildEditInspector(entry: MediaRow): {
       .addOptions(rateOptions),
   );
 
-  return { embed, components: [buttonRow, statusRow, rateRow], files: cover.files };
+  return [buttonRow, statusRow, rateRow];
+}
+
+export function buildEditInspector(entry: MediaRow): FolioMessage {
+  return buildEditFolio(entry, entry.coverImage, editActionRows(entry));
 }
 
 export async function handleEditCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -111,13 +86,5 @@ export async function handleEditCommand(interaction: ChatInputCommandInteraction
   const entry = await replyForTitleResolution(interaction, outcome);
   if (!entry) return;
 
-  const { embed, components, files } = buildEditInspector(entry);
-
-  await interaction.editReply(
-    coverEditReplyOptions({
-      embeds: [embed],
-      components,
-      files,
-    }),
-  );
+  await interaction.editReply(folioEditReplyOptions(buildEditInspector(entry)));
 }

@@ -8,6 +8,7 @@ import {
 } from './pending-pick';
 import { buildTitleCard } from '../commands/title';
 import { buildEditInspector } from '../commands/edit';
+import { folioEditReplyOptions } from '../format/reply-cover';
 import { runNextStep, formatNextStepMessage } from '../commands/next';
 import { runCompleteStep, formatCompleteStepMessage } from '../commands/complete';
 import { runDropStep, formatDropStepMessage } from '../commands/drop';
@@ -63,25 +64,14 @@ export async function continuePendingPick(
 
   switch (pick.command) {
     case 'title': {
-      const { embed, row, files } = buildTitleCard(entry);
-      await editReplyForPickContinuation(interaction, {
-        content: null,
-        embeds: [embed],
-        components: [row],
-        files,
-        attachments: [],
-      });
+      await editReplyForPickContinuation(interaction, folioEditReplyOptions(buildTitleCard(entry)));
       return;
     }
     case 'edit': {
-      const { embed, components, files } = buildEditInspector(entry);
-      await editReplyForPickContinuation(interaction, {
-        content: null,
-        embeds: [embed],
-        components,
-        files,
-        attachments: [],
-      });
+      await editReplyForPickContinuation(
+        interaction,
+        folioEditReplyOptions(buildEditInspector(entry)),
+      );
       return;
     }
     case 'next': {

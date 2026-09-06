@@ -3,51 +3,21 @@ import {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
-  type AttachmentBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { botEnv } from '../env';
 import { createDraft, type MediaDraft } from '../drafts';
 import { stashSearchHits } from '../search-cache';
-import { coverToDiscordMedia } from '../format/cover-attachment';
-import { coverReplyOptions } from '../format/reply-cover';
-import { createBaseEmbed } from '../format/embeds';
-import { formatProgressString } from '../format/progress';
-import { formatShelf, formatCategory } from '../format/labels';
+import { folioReplyOptions } from '../format/reply-cover';
+import { buildDraftFolio, type FolioActionRow, type FolioMessage } from '../format/folio';
+import { formatShelf } from '../format/labels';
 import { endpointFor } from '@/lib/search';
 import type { SearchResult } from '@/types/search';
 import type { MediaCategory } from '@/types/media';
 
-export function buildDraftInspector(draft: MediaDraft): {
-  embed: ReturnType<typeof createBaseEmbed>;
-  components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
-  files: AttachmentBuilder[];
-} {
-  const progressStr = formatProgressString(draft);
+function draftActionRows(draft: MediaDraft): FolioActionRow[] {
   const statusLabel = formatShelf(draft.status);
-
-  const embed = createBaseEmbed(`New Title Draft: ${draft.title}`)
-    .setDescription(
-      'Review your draft before saving. You can adjust season/chapter numbers, set a status, or rate it before committing to your archive.',
-    )
-    .addFields(
-      { name: 'Category', value: formatCategory(draft.category), inline: true },
-      {
-        name: 'Source',
-        value: draft.sourceId ? `Catalog (\`${draft.sourceId}\`)` : 'Manual Title',
-        inline: true,
-      },
-      { name: 'Initial Shelf', value: statusLabel, inline: true },
-      { name: 'Initial Progress', value: `\`${progressStr}\``, inline: true },
-    );
-
-  if (draft.rating) {
-    embed.addFields({ name: 'Rating', value: `★ ${draft.rating}/10`, inline: true });
-  }
-
-  const cover = coverToDiscordMedia(draft.coverUrl);
-  if (cover.thumbnailUrl) embed.setThumbnail(cover.thumbnailUrl);
 
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -95,7 +65,14 @@ export function buildDraftInspector(draft: MediaDraft): {
       .addOptions(rateOptions),
   );
 
-  return { embed, components: [buttonRow, statusRow, rateRow], files: cover.files };
+  return [buttonRow, statusRow, rateRow];
+}
+
+export function buildDraftInspector(draft: MediaDraft): FolioMessage {
+  const sourceLine = draft.sourceId
+    ? `Source: Catalog (\`${draft.sourceId}\`)`
+    : 'Source: Manual Title';
+  return buildDraftFolio(draft, draft.coverUrl, draftActionRows(draft), { sourceLine });
 }
 
 export async function handleAddCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -126,15 +103,7 @@ export async function handleAddCommand(interaction: ChatInputCommandInteraction)
       notes: null,
     });
 
-    const { embed, components, files } = buildDraftInspector(draft);
-    await interaction.reply(
-      coverReplyOptions({
-        embeds: [embed],
-        components,
-        files,
-        ephemeral: true,
-      }),
-    );
+    await interaction.reply(folioReplyOptions(buildDraftInspector(draft)));
     return;
   }
 

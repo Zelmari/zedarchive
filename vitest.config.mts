@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      'discord.js': fileURLToPath(new URL('./bot/node_modules/discord.js', import.meta.url)),
     },
   },
   test: {
@@ -12,6 +13,10 @@ export default defineConfig({
     env: {
       BETTER_AUTH_SECRET: 'test_secret_0123456789abcdef0123456789abcdef',
       BETTER_AUTH_URL: 'http://localhost:3000',
+      DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/zedarchive',
+      DISCORD_TOKEN: 'test-discord-token',
+      DISCORD_APPLICATION_ID: 'test-discord-app-id',
+      DISCORD_LINK_PEPPER: 'test-discord-link-pepper',
     },
   },
 });

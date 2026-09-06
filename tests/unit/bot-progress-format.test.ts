@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { formatProgressString } from '../../bot/src/format/progress';
+import {
+  formatProgressBar,
+  formatProgressString,
+  progressFraction,
+} from '../../bot/src/format/progress';
 
 describe('formatProgressString', () => {
   it('formats show / anime progress', () => {
@@ -48,5 +52,29 @@ describe('formatProgressString', () => {
     expect(formatProgressString({ category: 'movie', secondaryUnitCurrent: 0 })).toBe('unwatched');
     expect(formatProgressString({ category: 'movie', secondaryUnitCurrent: 45 })).toBe('45 min');
     expect(formatProgressString({ category: 'movie', status: 'completed' })).toBe('watched');
+  });
+});
+
+describe('progressFraction / formatProgressBar', () => {
+  it('returns a fraction when a secondary total is known', () => {
+    expect(
+      progressFraction({
+        category: 'anime',
+        secondaryUnitCurrent: 14,
+        secondaryUnitTotal: 28,
+      }),
+    ).toBe(0.5);
+  });
+
+  it('omits the bar when no total is known', () => {
+    expect(
+      progressFraction({ category: 'anime', primaryUnitCurrent: 1, secondaryUnitCurrent: 4 }),
+    ).toBeNull();
+  });
+
+  it('renders five ticks', () => {
+    expect(formatProgressBar(0.5)).toBe('▰▰▰▱▱');
+    expect(formatProgressBar(1)).toBe('▰▰▰▰▰');
+    expect(formatProgressBar(0)).toBe('▱▱▱▱▱');
   });
 });

@@ -1,7 +1,8 @@
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { resolveZedUserFromDiscordId, getDiscordLinkByDiscordUserId } from '@/domain/discord-link';
 import { botEnv } from '../env';
-import { createBaseEmbed } from '../format/embeds';
+import { buildChromeFolio } from '../format/folio';
+import { folioReplyOptions } from '../format/reply-cover';
 
 export async function handleWhoamiCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const user = await resolveZedUserFromDiscordId(interaction.user.id);
@@ -23,15 +24,13 @@ export async function handleWhoamiCommand(interaction: ChatInputCommandInteracti
       })
     : 'Unknown';
 
-  const embed = createBaseEmbed('Connected ZedArchive Profile').addFields(
-    { name: 'Display Name', value: user.name, inline: true },
-    { name: 'Handle', value: user.username ? `@${user.username}` : 'Not set', inline: true },
-    { name: 'Linked', value: linkedDate, inline: true },
-    { name: 'Archive URL', value: `${botEnv.APP_URL}/dashboard` },
-  );
+  const body =
+    `**Display Name:** ${user.name}\n` +
+    `**Handle:** ${user.username ? `@${user.username}` : 'Not set'}\n` +
+    `**Linked:** ${linkedDate}\n` +
+    `**Archive URL:** ${botEnv.APP_URL}/dashboard`;
 
-  await interaction.reply({
-    embeds: [embed],
-    ephemeral: true,
-  });
+  await interaction.reply(
+    folioReplyOptions(buildChromeFolio({ heading: 'Connected ZedArchive Profile', body })),
+  );
 }
