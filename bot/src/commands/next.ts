@@ -1,45 +1,31 @@
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { requireLinkedUser } from '../auth/require-linked-user';
-import { resolvePersonalTitle } from '../resolve/title';
+import type { MediaRow } from '@/domain/media';
 import { updateMediaProgressForUser, completeMediaEntryForUser } from '@/domain/media';
 import { getNextSeason, sortedSeasonStructure, seasonTotal } from '@/lib/season';
+import { requireLinkedUser } from '../auth/require-linked-user';
+import { resolvePersonalTitle } from '../resolve/title';
+import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
 import { formatProgressString } from '../format/progress';
 
-export async function handleNextCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-  const user = await requireLinkedUser(interaction);
-  if (!user) return;
+export type NextStepResult =
+  | { kind: 'already_completed'; title: string }
+  | { kind: 'movie_completed'; title: string }
+  | { kind: 'season_advanced'; title: string; season: number; progress: string }
+  | { kind: 'incremented'; title: string; progress: string };
 
-  const titleQuery = interaction.options.getString('title', true);
-
-  await interaction.deferReply({ ephemeral: true });
-
-  const resolved = await resolvePersonalTitle(user.userId, titleQuery);
-  if (resolved.notFound || !resolved.entry) {
-    await interaction.editReply({
-      content: 'No title found in your archive. Use `/add` to track it first.',
-    });
-    return;
-  }
-
-  const entry = resolved.entry;
-
-  // Movie logic: +1 minute is useless, so /next completes the movie
+export async function runNextStep(
+  userId: string,
+  entry: MediaRow,
+): Promise<{ result: NextStepResult; updated: MediaRow }> {
   if (entry.category === 'movie') {
     if (entry.status === 'completed') {
-      await interaction.editReply({
-        content: `**${entry.title}** is already completed! Use \`/rate\` to give it a score.`,
-      });
-      return;
+      return { result: { kind: 'already_completed', title: entry.title }, updated: entry };
     }
 
-    const updated = await completeMediaEntryForUser(user.userId, entry.id);
-    await interaction.editReply({
-      content: `🎬 Marked **${updated.title}** as completed!`,
-    });
-    return;
+    const updated = (await completeMediaEntryForUser(userId, entry.id)) as unknown as MediaRow;
+    return { result: { kind: 'movie_completed', title: updated.title }, updated };
   }
 
-  // Shows, Anime, Books, Manga
   const structure = sortedSeasonStructure(entry.structure);
   const totalKnown = entry.secondaryUnitTotal !== null && entry.secondaryUnitTotal > 0;
   const atEndOfSeason =
@@ -54,28 +40,69 @@ export async function handleNextCommand(interaction: ChatInputCommandInteraction
 
     if (nextSeasonNum !== null) {
       const nextTotal = seasonTotal(structure, nextSeasonNum);
-      const updated = await updateMediaProgressForUser(user.userId, entry.id, {
+      const updated = (await updateMediaProgressForUser(userId, entry.id, {
         primaryUnitCurrent: nextSeasonNum,
         secondaryUnitCurrent: 1,
         secondaryUnitTotal: nextTotal,
-      });
+      })) as unknown as MediaRow;
 
-      const newProg = formatProgressString(updated);
-      await interaction.editReply({
-        content: `⏩ Advanced **${updated.title}** to **Season/Vol ${nextSeasonNum}**! (\`${newProg}\`)`,
-      });
-      return;
+      return {
+        result: {
+          kind: 'season_advanced',
+          title: updated.title,
+          season: nextSeasonNum,
+          progress: formatProgressString(updated),
+        },
+        updated,
+      };
     }
   }
 
-  // Linear increment
-  const nextVal = entry.secondaryUnitCurrent + 1;
-  const updated = await updateMediaProgressForUser(user.userId, entry.id, {
-    secondaryUnitCurrent: nextVal,
+  const updated = (await updateMediaProgressForUser(userId, entry.id, {
+    secondaryUnitCurrent: entry.secondaryUnitCurrent + 1,
+  })) as unknown as MediaRow;
+
+  return {
+    result: {
+      kind: 'incremented',
+      title: updated.title,
+      progress: formatProgressString(updated),
+    },
+    updated,
+  };
+}
+
+export function formatNextStepMessage(result: NextStepResult): string {
+  switch (result.kind) {
+    case 'already_completed':
+      return `**${result.title}** is already completed. Use \`/rate\` to score it.`;
+    case 'movie_completed':
+      return `Marked **${result.title}** as completed.`;
+    case 'season_advanced':
+      return `Advanced **${result.title}** to season/volume **${result.season}** (\`${result.progress}\`).`;
+    case 'incremented':
+      return `Progress updated for **${result.title}**: \`${result.progress}\`.`;
+  }
+}
+
+export async function handleNextCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const user = await requireLinkedUser(interaction);
+  if (!user) return;
+
+  const titleQuery = interaction.options.getString('title', true);
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const resolved = await resolvePersonalTitle(user.userId, titleQuery);
+  const outcome = resolveTitleForCommand(resolved, {
+    discordUserId: interaction.user.id,
+    userId: user.userId,
+    command: 'next',
   });
 
-  const prog = formatProgressString(updated);
-  await interaction.editReply({
-    content: `▶️ Progress updated for **${updated.title}**: \`${prog}\``,
-  });
+  const entry = await replyForTitleResolution(interaction, outcome);
+  if (!entry) return;
+
+  const { result } = await runNextStep(user.userId, entry);
+  await interaction.editReply({ content: formatNextStepMessage(result) });
 }

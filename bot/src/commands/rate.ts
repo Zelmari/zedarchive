@@ -1,7 +1,17 @@
+import type { MediaRow } from '@/domain/media';
+import { updateMediaProgressForUser } from '@/domain/media';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
-import { updateMediaProgressForUser } from '@/domain/media';
+import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
+
+export async function runRateStep(userId: string, entry: MediaRow, score: number) {
+  return updateMediaProgressForUser(userId, entry.id, { rating: score });
+}
+
+export function formatRateStepMessage(updated: { title: string }, score: number): string {
+  return `Rated **${updated.title}** **${score}/10**.`;
+}
 
 export async function handleRateCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const user = await requireLinkedUser(interaction);
@@ -13,18 +23,16 @@ export async function handleRateCommand(interaction: ChatInputCommandInteraction
   await interaction.deferReply({ ephemeral: true });
 
   const resolved = await resolvePersonalTitle(user.userId, titleQuery);
-  if (resolved.notFound || !resolved.entry) {
-    await interaction.editReply({
-      content: 'No title found in your archive. Use `/add` to track it first.',
-    });
-    return;
-  }
-
-  const updated = await updateMediaProgressForUser(user.userId, resolved.entry.id, {
-    rating: score,
+  const outcome = resolveTitleForCommand(resolved, {
+    discordUserId: interaction.user.id,
+    userId: user.userId,
+    command: 'rate',
+    extras: { score },
   });
 
-  await interaction.editReply({
-    content: `⭐ Rated **${updated.title}** **${score}/10**!`,
-  });
+  const entry = await replyForTitleResolution(interaction, outcome);
+  if (!entry) return;
+
+  const updated = await runRateStep(user.userId, entry, score);
+  await interaction.editReply({ content: formatRateStepMessage(updated, score) });
 }
