@@ -55,11 +55,17 @@ export default function LoginForm() {
       const redirectTo =
         typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined;
 
-      await authClient.requestPasswordReset({
+      const res = await authClient.requestPasswordReset({
         email,
         redirectTo,
       });
 
+      if (res?.error) {
+        console.error('Forgot password error:', res.error);
+      }
+
+      // Anti-enumeration: same success copy whether the account exists or
+      // the provider rejected the send.
       setForgotSubmitted(true);
     } catch (err) {
       console.error('Forgot password error:', err);

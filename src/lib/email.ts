@@ -1,5 +1,5 @@
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM_ADDRESS = 'ZedArchive <noreply@auth.zedarchive.com>';
+const DEFAULT_FROM_ADDRESS = 'ZedArchive <noreply@zedarchive.com>';
 
 interface SendEmailInput {
   to: string;
@@ -8,18 +8,27 @@ interface SendEmailInput {
   text?: string;
 }
 
-function getEnvVar(name: string): string | undefined {
+async function getEnvVar(name: string): Promise<string | undefined> {
   if (process.env[name]) return process.env[name];
+
+  try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const { env } = await getCloudflareContext({ async: true });
+    const value = (env as Record<string, unknown> | undefined)?.[name];
+    if (typeof value === 'string' && value.length > 0) return value;
+  } catch {
+    // Node tests and local `next dev` have no Worker bindings.
+  }
+
   try {
     const cfContext = (globalThis as Record<string | symbol, unknown>)[
       Symbol.for('__cloudflare-context__')
     ] as { env?: Record<string, string> } | undefined;
     if (cfContext?.env?.[name]) return cfContext.env[name];
-  } catch {}
-  const g = globalThis as Record<string, unknown>;
-  if (typeof g[name] === 'string') return g[name] as string;
-  const gEnv = g.env as Record<string, string> | undefined;
-  if (gEnv && typeof gEnv[name] === 'string') return gEnv[name];
+  } catch {
+    // Ignore missing Cloudflare context.
+  }
+
   return undefined;
 }
 
@@ -37,13 +46,13 @@ function getEnvVar(name: string): string | undefined {
  * configured for email yet.
  */
 export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<void> {
-  const apiKey = getEnvVar('RESEND_API_KEY');
+  const apiKey = await getEnvVar('RESEND_API_KEY');
   if (!apiKey) {
-    console.warn('[email] RESEND_API_KEY not set — skipping send to', to);
+    console.error('[email] RESEND_API_KEY not set — skipping send to', to);
     return;
   }
 
-  const from = getEnvVar('EMAIL_FROM') || DEFAULT_FROM_ADDRESS;
+  const from = (await getEnvVar('EMAIL_FROM')) || DEFAULT_FROM_ADDRESS;
 
   try {
     const res = await fetch(RESEND_API_URL, {
@@ -63,10 +72,10 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
-      console.warn('[email] Resend rejected send:', res.status, errText);
+      console.error('[email] Resend rejected send:', res.status, { from, to, errText });
     }
   } catch (err) {
-    console.warn('[email] Resend fetch failed:', err instanceof Error ? err.message : err);
+    console.error('[email] Resend fetch failed:', err instanceof Error ? err.message : err);
   }
 }
 

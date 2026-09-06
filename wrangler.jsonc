@@ -25,5 +25,8 @@
   },
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "EMAIL_FROM": "ZedArchive <noreply@zedarchive.com>"
   }
 }
