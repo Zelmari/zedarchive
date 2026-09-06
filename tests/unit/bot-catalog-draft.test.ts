@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { catalogDraftFieldsFromHit } from '../../bot/src/commands/add';
+import { catalogDraftFieldsFromHit } from '../../bot/src/format/catalog-draft';
 import type { SearchResult } from '@/types/search';
 
 function makeHit(overrides: Partial<SearchResult> = {}): SearchResult {

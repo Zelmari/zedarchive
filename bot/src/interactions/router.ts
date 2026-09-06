@@ -36,7 +36,8 @@ import {
 } from '@/domain/media';
 import { resolvePersonalTitle } from '../resolve/title';
 import { getDraft, updateDraft, deleteDraft, createDraft, type MediaDraft } from '../drafts';
-import { buildDraftInspector, catalogDraftFieldsFromHit } from '../commands/add';
+import { buildDraftInspector } from '../commands/add';
+import { catalogDraftFieldsFromHit } from '../format/catalog-draft';
 import { getSearchHits } from '../search-cache';
 import type { MediaCategory } from '@/types/media';
 import { handleAddCommand } from '../commands/add';
