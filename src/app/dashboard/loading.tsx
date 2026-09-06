@@ -33,12 +33,15 @@ export default function DashboardLoading() {
         </div>
 
         {/* Media grid skeleton */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="za-bookplate flex animate-pulse flex-col gap-2 p-3">
-              <div className="aspect-[2/3] w-full rounded-small bg-surface-sunken" />
-              <div className="h-4 w-3/4 rounded-small bg-surface-subtle" />
-              <div className="h-3 w-1/2 rounded-small bg-surface-subtle" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="za-bookplate flex animate-pulse flex-row overflow-hidden">
+              <div className="h-36 w-28 shrink-0 bg-surface-sunken" />
+              <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 p-3">
+                <div className="h-4 w-3/4 rounded-small bg-surface-subtle" />
+                <div className="h-3 w-1/2 rounded-small bg-surface-subtle" />
+                <div className="h-8 w-full rounded-small bg-surface-sunken" />
+              </div>
             </div>
           ))}
         </div>

@@ -1,12 +1,13 @@
 import { Star } from 'lucide-react';
 import { getInitials } from '@/lib/format';
+import { cn } from '@/lib/cn';
 import type { MediaStatus } from '@/types/media';
 
 interface MediaCoverProps {
   title: string;
   coverImage?: string | null;
   category?: string;
-  variant?: 'compact' | 'card';
+  variant?: 'compact' | 'card' | 'row';
   status?: MediaStatus;
   statusLabel?: string;
   rating?: number | null;
@@ -19,6 +20,8 @@ const coverWrapperBase =
 
 const compactCoverClass = 'w-28 min-w-28 flex-none basis-28';
 const cardCoverClass = 'w-full min-w-0';
+const rowCoverClass =
+  'w-28 min-w-28 flex-none basis-28 self-start rounded-none border-y-0 border-l-0';
 
 const STATUS_OVERLAY_CLASSES: Record<MediaStatus, string> = {
   in_progress: 'border-success bg-success/90 text-on-accent',
@@ -41,6 +44,7 @@ export default function MediaCover({
 }: MediaCoverProps) {
   const bookish = category === 'book' || category === 'manga';
   const isCard = variant === 'card';
+  const isRow = variant === 'row';
   const isMasterwork = rating != null && rating >= 9;
   const categoryLabel =
     category === 'anime'
@@ -55,9 +59,12 @@ export default function MediaCover({
 
   return (
     <div
-      className={`${coverWrapperBase} ${isCard ? cardCoverClass : compactCoverClass} ${
-        onOpenDetail ? 'cursor-pointer' : ''
-      } ${isCard ? 'group/cover' : ''}`}
+      className={cn(
+        coverWrapperBase,
+        isCard ? cardCoverClass : isRow ? rowCoverClass : compactCoverClass,
+        onOpenDetail && 'cursor-pointer',
+        (isCard || isRow) && 'group/cover',
+      )}
       {...openDetailProps}
       title={onOpenDetail ? `Open details for ${title}` : undefined}
     >
@@ -70,7 +77,11 @@ export default function MediaCover({
           loading="lazy"
         />
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-surface-subtle to-surface-sunken px-5 text-center">
+        <div
+          className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-surface-subtle to-surface-sunken text-center ${
+            isRow ? 'gap-1 px-2' : 'gap-3 px-5'
+          }`}
+        >
           <span
             className={`font-[family-name:var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink ${
               isCard
@@ -105,9 +116,11 @@ export default function MediaCover({
           {statusLabel}
         </span>
       )}
-      {isCard && isMasterwork && (
+      {(isCard || isRow) && isMasterwork && (
         <span
-          className="za-gold-stamp absolute right-3 top-3 z-[2] rounded-small border border-gold/60 bg-surface/95 px-2 py-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
+          className={`za-gold-stamp absolute z-[2] rounded-small border border-gold/60 bg-surface/95 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] ${
+            isRow ? 'right-1.5 top-1.5 px-1.5 py-0.5' : 'right-3 top-3 px-2 py-1'
+          }`}
           title={`Rated ${rating}/10`}
           aria-label={`Rated ${rating} out of 10`}
         >

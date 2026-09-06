@@ -14,6 +14,7 @@ interface UnitStepperRowProps {
   onChange: (delta: number) => void;
   prevTitle?: string;
   nextTitle?: string;
+  compact?: boolean;
 }
 
 export const stepperBtn =
@@ -30,16 +31,23 @@ export default function UnitStepperRow({
   onChange,
   prevTitle,
   nextTitle,
+  compact = false,
 }: UnitStepperRowProps) {
   const miniBtn =
-    'za-icon-hit cursor-pointer rounded-small border border-required bg-surface text-ink transition-[all] duration-[var(--za-motion-fast)] hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
+    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-required bg-surface text-ink transition-[all] duration-[var(--za-motion-fast)] hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40';
 
   const prevDisabled = disabled || (canPrev !== undefined ? !canPrev : current <= 1);
   const nextDisabled = disabled || (canNext !== undefined ? !canNext : current >= total);
   const unitText = `${unitLabel} ${current} of ${total}`;
 
   return (
-    <div className="flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted">
+    <div
+      className={
+        compact
+          ? 'flex items-center justify-between text-[length:var(--za-text-fine)] text-ink-muted'
+          : 'flex items-center justify-between border-t border-dashed border-decorative pt-2 text-[length:var(--za-text-fine)] text-ink-muted'
+      }
+    >
       <span className="font-[family-name:var(--za-font-mono)]">{unitText}</span>
       <div className="flex items-center gap-[var(--za-space-2)]">
         <button
