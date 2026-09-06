@@ -23,6 +23,9 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:push": "drizzle-kit push",
     "setup": "docker compose up -d && npm run db:sync && npm run db:seed && npm run dev",
+    "bot:dev": "npm --prefix bot run dev",
+    "bot:start": "npm --prefix bot run start",
+    "bot:typecheck": "npm --prefix bot run typecheck",
     "prepare": "husky"
   },
   "lint-staged": {
