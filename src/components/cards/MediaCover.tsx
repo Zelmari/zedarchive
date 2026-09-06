@@ -20,8 +20,7 @@ const coverWrapperBase =
 
 const compactCoverClass = 'w-28 min-w-28 flex-none basis-28';
 const cardCoverClass = 'w-full min-w-0';
-const rowCoverClass =
-  'w-28 min-w-28 flex-none basis-28 self-start rounded-none border-y-0 border-l-0';
+const rowCoverClass = 'w-28 min-w-28 flex-none basis-28 self-start';
 
 const STATUS_OVERLAY_CLASSES: Record<MediaStatus, string> = {
   in_progress: 'border-success bg-success/90 text-on-accent',

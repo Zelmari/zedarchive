@@ -508,7 +508,7 @@ export default function MediaCard({
       className={cn(
         'za-bookplate za-card za-card--raised group relative flex min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere] shadow-raised transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgb(36_35_33/12%),0_12px_24px_rgb(36_35_33/8%)]',
         isRow
-          ? 'za-card--flush flex-row items-start gap-0 p-0'
+          ? 'flex-row items-start gap-[var(--za-space-3)]'
           : 'flex-col gap-[var(--za-space-4)] p-[var(--za-space-4)]',
       )}
     >
@@ -523,7 +523,7 @@ export default function MediaCard({
       {isRow ? (
         <>
           {cover}
-          <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 px-3 py-2.5">
+          <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 py-0.5">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <span className="block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
