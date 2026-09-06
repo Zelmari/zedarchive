@@ -445,7 +445,7 @@ async function handleSelectMenuInteraction(
     }
 
     const draft = createDraft({
-      ...catalogDraftFieldsFromHit(hit, category),
+      ...catalogDraftFieldsFromHit(hit, cache.category || category),
       userId: user.userId,
       discordUserId: interaction.user.id,
     });
@@ -512,6 +512,15 @@ async function handleSelectMenuInteraction(
       const resolved = await resolvePersonalTitle(user.userId, mediaId);
       const title = resolved.entry?.title ?? 'Title';
       await interaction.showModal(createEditDropModal(mediaId, title));
+      return;
+    }
+
+    const statusLimit = checkMutationRateLimit(interaction.user.id);
+    if (!statusLimit.allowed) {
+      await interaction.reply({
+        content: 'Too many updates. Wait a few seconds.',
+        ephemeral: true,
+      });
       return;
     }
 

@@ -14,6 +14,9 @@ import { runDropStep, formatDropStepMessage } from '../commands/drop';
 import { runRateStep, formatRateStepMessage } from '../commands/rate';
 import { runStatusStep, formatStatusStepMessage } from '../commands/status';
 import { TITLE_NOT_FOUND } from '../format/labels';
+import { checkMutationRateLimit } from '../rate-limiter';
+
+const WRITE_PICK_COMMANDS = new Set(['next', 'complete', 'drop', 'rate', 'status']);
 
 export async function continuePendingPick(
   interaction: StringSelectMenuInteraction,
@@ -34,6 +37,17 @@ export async function continuePendingPick(
   if (!entryId) {
     await interaction.reply({ content: TITLE_NOT_FOUND, ephemeral: true });
     return;
+  }
+
+  if (WRITE_PICK_COMMANDS.has(pick.command)) {
+    const check = checkMutationRateLimit(interaction.user.id);
+    if (!check.allowed) {
+      await interaction.reply({
+        content: 'Too many updates. Wait a few seconds.',
+        ephemeral: true,
+      });
+      return;
+    }
   }
 
   await interaction.deferUpdate();

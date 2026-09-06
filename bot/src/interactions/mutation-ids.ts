@@ -30,15 +30,13 @@ export function isMutatingButtonCustomId(customId: string): boolean {
 }
 
 export function isMutatingSelectCustomId(customId: string): boolean {
-  if (customId.startsWith('za:pick:')) {
-    return true;
-  }
-
-  if (customId.startsWith('za:add:catalog_pick:')) {
+  if (customId.startsWith('za:add:catalog_pick:') || customId.startsWith('za:pick:')) {
     return false;
   }
 
-  if (customId.endsWith(':select_status') || customId.endsWith(':select_rate')) {
+  // Rate-limit immediate writes. Dropped status opens a modal instead, so that
+  // path is counted on modal submit rather than on the select.
+  if (customId.endsWith(':select_rate')) {
     return customId.startsWith('za:edit:') || customId.startsWith('za:add:');
   }
 

@@ -41,7 +41,7 @@ export function buildLibraryPageEmbed(
 
   embed.setDescription(lines.join('\n\n'));
   embed.setFooter({
-    text: `Page ${page + 1}${hasNextPage ? '+' : ''} • ${LIBRARY_PAGE_SIZE} per page`,
+    text: `ZedArchive • Page ${page + 1}${hasNextPage ? '+' : ''} • ${LIBRARY_PAGE_SIZE} per page`,
   });
 
   return embed;

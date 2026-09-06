@@ -58,6 +58,10 @@ export function buildTitleCard(entry: MediaRow): {
     });
   }
 
+  if (entry.isPrivate) {
+    embed.addFields({ name: 'Visibility', value: 'Private', inline: true });
+  }
+
   applyCoverThumbnail(embed, entry.coverImage);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
