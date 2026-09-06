@@ -26,6 +26,10 @@ vi.mock('@/server/internal', () => ({
   logActivity: logActivityMock,
 }));
 
+vi.mock('@/domain/activity-log', () => ({
+  logActivity: logActivityMock,
+}));
+
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
 
 import { createMockDb } from '../helpers/db-mock';

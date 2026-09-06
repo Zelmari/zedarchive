@@ -125,4 +125,7 @@ export const client = createRetryingPostgresClient(connectionString, {
   max_lifetime: 60 * 5,
 });
 
+import { setDomainDb } from '@/domain/db-context';
+
 export const db: PostgresJsDatabase<typeof schema> = drizzle(client, { schema });
+setDomainDb(db);
