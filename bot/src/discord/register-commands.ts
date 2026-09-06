@@ -143,7 +143,9 @@ export function getSlashCommands(
     // 9. /next
     new SlashCommandBuilder()
       .setName('next')
-      .setDescription('Step progress +1 episode or chapter (+1 rewatch/watched for movies)')
+      .setDescription(
+        'Step +1 episode or chapter (movies: marks completed without changing runtime)',
+      )
       .addStringOption((opt) =>
         opt
           .setName('title')

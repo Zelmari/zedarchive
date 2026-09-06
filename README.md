@@ -432,7 +432,7 @@ ZedArchive features an official Discord bot companion allowing collectors to log
 
 - **Direct Database Integration:** Operates as an independent Node 22 gateway process sharing the PostgreSQL schema (`src/db/schema.ts`) and domain layer (`src/domain/`) without shadow tables.
 - **Isolated Architecture:** Kept strictly separate from the edge Cloudflare Worker bundle (`discord.js` is isolated in `bot/package.json`).
-- **Private by Default:** All guild-facing library responses are ephemeral. Account linking uses single-use, 10-minute HMAC-peppercorn codes generated from the web dashboard (`/settings`) and redeemed only in DMs.
+- **Private by Default:** All guild-facing library responses are ephemeral. Account linking uses single-use, 10-minute HMAC-peppercorn codes generated from the web dashboard (`/settings`). Guild/user-install `/link` is ephemeral; a confirmation DM is sent when you are not already in a bot DM.
 - **Folio Hub & In-Memory Drafts:** Interactive `/edit` folios with modals for live progress and notes updates, plus multi-step `/add` search inspection before saving to the database.
 
 ### Bot Quickstart
