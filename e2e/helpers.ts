@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 export interface E2EUser {
   email: string;
@@ -93,21 +93,41 @@ export async function registerAndAuthenticate(page: Page, user: E2EUser): Promis
  * UI path with a hydration guard: React resets controlled inputs when it
  * attaches, so early fills get wiped and the form natively GET-submits to
  * `/signup?`. We detect that outcome and retry until the SPA handler wins.
+ *
+ * `next dev` can pin a "Compiling…" overlay after the first dashboard compile.
+ * That overlay intercepts pointer events, so a retry `fill()` waits until the
+ * test timeout. Strip the portal and force-fill so the overlay cannot block.
  */
+async function clearDevOverlay(page: Page): Promise<void> {
+  await page
+    .evaluate(() => {
+      document.querySelector('nextjs-portal')?.remove();
+    })
+    .catch(() => {
+      // Page may not be ready yet.
+    });
+}
+
+async function fillField(locator: Locator, value: string): Promise<void> {
+  await clearDevOverlay(locator.page());
+  await locator.fill(value, { force: true });
+}
+
 export async function signUp(page: Page, user: E2EUser): Promise<void> {
   for (let attempt = 0; attempt < 6; attempt++) {
     await page.goto('/signup');
-    await page.getByPlaceholder('e.g. John Smith').fill(user.name);
-    await page.getByPlaceholder('name@example.com').fill(user.email);
+    await fillField(page.getByPlaceholder('e.g. John Smith'), user.name);
+    await fillField(page.getByPlaceholder('name@example.com'), user.email);
     const password = page.getByPlaceholder('At least 8 characters');
-    await password.fill(user.password);
+    await fillField(password, user.password);
 
     await password.press('Enter');
     try {
-      await page.waitForURL(/\/dashboard$/, { timeout: 10_000 });
+      // First dashboard compile under `next dev` can take well over 10s in CI.
+      await page.waitForURL(/\/dashboard$/, { timeout: 45_000 });
       return;
     } catch {
-      // Likely a pre-hydration native submit; loop and try again.
+      // Likely a pre-hydration native submit or a compiling overlay; retry.
     }
   }
   throw new Error('signUp: dashboard navigation never succeeded');
@@ -117,13 +137,13 @@ export async function signUp(page: Page, user: E2EUser): Promise<void> {
 export async function logIn(page: Page, user: E2EUser): Promise<void> {
   for (let attempt = 0; attempt < 6; attempt++) {
     await page.goto('/login');
-    await page.getByPlaceholder('name@example.com').fill(user.email);
+    await fillField(page.getByPlaceholder('name@example.com'), user.email);
     const password = page.locator('input[type="password"]');
-    await password.fill(user.password);
+    await fillField(password, user.password);
 
     await password.press('Enter');
     try {
-      await page.waitForURL(/\/dashboard$/, { timeout: 10_000 });
+      await page.waitForURL(/\/dashboard$/, { timeout: 45_000 });
       return;
     } catch {
       // Retry on hydration race.

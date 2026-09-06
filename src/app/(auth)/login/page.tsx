@@ -1,4 +1,5 @@
 import { redirectIfAuthenticated } from '@/server/internal';
+import { Suspense } from 'react';
 import LoginForm from './LoginForm';
 
 export const metadata = {
@@ -8,5 +9,9 @@ export const metadata = {
 
 export default async function LoginPage() {
   await redirectIfAuthenticated();
-  return <LoginForm />;
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
 }
