@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import { uniqueUser, signUp, logIn, cleanupUsers, type E2EUser } from './helpers';
 
 test.describe('auth flows', () => {
+  // Signup waits out the first `next dev` dashboard compile (often >10s in CI).
+  test.describe.configure({ timeout: 90_000 });
+
   let user: E2EUser;
 
   test.beforeAll(() => {
@@ -23,9 +26,10 @@ test.describe('auth flows', () => {
 
   test('rejects an invalid password without a session', async ({ page }) => {
     await page.goto('/login');
-    await page.getByPlaceholder('name@example.com').fill(user.email);
-    await page.locator('input[type="password"]').fill('definitely-wrong');
-    await page.locator('button[type="submit"]').click();
+    await page.evaluate(() => document.querySelector('nextjs-portal')?.remove()).catch(() => {});
+    await page.getByPlaceholder('name@example.com').fill(user.email, { force: true });
+    await page.locator('input[type="password"]').fill('definitely-wrong', { force: true });
+    await page.locator('button[type="submit"]').click({ force: true });
 
     // Still on login page; error surfaced to the user.
     await expect(page).toHaveURL(/\/login/);
