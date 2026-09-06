@@ -8,7 +8,7 @@ const sampleHit: SearchResult = {
   title: 'Test Show',
   coverUrl: 'https://example.com/cover.jpg',
   primaryUnitTotal: 3,
-  structure: [{ season: 1, episodes: 10 }],
+  structure: [{ number: 1, name: 'Season 1', total: 10 }],
   secondaryUnitTotal: null,
   year: '2024',
 };

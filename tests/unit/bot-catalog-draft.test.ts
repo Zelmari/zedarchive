@@ -9,7 +9,7 @@ function makeHit(overrides: Partial<SearchResult> = {}): SearchResult {
     title: 'Sample Title',
     coverUrl: 'https://cdn.example.com/poster.jpg',
     primaryUnitTotal: 2,
-    structure: [{ season: 1, episodes: 8 }],
+    structure: [{ number: 1, name: 'Season 1', total: 8 }],
     secondaryUnitTotal: 24,
     authors: null,
     year: '2023',
@@ -22,7 +22,7 @@ describe('catalogDraftFieldsFromHit', () => {
     const fields = catalogDraftFieldsFromHit(makeHit(), 'show');
     expect(fields.sourceId).toBe('tmdb:999');
     expect(fields.coverUrl).toBe('https://cdn.example.com/poster.jpg');
-    expect(fields.structure).toEqual([{ season: 1, episodes: 8 }]);
+    expect(fields.structure).toEqual([{ number: 1, name: 'Season 1', total: 8 }]);
     expect(fields.title).toBe('Sample Title');
     expect(fields.secondaryUnitTotal).toBe(24);
   });
