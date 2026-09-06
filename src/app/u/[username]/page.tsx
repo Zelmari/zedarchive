@@ -40,11 +40,22 @@ export async function generateMetadata({ params }: PageParams) {
           url:
             data.user.image && /^https:\/\//i.test(data.user.image)
               ? data.user.image
-              : '/icon-512.png',
+              : '/icons/icon-512.png',
           width: 512,
           height: 512,
           alt: `${data.user.name}’s Profile`,
         },
+      ],
+    },
+    twitter: {
+      card: 'summary',
+      title: `${data.user.name} (@${data.user.username})’s Media Archive`,
+      description:
+        data.user.bio || `Explore @${data.user.username}’s public media collection on zedarchive.`,
+      images: [
+        data.user.image && /^https:\/\//i.test(data.user.image)
+          ? data.user.image
+          : '/icons/icon-512.png',
       ],
     },
   };
