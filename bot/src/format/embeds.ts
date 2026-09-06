@@ -19,17 +19,6 @@ export function createBaseEmbed(title?: string): EmbedBuilder {
 }
 
 /**
- * Sets thumbnail only if url is a valid HTTPS link.
- * Avoids base64 data URLs which Discord rejects.
- */
-export function applyCoverThumbnail(embed: EmbedBuilder, coverUrl?: string | null): EmbedBuilder {
-  if (coverUrl && coverUrl.startsWith('https://')) {
-    embed.setThumbnail(coverUrl);
-  }
-  return embed;
-}
-
-/**
  * Strips HTML / complex markdown and truncates text for embeds.
  */
 export function truncateText(text?: string | null, maxLength = 300): string {

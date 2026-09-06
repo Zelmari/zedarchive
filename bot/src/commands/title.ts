@@ -2,12 +2,15 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  type AttachmentBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
 import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
-import { createBaseEmbed, applyCoverThumbnail, truncateText } from '../format/embeds';
+import { coverToDiscordMedia } from '../format/cover-attachment';
+import { coverEditReplyOptions } from '../format/reply-cover';
+import { createBaseEmbed, truncateText } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
 import { formatShelf, formatCategory } from '../format/labels';
 import type { MediaRow } from '@/domain/media';
@@ -15,6 +18,7 @@ import type { MediaRow } from '@/domain/media';
 export function buildTitleCard(entry: MediaRow): {
   embed: ReturnType<typeof createBaseEmbed>;
   row: ActionRowBuilder<ButtonBuilder>;
+  files: AttachmentBuilder[];
 } {
   const progressStr = formatProgressString(entry);
 
@@ -62,7 +66,8 @@ export function buildTitleCard(entry: MediaRow): {
     embed.addFields({ name: 'Visibility', value: 'Private', inline: true });
   }
 
-  applyCoverThumbnail(embed, entry.coverImage);
+  const cover = coverToDiscordMedia(entry.coverImage);
+  if (cover.thumbnailUrl) embed.setThumbnail(cover.thumbnailUrl);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -80,7 +85,7 @@ export function buildTitleCard(entry: MediaRow): {
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return { embed, row };
+  return { embed, row, files: cover.files };
 }
 
 export async function handleTitleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -101,10 +106,13 @@ export async function handleTitleCommand(interaction: ChatInputCommandInteractio
   const entry = await replyForTitleResolution(interaction, outcome);
   if (!entry) return;
 
-  const { embed, row } = buildTitleCard(entry);
+  const { embed, row, files } = buildTitleCard(entry);
 
-  await interaction.editReply({
-    embeds: [embed],
-    components: [row],
-  });
+  await interaction.editReply(
+    coverEditReplyOptions({
+      embeds: [embed],
+      components: [row],
+      files,
+    }),
+  );
 }

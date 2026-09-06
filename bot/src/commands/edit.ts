@@ -3,12 +3,15 @@ import {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
+  type AttachmentBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
 import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
-import { createBaseEmbed, applyCoverThumbnail, truncateText } from '../format/embeds';
+import { coverToDiscordMedia } from '../format/cover-attachment';
+import { coverEditReplyOptions } from '../format/reply-cover';
+import { createBaseEmbed, truncateText } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
 import { formatShelf, formatCategory } from '../format/labels';
 import type { MediaRow } from '@/domain/media';
@@ -16,6 +19,7 @@ import type { MediaRow } from '@/domain/media';
 export function buildEditInspector(entry: MediaRow): {
   embed: ReturnType<typeof createBaseEmbed>;
   components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
+  files: AttachmentBuilder[];
 } {
   const progressStr = formatProgressString(entry);
   const statusLabel = formatShelf(entry.status);
@@ -38,7 +42,8 @@ export function buildEditInspector(entry: MediaRow): {
     embed.addFields({ name: 'Notes', value: truncateText(entry.notes, 200) });
   }
 
-  applyCoverThumbnail(embed, entry.coverImage);
+  const cover = coverToDiscordMedia(entry.coverImage);
+  if (cover.thumbnailUrl) embed.setThumbnail(cover.thumbnailUrl);
 
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -85,7 +90,7 @@ export function buildEditInspector(entry: MediaRow): {
       .addOptions(rateOptions),
   );
 
-  return { embed, components: [buttonRow, statusRow, rateRow] };
+  return { embed, components: [buttonRow, statusRow, rateRow], files: cover.files };
 }
 
 export async function handleEditCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -106,10 +111,13 @@ export async function handleEditCommand(interaction: ChatInputCommandInteraction
   const entry = await replyForTitleResolution(interaction, outcome);
   if (!entry) return;
 
-  const { embed, components } = buildEditInspector(entry);
+  const { embed, components, files } = buildEditInspector(entry);
 
-  await interaction.editReply({
-    embeds: [embed],
-    components,
-  });
+  await interaction.editReply(
+    coverEditReplyOptions({
+      embeds: [embed],
+      components,
+      files,
+    }),
+  );
 }
