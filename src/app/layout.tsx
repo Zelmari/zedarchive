@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import './globals.css';
 import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
 import { getSessionTheme } from '@/server/queries/user';
@@ -32,12 +33,37 @@ const jetBrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-export const metadata = {
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://zedarchive.com'),
   title: {
     default: 'zedarchive — Quiet Media Archive',
     template: '%s — zedarchive',
   },
   description: 'A fast, distraction-free archive for your anime, TV series, novels, and books.',
+  openGraph: {
+    title: 'zedarchive — Quiet Media Archive',
+    description:
+      'Your watchlist & reading list, kept quietly. An unhurried personal media archive for anime, films, series, and books.',
+    url: '/',
+    siteName: 'zedarchive',
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'zedarchive — Your watchlist & reading list, kept quietly',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'zedarchive — Quiet Media Archive',
+    description:
+      'Your watchlist & reading list, kept quietly. An unhurried personal media archive for anime, films, series, and books.',
+    images: ['/og.png'],
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
