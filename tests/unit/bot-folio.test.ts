@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { ComponentType, MessageFlags } from 'discord.js';
 import { buildTitleCard } from '../../bot/src/commands/title';
 import { buildEditInspector } from '../../bot/src/commands/edit';
 import { buildDraftInspector } from '../../bot/src/commands/add';
@@ -14,6 +13,18 @@ import {
 } from '../../bot/src/format/folio';
 import { folioEditReplyOptions } from '../../bot/src/format/reply-cover';
 import type { MediaRow } from '@/domain/media';
+
+const V2 = 32768;
+const Type = {
+  ActionRow: 1,
+  Button: 2,
+  StringSelect: 3,
+  Section: 9,
+  TextDisplay: 10,
+  Thumbnail: 11,
+  Separator: 14,
+  Container: 17,
+} as const;
 
 function sampleEntry(overrides: Partial<FolioEntry> = {}): FolioEntry {
   return {
@@ -70,9 +81,9 @@ function findByType(node: unknown, type: number): Record<string, unknown>[] {
 describe('folio builders', () => {
   it('sets the V2 flag and ribbon accent', () => {
     const folio = buildTitleFolio(sampleEntry(), null, []);
-    expect(folio.flags).toBe(MessageFlags.IsComponentsV2);
+    expect(folio.flags).toBe(V2);
     expect(folio.components[0]?.toJSON()).toMatchObject({
-      type: ComponentType.Container,
+      type: Type.Container,
       accent_color: FOLIO_RIBBON_COLOR,
     });
   });
@@ -80,7 +91,7 @@ describe('folio builders', () => {
   it('uses a section thumbnail for https covers', () => {
     const folio = buildTitleFolio(sampleEntry(), 'https://cdn.example/frieren.webp', []);
     const json = folio.components[0]!.toJSON();
-    const thumbs = findByType(json, ComponentType.Thumbnail);
+    const thumbs = findByType(json, Type.Thumbnail);
     expect(thumbs).toHaveLength(1);
     expect(thumbs[0]?.media).toMatchObject({ url: 'https://cdn.example/frieren.webp' });
     expect(folio.files).toHaveLength(0);
@@ -90,7 +101,7 @@ describe('folio builders', () => {
     const dataUri = `data:image/webp;base64,${Buffer.from('524946460000000057454250', 'hex').toString('base64')}`;
     const folio = buildTitleFolio(sampleEntry(), dataUri, []);
     const json = folio.components[0]!.toJSON();
-    const thumbs = findByType(json, ComponentType.Thumbnail);
+    const thumbs = findByType(json, Type.Thumbnail);
     expect(thumbs[0]?.media).toMatchObject({ url: 'attachment://cover.webp' });
     expect(folio.files).toHaveLength(1);
   });
@@ -98,8 +109,8 @@ describe('folio builders', () => {
   it('omits the thumbnail accessory when there is no cover', () => {
     const folio = buildTitleFolio(sampleEntry(), null, []);
     const json = folio.components[0]!.toJSON();
-    expect(findByType(json, ComponentType.Section)).toHaveLength(0);
-    expect(findByType(json, ComponentType.Thumbnail)).toHaveLength(0);
+    expect(findByType(json, Type.Section)).toHaveLength(0);
+    expect(findByType(json, Type.Thumbnail)).toHaveLength(0);
     expect(collectText(json).join('\n')).toContain('ANIME');
     expect(collectText(json).join('\n')).toContain("**Frieren: Beyond Journey's End**");
   });
@@ -123,7 +134,7 @@ describe('folio builders', () => {
   it('keeps title action custom ids', () => {
     const folio = buildTitleCard(asMediaRow());
     const json = folio.components[0]!.toJSON();
-    const buttons = findByType(json, ComponentType.Button);
+    const buttons = findByType(json, Type.Button);
     const ids = buttons.map((b) => b.custom_id);
     expect(ids).toEqual([
       'za:title:title-1:step',
@@ -135,7 +146,7 @@ describe('folio builders', () => {
   it('keeps edit inspector select custom ids', () => {
     const folio = buildEditInspector(asMediaRow());
     const json = folio.components[0]!.toJSON();
-    const selects = findByType(json, ComponentType.StringSelect);
+    const selects = findByType(json, Type.StringSelect);
     const ids = selects.map((s) => s.custom_id);
     expect(ids).toEqual(['za:edit:title-1:select_status', 'za:edit:title-1:select_rate']);
   });
@@ -161,9 +172,7 @@ describe('folio builders', () => {
     const text = collectText(folio.components[0]!.toJSON()).join('\n');
     expect(text).toContain('Source: Manual Title');
     expect(text).toContain('FILM');
-    const ids = findByType(folio.components[0]!.toJSON(), ComponentType.Button).map(
-      (b) => b.custom_id,
-    );
+    const ids = findByType(folio.components[0]!.toJSON(), Type.Button).map((b) => b.custom_id);
     expect(ids).toEqual([
       `za:add:${draft.draftId}:modal_details`,
       `za:add:${draft.draftId}:submit`,
@@ -191,7 +200,7 @@ describe('folio builders', () => {
       ],
     });
     const json = folio.components[0]!.toJSON();
-    expect(findByType(json, ComponentType.Thumbnail)).toHaveLength(0);
+    expect(findByType(json, Type.Thumbnail)).toHaveLength(0);
     const text = collectText(json).join('\n');
     expect(text).toContain('Personal Archive');
     expect(text).toContain('ANIME');
@@ -201,7 +210,7 @@ describe('folio builders', () => {
 
   it('folioEditReplyOptions always sends the V2 flag and clears attachments', () => {
     const options = folioEditReplyOptions(buildTitleFolio(sampleEntry(), null, []));
-    expect(options.flags).toBe(MessageFlags.IsComponentsV2);
+    expect(options.flags).toBe(V2);
     expect(options.attachments).toEqual([]);
     expect(options.embeds).toEqual([]);
     expect(options.content).toBeNull();
