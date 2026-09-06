@@ -15,6 +15,7 @@ interface MediaBadgesProps {
   priorityIndex?: number | null;
   showStatus?: boolean;
   showRating?: boolean;
+  showCategory?: boolean;
 }
 
 export default function MediaBadges({
@@ -31,6 +32,7 @@ export default function MediaBadges({
   priorityIndex,
   showStatus = true,
   showRating = true,
+  showCategory = true,
 }: MediaBadgesProps) {
   const bookish = category === 'book' || category === 'manga';
   const isMovie = category === 'movie';
@@ -73,17 +75,19 @@ export default function MediaBadges({
         </Badge>
       )}
       {isMovie && primaryUnitCurrent > 1 && <Badge>Watched ({primaryUnitCurrent}x)</Badge>}
-      <Badge>
-        {category === 'movie'
-          ? 'Movie'
-          : category === 'anime'
-            ? 'Anime'
-            : category === 'manga'
-              ? 'Manga'
-              : category === 'book'
-                ? 'Book'
-                : 'TV Series'}
-      </Badge>
+      {showCategory && (
+        <Badge>
+          {category === 'movie'
+            ? 'Movie'
+            : category === 'anime'
+              ? 'Anime'
+              : category === 'manga'
+                ? 'Manga'
+                : category === 'book'
+                  ? 'Book'
+                  : 'TV Series'}
+        </Badge>
+      )}
       {tags.length > 0 && (
         <div className="flex basis-full flex-wrap items-center gap-x-2 gap-y-1 pt-1">
           {tags.map((t) => (

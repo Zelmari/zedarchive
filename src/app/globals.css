@@ -938,6 +938,12 @@ select.za-field {
   box-shadow: var(--za-shadow-raised);
 }
 
+/* Horizontal shelf cards: flush cover on the left, copy on the right. */
+.za-card--flush {
+  padding: 0;
+  outline: none;
+}
+
 .za-title-tile {
   display: grid;
   aspect-ratio: 2 / 3;

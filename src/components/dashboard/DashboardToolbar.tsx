@@ -1,7 +1,19 @@
 'use client';
 import type { RefObject } from 'react';
-import { Activity, BarChart2, Calendar, Database, Search, Share2, Tag, X } from 'lucide-react';
+import {
+  Activity,
+  BarChart2,
+  Calendar,
+  Database,
+  LayoutGrid,
+  Search,
+  Share2,
+  StretchHorizontal,
+  Tag,
+  X,
+} from 'lucide-react';
 import type { SortKey } from '@/hooks/use-media-filters';
+import type { CardLayout } from '@/hooks/use-card-layout';
 import { pillClass } from '@/components/ui/media-controls';
 
 interface DashboardToolbarProps {
@@ -17,6 +29,8 @@ interface DashboardToolbarProps {
   tags: string[];
   counts: Record<string, number>;
   onOpenModal: (modal: 'activity' | 'share' | 'stats' | 'data' | 'calendar') => void;
+  cardLayout: CardLayout;
+  onCardLayoutChange: (layout: CardLayout) => void;
 }
 
 const SORT_OPTIONS: Array<[SortKey, string]> = [
@@ -43,6 +57,8 @@ export default function DashboardToolbar({
   tags,
   counts,
   onOpenModal,
+  cardLayout,
+  onCardLayoutChange,
 }: DashboardToolbarProps) {
   const pills: Array<{ id: string; label: string }> = [
     { id: 'all', label: `All (${counts.all ?? 0})` },
@@ -58,7 +74,7 @@ export default function DashboardToolbar({
     <div className="mb-[var(--za-space-6)] flex min-w-0 max-w-full flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
       {/* Top row: search & sort (left) + auxiliary actions (right) */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
-        <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:max-w-[32rem] sm:flex-[1_1_20rem] sm:flex-row sm:items-center">
+        <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:max-w-[44rem] sm:flex-[1_1_20rem] sm:flex-row sm:items-center">
           <div className="relative min-w-0 w-full flex-1">
             <Search
               size={15}
@@ -89,19 +105,50 @@ export default function DashboardToolbar({
             ) : null}
           </div>
 
-          <div className="w-full min-w-0 max-w-full sm:w-[min(100%,14rem)] sm:shrink-0">
-            <select
-              className="za-field h-[var(--za-control-min-block-size)] w-full min-w-0 max-w-full cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value as SortKey)}
-              aria-label="Sort Archive"
-            >
-              {SORT_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:shrink-0">
+            <div className="w-full min-w-0 max-w-full sm:w-[min(100%,14rem)] sm:shrink-0">
+              <select
+                className="za-field h-[var(--za-control-min-block-size)] w-full min-w-0 max-w-full cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
+                value={sortBy}
+                onChange={(e) => onSortChange(e.target.value as SortKey)}
+                aria-label="Sort Archive"
+              >
+                {SORT_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="inline-flex shrink-0 gap-1" role="radiogroup" aria-label="Card layout">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={cardLayout === 'row'}
+                aria-label="Row cards"
+                title="Row cards — cover on the left"
+                data-testid="archive-layout-row"
+                className={`${pillClass(cardLayout === 'row')} gap-1`}
+                onClick={() => onCardLayoutChange('row')}
+              >
+                <StretchHorizontal size={15} strokeWidth={1.75} />
+                <span className="hidden sm:inline">Row</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={cardLayout === 'poster'}
+                aria-label="Poster cards"
+                title="Poster cards — cover on top"
+                data-testid="archive-layout-poster"
+                className={`${pillClass(cardLayout === 'poster')} gap-1`}
+                onClick={() => onCardLayoutChange('poster')}
+              >
+                <LayoutGrid size={15} strokeWidth={1.75} />
+                <span className="hidden sm:inline">Poster</span>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -7,6 +7,8 @@ import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from
 import { MarkdownNotes } from '@/lib/markdown';
 import type { MediaEntry, NextAirInfo, UpdateMediaInput } from '@/types/media';
 import { togglePriorityQueue } from '@/server/media';
+import { cn } from '@/lib/cn';
+import type { CardLayout } from '@/hooks/use-card-layout';
 import MediaCover from './MediaCover';
 import MediaBadges from './MediaBadges';
 import ShowStepper from './ShowStepper';
@@ -23,6 +25,8 @@ export interface MediaCardHandlers {
 interface MediaCardProps extends MediaCardHandlers {
   item: MediaEntry;
   nextAir?: NextAirInfo | null;
+  /** `row` is Style 1 (cover left). `poster` keeps the previous stack. */
+  layout?: CardLayout;
 }
 
 function isBookFamily(category: string): boolean {
@@ -71,6 +75,7 @@ export default function MediaCard({
   onUpdate,
   onDelete,
   onOpenDetail,
+  layout = 'row',
 }: MediaCardProps) {
   const [showNotes, setShowNotes] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -186,13 +191,326 @@ export default function MediaCard({
       }
     : {};
 
+  const isRow = layout === 'row';
   const miniActionBtn =
-    'za-icon-hit cursor-pointer rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+
+  const actionButtons = (
+    <div
+      className={cn(
+        'flex items-center gap-[var(--za-space-2)]',
+        isRow ? 'shrink-0' : 'justify-end',
+      )}
+    >
+      <button
+        type="button"
+        className={`${miniActionBtn} ${
+          item.priorityIndex != null
+            ? 'border-accent bg-accent/15 text-accent'
+            : 'text-ink-muted hover:border-required hover:text-ink'
+        }`}
+        onClick={async () => {
+          try {
+            setIsUpdating(true);
+            const updated = await togglePriorityQueue(item.id);
+            await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
+          } catch (err) {
+            console.error('Failed to toggle priority queue:', err);
+          } finally {
+            setIsUpdating(false);
+          }
+        }}
+        title={
+          item.priorityIndex != null
+            ? `Queued #${item.priorityIndex} (Click to remove from Up Next)`
+            : 'Add to Up Next Queue'
+        }
+        aria-label={
+          item.priorityIndex != null
+            ? `Remove ${item.title} from Up Next queue`
+            : `Add ${item.title} to Up Next queue`
+        }
+      >
+        <Bookmark
+          size={13}
+          strokeWidth={1.75}
+          className={item.priorityIndex != null ? 'fill-accent' : ''}
+        />
+      </button>
+      {onOpenDetail && (
+        <button
+          type="button"
+          className={`${miniActionBtn} text-ink-muted hover:border-accent hover:bg-accent-soft hover:text-accent`}
+          onClick={() => onOpenDetail(item)}
+          title={`Inspect ${item.title}`}
+          aria-label={`Inspect ${item.title}`}
+        >
+          <Eye size={13} strokeWidth={1.75} />
+        </button>
+      )}
+      {onOpenDetail && (
+        <button
+          type="button"
+          className={`${miniActionBtn} text-ink-muted hover:border-[var(--za-color-border-focus)] hover:bg-surface-hover hover:text-ink`}
+          onClick={() => onOpenDetail(item)}
+          title={`Edit ${item.title}`}
+          aria-label={`Edit ${item.title}`}
+        >
+          <Pencil size={13} strokeWidth={1.75} />
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          className={`${miniActionBtn} text-danger hover:border-danger hover:bg-danger-surface`}
+          onClick={() => onDelete(item.id)}
+          title={`Remove ${item.title}`}
+          aria-label={`Remove ${item.title}`}
+        >
+          <Trash2 size={14} strokeWidth={1.75} />
+        </button>
+      )}
+    </div>
+  );
+
+  const titleBlock = (
+    <div className="min-w-0">
+      <h3
+        className={cn(
+          '[overflow-wrap:anywhere] font-[family-name:var(--za-font-editorial)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink',
+          isRow
+            ? 'text-[length:var(--za-text-heading-sm)]'
+            : 'text-[length:var(--za-text-heading-md)]',
+          onOpenDetail && 'cursor-pointer',
+        )}
+        title={item.title}
+        {...openDetailProps}
+      >
+        {item.title}
+      </h3>
+      {item.isPrivate && (
+        <span
+          className="mt-1 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
+          title="Private — hidden from public profile and RSS"
+        >
+          <Lock size={10} strokeWidth={2} aria-hidden="true" />
+          Private
+        </span>
+      )}
+      {!isRow && (
+        <span className="mt-1 block truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+          {item.sourceId || 'Local catalogue record'}
+        </span>
+      )}
+    </div>
+  );
+
+  const badges = (
+    <MediaBadges
+      status={status as import('@/types/media').MediaStatus}
+      statusLabel={itemStatusLabel}
+      rating={rating}
+      category={rawCategory}
+      primaryUnitCurrent={primaryUnitCurrent}
+      primaryUnitTotal={primaryUnitTotal}
+      tags={tags}
+      dropReason={item.dropReason}
+      droppedProgressPrimary={item.droppedProgressPrimary}
+      droppedProgressSecondary={item.droppedProgressSecondary}
+      priorityIndex={item.priorityIndex}
+      showStatus={isRow}
+      showRating={isRow ? rating != null : rating != null && rating < 9}
+      showCategory={!isRow}
+    />
+  );
+
+  const unitSteppers = (
+    <>
+      {!bookish && rawCategory !== 'movie' && primaryUnitTotal > 1 && (
+        <UnitStepperRow
+          unitLabel="Season"
+          current={primaryUnitCurrent}
+          total={seasonDisplayTotal}
+          canPrev={hasPrevSeason}
+          canNext={hasNextSeason}
+          disabled={isUpdating}
+          onChange={handleSeasonChange}
+          compact={isRow}
+        />
+      )}
+      {bookish && primaryUnitTotal > 1 && (
+        <UnitStepperRow
+          unitLabel="Volume"
+          current={primaryUnitCurrent}
+          total={primaryUnitTotal}
+          disabled={isUpdating}
+          onChange={handleVolumeChange}
+          compact={isRow}
+        />
+      )}
+    </>
+  );
+
+  const notesToggle = item.notes ? (
+    <div>
+      <button
+        type="button"
+        onClick={() => setShowNotes((p) => !p)}
+        className="inline-flex cursor-pointer items-center gap-1 text-[length:var(--za-text-fine)] text-ink-muted hover:text-ink"
+      >
+        <FileText size={12} />
+        <span>{showNotes ? 'Hide note' : 'View note'}</span>
+      </button>
+      {showNotes && (
+        <div className="mt-2 rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink">
+          <MarkdownNotes content={item.notes} />
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const completionNudge =
+    isAtFinalUnit && status !== 'completed' && rawCategory !== 'movie' ? (
+      <div
+        className={cn(
+          'flex items-center justify-between rounded-small border border-success/25 bg-success-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-success',
+          !isRow && 'mt-2',
+        )}
+      >
+        <span>{bookish ? 'Finished reading!' : 'Series completed!'}</span>
+        <button
+          type="button"
+          className="za-button za-button--secondary cursor-pointer px-[0.6rem] py-[0.2rem] text-[length:var(--za-text-fine)] text-success hover:border-success"
+          onClick={() => runUpdate({ status: 'completed', completedAt: new Date().toISOString() })}
+          disabled={isUpdating}
+        >
+          Mark Completed
+        </button>
+      </div>
+    ) : null;
+
+  const progressControls = (
+    <div
+      className={cn(
+        'flex flex-col',
+        isRow
+          ? 'gap-2'
+          : 'gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]',
+      )}
+    >
+      {rawCategory === 'movie' ? (
+        <MovieStepper
+          status={status}
+          runtime={secondaryUnitTotal}
+          progressMinutes={secondaryUnitCurrent}
+          rewatchCount={primaryUnitCurrent}
+          disabled={isUpdating}
+          onMarkWatched={() =>
+            runUpdate({
+              status: 'completed',
+              primaryUnitCurrent: Math.max(1, primaryUnitCurrent),
+              secondaryUnitCurrent: secondaryUnitTotal || 1,
+              completedAt: new Date().toISOString(),
+            })
+          }
+          onRewatch={() =>
+            runUpdate({
+              primaryUnitCurrent: (primaryUnitCurrent > 0 ? primaryUnitCurrent : 1) + 1,
+              status: 'completed',
+              rewatch: true,
+              completedAt: new Date().toISOString(),
+            })
+          }
+          onStepMinutes={(delta) => {
+            const nextMins = Math.max(
+              0,
+              Math.min(secondaryUnitTotal || 9999, secondaryUnitCurrent + delta),
+            );
+            const shouldComplete = secondaryUnitTotal !== null && nextMins >= secondaryUnitTotal;
+            runUpdate({
+              secondaryUnitCurrent: nextMins,
+              primaryUnitCurrent: shouldComplete
+                ? Math.max(1, primaryUnitCurrent)
+                : primaryUnitCurrent,
+              status: shouldComplete ? 'completed' : 'in_progress',
+              completedAt: shouldComplete ? new Date().toISOString() : undefined,
+            });
+          }}
+        />
+      ) : bookish ? (
+        <BookStepper
+          current={secondaryUnitCurrent}
+          total={secondaryUnitTotal}
+          disabled={isUpdating}
+          onCommit={handleChapterCommit}
+          onStep={handleChapterStep}
+        />
+      ) : (
+        <ShowStepper
+          current={secondaryUnitCurrent}
+          total={secondaryUnitTotal}
+          hasNextUnit={hasNextSeason}
+          disabled={isUpdating}
+          onStep={handleEpisodeStep}
+        />
+      )}
+
+      {secondaryUnitTotal ? (
+        <div className="flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
+            <div
+              className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          <span className="min-w-7 text-right font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+            {progressPercentage}%
+          </span>
+        </div>
+      ) : null}
+
+      {nextAir && (
+        <div className="flex items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-normal text-ink-muted">
+          <span className="flex items-center gap-1.5 font-[var(--za-weight-emphasis)] text-ink">
+            <Calendar size={13} className="shrink-0 text-ink-muted" />
+            <span>
+              {rawCategory === 'anime'
+                ? nextAir.season && nextAir.season > 1
+                  ? `S${nextAir.season}E${nextAir.number}`
+                  : `Ep ${nextAir.number}`
+                : `S${nextAir.season}E${nextAir.number}`}
+            </span>
+          </span>
+          <span>airs {formatAirdate(nextAir.airdate)}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const cover = (
+    <MediaCover
+      title={item.title}
+      coverImage={item.coverImage}
+      category={rawCategory}
+      variant={isRow ? 'row' : 'card'}
+      status={isRow ? undefined : status}
+      statusLabel={isRow ? undefined : itemStatusLabel}
+      rating={rating}
+      onOpenDetail={onOpenDetail ? () => onOpenDetail(item) : undefined}
+      openDetailProps={openDetailProps}
+    />
+  );
 
   return (
     <article
       aria-label={`${item.title} card`}
-      className="za-bookplate za-card za-card--raised group relative flex min-w-0 max-w-full flex-col gap-[var(--za-space-4)] overflow-hidden [overflow-wrap:anywhere] p-[var(--za-space-4)] shadow-raised transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgb(36_35_33/12%),0_12px_24px_rgb(36_35_33/8%)]"
+      data-card-layout={layout}
+      className={cn(
+        'za-bookplate za-card za-card--raised group relative flex min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere] shadow-raised transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgb(36_35_33/12%),0_12px_24px_rgb(36_35_33/8%)]',
+        isRow
+          ? 'za-card--flush flex-row items-start gap-0 p-0'
+          : 'flex-col gap-[var(--za-space-4)] p-[var(--za-space-4)]',
+      )}
     >
       {item.priorityIndex != null && (
         <span
@@ -202,295 +520,54 @@ export default function MediaCard({
         />
       )}
 
-      {/* Ex-libris catalogue header */}
-      <div className="-mx-[var(--za-space-4)] -mt-[var(--za-space-4)] flex items-center justify-between gap-3 border-b border-dashed border-decorative bg-surface-subtle/70 px-[var(--za-space-4)] py-[var(--za-space-2)]">
-        <span className="min-w-0 truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-          EX LIBRIS · ZA-{catalogueNumber}
-        </span>
-        <span className="shrink-0 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
-          {categoryLabel(rawCategory)}
-        </span>
-      </div>
-
-      {/* 2:3 cover tile + catalogue details */}
-      <div className="flex flex-col gap-[var(--za-space-4)]">
-        <MediaCover
-          title={item.title}
-          coverImage={item.coverImage}
-          category={rawCategory}
-          variant="card"
-          status={status}
-          statusLabel={itemStatusLabel}
-          rating={rating}
-          onOpenDetail={onOpenDetail ? () => onOpenDetail(item) : undefined}
-          openDetailProps={openDetailProps}
-        />
-
-        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            {/* Top action buttons (anchored top-right) */}
-            <div className="flex items-center justify-end gap-[var(--za-space-2)]">
-              <button
-                type="button"
-                className={`${miniActionBtn} ${
-                  item.priorityIndex != null
-                    ? 'border-accent bg-accent/15 text-accent'
-                    : 'text-ink-muted hover:border-required hover:text-ink'
-                }`}
-                onClick={async () => {
-                  try {
-                    setIsUpdating(true);
-                    const updated = await togglePriorityQueue(item.id);
-                    await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
-                  } catch (err) {
-                    console.error('Failed to toggle priority queue:', err);
-                  } finally {
-                    setIsUpdating(false);
-                  }
-                }}
-                title={
-                  item.priorityIndex != null
-                    ? `Queued #${item.priorityIndex} (Click to remove from Up Next)`
-                    : 'Add to Up Next Queue'
-                }
-                aria-label={
-                  item.priorityIndex != null
-                    ? `Remove ${item.title} from Up Next queue`
-                    : `Add ${item.title} to Up Next queue`
-                }
-              >
-                <Bookmark
-                  size={13}
-                  strokeWidth={1.75}
-                  className={item.priorityIndex != null ? 'fill-accent' : ''}
-                />
-              </button>
-              {onOpenDetail && (
-                <button
-                  type="button"
-                  className={`${miniActionBtn} text-ink-muted hover:border-accent hover:bg-accent-soft hover:text-accent`}
-                  onClick={() => onOpenDetail(item)}
-                  title={`Inspect ${item.title}`}
-                  aria-label={`Inspect ${item.title}`}
-                >
-                  <Eye size={13} strokeWidth={1.75} />
-                </button>
-              )}
-              {onOpenDetail && (
-                <button
-                  type="button"
-                  className={`${miniActionBtn} text-ink-muted hover:border-[var(--za-color-border-focus)] hover:bg-surface-hover hover:text-ink`}
-                  onClick={() => onOpenDetail(item)}
-                  title={`Edit ${item.title}`}
-                  aria-label={`Edit ${item.title}`}
-                >
-                  <Pencil size={13} strokeWidth={1.75} />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  type="button"
-                  className={`${miniActionBtn} text-danger hover:border-danger hover:bg-danger-surface`}
-                  onClick={() => onDelete(item.id)}
-                  title={`Remove ${item.title}`}
-                  aria-label={`Remove ${item.title}`}
-                >
-                  <Trash2 size={14} strokeWidth={1.75} />
-                </button>
-              )}
-            </div>
-
-            {/* Title & Privacy Badge: full horizontal width */}
-            <div className="min-w-0">
-              <h3
-                className={`[overflow-wrap:anywhere] font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink ${onOpenDetail ? 'cursor-pointer' : ''}`}
-                title={item.title}
-                {...openDetailProps}
-              >
-                {item.title}
-              </h3>
-              {/* Phase 3: private entry lock badge — shown only on owner dashboard */}
-              {item.isPrivate && (
-                <span
-                  className="mt-1 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
-                  title="Private — hidden from public profile and RSS"
-                >
-                  <Lock size={10} strokeWidth={2} aria-hidden="true" />
-                  Private
+      {isRow ? (
+        <>
+          {cover}
+          <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 px-3 py-2.5">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <span className="block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
+                  {categoryLabel(rawCategory)}
                 </span>
-              )}
-              <span className="mt-1 block truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
-                {item.sourceId || 'Local catalogue record'}
-              </span>
+                {titleBlock}
+              </div>
+              {actionButtons}
+            </div>
+            {badges}
+            {unitSteppers}
+            {notesToggle}
+            {completionNudge}
+            {progressControls}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="-mx-[var(--za-space-4)] -mt-[var(--za-space-4)] flex items-center justify-between gap-3 border-b border-dashed border-decorative bg-surface-subtle/70 px-[var(--za-space-4)] py-[var(--za-space-2)]">
+            <span className="min-w-0 truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+              EX LIBRIS · ZA-{catalogueNumber}
+            </span>
+            <span className="shrink-0 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
+              {categoryLabel(rawCategory)}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-[var(--za-space-4)]">
+            {cover}
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
+              <div className="flex flex-col gap-1">
+                {actionButtons}
+                {titleBlock}
+              </div>
+              {badges}
+              {unitSteppers}
+              {notesToggle}
             </div>
           </div>
 
-          {/* Badges */}
-          <MediaBadges
-            status={status as import('@/types/media').MediaStatus}
-            statusLabel={itemStatusLabel}
-            rating={rating}
-            category={rawCategory}
-            primaryUnitCurrent={primaryUnitCurrent}
-            primaryUnitTotal={primaryUnitTotal}
-            tags={tags}
-            dropReason={item.dropReason}
-            droppedProgressPrimary={item.droppedProgressPrimary}
-            droppedProgressSecondary={item.droppedProgressSecondary}
-            priorityIndex={item.priorityIndex}
-            showStatus={false}
-            showRating={rating != null && rating < 9}
-          />
-
-          {/* Season / volume row */}
-          {!bookish && rawCategory !== 'movie' && primaryUnitTotal > 1 && (
-            <UnitStepperRow
-              unitLabel="Season"
-              current={primaryUnitCurrent}
-              total={seasonDisplayTotal}
-              canPrev={hasPrevSeason}
-              canNext={hasNextSeason}
-              disabled={isUpdating}
-              onChange={handleSeasonChange}
-            />
-          )}
-          {bookish && primaryUnitTotal > 1 && (
-            <UnitStepperRow
-              unitLabel="Volume"
-              current={primaryUnitCurrent}
-              total={primaryUnitTotal}
-              disabled={isUpdating}
-              onChange={handleVolumeChange}
-            />
-          )}
-
-          {/* Notes toggle */}
-          {item.notes && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowNotes((p) => !p)}
-                className="inline-flex cursor-pointer items-center gap-1 text-[length:var(--za-text-fine)] text-ink-muted hover:text-ink"
-              >
-                <FileText size={12} />
-                <span>{showNotes ? 'Hide note' : 'View note'}</span>
-              </button>
-              {showNotes && (
-                <div className="mt-2 rounded-control border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink">
-                  <MarkdownNotes content={item.notes} />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Completion nudge */}
-      {isAtFinalUnit && status !== 'completed' && rawCategory !== 'movie' && (
-        <div className="mt-2 flex items-center justify-between rounded-small border border-success/25 bg-success-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-success">
-          <span>{bookish ? 'Finished reading!' : 'Series completed!'}</span>
-          <button
-            type="button"
-            className="za-button za-button--secondary cursor-pointer px-[0.6rem] py-[0.2rem] text-[length:var(--za-text-fine)] text-success hover:border-success"
-            onClick={() =>
-              runUpdate({ status: 'completed', completedAt: new Date().toISOString() })
-            }
-            disabled={isUpdating}
-          >
-            Mark Completed
-          </button>
-        </div>
+          {completionNudge}
+          {progressControls}
+        </>
       )}
-
-      {/* Action zone */}
-      <div className="flex flex-col gap-[var(--za-space-3)] border-t border-decorative pt-[var(--za-space-3)]">
-        {rawCategory === 'movie' ? (
-          <MovieStepper
-            status={status}
-            runtime={secondaryUnitTotal}
-            progressMinutes={secondaryUnitCurrent}
-            rewatchCount={primaryUnitCurrent}
-            disabled={isUpdating}
-            onMarkWatched={() =>
-              runUpdate({
-                status: 'completed',
-                primaryUnitCurrent: Math.max(1, primaryUnitCurrent),
-                secondaryUnitCurrent: secondaryUnitTotal || 1,
-                completedAt: new Date().toISOString(),
-              })
-            }
-            onRewatch={() =>
-              runUpdate({
-                primaryUnitCurrent: (primaryUnitCurrent > 0 ? primaryUnitCurrent : 1) + 1,
-                status: 'completed',
-                rewatch: true,
-                completedAt: new Date().toISOString(),
-              })
-            }
-            onStepMinutes={(delta) => {
-              const nextMins = Math.max(
-                0,
-                Math.min(secondaryUnitTotal || 9999, secondaryUnitCurrent + delta),
-              );
-              const shouldComplete = secondaryUnitTotal !== null && nextMins >= secondaryUnitTotal;
-              runUpdate({
-                secondaryUnitCurrent: nextMins,
-                primaryUnitCurrent: shouldComplete
-                  ? Math.max(1, primaryUnitCurrent)
-                  : primaryUnitCurrent,
-                status: shouldComplete ? 'completed' : 'in_progress',
-                completedAt: shouldComplete ? new Date().toISOString() : undefined,
-              });
-            }}
-          />
-        ) : bookish ? (
-          <BookStepper
-            current={secondaryUnitCurrent}
-            total={secondaryUnitTotal}
-            disabled={isUpdating}
-            onCommit={handleChapterCommit}
-            onStep={handleChapterStep}
-          />
-        ) : (
-          <ShowStepper
-            current={secondaryUnitCurrent}
-            total={secondaryUnitTotal}
-            hasNextUnit={hasNextSeason}
-            disabled={isUpdating}
-            onStep={handleEpisodeStep}
-          />
-        )}
-
-        {secondaryUnitTotal ? (
-          <div className="flex items-center gap-2">
-            <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
-              <div
-                className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-            <span className="min-w-7 text-right font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
-              {progressPercentage}%
-            </span>
-          </div>
-        ) : null}
-
-        {nextAir && (
-          <div className="flex items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-normal text-ink-muted">
-            <span className="flex items-center gap-1.5 font-[var(--za-weight-emphasis)] text-ink">
-              <Calendar size={13} className="shrink-0 text-ink-muted" />
-              <span>
-                {rawCategory === 'anime'
-                  ? nextAir.season && nextAir.season > 1
-                    ? `S${nextAir.season}E${nextAir.number}`
-                    : `Ep ${nextAir.number}`
-                  : `S${nextAir.season}E${nextAir.number}`}
-              </span>
-            </span>
-            <span>airs {formatAirdate(nextAir.airdate)}</span>
-          </div>
-        )}
-      </div>
     </article>
   );
 }

@@ -22,6 +22,7 @@ import DashboardToolbar from '@/components/dashboard/DashboardToolbar';
 import EmptyState from '@/components/dashboard/EmptyState';
 import MediaCard from '@/components/cards/MediaCard';
 import { useMediaFilters, type DashboardTab } from '@/hooks/use-media-filters';
+import { useCardLayout } from '@/hooks/use-card-layout';
 import { useModalManager } from '@/hooks/use-modal-manager';
 import type { MediaEntry, NextAirMap } from '@/types/media';
 import type { ReadingGoalConfig, CustomThemePalette, ThemeId } from '@/types/user';
@@ -161,6 +162,7 @@ export default function DashboardClient({
 
   const filters = useMediaFilters(entries, activeTab);
   const { searchQuery, setSearchQuery, statusFilter, selectedTag, displayedEntries } = filters;
+  const { layout: cardLayout, setLayout: setCardLayout } = useCardLayout();
 
   const closeAddModal = () => {
     modals.close();
@@ -665,10 +667,18 @@ export default function DashboardClient({
             tags={filters.allTags}
             counts={filters.counts}
             onOpenModal={(m) => modals.open(m)}
+            cardLayout={cardLayout}
+            onCardLayoutChange={setCardLayout}
           />
 
           {/* Media grid */}
-          <div className="grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3">
+          <div
+            className={
+              cardLayout === 'row'
+                ? 'grid grid-cols-1 gap-3 md:grid-cols-2'
+                : 'grid grid-cols-1 gap-[var(--za-space-6)] md:grid-cols-2 lg:grid-cols-3'
+            }
+          >
             {displayedEntries.length === 0 ? (
               <EmptyState
                 activeTab={activeTab}
@@ -680,6 +690,7 @@ export default function DashboardClient({
                 <MediaCard
                   key={item.id}
                   item={item}
+                  layout={cardLayout}
                   nextAir={item.sourceId ? nextAirMap[item.sourceId] : undefined}
                   {...cardHandlers}
                 />
