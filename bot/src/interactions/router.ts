@@ -200,23 +200,23 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
     if (action === 'step') {
       await interaction.deferUpdate();
       const { updated } = await runNextStep(user.userId, entry);
-      const { embed, row } = buildTitleCard(updated);
-      await interaction.editReply({ embeds: [embed], components: [row] });
+      const { embed, row, files } = buildTitleCard(updated);
+      await interaction.editReply({ embeds: [embed], components: [row], files, attachments: [] });
       return;
     }
 
     if (action === 'complete') {
       await interaction.deferUpdate();
       const updated = await completeMediaEntryForUser(user.userId, entry.id);
-      const { embed, row } = buildTitleCard(updated as any);
-      await interaction.editReply({ embeds: [embed], components: [row] });
+      const { embed, row, files } = buildTitleCard(updated as any);
+      await interaction.editReply({ embeds: [embed], components: [row], files, attachments: [] });
       return;
     }
 
     if (action === 'edit') {
       await interaction.deferUpdate();
-      const { embed, components } = buildEditInspector(entry);
-      await interaction.editReply({ embeds: [embed], components });
+      const { embed, components, files } = buildEditInspector(entry);
+      await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
       return;
     }
   }
@@ -241,8 +241,8 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
     if (action === 'complete') {
       await interaction.deferUpdate();
       const updated = await completeMediaEntryForUser(user.userId, entry.id);
-      const { embed, components } = buildEditInspector(updated as any);
-      await interaction.editReply({ embeds: [embed], components });
+      const { embed, components, files } = buildEditInspector(updated as any);
+      await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
       return;
     }
 
@@ -305,11 +305,13 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
         notes: null,
       });
 
-      const { embed, components } = buildDraftInspector(draft);
+      const { embed, components, files } = buildDraftInspector(draft);
       await interaction.update({
         content: null,
         embeds: [embed],
         components,
+        files,
+        attachments: [],
       });
       return;
     }
@@ -332,6 +334,8 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
         content: `Add cancelled for **${draft.title}**.`,
         embeds: [],
         components: [],
+        files: [],
+        attachments: [],
       });
       return;
     }
@@ -362,6 +366,8 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
           content: `Added **${created.title}** to your archive.\n\nView on web: ${botEnv.APP_URL}/dashboard`,
           embeds: [],
           components: [],
+          files: [],
+          attachments: [],
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to save entry';
@@ -418,6 +424,7 @@ async function handleSelectMenuInteraction(
         content: 'That add draft expired. Run `/add` again.',
         embeds: [],
         components: [],
+        attachments: [],
       });
       return;
     }
@@ -429,6 +436,7 @@ async function handleSelectMenuInteraction(
         content: 'That add draft expired. Run `/add` again.',
         embeds: [],
         components: [],
+        attachments: [],
       });
       return;
     }
@@ -440,6 +448,7 @@ async function handleSelectMenuInteraction(
           content: 'Already in your archive. Try `/title`.',
           embeds: [],
           components: [],
+          attachments: [],
         });
         return;
       }
@@ -451,11 +460,13 @@ async function handleSelectMenuInteraction(
       discordUserId: interaction.user.id,
     });
 
-    const { embed, components } = buildDraftInspector(draft);
+    const { embed, components, files } = buildDraftInspector(draft);
     await interaction.editReply({
       content: null,
       embeds: [embed],
       components,
+      files,
+      attachments: [],
     });
     return;
   }
@@ -477,8 +488,8 @@ async function handleSelectMenuInteraction(
 
     const updated = updateDraft(draft.draftId, { status: newStatus });
     if (updated) {
-      const { embed, components } = buildDraftInspector(updated);
-      await interaction.update({ embeds: [embed], components });
+      const { embed, components, files } = buildDraftInspector(updated);
+      await interaction.update({ embeds: [embed], components, files, attachments: [] });
     }
     return;
   }
@@ -496,8 +507,8 @@ async function handleSelectMenuInteraction(
     const newRating = val > 0 ? val : null;
     const updated = updateDraft(draft.draftId, { rating: newRating });
     if (updated) {
-      const { embed, components } = buildDraftInspector(updated);
-      await interaction.update({ embeds: [embed], components });
+      const { embed, components, files } = buildDraftInspector(updated);
+      await interaction.update({ embeds: [embed], components, files, attachments: [] });
     }
     return;
   }
@@ -530,8 +541,8 @@ async function handleSelectMenuInteraction(
       status: newStatus,
     });
 
-    const { embed, components } = buildEditInspector(updated as any);
-    await interaction.editReply({ embeds: [embed], components });
+    const { embed, components, files } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     return;
   }
 
@@ -548,8 +559,8 @@ async function handleSelectMenuInteraction(
       rating: newRating,
     });
 
-    const { embed, components } = buildEditInspector(updated as any);
-    await interaction.editReply({ embeds: [embed], components });
+    const { embed, components, files } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     return;
   }
 }
@@ -616,8 +627,8 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
     }
 
     const updated = await updateMediaProgressForUser(user.userId, mediaId, updates);
-    const { embed, components } = buildEditInspector(updated as any);
-    await interaction.editReply({ embeds: [embed], components });
+    const { embed, components, files } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     return;
   }
 
@@ -634,8 +645,8 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
       notes: notes || null,
     });
 
-    const { embed, components } = buildEditInspector(updated as any);
-    await interaction.editReply({ embeds: [embed], components });
+    const { embed, components, files } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     return;
   }
 
@@ -658,8 +669,8 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
       dropReason,
     });
 
-    const { embed, components } = buildEditInspector(updated as any);
-    await interaction.editReply({ embeds: [embed], components });
+    const { embed, components, files } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     return;
   }
 
@@ -686,8 +697,8 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
     });
 
     if (updated) {
-      const { embed, components } = buildDraftInspector(updated);
-      await interaction.editReply({ embeds: [embed], components });
+      const { embed, components, files } = buildDraftInspector(updated);
+      await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     }
     return;
   }
@@ -733,8 +744,8 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
 
     const updated = updateDraft(draft.draftId, updates);
     if (updated) {
-      const { embed, components } = buildDraftInspector(updated);
-      await interaction.editReply({ embeds: [embed], components });
+      const { embed, components, files } = buildDraftInspector(updated);
+      await interaction.editReply({ embeds: [embed], components, files, attachments: [] });
     }
   }
 }

@@ -63,20 +63,24 @@ export async function continuePendingPick(
 
   switch (pick.command) {
     case 'title': {
-      const { embed, row } = buildTitleCard(entry);
+      const { embed, row, files } = buildTitleCard(entry);
       await editReplyForPickContinuation(interaction, {
         content: null,
         embeds: [embed],
         components: [row],
+        files,
+        attachments: [],
       });
       return;
     }
     case 'edit': {
-      const { embed, components } = buildEditInspector(entry);
+      const { embed, components, files } = buildEditInspector(entry);
       await editReplyForPickContinuation(interaction, {
         content: null,
         embeds: [embed],
         components,
+        files,
+        attachments: [],
       });
       return;
     }
