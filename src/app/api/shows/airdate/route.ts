@@ -1,6 +1,4 @@
-import type { NextAirInfo } from '@/types/media';
-import { fetchTvmazeAirdates } from '@/lib/services/tvmaze';
-import { fetchAnimeScheduleAirdates } from '@/lib/services/anime';
+import { getUpcomingAirdates } from '@/domain/airdate';
 import { getSessionUser } from '@/server/internal';
 
 export async function GET(request: Request): Promise<Response> {
@@ -39,46 +37,12 @@ export async function GET(request: Request): Promise<Response> {
     titles = [];
   }
 
-  const result: Record<string, NextAirInfo> = {};
-  const tvmazeIds: Array<{ sourceId: string; id: string }> = [];
-  const animeItems: Array<{
-    sourceId: string;
-    title: string;
-    lookupId: string;
-    idKind: 'anilist' | 'mal';
-  }> = [];
+  const items = rawIds.map((sourceId, index) => ({
+    sourceId,
+    title: titles[index] ?? '',
+  }));
 
-  rawIds.forEach((sourceId, index) => {
-    const tvmazeMatch = sourceId.match(/^tvmaze-(\d+)$/);
-    if (tvmazeMatch?.[1]) {
-      tvmazeIds.push({ sourceId, id: tvmazeMatch[1] });
-      return;
-    }
-    const anilistMatch = sourceId.match(/^anilist-(\d+)$/);
-    if (anilistMatch?.[1]) {
-      animeItems.push({
-        sourceId,
-        title: titles[index] ?? '',
-        lookupId: anilistMatch[1],
-        idKind: 'anilist',
-      });
-      return;
-    }
-    const malMatch = sourceId.match(/^mal-(\d+)$/);
-    if (malMatch?.[1]) {
-      animeItems.push({
-        sourceId,
-        title: titles[index] ?? '',
-        lookupId: malMatch[1],
-        idKind: 'mal',
-      });
-    }
-  });
-
-  await Promise.all([
-    fetchTvmazeAirdates(tvmazeIds, result),
-    fetchAnimeScheduleAirdates(animeItems, result),
-  ]);
+  const result = await getUpcomingAirdates(items);
 
   return Response.json(result, {
     headers: {
