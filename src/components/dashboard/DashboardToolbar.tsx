@@ -74,8 +74,8 @@ export default function DashboardToolbar({
     <div className="mb-[var(--za-space-6)] flex min-w-0 max-w-full flex-col gap-[var(--za-space-3)] border-y border-dashed border-decorative py-[var(--za-space-4)]">
       {/* Top row: search & sort (left) + auxiliary actions (right) */}
       <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
-        <div className="flex min-w-0 w-full max-w-full flex-col gap-2 sm:max-w-[44rem] sm:flex-[1_1_20rem] sm:flex-row sm:items-center">
-          <div className="relative min-w-0 w-full flex-1">
+        <div className="flex min-w-0 w-full max-w-full flex-col gap-2">
+          <div className="relative min-w-0 w-full">
             <Search
               size={15}
               className="pointer-events-none absolute left-[0.7rem] top-1/2 z-[1] -translate-y-1/2 text-ink-muted"
@@ -105,21 +105,19 @@ export default function DashboardToolbar({
             ) : null}
           </div>
 
-          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:shrink-0">
-            <div className="w-full min-w-0 max-w-full sm:w-[min(100%,14rem)] sm:shrink-0">
-              <select
-                className="za-field h-[var(--za-control-min-block-size)] w-full min-w-0 max-w-full cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
-                value={sortBy}
-                onChange={(e) => onSortChange(e.target.value as SortKey)}
-                aria-label="Sort Archive"
-              >
-                {SORT_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex min-w-0 w-full items-center gap-2">
+            <select
+              className="za-field h-[var(--za-control-min-block-size)] min-w-0 flex-1 cursor-pointer px-3 py-[0.45rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]"
+              value={sortBy}
+              onChange={(e) => onSortChange(e.target.value as SortKey)}
+              aria-label="Sort Archive"
+            >
+              {SORT_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
 
             <div className="inline-flex shrink-0 gap-1" role="radiogroup" aria-label="Card layout">
               <button
