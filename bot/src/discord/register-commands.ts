@@ -2,16 +2,20 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  InteractionContextType,
+  ApplicationIntegrationType,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
 import { logger } from '../logger';
 
-export function getSlashCommands(): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
+export function getSlashCommands(
+  isGlobal = true,
+): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
   const commands = [
     // 1. /link
     new SlashCommandBuilder()
       .setName('link')
-      .setDescription('Link your ZedArchive account with this Discord user (DM only)')
+      .setDescription('Link your ZedArchive account with this Discord profile')
       .addStringOption((opt) =>
         opt
           .setName('code')
@@ -252,7 +256,23 @@ export function getSlashCommands(): RESTPostAPIChatInputApplicationCommandsJSONB
       .setDescription('Quick guide to ZedArchive Discord bot commands'),
   ];
 
-  return commands.map((c) => c.toJSON());
+  return commands.map((builder) => {
+    if (isGlobal) {
+      builder.setContexts([
+        InteractionContextType.Guild,
+        InteractionContextType.BotDM,
+        InteractionContextType.PrivateChannel,
+      ]);
+      builder.setIntegrationTypes([
+        ApplicationIntegrationType.GuildInstall,
+        ApplicationIntegrationType.UserInstall,
+      ]);
+    } else {
+      builder.setContexts([InteractionContextType.Guild]);
+      builder.setIntegrationTypes([ApplicationIntegrationType.GuildInstall]);
+    }
+    return builder.toJSON();
+  });
 }
 
 export async function registerSlashCommands(
@@ -261,17 +281,20 @@ export async function registerSlashCommands(
   guildId?: string,
 ): Promise<void> {
   const rest = new REST({ version: '10' }).setToken(token);
-  const commands = getSlashCommands();
 
   try {
     if (guildId && guildId.trim()) {
+      const commands = getSlashCommands(false);
       logger.info(`Registering ${commands.length} application commands to dev guild: ${guildId}`);
       await rest.put(Routes.applicationGuildCommands(applicationId, guildId.trim()), {
         body: commands,
       });
       logger.info('Successfully registered guild slash commands.');
     } else {
-      logger.info(`Registering ${commands.length} global application commands`);
+      const commands = getSlashCommands(true);
+      logger.info(
+        `Registering ${commands.length} global application commands with UserInstall (connected app) support`,
+      );
       await rest.put(Routes.applicationCommands(applicationId), {
         body: commands,
       });
