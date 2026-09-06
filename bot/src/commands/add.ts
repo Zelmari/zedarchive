@@ -8,14 +8,44 @@ import {
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { botEnv } from '../env';
 import { createDraft, type MediaDraft } from '../drafts';
+import { stashSearchHits } from '../search-cache';
 import { createBaseEmbed, applyCoverThumbnail } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
 import { endpointFor } from '@/lib/search';
 import type { SearchResult } from '@/types/search';
 import type { MediaCategory } from '@/types/media';
-import { mediaEntries } from '@/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
-import { domainDb } from '@/domain/db-context';
+
+export function catalogDraftFieldsFromHit(
+  hit: SearchResult,
+  category: MediaCategory,
+): Omit<MediaDraft, 'draftId' | 'createdAt' | 'expiresAt' | 'userId' | 'discordUserId'> {
+  const isMovie = category === 'movie';
+  const rawPrimaryTot = hit.primaryUnitTotal != null ? hit.primaryUnitTotal : 1;
+  const primaryUnitTotal = Number.isFinite(rawPrimaryTot) ? Math.max(1, rawPrimaryTot) : 1;
+  const primaryUnitCurrent = isMovie ? 0 : 1;
+
+  let secondaryUnitTotal: number | null = null;
+  if (hit.secondaryUnitTotal != null && Number.isFinite(hit.secondaryUnitTotal)) {
+    secondaryUnitTotal = Math.max(0, hit.secondaryUnitTotal);
+  }
+
+  const coverUrl = hit.coverUrl && hit.coverUrl.startsWith('https://') ? hit.coverUrl : null;
+
+  return {
+    title: hit.title,
+    category,
+    sourceId: hit.sourceId || null,
+    structure: Array.isArray(hit.structure) ? hit.structure : [],
+    primaryUnitCurrent,
+    primaryUnitTotal,
+    secondaryUnitCurrent: 0,
+    secondaryUnitTotal,
+    status: 'in_progress',
+    rating: null,
+    coverUrl,
+    notes: null,
+  };
+}
 
 export function buildDraftInspector(draft: MediaDraft): {
   embed: ReturnType<typeof createBaseEmbed>;
@@ -169,39 +199,23 @@ export async function handleAddCommand(interaction: ChatInputCommandInteraction)
   // Filter hits to max 25
   const topHits = results.slice(0, 25);
 
+  const { cacheId } = stashSearchHits(interaction.user.id, category, topHits);
+
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`za:add:catalog_pick:${category}`)
+    .setCustomId(`za:add:catalog_pick:${category}:${cacheId}`)
     .setPlaceholder('Select a catalog match to configure draft...');
 
   for (let i = 0; i < topHits.length; i++) {
     const hit = topHits[i]!;
     const yearStr = hit.year ? ` (${hit.year})` : '';
-    const authorStr = hit.authors && hit.authors.length > 0 ? ` by ${hit.authors[0]}` : '';
+    const authorStr = hit.authors ? ` by ${hit.authors}` : '';
     const description = `${hit.category}${yearStr}${authorStr}`.slice(0, 100);
     selectMenu.addOptions({
       label: hit.title.slice(0, 100),
       description: description || undefined,
-      value: String(i), // Index in topHits
+      value: String(i),
     });
   }
-
-  // Cache hits temporarily in draft store using query key
-  createDraft({
-    userId: user.userId,
-    discordUserId: interaction.user.id,
-    title: `__SEARCH_CACHE__:${category}`,
-    category,
-    sourceId: null,
-    structure: topHits as any, // Stash search hits
-    primaryUnitCurrent: 1,
-    primaryUnitTotal: null,
-    secondaryUnitCurrent: 0,
-    secondaryUnitTotal: null,
-    status: 'in_progress',
-    rating: null,
-    coverUrl: null,
-    notes: query,
-  });
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
   const manualRow = new ActionRowBuilder<ButtonBuilder>().addComponents(

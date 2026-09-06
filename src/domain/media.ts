@@ -1238,6 +1238,24 @@ export async function listPersonalLibraryLite(
   }));
 }
 
+export async function findPersonalEntryBySourceId(
+  userId: string,
+  sourceId: string,
+): Promise<{ id: string; title: string } | null> {
+  const rows = await domainDb()
+    .select({ id: mediaEntries.id, title: mediaEntries.title })
+    .from(mediaEntries)
+    .where(
+      and(
+        eq(mediaEntries.userId, userId),
+        isNull(mediaEntries.groupId),
+        eq(mediaEntries.sourceId, sourceId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface TitleResolutionResult {

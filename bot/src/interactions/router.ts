@@ -31,17 +31,17 @@ import {
   completeMediaEntryForUser,
   updateMediaProgressForUser,
   createMediaEntryForUser,
+  findPersonalEntryBySourceId,
   type MediaRow,
 } from '@/domain/media';
 import { resolvePersonalTitle } from '../resolve/title';
 import { getNextSeason, sortedSeasonStructure, seasonTotal } from '@/lib/season';
 import { formatProgressString } from '../format/progress';
 import { getDraft, updateDraft, deleteDraft, createDraft, type MediaDraft } from '../drafts';
-import { buildDraftInspector } from '../commands/add';
+import { buildDraftInspector, catalogDraftFieldsFromHit } from '../commands/add';
+import { getSearchHits } from '../search-cache';
+import type { MediaCategory } from '@/types/media';
 import { handleAddCommand } from '../commands/add';
-import { mediaEntries } from '@/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
-import { domainDb } from '@/domain/db-context';
 import { botEnv } from '../env';
 import { logger } from '../logger';
 import { checkMutationRateLimit } from '../rate-limiter';
@@ -422,39 +422,49 @@ async function handleSelectMenuInteraction(
     const user = await requireLinkedUser(interaction);
     if (!user) return;
 
-    const selectedIndex = parseInt(interaction.values[0] || '0', 10);
-
-    // Stashed search hits in draft cache
-    // Let's find the cache entry
-    // Search hits were stashed with title `__SEARCH_CACHE__:${category}`
-    const category = customId.split(':')[3];
-    const dummyKey = `__SEARCH_CACHE__:${category}`;
-    // Find draft with this title and user
     await interaction.deferUpdate();
 
-    // Re-run search query from original message or hit stashed
-    // For simplicity, top hits were passed in select menu options
-    // Let's create the draft from selected hit details
-    const chosenOption = interaction.component.options.find(
-      (o) => o.value === String(selectedIndex),
-    );
-    const title = chosenOption?.label || 'Unknown Title';
+    const parts = customId.split(':');
+    const category = parts[3] as MediaCategory;
+    const cacheId = parts[4];
+
+    const cache = cacheId ? getSearchHits(cacheId) : null;
+    if (!cache || cache.discordUserId !== interaction.user.id) {
+      await interaction.editReply({
+        content: 'That add draft expired. Run `/add` again.',
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    const selectedIndex = parseInt(interaction.values[0] || '0', 10);
+    const hit = cache.hits[selectedIndex];
+    if (!hit) {
+      await interaction.editReply({
+        content: 'That add draft expired. Run `/add` again.',
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    if (hit.sourceId) {
+      const existing = await findPersonalEntryBySourceId(user.userId, hit.sourceId);
+      if (existing) {
+        await interaction.editReply({
+          content: 'Already in your archive. Try `/title`.',
+          embeds: [],
+          components: [],
+        });
+        return;
+      }
+    }
 
     const draft = createDraft({
+      ...catalogDraftFieldsFromHit(hit, category),
       userId: user.userId,
       discordUserId: interaction.user.id,
-      title,
-      category: (category as any) || 'show',
-      sourceId: null,
-      structure: [],
-      primaryUnitCurrent: category === 'movie' ? 0 : 1,
-      primaryUnitTotal: 1,
-      secondaryUnitCurrent: 0,
-      secondaryUnitTotal: null,
-      status: 'in_progress',
-      rating: null,
-      coverUrl: null,
-      notes: null,
     });
 
     const { embed, components } = buildDraftInspector(draft);
