@@ -12,10 +12,10 @@ import { handleLinkCommand } from '../commands/link';
 import { handleUnlinkCommand } from '../commands/unlink';
 import { handleWhoamiCommand } from '../commands/whoami';
 import { handleNowCommand } from '../commands/now';
-import { handleLibraryCommand } from '../commands/library';
+import { handleLibraryCommand, handleLibraryPageButton } from '../commands/library';
 import { handleTitleCommand, buildTitleCard } from '../commands/title';
 import { handleEditCommand, buildEditInspector } from '../commands/edit';
-import { handleNextCommand } from '../commands/next';
+import { handleNextCommand, runNextStep } from '../commands/next';
 import { handleStatusCommand } from '../commands/status';
 import { handleCompleteCommand } from '../commands/complete';
 import { handleDropCommand } from '../commands/drop';
@@ -35,8 +35,6 @@ import {
   type MediaRow,
 } from '@/domain/media';
 import { resolvePersonalTitle } from '../resolve/title';
-import { getNextSeason, sortedSeasonStructure, seasonTotal } from '@/lib/season';
-import { formatProgressString } from '../format/progress';
 import { getDraft, updateDraft, deleteDraft, createDraft, type MediaDraft } from '../drafts';
 import { buildDraftInspector, catalogDraftFieldsFromHit } from '../commands/add';
 import { getSearchHits } from '../search-cache';
@@ -45,6 +43,12 @@ import { handleAddCommand } from '../commands/add';
 import { botEnv } from '../env';
 import { logger } from '../logger';
 import { checkMutationRateLimit } from '../rate-limiter';
+import {
+  isMutatingButtonCustomId,
+  isMutatingSelectCustomId,
+  isMutatingModalCustomId,
+} from './mutation-ids';
+import { continuePendingPick } from '../resolve/continue-pick';
 
 const MUTATION_COMMANDS = new Set(['next', 'complete', 'status', 'drop', 'rate']);
 
@@ -142,14 +146,7 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
 async function handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
   const customId = interaction.customId;
 
-  const isButtonMutation =
-    customId.startsWith('za:edit:next:') ||
-    customId.startsWith('za:edit:prev:') ||
-    customId.startsWith('za:edit:complete:') ||
-    customId.startsWith('za:edit:drop:') ||
-    customId.startsWith('za:add:submit:');
-
-  if (isButtonMutation) {
+  if (isMutatingButtonCustomId(customId)) {
     const check = checkMutationRateLimit(interaction.user.id);
     if (!check.allowed) {
       await interaction.reply({
@@ -158,6 +155,10 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
       });
       return;
     }
+  }
+
+  if (customId.startsWith('za:lib:')) {
+    return handleLibraryPageButton(interaction);
   }
 
   // Unlink confirmation buttons
@@ -197,43 +198,8 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
 
     if (action === 'step') {
       await interaction.deferUpdate();
-      // Step logic
-      if (entry.category === 'movie') {
-        const updated = await completeMediaEntryForUser(user.userId, entry.id);
-        const { embed, row } = buildTitleCard(updated as any);
-        await interaction.editReply({ embeds: [embed], components: [row] });
-        return;
-      }
-
-      const structure = sortedSeasonStructure(entry.structure);
-      const totalKnown = entry.secondaryUnitTotal !== null && entry.secondaryUnitTotal > 0;
-      const atEndOfSeason =
-        totalKnown && entry.secondaryUnitCurrent >= (entry.secondaryUnitTotal as number);
-
-      let updatedRow: any;
-      if (atEndOfSeason) {
-        const nextSeasonNum = getNextSeason(
-          entry.primaryUnitCurrent,
-          structure,
-          entry.primaryUnitTotal || entry.primaryUnitCurrent,
-        );
-        if (nextSeasonNum !== null) {
-          const nextTotal = seasonTotal(structure, nextSeasonNum);
-          updatedRow = await updateMediaProgressForUser(user.userId, entry.id, {
-            primaryUnitCurrent: nextSeasonNum,
-            secondaryUnitCurrent: 1,
-            secondaryUnitTotal: nextTotal,
-          });
-        }
-      }
-
-      if (!updatedRow) {
-        updatedRow = await updateMediaProgressForUser(user.userId, entry.id, {
-          secondaryUnitCurrent: entry.secondaryUnitCurrent + 1,
-        });
-      }
-
-      const { embed, row } = buildTitleCard(updatedRow);
+      const { updated } = await runNextStep(user.userId, entry);
+      const { embed, row } = buildTitleCard(updated);
       await interaction.editReply({ embeds: [embed], components: [row] });
       return;
     }
@@ -392,13 +358,13 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
         deleteDraft(draft.draftId);
 
         await interaction.editReply({
-          content: `🎉 Successfully added **${created.title}** to your archive!\n\nView on web: ${botEnv.APP_URL}/dashboard`,
+          content: `Added **${created.title}** to your archive.\n\nView on web: ${botEnv.APP_URL}/dashboard`,
           embeds: [],
           components: [],
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to save entry';
-        await interaction.followUp({ content: `❌ ${message}`, ephemeral: true });
+        await interaction.followUp({ content: message, ephemeral: true });
       }
       return;
     }
@@ -416,6 +382,23 @@ async function handleSelectMenuInteraction(
   interaction: StringSelectMenuInteraction,
 ): Promise<void> {
   const customId = interaction.customId;
+
+  if (customId.startsWith('za:pick:')) {
+    const pendingId = customId.split(':')[2];
+    if (!pendingId) return;
+    return continuePendingPick(interaction, pendingId);
+  }
+
+  if (isMutatingSelectCustomId(customId)) {
+    const check = checkMutationRateLimit(interaction.user.id);
+    if (!check.allowed) {
+      await interaction.reply({
+        content: 'Too many updates. Wait a few seconds.',
+        ephemeral: true,
+      });
+      return;
+    }
+  }
 
   // Catalog hit picked during /add
   if (customId.startsWith('za:add:catalog_pick:')) {
@@ -486,6 +469,11 @@ async function handleSelectMenuInteraction(
     }
 
     const newStatus = interaction.values[0] || 'in_progress';
+    if (newStatus === 'dropped') {
+      await interaction.showModal(createAddDropModal(draft));
+      return;
+    }
+
     const updated = updateDraft(draft.draftId, { status: newStatus });
     if (updated) {
       const { embed, components } = buildDraftInspector(updated);
@@ -519,8 +507,15 @@ async function handleSelectMenuInteraction(
     const user = await requireLinkedUser(interaction);
     if (!user || !mediaId) return;
 
-    await interaction.deferUpdate();
     const newStatus = interaction.values[0] || 'in_progress';
+    if (newStatus === 'dropped') {
+      const resolved = await resolvePersonalTitle(user.userId, mediaId);
+      const title = resolved.entry?.title ?? 'Title';
+      await interaction.showModal(createEditDropModal(mediaId, title));
+      return;
+    }
+
+    await interaction.deferUpdate();
     const updated = await updateMediaProgressForUser(user.userId, mediaId, {
       status: newStatus,
     });
@@ -552,12 +547,7 @@ async function handleSelectMenuInteraction(
 async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction): Promise<void> {
   const customId = interaction.customId;
 
-  const isModalMutation =
-    customId.startsWith('za:edit_modal_progress:') ||
-    customId.startsWith('za:edit_modal_rating:') ||
-    customId.startsWith('za:edit_modal_notes:');
-
-  if (isModalMutation) {
+  if (isMutatingModalCustomId(customId)) {
     const check = checkMutationRateLimit(interaction.user.id);
     if (!check.allowed) {
       await interaction.reply({
@@ -636,6 +626,59 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
 
     const { embed, components } = buildEditInspector(updated as any);
     await interaction.editReply({ embeds: [embed], components });
+    return;
+  }
+
+  // Edit drop reason modal submit
+  if (customId.startsWith('za:edit_modal_drop:')) {
+    const mediaId = customId.split(':')[2];
+    const user = await requireLinkedUser(interaction);
+    if (!user || !mediaId) return;
+
+    await interaction.deferUpdate();
+
+    let dropReason: string | null = null;
+    try {
+      const reason = interaction.fields.getTextInputValue('dropReason').trim();
+      if (reason) dropReason = reason;
+    } catch {}
+
+    const updated = await updateMediaProgressForUser(user.userId, mediaId, {
+      status: 'dropped',
+      dropReason,
+    });
+
+    const { embed, components } = buildEditInspector(updated as any);
+    await interaction.editReply({ embeds: [embed], components });
+    return;
+  }
+
+  // Add draft drop reason modal submit
+  if (customId.startsWith('za:add_modal_drop:')) {
+    const draftId = customId.split(':')[2];
+    const draft = getDraft(draftId || '');
+    if (!draft) {
+      await interaction.reply({ content: 'Draft expired.', ephemeral: true });
+      return;
+    }
+
+    await interaction.deferUpdate();
+
+    let dropReason: string | null = null;
+    try {
+      const reason = interaction.fields.getTextInputValue('dropReason').trim();
+      if (reason) dropReason = reason;
+    } catch {}
+
+    const updated = updateDraft(draft.draftId, {
+      status: 'dropped',
+      dropReason,
+    });
+
+    if (updated) {
+      const { embed, components } = buildDraftInspector(updated);
+      await interaction.editReply({ embeds: [embed], components });
+    }
     return;
   }
 
@@ -825,5 +868,37 @@ function createDraftDetailsModal(draft: MediaDraft): ModalBuilder {
     );
   }
 
+  return modal;
+}
+
+function createEditDropModal(mediaId: string, title: string): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(`za:edit_modal_drop:${mediaId}`)
+    .setTitle(`Drop: ${title.slice(0, 30)}`);
+
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('dropReason')
+    .setLabel('Reason (optional)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(500)
+    .setRequired(false);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput));
+  return modal;
+}
+
+function createAddDropModal(draft: MediaDraft): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(`za:add_modal_drop:${draft.draftId}`)
+    .setTitle(`Drop: ${draft.title.slice(0, 30)}`);
+
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('dropReason')
+    .setLabel('Reason (optional)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(500)
+    .setRequired(false);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput));
   return modal;
 }
