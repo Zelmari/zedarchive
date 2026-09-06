@@ -3,12 +3,13 @@ import {
   ButtonBuilder,
   ButtonStyle,
   type ChatInputCommandInteraction,
-  type ButtonInteraction,
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
+import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
 import { createBaseEmbed, applyCoverThumbnail, truncateText } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
+import { formatShelf, formatCategory } from '../format/labels';
 import type { MediaRow } from '@/domain/media';
 
 export function buildTitleCard(entry: MediaRow): {
@@ -16,11 +17,10 @@ export function buildTitleCard(entry: MediaRow): {
   row: ActionRowBuilder<ButtonBuilder>;
 } {
   const progressStr = formatProgressString(entry);
-  const statusLabel = entry.status.replace('_', ' ');
 
   const embed = createBaseEmbed(entry.title).addFields(
-    { name: 'Category', value: entry.category, inline: true },
-    { name: 'Status', value: statusLabel, inline: true },
+    { name: 'Category', value: formatCategory(entry.category), inline: true },
+    { name: 'Status', value: formatShelf(entry.status), inline: true },
     { name: 'Progress', value: `\`${progressStr}\``, inline: true },
   );
 
@@ -58,6 +58,10 @@ export function buildTitleCard(entry: MediaRow): {
     });
   }
 
+  if (entry.isPrivate) {
+    embed.addFields({ name: 'Visibility', value: 'Private', inline: true });
+  }
+
   applyCoverThumbnail(embed, entry.coverImage);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -88,15 +92,16 @@ export async function handleTitleCommand(interaction: ChatInputCommandInteractio
   await interaction.deferReply({ ephemeral: true });
 
   const resolved = await resolvePersonalTitle(user.userId, query);
+  const outcome = resolveTitleForCommand(resolved, {
+    discordUserId: interaction.user.id,
+    userId: user.userId,
+    command: 'title',
+  });
 
-  if (resolved.notFound || !resolved.entry) {
-    await interaction.editReply({
-      content: 'No title found in your personal archive. Use `/add` to track it first.',
-    });
-    return;
-  }
+  const entry = await replyForTitleResolution(interaction, outcome);
+  if (!entry) return;
 
-  const { embed, row } = buildTitleCard(resolved.entry);
+  const { embed, row } = buildTitleCard(entry);
 
   await interaction.editReply({
     embeds: [embed],

@@ -7,8 +7,10 @@ import {
 } from 'discord.js';
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { resolvePersonalTitle } from '../resolve/title';
+import { resolveTitleForCommand, replyForTitleResolution } from '../resolve/pending-pick';
 import { createBaseEmbed, applyCoverThumbnail, truncateText } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
+import { formatShelf, formatCategory } from '../format/labels';
 import type { MediaRow } from '@/domain/media';
 
 export function buildEditInspector(entry: MediaRow): {
@@ -16,14 +18,14 @@ export function buildEditInspector(entry: MediaRow): {
   components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
 } {
   const progressStr = formatProgressString(entry);
-  const statusLabel = entry.status.replace('_', ' ');
+  const statusLabel = formatShelf(entry.status);
 
   const embed = createBaseEmbed(`Editing: ${entry.title}`)
     .setDescription(
       'Select an action below to update progress, shelf status, rating, or personal notes.',
     )
     .addFields(
-      { name: 'Category', value: entry.category, inline: true },
+      { name: 'Category', value: formatCategory(entry.category), inline: true },
       { name: 'Current Status', value: statusLabel, inline: true },
       { name: 'Current Progress', value: `\`${progressStr}\``, inline: true },
     );
@@ -38,7 +40,6 @@ export function buildEditInspector(entry: MediaRow): {
 
   applyCoverThumbnail(embed, entry.coverImage);
 
-  // Row 1: Action buttons
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`za:edit:${entry.id}:modal_progress`)
@@ -55,7 +56,6 @@ export function buildEditInspector(entry: MediaRow): {
       .setDisabled(entry.status === 'completed'),
   );
 
-  // Row 2: Shelf Status Selector
   const statusRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`za:edit:${entry.id}:select_status`)
@@ -69,7 +69,6 @@ export function buildEditInspector(entry: MediaRow): {
       ]),
   );
 
-  // Row 3: Rating Selector
   const rateOptions = [
     { label: 'Clear Rating', value: '0' },
     ...Array.from({ length: 10 }, (_, i) => ({
@@ -98,14 +97,16 @@ export async function handleEditCommand(interaction: ChatInputCommandInteraction
   await interaction.deferReply({ ephemeral: true });
 
   const resolved = await resolvePersonalTitle(user.userId, titleQuery);
-  if (resolved.notFound || !resolved.entry) {
-    await interaction.editReply({
-      content: 'No title found in your archive. Use `/add` to track it first.',
-    });
-    return;
-  }
+  const outcome = resolveTitleForCommand(resolved, {
+    discordUserId: interaction.user.id,
+    userId: user.userId,
+    command: 'edit',
+  });
 
-  const { embed, components } = buildEditInspector(resolved.entry);
+  const entry = await replyForTitleResolution(interaction, outcome);
+  if (!entry) return;
+
+  const { embed, components } = buildEditInspector(entry);
 
   await interaction.editReply({
     embeds: [embed],

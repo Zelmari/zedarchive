@@ -8,28 +8,27 @@ import {
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { botEnv } from '../env';
 import { createDraft, type MediaDraft } from '../drafts';
+import { stashSearchHits } from '../search-cache';
 import { createBaseEmbed, applyCoverThumbnail } from '../format/embeds';
 import { formatProgressString } from '../format/progress';
+import { formatShelf, formatCategory } from '../format/labels';
 import { endpointFor } from '@/lib/search';
 import type { SearchResult } from '@/types/search';
 import type { MediaCategory } from '@/types/media';
-import { mediaEntries } from '@/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
-import { domainDb } from '@/domain/db-context';
 
 export function buildDraftInspector(draft: MediaDraft): {
   embed: ReturnType<typeof createBaseEmbed>;
   components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[];
 } {
   const progressStr = formatProgressString(draft);
-  const statusLabel = draft.status.replace('_', ' ');
+  const statusLabel = formatShelf(draft.status);
 
   const embed = createBaseEmbed(`New Title Draft: ${draft.title}`)
     .setDescription(
       'Review your draft before saving. You can adjust season/chapter numbers, set a status, or rate it before committing to your archive.',
     )
     .addFields(
-      { name: 'Category', value: draft.category, inline: true },
+      { name: 'Category', value: formatCategory(draft.category), inline: true },
       {
         name: 'Source',
         value: draft.sourceId ? `Catalog (\`${draft.sourceId}\`)` : 'Manual Title',
@@ -169,39 +168,23 @@ export async function handleAddCommand(interaction: ChatInputCommandInteraction)
   // Filter hits to max 25
   const topHits = results.slice(0, 25);
 
+  const { cacheId } = stashSearchHits(interaction.user.id, category, topHits);
+
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`za:add:catalog_pick:${category}`)
+    .setCustomId(`za:add:catalog_pick:${category}:${cacheId}`)
     .setPlaceholder('Select a catalog match to configure draft...');
 
   for (let i = 0; i < topHits.length; i++) {
     const hit = topHits[i]!;
     const yearStr = hit.year ? ` (${hit.year})` : '';
-    const authorStr = hit.authors && hit.authors.length > 0 ? ` by ${hit.authors[0]}` : '';
+    const authorStr = hit.authors ? ` by ${hit.authors}` : '';
     const description = `${hit.category}${yearStr}${authorStr}`.slice(0, 100);
     selectMenu.addOptions({
       label: hit.title.slice(0, 100),
       description: description || undefined,
-      value: String(i), // Index in topHits
+      value: String(i),
     });
   }
-
-  // Cache hits temporarily in draft store using query key
-  createDraft({
-    userId: user.userId,
-    discordUserId: interaction.user.id,
-    title: `__SEARCH_CACHE__:${category}`,
-    category,
-    sourceId: null,
-    structure: topHits as any, // Stash search hits
-    primaryUnitCurrent: 1,
-    primaryUnitTotal: null,
-    secondaryUnitCurrent: 0,
-    secondaryUnitTotal: null,
-    status: 'in_progress',
-    rating: null,
-    coverUrl: null,
-    notes: query,
-  });
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
   const manualRow = new ActionRowBuilder<ButtonBuilder>().addComponents(

@@ -9,7 +9,7 @@ export async function handleHelpCommand(interaction: ChatInputCommandInteraction
       '• `/add` — Search catalog or enter a manual title (draft inspector)\n' +
       '• `/title <title>` — Inspect a title card (+1, Complete, Edit buttons)\n' +
       '• `/edit <title>` — Folio hub (log progress, change status, rate, edit notes)\n' +
-      '• `/next <title>` — Step +1 episode / chapter (+1 watched for movies)\n' +
+      '• `/next <title>` — Step +1 episode or chapter (movies: marks completed without runtime)\n' +
       '• `/complete <title>` — Mark completed (status-only, keeps episode numbers)\n' +
       '• `/status <title> <status>` — Move title to any shelf\n' +
       '• `/drop <title> [reason]` — Drop a title with an optional reason\n' +
@@ -19,7 +19,7 @@ export async function handleHelpCommand(interaction: ChatInputCommandInteraction
       '• `/stats` — Archive totals, breakdown, and completion rate\n' +
       '• `/streak` — View your daily activity streak\n' +
       '• `/airing` — Upcoming broadcast airdates for active shows/anime\n' +
-      '• `/link <code>` — Connect your ZedArchive account (DM only)\n' +
+      '• `/link <code>` — Connect your ZedArchive account (ephemeral reply; optional confirmation DM)\n' +
       '• `/whoami` — Check connected ZedArchive account\n' +
       '• `/unlink` — Sever account connection',
   );
