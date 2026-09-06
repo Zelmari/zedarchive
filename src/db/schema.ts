@@ -453,3 +453,41 @@ export const stackItems = pgTable(
     uniqueIndex('stack_items_stack_media_unique').on(table.stackId, table.mediaId),
   ],
 );
+
+// ─── Phase 10: Discord Bot Integration ────────────────────────────────────────
+
+export const discordLinks = pgTable(
+  'discord_links',
+  {
+    discordUserId: text('discord_user_id').primaryKey(), // snowflake
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    discordUsername: text('discord_username'), // display cache, may go stale
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('discord_links_user_uidx').on(table.userId),
+    index('discord_links_user_idx').on(table.userId),
+  ],
+);
+
+export const discordLinkCodes = pgTable(
+  'discord_link_codes',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    consumedAt: timestamp('consumed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('discord_link_codes_user_idx').on(table.userId),
+    index('discord_link_codes_hash_idx').on(table.codeHash),
+    index('discord_link_codes_expires_idx').on(table.expiresAt),
+  ],
+);

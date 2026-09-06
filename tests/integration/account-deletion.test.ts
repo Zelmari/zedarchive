@@ -66,6 +66,8 @@ describe('account self-deletion', () => {
     expect(dbState.deletedTables).toContain('profile_comments');
     expect(dbState.deletedTables).toContain('media_activity_logs');
     expect(dbState.deletedTables).toContain('media_entries');
+    expect(dbState.deletedTables).toContain('discord_links');
+    expect(dbState.deletedTables).toContain('discord_link_codes');
     expect(dbState.deletedTables).toContain('account');
     expect(dbState.deletedTables).toContain('session');
     expect(dbState.deletedTables).toContain('verification');
