@@ -11,6 +11,7 @@ vi.mock('next/font/google', () => ({
 }));
 
 import { metadata } from '@/app/layout';
+import robots from '@/app/robots';
 
 describe('social link preview metadata (root layout)', () => {
   it('defines metadataBase pointing to valid URL', () => {
@@ -40,6 +41,21 @@ describe('social link preview metadata (root layout)', () => {
     expect(metadata.twitter).toBeDefined();
     expect(metadata.twitter?.card).toBe('summary_large_image');
     expect(metadata.twitter?.images).toContain('/og.png');
+  });
+
+  it('allows Twitterbot and other preview crawlers in robots.txt', () => {
+    const { rules } = robots();
+    const list = Array.isArray(rules) ? rules : [rules];
+    const agents = list.map((rule) =>
+      Array.isArray(rule.userAgent) ? rule.userAgent.join(' ') : rule.userAgent,
+    );
+    expect(agents).toContain('*');
+    expect(agents).toContain('Twitterbot');
+    expect(agents).toContain('facebookexternalhit');
+    expect(agents).toContain('Applebot');
+    for (const rule of list) {
+      expect(rule.allow).toBe('/');
+    }
   });
 });
 
