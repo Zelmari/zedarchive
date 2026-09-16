@@ -40,17 +40,17 @@ function getThemeName(): string {
 }
 
 function getCellStyle(level: number, useThemeRamp: boolean): React.CSSProperties {
-  if (!useThemeRamp) {
-    return {
-      backgroundColor: PARCHMENT_RAMP[level] ?? PARCHMENT_RAMP[0],
-      borderColor: level === 0 ? 'var(--za-color-border-decorative)' : PARCHMENT_RAMP[level],
-    };
-  }
-
   if (level === 0) {
     return {
       backgroundColor: 'var(--za-color-surface-sunken)',
       borderColor: 'var(--za-color-border-decorative)',
+    };
+  }
+
+  if (!useThemeRamp) {
+    return {
+      backgroundColor: PARCHMENT_RAMP[level] ?? PARCHMENT_RAMP[1],
+      borderColor: PARCHMENT_RAMP[level],
     };
   }
 

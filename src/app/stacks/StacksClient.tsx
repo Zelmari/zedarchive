@@ -369,7 +369,7 @@ export default function StacksClient({
               <label htmlFor="stack-public" className="text-xs font-medium text-ink">
                 Publish this anthology
               </label>
-              <p className="mt-0.5 text-[11px] text-ink-muted">
+              <p className="mt-0.5 text-[length:var(--za-text-fine)] text-ink-muted">
                 Public editions hide private titles automatically.
               </p>
             </div>
@@ -500,7 +500,7 @@ export default function StacksClient({
                     {pendingKey === `add-${stack.id}` ? 'Adding…' : 'Attach title'}
                   </button>
                 </div>
-                <p className="mt-2 text-[11px] italic text-ink-muted">
+                <p className="mt-2 text-[length:var(--za-text-fine)] italic text-ink-muted">
                   Private titles may be included here; they disappear from the public edition.
                 </p>
               </div>

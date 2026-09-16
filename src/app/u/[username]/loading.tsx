@@ -10,9 +10,9 @@ export default function PublicProfileLoading() {
       </header>
 
       {/* Main profile skeleton */}
-      <main className="za-container max-w-4xl py-[var(--za-space-8)]">
+      <main className="za-container max-w-6xl py-[var(--za-space-8)]">
         <div className="za-bookplate mb-8 flex animate-pulse items-center gap-4 p-6">
-          <div className="h-16 w-16 rounded-full bg-surface-sunken" />
+          <div className="h-16 w-16 rounded-small bg-surface-sunken" />
           <div className="space-y-2">
             <div className="h-6 w-40 rounded-small bg-surface-sunken" />
             <div className="h-4 w-28 rounded-small bg-surface-sunken" />

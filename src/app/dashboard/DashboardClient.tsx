@@ -598,7 +598,7 @@ export default function DashboardClient({
                 <div className="flex flex-col gap-[var(--za-space-3)]">
                   <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
                     <div className="flex items-center gap-[var(--za-space-3)]">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold bg-surface text-gold-dark">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-gold bg-surface text-gold-dark">
                         <BookOpen size={18} strokeWidth={1.75} aria-hidden="true" />
                       </span>
                       <div>

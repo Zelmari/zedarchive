@@ -59,17 +59,12 @@ export default function SubPageHeader({
 
   const isSticky = variant === 'sticky';
   const headerClass = isSticky ? 'za-site-header za-site-header--sticky' : 'za-site-header';
-  const innerClass = isSticky
-    ? `${getContainerClass()} flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-2 py-[var(--za-space-2)]`
-    : `${getContainerClass()} za-site-header__inner`;
-  const leadingClass = isSticky
-    ? 'flex min-w-0 flex-1 flex-wrap items-center gap-3'
-    : 'flex flex-wrap items-center gap-3 min-w-0';
-  const backClass = `za-button za-button--secondary p-2${isSticky ? ' shrink-0' : ''}`;
-  const breadcrumbClass = `flex items-center gap-1.5 text-xs text-ink-muted min-w-0 overflow-hidden${
-    isSticky ? ' shrink' : ''
-  }`;
-  const navigationClass = isSticky ? 'flex items-center gap-2 shrink-0' : 'za-site-header__nav';
+  const innerClass = `${getContainerClass()} za-site-header__inner`;
+  const leadingClass = 'flex min-w-0 flex-1 flex-wrap items-center gap-3';
+  const backClass = 'za-button za-button--secondary shrink-0 p-2';
+  const breadcrumbClass =
+    'flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-ink-muted';
+  const navigationClass = 'za-site-header__nav';
 
   return (
     <header className={headerClass}>

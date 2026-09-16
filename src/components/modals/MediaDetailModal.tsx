@@ -13,6 +13,7 @@ import {
   Quote,
   Copy,
   X,
+  Pin,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/Badge';
@@ -258,7 +259,7 @@ function CycleLedger({
                 </div>
               </div>
 
-              <div className="mt-0.5 text-[11px] text-ink-muted">
+              <div className="mt-0.5 text-[length:var(--za-text-fine)] text-ink-muted">
                 {formatDisplayDate(cycle.startedAt)} →{' '}
                 {cycle.completedAt ? (
                   formatDisplayDate(cycle.completedAt)
@@ -268,7 +269,7 @@ function CycleLedger({
               </div>
 
               {cycle.notes && (
-                <p className="mt-1 text-[11px] italic text-ink-muted">
+                <p className="mt-1 text-[length:var(--za-text-fine)] italic text-ink-muted">
                   &ldquo;{cycle.notes}&rdquo;
                 </p>
               )}
@@ -1139,9 +1140,8 @@ export default function MediaDetailModal({
                     : 'Pin to Up Next Queue'
                 }
               >
-                {item.priorityIndex != null
-                  ? `⚡ Up Next #${item.priorityIndex}`
-                  : '+ Add to Up Next'}
+                <Pin size={14} strokeWidth={2} />
+                {item.priorityIndex != null ? `Up Next #${item.priorityIndex}` : 'Add to Up Next'}
               </button>
             </div>
 
@@ -1204,7 +1204,7 @@ export default function MediaDetailModal({
                     className="h-4 w-4 rounded accent-accent"
                   />
                 </label>
-                <p className="mt-1 text-[11px] text-ink-muted">
+                <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
                   When checked, this entry is only visible to you on your private dashboard and
                   excluded from public showcases.
                 </p>
@@ -1474,8 +1474,8 @@ export default function MediaDetailModal({
                     )}
                   </div>
                   {hasFillerOrRecap && (
-                    <span className="text-[11px] text-ink-muted">
-                      ✦ {fillerCount} filler/recap episodes detected
+                    <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+                      {fillerCount} filler/recap episodes detected
                     </span>
                   )}
                 </div>
@@ -1535,23 +1535,23 @@ export default function MediaDetailModal({
                             background: isCurrent
                               ? 'var(--za-color-accent)'
                               : isDone
-                                ? 'rgba(46, 125, 50, 0.15)'
+                                ? 'var(--za-color-success-surface)'
                                 : isFiller
-                                  ? 'rgba(234, 179, 8, 0.08)'
+                                  ? 'var(--za-color-warning-surface)'
                                   : 'var(--za-color-surface)',
                             color: isCurrent
                               ? 'var(--za-color-on-accent)'
                               : isDone
-                                ? '#2e7d32'
+                                ? 'var(--za-color-success)'
                                 : isFiller
-                                  ? '#b45309'
+                                  ? 'var(--za-color-warning)'
                                   : 'var(--za-color-text)',
                             borderColor: isCurrent
                               ? 'var(--za-color-accent)'
                               : isDone
-                                ? 'rgba(46, 125, 50, 0.4)'
+                                ? 'var(--za-color-success)'
                                 : isFiller
-                                  ? 'rgba(234, 179, 8, 0.4)'
+                                  ? 'var(--za-color-warning)'
                                   : 'var(--za-color-border-decorative)',
                             borderStyle: isFiller ? 'dashed' : 'solid',
                             fontWeight: isCurrent ? 'bold' : 'normal',
@@ -1562,7 +1562,7 @@ export default function MediaDetailModal({
                           {isFiller && (
                             <span
                               aria-hidden="true"
-                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-[#b45309] text-[8px] font-bold text-white"
+                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-warning text-[8px] font-bold text-on-accent"
                             >
                               F
                             </span>
@@ -1570,7 +1570,7 @@ export default function MediaDetailModal({
                           {isRecap && (
                             <span
                               aria-hidden="true"
-                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-slate-500 text-[8px] font-bold text-white"
+                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-ink-muted text-[8px] font-bold text-surface"
                             >
                               R
                             </span>
@@ -1758,7 +1758,7 @@ export default function MediaDetailModal({
                         </div>
                       </div>
                       {(q.speaker || q.citation) && (
-                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[length:var(--za-text-fine)] text-ink-muted">
                           {q.isFavorite && <Star size={10} className="fill-accent text-accent" />}
                           <span>— {q.speaker || 'Unknown'}</span>
                           {q.citation && <span>· {q.citation}</span>}

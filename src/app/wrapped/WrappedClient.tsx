@@ -97,8 +97,8 @@ export default function WrappedClient({
           >
             {copied ? (
               <>
-                <Check size={14} className="mr-1 text-accent" />
-                <span>Copied Link!</span>
+                <Check size={14} className="mr-1 text-on-accent" />
+                <span>Copied</span>
               </>
             ) : (
               <>
@@ -305,7 +305,7 @@ export default function WrappedClient({
                         key={item.id}
                         className="relative flex items-center justify-between gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
                       >
-                        <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
+                        <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-small border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
                           {i + 1}
                         </span>
                         <div className="flex min-w-0 items-center gap-3 pl-2">

@@ -11,15 +11,15 @@ import { compressImageFile } from '@/lib/client/image-utils';
 import { updateUserProfile } from '@/server/profile';
 
 function presetAvatarSvg(bg: string, glyph: string, fg: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="${bg}"/><text x="32" y="40" font-size="26" text-anchor="middle" fill="${fg}">${glyph}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="${bg}"/><text x="32" y="42" font-family="Georgia, serif" font-size="26" font-weight="700" text-anchor="middle" fill="${fg}">${glyph}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 const PRESET_AVATARS: Array<{ id: string; label: string; url: string }> = [
-  { id: 'film', label: 'Film reel', url: presetAvatarSvg('#e8d8b8', '🎬', '#5b4636') },
-  { id: 'book', label: 'Book', url: presetAvatarSvg('#d9e6d4', '📖', '#2e4d33') },
-  { id: 'sparkle', label: 'Sparkle', url: presetAvatarSvg('#e4d8ec', '✨', '#4c3a63') },
-  { id: 'tv', label: 'Television', url: presetAvatarSvg('#d3e0ea', '📺', '#2e4258') },
+  { id: 'film', label: 'Film', url: presetAvatarSvg('#e8d8b8', 'F', '#5b4636') },
+  { id: 'book', label: 'Book', url: presetAvatarSvg('#d9e6d4', 'B', '#2e4d33') },
+  { id: 'sparkle', label: 'Archive', url: presetAvatarSvg('#e4d8ec', 'A', '#4c3a63') },
+  { id: 'tv', label: 'Television', url: presetAvatarSvg('#d3e0ea', 'T', '#2e4258') },
 ];
 
 interface ProfileSectionProps {
@@ -114,7 +114,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
 
       {profileSuccess && (
         <div
-          className="za-notice za-notice--info mb-4 flex items-center gap-2 text-xs"
+          className="za-notice za-notice--success mb-4 flex items-center gap-2 text-xs"
           role="status"
           aria-live="polite"
         >
@@ -141,11 +141,11 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
             <img
               src={avatarPreview}
               alt="Avatar preview"
-              className="h-20 w-20 flex-none rounded-full border-2 border-accent object-cover"
+              className="h-20 w-20 flex-none rounded-small border-2 border-accent object-cover"
             />
           ) : (
             <span
-              className="flex h-20 w-20 flex-none items-center justify-center rounded-full border-2 border-decorative bg-[var(--za-color-title-tile)] text-lg font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
+              className="flex h-20 w-20 flex-none items-center justify-center rounded-small border-2 border-decorative bg-[var(--za-color-title-tile)] text-lg font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
               aria-hidden="true"
             >
               {getInitials(name)}
@@ -177,7 +177,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-ink-muted">Presets:</span>
+              <span className="text-[length:var(--za-text-fine)] text-ink-muted">Presets:</span>
               {PRESET_AVATARS.map((preset) => (
                 <button
                   key={preset.id}
@@ -186,14 +186,14 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
                   onClick={() => void applyAvatar(preset.url)}
                   title={preset.label}
                   aria-label={`Use ${preset.label} preset avatar`}
-                  className="h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] cursor-pointer overflow-hidden rounded-full border border-decorative transition-transform hover:scale-105 disabled:opacity-60"
+                  className="h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] cursor-pointer overflow-hidden rounded-small border border-decorative transition-transform hover:scale-105 disabled:opacity-60"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG presets */}
                   <img src={preset.url} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
-            <p className="text-[11px] leading-relaxed text-ink-muted">
+            <p className="text-[length:var(--za-text-fine)] leading-relaxed text-ink-muted">
               PNG, JPG or WebP — compressed to 256×256 on upload. Avatars show up on your public
               archive and guestbook comments.
             </p>
@@ -235,7 +235,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
             onChange={(e) => setUsername(e.target.value)}
             className="za-field w-full"
           />
-          <p className="mt-1 text-[11px] text-ink-muted">
+          <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
             Used for your public archive URL at{' '}
             <span className="font-mono">/u/{username || 'username'}</span>
           </p>
@@ -278,7 +278,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-ink-muted">
+          <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
             Used to show legal where-to-watch and streaming availability badges on shows and movies.
           </p>
         </div>

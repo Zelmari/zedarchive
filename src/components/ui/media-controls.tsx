@@ -18,14 +18,6 @@ export const CATEGORY_CHIPS: Array<{
   { id: 'manga', label: 'Manga', Icon: Library },
 ];
 
-export function chipClass(active: boolean): string {
-  return cn(
-    'flex cursor-pointer items-center gap-1 rounded-small border border-decorative bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)] uppercase tracking-[0.05em] text-ink transition-[all] duration-[var(--za-motion-fast)] hover:border-required hover:text-ink',
-    active &&
-      'border-required bg-surface-subtle font-[var(--za-weight-heading)] text-accent shadow-[inset_0_-2px_0_var(--za-color-accent)]',
-  );
-}
-
 export function pillClass(active: boolean): string {
   return cn('za-segment', active && 'za-segment--active');
 }
@@ -47,8 +39,7 @@ export interface DropReasonPickerProps {
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }
 
-const DEFAULT_INPUT_CLASS =
-  'w-full rounded-control border border-required bg-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-body)] text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none';
+const DEFAULT_INPUT_CLASS = 'za-field';
 
 const DEFAULT_PRESET_CLASS =
   'cursor-pointer rounded-small border border-decorative bg-surface px-2 py-0.5 text-xs text-ink-muted transition-[all] duration-[var(--za-motion-fast)] hover:border-required hover:text-ink';

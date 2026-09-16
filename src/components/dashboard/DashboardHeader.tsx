@@ -59,7 +59,7 @@ export default function DashboardHeader({
       <div className="za-container za-container--wide za-site-header__inner">
         <BrandWordmark />
 
-        <nav aria-label="Primary" className="za-site-header__nav">
+        <nav aria-label="Primary" className="za-site-header__nav za-site-header__nav--fill">
           {TABS.map(({ id, icon: Icon, label, title }) => (
             <button
               key={id}
@@ -112,6 +112,9 @@ export default function DashboardHeader({
             <Sparkles size={16} strokeWidth={1.75} />
             <span className="hidden md:inline">Wrapped</span>
           </Link>
+        </nav>
+
+        <div className="za-site-header__account">
           <SyncIndicator />
           <button
             type="button"
@@ -121,7 +124,7 @@ export default function DashboardHeader({
             aria-label="Change Theme"
           >
             <Palette size={16} strokeWidth={1.75} />
-            <span className="hidden lg:inline">Theme</span>
+            <span className="hidden xl:inline">Theme</span>
           </button>
 
           <Link
@@ -131,11 +134,11 @@ export default function DashboardHeader({
             aria-label="Settings"
           >
             <Settings size={16} strokeWidth={1.75} />
-            <span className="hidden lg:inline">Settings</span>
+            <span className="hidden xl:inline">Settings</span>
           </Link>
 
           <span
-            className="za-site-header__identity hidden md:inline"
+            className="za-site-header__identity hidden lg:inline"
             style={{
               fontSize: 'var(--za-text-supporting)',
               fontWeight: 'var(--za-weight-heading)',
@@ -153,9 +156,9 @@ export default function DashboardHeader({
             aria-label="Sign Out"
           >
             <LogOut size={15} strokeWidth={1.75} />
-            <span className="hidden lg:inline">Sign out</span>
+            <span className="hidden xl:inline">Sign out</span>
           </button>
-        </nav>
+        </div>
       </div>
     </header>
   );

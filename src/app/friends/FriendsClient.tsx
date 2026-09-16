@@ -353,9 +353,9 @@ export default function FriendsClient({
           </div>
 
           {searchQuery.trim().length < 2 ? (
-            <div className="py-6 text-center font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
-              Type at least 2 characters to search.
-            </div>
+            <p className="py-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+              Type at least two characters to search the register.
+            </p>
           ) : searchResults.length === 0 && !searchLoading ? (
             <EmptyLedger
               title="No matching archivists"

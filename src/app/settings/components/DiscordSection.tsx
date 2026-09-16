@@ -149,7 +149,9 @@ export default function DiscordSection() {
             {status.discordUserId && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-decorative pb-2">
                 <span className="text-ink-muted">Discord ID</span>
-                <span className="font-mono text-ink-muted text-[11px]">{status.discordUserId}</span>
+                <span className="font-mono text-ink-muted text-[length:var(--za-text-fine)]">
+                  {status.discordUserId}
+                </span>
               </div>
             )}
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -185,7 +187,7 @@ export default function DiscordSection() {
                 <span className="text-ink font-[var(--za-weight-emphasis)]">
                   Your One-Time Link Code
                 </span>
-                <span className="text-accent font-mono text-[11px]">
+                <span className="text-accent font-mono text-[length:var(--za-text-fine)]">
                   Expires in {formatCountdown(remainingSeconds)}
                 </span>
               </div>
@@ -202,7 +204,7 @@ export default function DiscordSection() {
                   {copied ? 'Copied command' : 'Copy command'}
                 </button>
               </div>
-              <p className="text-[11px] text-ink-muted">
+              <p className="text-[length:var(--za-text-fine)] text-ink-muted">
                 DM the ZedArchive bot: <code className="text-ink">/link {activeCode}</code>. Never
                 paste this code in a public server channel.
               </p>
