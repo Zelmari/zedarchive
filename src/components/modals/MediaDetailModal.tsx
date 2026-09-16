@@ -1230,7 +1230,7 @@ export default function MediaDetailModal({
                       aria-checked={active}
                       disabled={isUpdating}
                       onClick={() => void handleCategoryChange(id)}
-                      className={`za-button ${active ? 'za-button--selected' : 'za-button--secondary'} px-2 text-xs inline-flex items-center gap-1`}
+                      className={pillClass(active)}
                     >
                       <Icon size={12} strokeWidth={2} />
                       <span>{label}</span>

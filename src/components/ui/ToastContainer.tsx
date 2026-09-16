@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Check, X, AlertTriangle, Info } from 'lucide-react';
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 
 export interface Toast {
   id: string;
@@ -38,30 +38,30 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
     }
   };
 
-  const toneClass = clsx(
+  const toneClass = cn(
     toast.type === 'error' && 'text-danger',
     toast.type === 'success' && 'text-success',
     toast.type === 'warning' && 'text-warning',
     (!toast.type || toast.type === 'info') && 'text-gold-dark',
   );
 
-  const surfaceClass = clsx(
+  const surfaceClass = cn(
     toast.type === 'error' && 'border-danger bg-danger-surface',
     toast.type === 'success' && 'border-success bg-success-surface',
     toast.type === 'warning' && 'border-warning bg-warning-surface',
-    (!toast.type || toast.type === 'info') && 'border-gold bg-surface-subtle',
+    (!toast.type || toast.type === 'info') && 'border-decorative bg-surface-subtle',
   );
 
   return (
     <div
-      className={clsx(
-        'za-toast animate-slide-in-toast pointer-events-auto flex items-center gap-[var(--za-space-3)] rounded-small border border-required bg-surface px-[var(--za-space-4)] py-[var(--za-space-3)] text-ink shadow-layered',
+      className={cn(
+        'za-toast animate-slide-in-toast pointer-events-auto flex items-center gap-[var(--za-space-3)] rounded-small border px-[var(--za-space-4)] py-[var(--za-space-3)] text-ink shadow-layered',
         surfaceClass,
       )}
       role="status"
       aria-live="polite"
     >
-      <span className={clsx('flex shrink-0 items-center justify-center', toneClass)}>
+      <span className={cn('flex shrink-0 items-center justify-center', toneClass)}>
         {getIcon()}
       </span>
       <span className="flex-1 text-[length:var(--za-text-supporting)] leading-[var(--za-leading-compact)] text-ink">

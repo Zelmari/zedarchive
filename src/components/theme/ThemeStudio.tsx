@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Palette, Sliders, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, Palette, Sliders, Sparkles } from 'lucide-react';
 import { saveCustomThemeAction, updateUserTheme } from '@/server/profile';
 import { CUSTOM_THEME_PRESETS, THEMES } from '@/lib/constants';
 import { applyCustomThemeTokens, applyTheme } from '@/lib/theme';
@@ -307,7 +307,12 @@ export default function ThemeStudio({
                         check.wcag.pass ? 'text-success' : 'text-danger',
                       )}
                     >
-                      {check.wcag.pass ? '✓' : '⚠'} {check.wcag.level}
+                      {check.wcag.pass ? (
+                        <Check size={11} className="-mt-0.5 inline" strokeWidth={2.4} />
+                      ) : (
+                        <AlertTriangle size={11} className="-mt-0.5 inline" strokeWidth={2.2} />
+                      )}{' '}
+                      {check.wcag.level}
                     </div>
                   </div>
                 </div>

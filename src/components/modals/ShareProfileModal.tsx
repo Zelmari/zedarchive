@@ -133,7 +133,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
 
         <form onSubmit={handleSave}>
           {error && (
-            <div className="mb-[var(--za-space-3)] rounded-small border border-danger bg-danger-surface px-[var(--za-space-3)] py-2 text-[length:var(--za-text-fine)] text-danger">
+            <div className="za-notice za-notice--error mb-[var(--za-space-3)] text-[length:var(--za-text-fine)]">
               {error}
             </div>
           )}

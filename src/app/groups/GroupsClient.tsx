@@ -64,7 +64,11 @@ export default function GroupsClient({
       )}
 
       {msg && (
-        <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
+        <div
+          className={`za-notice font-[var(--za-font-serif-body)] text-sm ${
+            msg && /fail|required|error/i.test(msg) ? 'za-notice--error' : 'za-notice--success'
+          }`}
+        >
           {msg}
         </div>
       )}

@@ -137,13 +137,7 @@ export default function DashboardHeader({
             <span className="hidden xl:inline">Settings</span>
           </Link>
 
-          <span
-            className="za-site-header__identity hidden lg:inline"
-            style={{
-              fontSize: 'var(--za-text-supporting)',
-              fontWeight: 'var(--za-weight-heading)',
-            }}
-          >
+          <span className="za-site-header__identity hidden lg:inline text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)]">
             {username ? `@${username}` : userName || 'user'}
           </span>
 

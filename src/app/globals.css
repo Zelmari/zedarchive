@@ -1118,7 +1118,7 @@ select.za-field {
   align-items: center;
   justify-content: center;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: 999px;
+  border-radius: var(--za-radius-small);
   background: var(--za-color-surface-subtle);
   color: var(--za-color-text-muted);
   cursor: pointer;
@@ -1126,13 +1126,11 @@ select.za-field {
     background-color var(--za-motion-fast) var(--za-ease-standard),
     border-color var(--za-motion-fast) var(--za-ease-standard),
     color var(--za-motion-fast) var(--za-ease-standard),
-    border-radius var(--za-motion-fast) var(--za-ease-standard),
     transform var(--za-motion-fast) var(--za-ease-standard);
 }
 
 .za-modal-close:hover {
   border-color: var(--za-color-accent);
-  border-radius: var(--za-radius-small);
   background: var(--za-color-accent);
   color: var(--za-color-on-accent);
   transform: translateY(-1px);

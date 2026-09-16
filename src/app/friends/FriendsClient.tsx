@@ -132,7 +132,11 @@ export default function FriendsClient({
   return (
     <div className="space-y-4">
       {message && (
-        <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
+        <div
+          className={`za-notice font-[var(--za-font-serif-body)] text-sm ${
+            /fail|error/i.test(message) ? 'za-notice--error' : 'za-notice--success'
+          }`}
+        >
           {message}
         </div>
       )}

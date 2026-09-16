@@ -144,7 +144,11 @@ export default function GroupSettingsModal({
       </div>
 
       {msg && (
-        <div className="za-notice za-notice--info mb-4 font-[var(--za-font-serif-body)] text-sm">
+        <div
+          className={`za-notice mb-4 font-[var(--za-font-serif-body)] text-sm ${
+            /fail|error/i.test(msg) ? 'za-notice--error' : 'za-notice--success'
+          }`}
+        >
           {msg}
         </div>
       )}
