@@ -56,10 +56,10 @@ export default function DashboardHeader({
 
   return (
     <header className="za-site-header">
-      <div className="za-container za-container--wide za-site-header__inner">
+      <div className="za-container za-container--wide za-site-header__inner za-site-header__inner--dashboard">
         <BrandWordmark />
 
-        <nav aria-label="Primary" className="za-site-header__nav">
+        <nav aria-label="Primary" className="za-site-header__nav za-site-header__nav--fill">
           {TABS.map(({ id, icon: Icon, label, title }) => (
             <button
               key={id}
@@ -70,9 +70,10 @@ export default function DashboardHeader({
               aria-pressed={activeTab === id}
             >
               <Icon size={16} strokeWidth={1.75} />
-              <span>
+              <span className="hidden sm:inline">
                 {label} ({counts[id]})
               </span>
+              <span className="sm:hidden">{counts[id]}</span>
             </button>
           ))}
           <Link
@@ -82,7 +83,7 @@ export default function DashboardHeader({
             aria-label="Friends"
           >
             <Users size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Friends</span>
+            <span className="hidden md:inline">Friends</span>
           </Link>
           <Link
             href="/groups"
@@ -91,7 +92,7 @@ export default function DashboardHeader({
             aria-label="Groups"
           >
             <MessageSquare size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Groups</span>
+            <span className="hidden md:inline">Groups</span>
           </Link>
           <Link
             href="/stacks"
@@ -100,7 +101,7 @@ export default function DashboardHeader({
             aria-label="Stacks"
           >
             <Library size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Stacks</span>
+            <span className="hidden md:inline">Stacks</span>
           </Link>
           <Link
             href="/wrapped"
@@ -109,11 +110,11 @@ export default function DashboardHeader({
             aria-label="Wrapped"
           >
             <Sparkles size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Wrapped</span>
+            <span className="hidden md:inline">Wrapped</span>
           </Link>
         </nav>
 
-        <nav aria-label="Account" className="za-site-header__nav">
+        <div className="za-site-header__account">
           <SyncIndicator />
           <button
             type="button"
@@ -123,7 +124,7 @@ export default function DashboardHeader({
             aria-label="Change Theme"
           >
             <Palette size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Theme</span>
+            <span className="hidden lg:inline">Theme</span>
           </button>
 
           <Link
@@ -133,16 +134,10 @@ export default function DashboardHeader({
             aria-label="Settings"
           >
             <Settings size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Settings</span>
+            <span className="hidden lg:inline">Settings</span>
           </Link>
 
-          <span
-            className="za-site-header__identity"
-            style={{
-              fontSize: 'var(--za-text-supporting)',
-              fontWeight: 'var(--za-weight-heading)',
-            }}
-          >
+          <span className="za-site-header__identity hidden md:inline text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)]">
             {username ? `@${username}` : userName || 'user'}
           </span>
 
@@ -155,9 +150,9 @@ export default function DashboardHeader({
             aria-label="Sign Out"
           >
             <LogOut size={15} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Sign out</span>
+            <span className="hidden lg:inline">Sign out</span>
           </button>
-        </nav>
+        </div>
       </div>
     </header>
   );

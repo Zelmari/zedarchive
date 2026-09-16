@@ -156,6 +156,7 @@
   --za-font-mono:
     var(--font-jetbrains-mono, 'JetBrains Mono'), 'JetBrains Mono', 'SF Mono', Consolas, monospace;
   --za-text-fine: 0.75rem; /* 12px - Small captions & fine notes */
+  --za-text-button: 0.78rem; /* Small-caps control labels */
   --za-text-supporting: 0.875rem; /* 14px - Helper text, metadata, labels */
   --za-text-base: 1rem; /* 16px - Standard body & inputs */
   --za-text-heading-sm: 1.125rem; /* 18px - Card subheadings, brand */
@@ -581,19 +582,18 @@ html[data-theme='cyber'] body {
 }
 
 .za-site-header__inner {
-  display: grid;
-  align-items: start;
-  gap: var(--za-space-4);
-  padding-block: var(--za-space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--za-space-3);
+  padding-block: var(--za-space-3);
 }
 
 @media (min-width: 40rem) {
   .za-site-header__inner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    padding-block: var(--za-space-6);
+    gap: var(--za-space-4);
+    padding-block: var(--za-space-4);
   }
 }
 
@@ -666,12 +666,112 @@ html[data-theme='cyber'] body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--za-space-4);
+  gap: var(--za-space-2);
+  min-inline-size: 0;
+}
+
+.za-site-header__nav--fill {
+  flex: 1 1 auto;
+}
+
+.za-site-header__account {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--za-space-2);
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+
+.za-site-header--sticky .za-site-header__inner {
+  padding-block: var(--za-space-2);
+}
+
+.za-site-header__inner--dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'brand account'
+    'nav nav';
+  align-items: center;
+  column-gap: var(--za-space-3);
+  row-gap: var(--za-space-2);
+}
+
+.za-site-header__inner--dashboard > .za-wordmark {
+  grid-area: brand;
+  justify-self: start;
+}
+
+.za-site-header__inner--dashboard > .za-site-header__nav {
+  grid-area: nav;
+  flex-wrap: nowrap;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.za-site-header__inner--dashboard > .za-site-header__account {
+  grid-area: account;
+  margin-inline-start: 0;
+}
+
+@media (min-width: 40rem) {
+  .za-site-header__nav,
+  .za-site-header__account {
+    gap: var(--za-space-3);
+  }
+}
+
+@media (min-width: 64rem) {
+  .za-site-header__inner {
+    flex-wrap: nowrap;
+  }
 }
 
 .za-site-header__identity {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+@media (max-width: 40rem) {
+  .za-wordmark__subline {
+    display: none;
+  }
+
+  .za-site-header--sticky .za-wordmark {
+    display: none;
+  }
+
+  .za-site-header__inner {
+    flex-wrap: nowrap;
+    gap: var(--za-space-2);
+  }
+
+  .za-site-header__nav {
+    flex-wrap: nowrap;
+    max-inline-size: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    gap: var(--za-space-1);
+  }
+
+  .za-site-header__account {
+    gap: var(--za-space-1);
+    margin-inline-start: 0;
+  }
+
+  .za-landing .za-site-header__inner {
+    flex-wrap: wrap;
+  }
+
+  .za-landing .za-site-header__nav {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    overflow: visible;
+    margin-inline-start: auto;
+  }
 }
 
 /* 4. Links */
@@ -734,7 +834,7 @@ html[data-theme='cyber'] body {
   background: var(--za-color-accent);
   color: var(--za-color-on-accent);
   font-family: var(--za-font-display);
-  font-size: 0.78rem;
+  font-size: var(--za-text-button);
   font-weight: 700;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.08em;
@@ -759,7 +859,7 @@ html[data-theme='cyber'] body {
   background: var(--za-color-surface-subtle);
   color: var(--za-color-text);
   font-family: var(--za-font-display);
-  font-size: 0.78rem;
+  font-size: var(--za-text-button);
   font-weight: 700;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.08em;
@@ -783,7 +883,7 @@ html[data-theme='cyber'] body {
   background: transparent;
   color: var(--za-color-text-muted);
   font-family: var(--za-font-display);
-  font-size: 0.78rem;
+  font-size: var(--za-text-button);
   font-weight: 700;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.06em;
@@ -807,7 +907,7 @@ html[data-theme='cyber'] body {
   background: var(--za-color-surface);
   color: var(--za-color-text);
   font-family: var(--za-font-display);
-  font-size: 0.78rem;
+  font-size: var(--za-text-button);
   font-weight: 700;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.08em;
@@ -909,6 +1009,12 @@ select.za-field {
 }
 
 .za-notice--info {
+  border-color: var(--za-color-border-decorative);
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text);
+}
+
+.za-notice--success {
   border-color: var(--za-color-success);
   background: var(--za-color-success-surface);
   color: var(--za-color-success);
@@ -920,10 +1026,73 @@ select.za-field {
   color: var(--za-color-destructive);
 }
 
+.za-notice--warning {
+  border-color: var(--za-color-warning);
+  background: var(--za-color-warning-surface);
+  color: var(--za-color-warning);
+}
+
+/* 7b. Editorial kickers, page intros, and segment tabs */
+.za-kicker {
+  color: var(--za-color-accent);
+  font-family: var(--za-font-mono);
+  font-size: var(--za-text-fine);
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.za-page-intro {
+  margin-block-end: var(--za-space-8);
+  border-block-end: var(--za-border-width) solid var(--za-color-border-decorative);
+  padding-block-end: var(--za-space-6);
+}
+
+.za-segment {
+  min-block-size: var(--za-control-min-block-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--za-space-2);
+  padding: var(--za-space-2) var(--za-space-3);
+  border: var(--za-border-width) solid var(--za-color-border-decorative);
+  border-radius: var(--za-radius-small);
+  background: var(--za-color-surface);
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: var(--za-text-button);
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--za-motion-fast) var(--za-ease-standard),
+    border-color var(--za-motion-fast) var(--za-ease-standard),
+    color var(--za-motion-fast) var(--za-ease-standard);
+}
+
+.za-segment:hover {
+  border-color: var(--za-color-border-required);
+  background: var(--za-color-surface-subtle);
+  color: var(--za-color-text);
+}
+
+.za-segment[aria-pressed='true'],
+.za-segment--active {
+  border-color: var(--za-color-border-decorative);
+  border-block-end: 2px solid var(--za-color-accent);
+  background: var(--za-color-surface);
+  color: var(--za-color-text);
+}
+
+.za-segment[aria-pressed='true']:hover,
+.za-segment--active:hover {
+  border-block-end-color: var(--za-color-accent-hover);
+}
+
 /* 8. Cards & Surfaces */
 .za-card {
   min-inline-size: 0;
-  max-inline-size: 100%;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
   border-radius: var(--za-radius-small);
   background: var(--za-color-surface);
@@ -982,7 +1151,7 @@ select.za-field {
   align-items: center;
   justify-content: center;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: 999px;
+  border-radius: var(--za-radius-small);
   background: var(--za-color-surface-subtle);
   color: var(--za-color-text-muted);
   cursor: pointer;
@@ -990,13 +1159,11 @@ select.za-field {
     background-color var(--za-motion-fast) var(--za-ease-standard),
     border-color var(--za-motion-fast) var(--za-ease-standard),
     color var(--za-motion-fast) var(--za-ease-standard),
-    border-radius var(--za-motion-fast) var(--za-ease-standard),
     transform var(--za-motion-fast) var(--za-ease-standard);
 }
 
 .za-modal-close:hover {
   border-color: var(--za-color-accent);
-  border-radius: var(--za-radius-small);
   background: var(--za-color-accent);
   color: var(--za-color-on-accent);
   transform: translateY(-1px);
@@ -1009,7 +1176,6 @@ select.za-field {
 
 .za-bookplate {
   min-inline-size: 0;
-  max-inline-size: 100%;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
   border-radius: var(--za-radius-small);
   background: var(--za-color-surface);

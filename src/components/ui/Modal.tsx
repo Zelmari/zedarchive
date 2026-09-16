@@ -80,7 +80,7 @@ export default function Modal({
                 {icon}
                 <h2
                   id={labelledBy}
-                  className="text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+                  className="text-[length:var(--za-text-heading-md)] font-[var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
                 >
                   {title}
                 </h2>

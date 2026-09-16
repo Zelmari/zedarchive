@@ -34,7 +34,7 @@ export default function NotFound() {
         </p>
         <Link href="/" className="za-button za-button--primary">
           <ArrowLeft size={16} strokeWidth={2} />
-          Return to zedarchive
+          Return to the archive
         </Link>
       </section>
     </main>

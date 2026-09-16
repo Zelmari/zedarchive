@@ -6,14 +6,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <SubPageHeader
         actions={
-          <div className="flex items-center gap-3">
-            <Link
-              href="/search"
-              className="za-link inline-flex min-h-[var(--za-control-min-block-size)] items-center text-xs"
-            >
-              Discover
-            </Link>
-          </div>
+          <Link href="/search" className="za-button za-button--tertiary">
+            Discover
+          </Link>
         }
       />
       <main

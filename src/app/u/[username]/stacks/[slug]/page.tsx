@@ -5,6 +5,7 @@ import { Layers, Star } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import type { MediaEntry } from '@/types/media';
+import { isAuthenticated } from '@/server/queries/user';
 
 interface PageProps {
   params: Promise<{ username: string; slug: string }>;
@@ -62,6 +63,7 @@ export default async function PublicStackPage({ params }: PageProps) {
   const { user, stack } = data;
   const curatorUsername = user.username || username;
   const visibleItems = stack.items.filter((item) => item.media !== null);
+  const signedIn = await isAuthenticated();
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -72,16 +74,22 @@ export default async function PublicStackPage({ params }: PageProps) {
         }}
         breadcrumbs={[{ label: stack.title }]}
         actions={
-          <Link href="/signup" className="za-button za-button--primary text-xs">
-            Create Archive
-          </Link>
+          signedIn ? (
+            <Link href="/dashboard" className="za-button za-button--secondary">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/signup" className="za-button za-button--primary">
+              Create Archive
+            </Link>
+          )
         }
       />
-      <main id="main-content" className="flex-1 py-8">
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           <article className="za-bookplate border-2 border-required bg-surface p-5 shadow-raised sm:p-8">
             <header className="border-b border-decorative pb-6">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 za-kicker">
                 <Layers size={13} />
                 <span>Published anthology</span>
                 <span className="text-decorative">·</span>
@@ -127,7 +135,7 @@ export default async function PublicStackPage({ params }: PageProps) {
                         />
                       </div>
                       <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-muted sm:text-xs">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-muted">
                           <span>{getMediaMeta(media)}</span>
                           {media.rating != null && (
                             <span className="inline-flex items-center gap-1 text-[var(--za-color-gold)]">
@@ -151,7 +159,7 @@ export default async function PublicStackPage({ params }: PageProps) {
               </ol>
             )}
 
-            <footer className="mt-7 border-t border-decorative pt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-muted">
+            <footer className="mt-7 border-t border-decorative pt-4 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
               {visibleItems.length} {visibleItems.length === 1 ? 'title' : 'titles'} in the public
               folio · @{curatorUsername}
             </footer>

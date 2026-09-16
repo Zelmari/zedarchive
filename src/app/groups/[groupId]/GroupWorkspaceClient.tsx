@@ -8,6 +8,7 @@ import GroupChatView from './GroupChatView';
 import DashboardClient from '@/app/dashboard/DashboardClient';
 import GroupSettingsModal from './GroupSettingsModal';
 import { getGroupMessagesAction, getEligibleFriendsToInviteAction } from '@/server/groups';
+import SegmentButton from '@/components/ui/SegmentButton';
 
 type Tab = 'chat' | 'archive' | 'members';
 
@@ -109,36 +110,23 @@ export default function GroupWorkspaceClient({
           </div>
           <button
             onClick={() => setShowSettings(true)}
-            className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs"
+            className="za-button za-button--secondary inline-flex items-center gap-1.5"
           >
             <Settings size={14} /> Members & Settings
           </button>
         </div>
-        <div className="mt-5 inline-flex items-center gap-1.5 border-t border-decorative pt-3 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-accent">
-          <Library size={12} /> Shared Group Archive · Collective
-        </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-decorative pb-4">
-        <button
-          onClick={() => setTab('chat')}
-          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'chat' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
-        >
-          <MessageSquare size={14} /> Group Chat
-        </button>
-        <button
-          onClick={() => setTab('archive')}
-          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'archive' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
-        >
-          <Library size={14} /> Group Archive
-        </button>
-        <button
-          onClick={() => setTab('members')}
-          className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === 'members' ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
-        >
-          <Users size={14} /> Members ({group.members.length})
-        </button>
+        <SegmentButton active={tab === 'chat'} onClick={() => setTab('chat')} icon={MessageSquare}>
+          Chat
+        </SegmentButton>
+        <SegmentButton active={tab === 'archive'} onClick={() => setTab('archive')} icon={Library}>
+          Archive
+        </SegmentButton>
+        <SegmentButton active={tab === 'members'} onClick={() => setTab('members')} icon={Users}>
+          Members ({group.members.length})
+        </SegmentButton>
       </div>
 
       {tab === 'chat' && (
@@ -197,10 +185,7 @@ export default function GroupWorkspaceClient({
               </div>
             ))}
           </div>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="za-button za-button--secondary text-xs"
-          >
+          <button onClick={() => setShowSettings(true)} className="za-button za-button--secondary">
             Manage Members
           </button>
         </div>

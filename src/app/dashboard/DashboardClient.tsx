@@ -439,26 +439,31 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <DashboardHeader
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        total={entries.length}
-        shows={filters.showEntries.length}
-        movies={filters.movieEntries.length}
-        books={filters.bookEntries.length}
-        userName={user?.name ?? ''}
-        username={user?.username ?? null}
-        onOpenTheme={() => modals.open('theme')}
-        onSignOut={handleSignOut}
-        isSigningOut={isSigningOut}
-      />
+    <div className={isGroup ? 'flex flex-col' : 'flex min-h-screen flex-col bg-canvas text-ink'}>
+      {!isGroup && (
+        <DashboardHeader
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          total={entries.length}
+          shows={filters.showEntries.length}
+          movies={filters.movieEntries.length}
+          books={filters.bookEntries.length}
+          userName={user?.name ?? ''}
+          username={user?.username ?? null}
+          onOpenTheme={() => modals.open('theme')}
+          onSignOut={handleSignOut}
+          isSigningOut={isSigningOut}
+        />
+      )}
 
-      <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]">
-        <div className="za-container">
+      <main
+        id={isGroup ? undefined : 'main-content'}
+        className={isGroup ? 'flex-1' : 'flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]'}
+      >
+        <div className={isGroup ? undefined : 'za-container'}>
           {/* Email verification nudge — hidden in group mode */}
           {!isGroup && user?.emailVerified === false && !verificationDismissed && (
-            <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 rounded-control border border-[rgba(234,179,8,0.4)] bg-[rgba(234,179,8,0.12)] px-[var(--za-space-4)] py-[var(--za-space-3)] text-[length:var(--za-text-supporting)] text-[#b45309]">
+            <div className="za-notice za-notice--warning mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 text-[length:var(--za-text-supporting)]">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={16} />
                 <span>
@@ -487,87 +492,104 @@ export default function DashboardClient({
             </div>
           )}
 
-          {/* Masthead — group name when in group mode */}
-          <div className="mb-[var(--za-space-6)] border-b-4 border-double border-required pb-[var(--za-space-5)]">
-            <div className="flex flex-wrap items-end justify-between gap-[var(--za-space-5)]">
-              <div className="flex min-w-0 flex-col gap-[var(--za-space-1)]">
-                <p className="font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-sm)] italic leading-[var(--za-leading-body)] text-ink-muted">
-                  {isGroup && groupName
-                    ? `The shared collection of ${groupName}`
-                    : `The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
-                </p>
-                <h1 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
-                  {isGroup && groupName
-                    ? groupName
-                    : activeTab === 'total'
-                      ? 'Your Media Archive'
-                      : activeTab === 'shows'
-                        ? 'Shows & Anime'
-                        : activeTab === 'movies'
-                          ? 'Movies & Films'
-                          : 'Books & Manga'}
-                </h1>
-                <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-                  {isGroup && groupName
-                    ? `Shared archive · ${entries.length} titles · collaborative`
-                    : activeTab === 'total'
-                      ? `Tracking ${entries.length} items across shows, movies, and books`
-                      : `Tracking ${tabNoun} in your collection`}
-                </p>
-              </div>
+          {isGroup ? (
+            <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 border-b border-decorative pb-4">
+              <p className="za-kicker">Shared archive · {entries.length} titles</p>
+              <button
+                type="button"
+                className="za-button za-button--primary"
+                onClick={() => modals.open('add')}
+                title="Add media"
+                aria-label="Add Media"
+              >
+                <Plus size={16} strokeWidth={2.2} />
+                <span>Add Media</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mb-[var(--za-space-6)] border-b-4 border-double border-required pb-[var(--za-space-5)]">
+              <div className="flex flex-wrap items-end justify-between gap-[var(--za-space-5)]">
+                <div className="flex min-w-0 flex-col gap-[var(--za-space-1)]">
+                  <p className="font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-sm)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                    {isGroup && groupName
+                      ? `The shared collection of ${groupName}`
+                      : `The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
+                  </p>
+                  <h1 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
+                    {isGroup && groupName
+                      ? groupName
+                      : activeTab === 'total'
+                        ? 'Your Media Archive'
+                        : activeTab === 'shows'
+                          ? 'Shows & Anime'
+                          : activeTab === 'movies'
+                            ? 'Movies & Films'
+                            : 'Books & Manga'}
+                  </h1>
+                  <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+                    {isGroup && groupName
+                      ? `Shared archive · ${entries.length} titles · collaborative`
+                      : activeTab === 'total'
+                        ? `Tracking ${entries.length} items across shows, movies, and books`
+                        : `Tracking ${tabNoun} in your collection`}
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap items-end gap-[var(--za-space-4)]">
-                <dl className="flex items-end gap-[var(--za-space-4)] font-[family-name:var(--za-font-mono)]">
-                  <div className="flex flex-col items-end gap-0.5">
-                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                      {entries.length}
-                    </dd>
-                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                      Total
-                    </dt>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                      {filters.showEntries.length}
-                    </dd>
-                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                      Shows
-                    </dt>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                      {filters.movieEntries.length}
-                    </dd>
-                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                      Films
-                    </dt>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                      {filters.bookEntries.length}
-                    </dd>
-                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                      Books
-                    </dt>
-                  </div>
-                </dl>
+                <div className="flex flex-wrap items-end gap-[var(--za-space-4)]">
+                  <dl className="flex items-end gap-[var(--za-space-4)] font-[family-name:var(--za-font-mono)]">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                        {entries.length}
+                      </dd>
+                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                        Total
+                      </dt>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                        {filters.showEntries.length}
+                      </dd>
+                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                        Shows
+                      </dt>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                        {filters.movieEntries.length}
+                      </dd>
+                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                        Films
+                      </dt>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                        {filters.bookEntries.length}
+                      </dd>
+                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                        Books
+                      </dt>
+                    </div>
+                  </dl>
 
-                <button
-                  type="button"
-                  className="za-button za-button--primary"
-                  onClick={() => modals.open('add')}
-                  title="Add media"
-                  aria-label={`Add ${activeTab === 'books' ? 'Book' : 'Media'}`}
-                >
-                  <Plus size={16} strokeWidth={2.2} />
-                  <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
-                </button>
+                  {entries.length > 0 && (
+                    <button
+                      type="button"
+                      className="za-button za-button--primary"
+                      onClick={() => modals.open('add')}
+                      title="Add media"
+                      aria-label={`Add ${activeTab === 'books' ? 'Book' : 'Media'}`}
+                    >
+                      <Plus size={16} strokeWidth={2.2} />
+                      <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Reading Goal Banner (shown when on Books tab or when goal exists) */}
-          {(activeTab === 'books' || goalProgress) && (
+          {!isGroup && (activeTab === 'books' || goalProgress) && (
             <section
               aria-label="Reading goal"
               className="mb-[var(--za-space-4)] rounded-small border border-decorative bg-surface-sunken p-[var(--za-space-4)] shadow-raised"
@@ -576,7 +598,7 @@ export default function DashboardClient({
                 <div className="flex flex-col gap-[var(--za-space-3)]">
                   <div className="flex flex-wrap items-center justify-between gap-[var(--za-space-3)]">
                     <div className="flex items-center gap-[var(--za-space-3)]">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold bg-surface text-gold-dark">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-gold bg-surface text-gold-dark">
                         <BookOpen size={18} strokeWidth={1.75} aria-hidden="true" />
                       </span>
                       <div>

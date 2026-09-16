@@ -5,7 +5,7 @@ import { X, Search, Loader2 } from 'lucide-react';
 import { getTileInitials } from '@/lib/format';
 import { endpointFor } from '@/lib/search';
 import Modal from '@/components/ui/Modal';
-import { CATEGORY_CHIPS } from '@/components/ui/media-controls';
+import { CATEGORY_CHIPS, pillClass } from '@/components/ui/media-controls';
 import type { MediaCategory, StructureItem } from '@/types/media';
 
 export interface SpotlightResult {
@@ -36,10 +36,6 @@ const PLACEHOLDERS: Record<MediaCategory, string> = {
   book: 'Search books (e.g. Crime and Punishment, Dune)...',
   manga: 'Search manga (e.g. Chainsaw Man, Berserk)...',
 };
-
-function categoryButtonClass(active: boolean): string {
-  return `za-button ${active ? 'za-button--selected' : 'za-button--secondary'} shrink-0 px-2.5 py-1 text-xs`;
-}
 
 /**
  * Spotlight search-first window for adding media. Owns search state and
@@ -227,7 +223,7 @@ export default function SpotlightSearchModal({
               type="button"
               role="radio"
               aria-checked={category === id}
-              className={categoryButtonClass(category === id)}
+              className={pillClass(category === id)}
               onClick={() => onCategoryChange(id)}
             >
               <Icon size={14} strokeWidth={2} />

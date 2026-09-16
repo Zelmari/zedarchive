@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { MessageCircle, Trash2, Lock } from 'lucide-react';
+import { MessageCircle, Trash2, Lock, EyeOff } from 'lucide-react';
 import { createProfileComment, deleteProfileComment } from '@/server/comments';
 import { MAX_COMMENT_LENGTH, COMMENT_TTL_MS } from '@/lib/constants';
 import { relativeTime } from '@/lib/format';
@@ -308,7 +308,8 @@ export default function ProfileComments({
                 onClick={() => setDraft((d) => `${d}${d ? ' ' : ''}||spoiler||`)}
                 className="cursor-pointer font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted transition-colors hover:text-ink"
               >
-                ✦ Add spoiler{' '}
+                <EyeOff size={12} className="-mb-0.5 mr-1 inline-block" aria-hidden="true" />
+                Add spoiler{' '}
                 <code className="rounded-xs bg-surface-subtle px-1 py-0.5 font-mono text-[10px]">
                   ||...||
                 </code>

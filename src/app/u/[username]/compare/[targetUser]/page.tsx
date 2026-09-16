@@ -5,7 +5,9 @@ import { calculateTasteMatch } from '@/lib/tasteMatch';
 import { Sparkles } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
-import { Badge, RatingBadge } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
+import EmptyLedger from '@/components/ui/EmptyLedger';
+import { isAuthenticated } from '@/server/queries/user';
 
 interface PageProps {
   params: Promise<{ username: string; targetUser: string }>;
@@ -32,6 +34,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
   }
 
   const match = calculateTasteMatch(dataA.entries, dataB.entries);
+  const signedIn = await isAuthenticated();
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -42,12 +45,18 @@ export default async function CompareUsersPage({ params }: PageProps) {
         }}
         breadcrumbs={[{ label: 'Taste Match' }]}
         actions={
-          <Link href="/signup" className="za-button za-button--primary text-xs">
-            Create Archive
-          </Link>
+          signedIn ? (
+            <Link href="/dashboard" className="za-button za-button--secondary">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/signup" className="za-button za-button--primary">
+              Create Archive
+            </Link>
+          )
         }
       />
-      <main id="main-content" className="flex-1 py-10">
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           {/* Header diptych */}
           <div className="za-bookplate relative mb-8 p-6 text-center sm:p-8">
@@ -64,7 +73,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
                   {dataA.user.name}
                 </div>
               </div>
-              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-gold bg-gold/10 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-gold-dark">
+              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-small border border-gold bg-gold/10 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-gold-dark">
                 VS
               </span>
               <div className="min-w-0">
@@ -152,13 +161,6 @@ export default async function CompareUsersPage({ params }: PageProps) {
                           <span className="text-gold-dark">{item.ratingB}★</span>
                         </span>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {item.ratingA != null && <RatingBadge rating={item.ratingA} />}
-                        {item.ratingB != null && <RatingBadge rating={item.ratingB} />}
-                      </div>
-                      <span className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-faint">
-                        {item.category}
-                      </span>
                     </div>
                   </div>
                 ))}
@@ -175,7 +177,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
                 {match.topSharedGenres.map(({ genre, count }) => (
                   <span
                     key={genre}
-                    className="rounded-full border border-decorative bg-surface-subtle px-3 py-1 font-[var(--za-font-serif-body)] text-sm italic text-ink"
+                    className="rounded-small border border-decorative bg-surface-subtle px-3 py-1 font-[var(--za-font-serif-body)] text-sm italic text-ink"
                   >
                     {genre} · {count}
                   </span>
@@ -198,9 +200,10 @@ export default async function CompareUsersPage({ params }: PageProps) {
               The complete overlap, with each archive&apos;s rating preserved side by side.
             </p>
             {match.sharedTitles.length === 0 ? (
-              <div className="za-bookplate p-10 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-                No overlapping titles found between these two public archives.
-              </div>
+              <EmptyLedger
+                title="No shared titles"
+                description="No overlapping titles found between these two public archives."
+              />
             ) : (
               <div className="za-bookplate p-[var(--za-space-2)]">
                 <div className="overflow-x-auto">

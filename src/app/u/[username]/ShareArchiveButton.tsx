@@ -34,7 +34,7 @@ export default function ShareArchiveButton({ url }: ShareArchiveButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="za-button za-button--secondary inline-flex items-center text-xs"
+      className="za-button za-button--secondary inline-flex items-center"
       aria-label={`Copy archive link ${url}`}
     >
       {copied ? <Check size={14} className="mr-1" /> : <Share2 size={14} className="mr-1" />}

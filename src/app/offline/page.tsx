@@ -8,7 +8,11 @@ export const metadata = {
 
 export default function OfflinePage() {
   return (
-    <main id="main-content" tabIndex={-1} className="flex min-h-screen items-center py-12">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-screen items-center bg-canvas py-12 text-ink"
+    >
       <div className="za-container za-container--narrow">
         <section
           aria-labelledby="offline-title"
@@ -16,7 +20,7 @@ export default function OfflinePage() {
         >
           <span className="za-ribbon-bookmark" aria-hidden="true" />
           <div className="flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-accent bg-accent-soft text-accent shadow-gold">
+            <div className="flex h-16 w-16 items-center justify-center rounded-small border-2 border-accent bg-accent-soft text-accent shadow-gold">
               <WifiOff aria-hidden="true" size={30} strokeWidth={1.6} />
             </div>
           </div>
@@ -35,7 +39,7 @@ export default function OfflinePage() {
           </header>
 
           <div className="flex w-full justify-center">
-            <Link href="/dashboard" className="za-button za-button--primary w-full">
+            <Link href="/dashboard" className="za-button za-button--primary">
               Retry connection
             </Link>
           </div>

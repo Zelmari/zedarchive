@@ -87,7 +87,7 @@ export default function GroupChatView({
       <div className="za-bookplate min-h-[300px] max-h-[500px] space-y-4 overflow-y-auto p-5 sm:p-6">
         {messages.length === 0 ? (
           <div className="py-12 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-            No messages yet. Start the conversation — messages expire in 7 days.
+            No messages yet. Start the conversation.
           </div>
         ) : (
           messages.map((msg) => (
@@ -96,7 +96,7 @@ export default function GroupChatView({
               className={`flex gap-3 ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[88%] border-l-2 px-4 py-3 ${
+                className={`min-w-0 max-w-[88%] border-l-2 px-4 py-3 ${
                   msg.isOwn
                     ? 'border-accent bg-accent-soft text-ink'
                     : 'border-decorative bg-surface-subtle text-ink'
@@ -165,7 +165,7 @@ export default function GroupChatView({
         <button
           onClick={handleSend}
           disabled={pending || !body.trim()}
-          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+          className="za-button za-button--primary inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           <Send size={14} /> Send
         </button>

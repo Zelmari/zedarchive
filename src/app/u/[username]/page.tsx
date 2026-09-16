@@ -6,11 +6,11 @@ import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
 import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { getSessionUser } from '@/server/internal';
-import { Star, Sparkles } from 'lucide-react';
+import { Star, Sparkles, Layers } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
-import BrandWordmark from '@/components/navigation/BrandWordmark';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import FriendButton from './FriendButton';
 import { getFriendshipStatus } from '@/server/queries/friends';
 
@@ -158,18 +158,20 @@ export default async function PublicProfilePage({ params }: PageParams) {
       data-theme={user.theme || 'parchment'}
       style={customStyles}
     >
-      {/* Public Header */}
-      <header className="za-site-header">
-        <div className="za-container za-container--wide za-site-header__inner">
-          <BrandWordmark />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--za-space-3)' }}>
+      <SubPageHeader
+        navItems={
+          viewer.isLoggedIn
+            ? [{ label: 'Dashboard', href: '/dashboard', icon: Layers, variant: 'secondary' }]
+            : undefined
+        }
+        actions={
+          viewer.isLoggedIn ? undefined : (
             <Link href="/signup" className="za-button za-button--primary">
               Create Your Archive
             </Link>
-          </div>
-        </div>
-      </header>
+          )
+        }
+      />
 
       {/* Main Content */}
       <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-8)]">
@@ -237,12 +239,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
                       ({publicGoalProgress.percentage}%)
                     </span>
                     {publicGoalProgress.status === 'ahead' && (
-                      <span className="text-[11px] font-[var(--za-weight-emphasis)] text-success">
+                      <span className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-success">
                         · {publicGoalProgress.paceDiff} ahead of pace
                       </span>
                     )}
                     {publicGoalProgress.status === 'behind' && (
-                      <span className="text-[11px] font-[var(--za-weight-emphasis)] text-warning">
+                      <span className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-warning">
                         · {Math.abs(publicGoalProgress.paceDiff)} behind pace
                       </span>
                     )}
@@ -256,7 +258,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 {viewer.isLoggedIn && viewer.username && viewer.id !== user.id && (
                   <Link
                     href={`/u/${viewer.username}/compare/${user.username}`}
-                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs font-[var(--za-weight-emphasis)] text-accent"
+                    className="za-button za-button--secondary inline-flex items-center gap-1.5"
                     title={`Compare your archive with @${user.username}`}
                   >
                     <Sparkles size={13} className="shrink-0 text-accent" />
@@ -266,7 +268,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 {!viewer.isLoggedIn && (
                   <Link
                     href={`/login?callbackUrl=/u/${user.username}`}
-                    className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs"
+                    className="za-button za-button--secondary inline-flex items-center gap-1.5"
                     title="Log in to compare taste with this archive"
                   >
                     <Sparkles size={13} className="shrink-0 text-ink-muted" />
@@ -275,7 +277,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 )}
                 <Link
                   href={`/u/${user.username}/wrapped/${currentYear}`}
-                  className="za-button za-button--secondary inline-flex items-center text-xs"
+                  className="za-button za-button--secondary inline-flex items-center"
                 >
                   View Annual Wrapped
                 </Link>
@@ -290,7 +292,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"
-                    className="za-button za-button--secondary inline-flex items-center text-xs"
+                    className="za-button za-button--secondary inline-flex items-center"
                   >
                     Edit Profile
                   </Link>
@@ -314,7 +316,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                   <span className="text-xs text-ink-muted"> · {stats.completionRate}%</span>
                 </div>
                 <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
-                  Completed · Completion Rate
+                  Completed
                 </div>
               </div>
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">

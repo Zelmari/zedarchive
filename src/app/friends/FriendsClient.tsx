@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Search, UserPlus, Check, X, Users, Inbox, Send, Trash2 } from 'lucide-react';
 import type { FriendshipItem } from '@/types/friends';
 import type { FriendUserSummary } from '@/types/friends';
+import SegmentButton from '@/components/ui/SegmentButton';
+import EmptyLedger from '@/components/ui/EmptyLedger';
 import {
   acceptFriendRequestAction,
   rejectFriendRequestAction,
@@ -130,7 +132,11 @@ export default function FriendsClient({
   return (
     <div className="space-y-4">
       {message && (
-        <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
+        <div
+          className={`za-notice font-[var(--za-font-serif-body)] text-sm ${
+            /fail|error/i.test(message) ? 'za-notice--error' : 'za-notice--success'
+          }`}
+        >
           {message}
         </div>
       )}
@@ -141,24 +147,29 @@ export default function FriendsClient({
           { id: 'incoming' as Tab, label: `Incoming (${incoming.length})`, icon: Inbox },
           { id: 'outgoing' as Tab, label: `Outgoing (${outgoing.length})`, icon: Send },
           { id: 'find' as Tab, label: 'Find Friends', icon: Search },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`inline-flex min-h-[var(--za-control-min-block-size)] items-center gap-1.5 rounded-full border px-3 py-1.5 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${tab === id ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'}`}
-          >
-            <Icon size={14} /> {label}
-          </button>
+        ].map(({ id, label, icon }) => (
+          <SegmentButton key={id} active={tab === id} onClick={() => setTab(id)} icon={icon}>
+            {label}
+          </SegmentButton>
         ))}
       </div>
 
       {tab === 'friends' && (
         <div className="space-y-3">
           {friends.length === 0 ? (
-            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-              No friends yet. Find and add people from the Find Friends tab or via their public
-              profiles.
-            </div>
+            <EmptyLedger
+              title="No companions yet"
+              description="Find and add people from the Find Friends tab, or from a public profile."
+              action={
+                <button
+                  type="button"
+                  className="za-button za-button--primary"
+                  onClick={() => setTab('find')}
+                >
+                  Find Friends
+                </button>
+              }
+            />
           ) : (
             friends.map((item) => (
               <div
@@ -196,7 +207,7 @@ export default function FriendsClient({
                   {item.friend.username && (
                     <Link
                       href={`/u/${item.friend.username}`}
-                      className="za-button za-button--secondary text-xs"
+                      className="za-button za-button--secondary"
                     >
                       View
                     </Link>
@@ -204,7 +215,7 @@ export default function FriendsClient({
                   {currentUsername && item.friend.username && (
                     <Link
                       href={`/u/${encodeURIComponent(currentUsername)}/compare/${encodeURIComponent(item.friend.username)}`}
-                      className="za-button za-button--tertiary text-xs"
+                      className="za-button za-button--tertiary"
                     >
                       Compare
                     </Link>
@@ -212,7 +223,7 @@ export default function FriendsClient({
                   <button
                     onClick={() => handleRemove(item.friend.id)}
                     disabled={pending}
-                    className="za-button za-button--tertiary text-xs"
+                    className="za-button za-button--tertiary"
                     title="Remove friend"
                   >
                     <Trash2 size={12} /> Unfriend
@@ -227,9 +238,10 @@ export default function FriendsClient({
       {tab === 'incoming' && (
         <div className="space-y-3">
           {incoming.length === 0 ? (
-            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-              No incoming requests.
-            </div>
+            <EmptyLedger
+              title="No incoming requests"
+              description="When someone asks to connect, it will appear here."
+            />
           ) : (
             incoming.map((item) => (
               <div
@@ -262,14 +274,14 @@ export default function FriendsClient({
                   <button
                     onClick={() => handleAccept(item.id)}
                     disabled={pending}
-                    className="za-button za-button--primary text-xs disabled:opacity-50"
+                    className="za-button za-button--primary disabled:opacity-50"
                   >
                     <Check size={14} /> Accept
                   </button>
                   <button
                     onClick={() => handleReject(item.id)}
                     disabled={pending}
-                    className="za-button za-button--secondary text-xs disabled:opacity-50"
+                    className="za-button za-button--secondary disabled:opacity-50"
                   >
                     <X size={14} /> Reject
                   </button>
@@ -283,9 +295,10 @@ export default function FriendsClient({
       {tab === 'outgoing' && (
         <div className="space-y-3">
           {outgoing.length === 0 ? (
-            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-              No outgoing requests.
-            </div>
+            <EmptyLedger
+              title="No outgoing requests"
+              description="Sent requests wait here until they are accepted or cancelled."
+            />
           ) : (
             outgoing.map((item) => (
               <div
@@ -317,7 +330,7 @@ export default function FriendsClient({
                 <button
                   onClick={() => handleCancel(item.id)}
                   disabled={pending}
-                  className="za-button za-button--secondary text-xs disabled:opacity-50"
+                  className="za-button za-button--secondary disabled:opacity-50"
                 >
                   <X size={14} /> Cancel
                 </button>
@@ -344,13 +357,14 @@ export default function FriendsClient({
           </div>
 
           {searchQuery.trim().length < 2 ? (
-            <div className="py-6 text-center font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
-              Type at least 2 characters to search.
-            </div>
+            <p className="py-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+              Type at least two characters to search the register.
+            </p>
           ) : searchResults.length === 0 && !searchLoading ? (
-            <div className="za-bookplate p-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-              No users found for &quot;{searchQuery}&quot;.
-            </div>
+            <EmptyLedger
+              title="No matching archivists"
+              description={`No users found for “${searchQuery}”.`}
+            />
           ) : (
             <div className="space-y-3">
               {searchResults.map((u) => (
@@ -388,7 +402,7 @@ export default function FriendsClient({
                   <button
                     onClick={() => handleSend(u.id)}
                     disabled={pending}
-                    className="za-button za-button--primary text-xs disabled:opacity-50"
+                    className="za-button za-button--primary disabled:opacity-50"
                   >
                     <UserPlus size={14} /> Add Friend
                   </button>

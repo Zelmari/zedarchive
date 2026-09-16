@@ -175,10 +175,8 @@ export default function AddMediaModal({
       {(createError || isSubmitting) && (
         <div
           role={createError ? 'alert' : 'status'}
-          className={`fixed top-4 left-1/2 z-[70] max-w-md -translate-x-1/2 rounded-md border px-4 py-2 text-xs font-[var(--za-weight-emphasis)] shadow-lg backdrop-blur ${
-            createError
-              ? 'border-danger/40 bg-danger/10 text-danger'
-              : 'border-decorative bg-surface text-ink'
+          className={`za-notice fixed top-4 left-1/2 z-[70] max-w-md -translate-x-1/2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] shadow-layered ${
+            createError ? 'za-notice--error' : 'za-notice--info'
           }`}
         >
           {createError || 'Adding to archive…'}

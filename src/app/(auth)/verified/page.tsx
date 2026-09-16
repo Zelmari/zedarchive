@@ -21,11 +21,11 @@ export default async function VerifiedPage({ searchParams }: PageProps) {
       <span className="za-ribbon-bookmark" aria-hidden="true" />
       <div className="flex justify-center">
         {isError ? (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-danger-surface text-danger">
+          <div className="flex h-14 w-14 items-center justify-center rounded-small bg-danger-surface text-danger">
             <AlertCircle size={32} />
           </div>
         ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success-surface text-success">
+          <div className="flex h-14 w-14 items-center justify-center rounded-small bg-success-surface text-success">
             <CheckCircle2 size={32} />
           </div>
         )}

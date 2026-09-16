@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown, UserMinus, LogOut, Trash2, UserPlus } from 'lucide-react';
+import { Crown, UserMinus, LogOut, Trash2, UserPlus, X } from 'lucide-react';
 import type { GroupDetails } from '@/types/groups';
 import {
   addGroupMembersAction,
@@ -134,16 +134,21 @@ export default function GroupSettingsModal({
           </h2>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className="za-button za-button--tertiary p-2"
+          className="za-modal-close"
           aria-label="Close group settings"
         >
-          ✕
+          <X size={16} strokeWidth={1.75} />
         </button>
       </div>
 
       {msg && (
-        <div className="za-notice za-notice--info mb-4 font-[var(--za-font-serif-body)] text-sm">
+        <div
+          className={`za-notice mb-4 font-[var(--za-font-serif-body)] text-sm ${
+            /fail|error/i.test(msg) ? 'za-notice--error' : 'za-notice--success'
+          }`}
+        >
           {msg}
         </div>
       )}

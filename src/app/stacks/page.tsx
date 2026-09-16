@@ -1,8 +1,8 @@
 import { getMyStacks } from '@/server/stacks';
 import { getMediaEntries } from '@/server/media';
 import { requireSession } from '@/server/internal';
-import { Layers } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
+import PageIntro from '@/components/ui/PageIntro';
 import StacksClient from './StacksClient';
 
 export const metadata = {
@@ -21,24 +21,14 @@ export default async function StacksPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <SubPageHeader
-        backLink={{ href: '/dashboard', label: 'Dashboard' }}
-        breadcrumbs={[{ label: 'Curated Stacks' }]}
-        navItems={[{ label: 'Dashboard', href: '/dashboard', icon: Layers }]}
-      />
-      <main id="main-content" className="flex-1 py-8">
+      <SubPageHeader backLink={{ href: '/dashboard', label: 'Dashboard' }} />
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
-          <div className="mb-10 text-center">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-              Curated collections
-            </span>
-            <h1 className="mt-2 font-[var(--za-font-display)] text-2xl font-semibold uppercase tracking-[0.08em] text-ink sm:text-3xl">
-              Curated Stacks & Anthologies
-            </h1>
-            <p className="mx-auto mt-3 max-w-2xl font-[var(--za-font-editorial)] text-base italic leading-relaxed text-ink-muted sm:text-lg">
-              Reading paths, thematic essays, and illuminated media stacks compiled by the curator.
-            </p>
-          </div>
+          <PageIntro
+            kicker="Curated collections"
+            title="Curated Stacks"
+            description="Reading paths, thematic essays, and illuminated media stacks compiled by the curator."
+          />
 
           <StacksClient
             initialStacks={initialStacks}
