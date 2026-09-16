@@ -71,7 +71,7 @@ export default function SyncIndicator() {
     <button
       type="button"
       onClick={() => replayOutbox()}
-      className={`inline-flex cursor-pointer items-center gap-[var(--za-space-1)] rounded-small border px-[var(--za-space-2)] py-0.5 font-[var(--za-font-mono)] text-[11px] transition-colors ${statusClass}`}
+      className={`inline-flex cursor-pointer items-center gap-[var(--za-space-1)] rounded-small border px-[var(--za-space-2)] py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] transition-colors ${statusClass}`}
       title={
         syncState === 'offline'
           ? 'Working offline. Changes are saved locally and will sync when reconnected.'

@@ -3,11 +3,12 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Plus, X } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
 import type { GroupSummary } from '@/types/groups';
 import type { FriendUserSummary } from '@/types/friends';
 import { createGroupAction } from '@/server/groups';
 import Modal from '@/components/ui/Modal';
+import EmptyLedger from '@/components/ui/EmptyLedger';
 
 export default function GroupsClient({
   initialGroups,
@@ -51,18 +52,10 @@ export default function GroupsClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-decorative pb-4">
-        <div>
-          <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint">
-            Anthology shelves
-          </p>
-          <div className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
-            {groups.length} group{groups.length !== 1 ? 's' : ''}
-          </div>
-        </div>
+      <div className="flex justify-end">
         <button
           onClick={() => setShowCreate(true)}
-          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs"
+          className="za-button za-button--primary inline-flex items-center gap-1.5"
         >
           <Plus size={14} /> Create Group
         </button>
@@ -75,16 +68,11 @@ export default function GroupsClient({
       )}
 
       {groups.length === 0 ? (
-        <div className="za-bookplate relative p-10 text-center">
-          <span className="za-ribbon-bookmark" aria-hidden="true" />
-          <p className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-            No volumes yet
-          </p>
-          <p className="mx-auto mt-2 max-w-lg font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
-            Create a reading room and invite your friends. Only accepted companions can be added to
-            a collective shelf.
-          </p>
-        </div>
+        <EmptyLedger
+          icon={<Users size={32} strokeWidth={1.5} />}
+          title="No groups yet"
+          description="Create a reading room and invite your friends. Only accepted companions can be added."
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g, index) => (
@@ -135,28 +123,11 @@ export default function GroupsClient({
         <Modal
           isOpen={showCreate}
           onClose={() => setShowCreate(false)}
-          ariaLabel="Create Group"
-          contentClassName="max-h-[90vh] max-w-lg overflow-y-auto p-6"
+          title="Create Group"
+          labelledBy="create-group-title"
+          contentClassName="max-h-[90vh] max-w-lg overflow-y-auto"
         >
-          <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">
-            <div>
-              <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
-                New collective volume
-              </p>
-              <h2 className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-                Create Group
-              </h2>
-            </div>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="za-button za-button--tertiary p-2"
-              aria-label="Close create group dialog"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="space-y-4">
+          <div className="space-y-4 p-6">
             <div>
               <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Group Name *

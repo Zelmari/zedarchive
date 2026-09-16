@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '@/components/modals/ConfirmModal';
 import MediaCover from '@/components/cards/MediaCover';
+import EmptyLedger from '@/components/ui/EmptyLedger';
 import {
   addStackItemAction,
   createStackAction,
@@ -301,7 +302,7 @@ export default function StacksClient({
       {error && (
         <div
           role="alert"
-          className="rounded-small border border-danger bg-danger-surface px-3 py-2 text-xs text-danger"
+          className="za-notice za-notice--error px-3 py-2 text-[length:var(--za-text-supporting)]"
         >
           {error}
         </div>
@@ -311,7 +312,7 @@ export default function StacksClient({
         <button
           type="button"
           onClick={() => setIsCreating(!isCreating)}
-          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.04em]"
+          className="za-button za-button--primary inline-flex items-center gap-1.5"
         >
           <Plus size={14} /> Create New Stack
         </button>
@@ -323,9 +324,7 @@ export default function StacksClient({
           className="za-bookplate border-2 border-required bg-surface p-5 shadow-raised sm:p-8"
         >
           <div className="mb-5 border-b border-decorative pb-4">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-              New folio
-            </span>
+            <span className="za-kicker">New folio</span>
             <h2 className="mt-1 font-[var(--za-font-display)] text-lg font-semibold uppercase tracking-[0.05em] text-ink">
               New Anthology Stack
             </h2>
@@ -340,7 +339,7 @@ export default function StacksClient({
               placeholder="e.g. Autumn Mystery Essentials"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="za-input w-full text-xs"
+              className="za-field w-full"
               required
             />
           </div>
@@ -353,7 +352,7 @@ export default function StacksClient({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="za-input w-full text-xs"
+              className="za-field w-full"
             />
           </div>
           <div className="mb-5 flex items-start gap-2">
@@ -377,14 +376,14 @@ export default function StacksClient({
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="za-button za-button--secondary text-xs"
+              className="za-button za-button--secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={pendingKey === 'create'}
-              className="za-button za-button--primary text-xs"
+              className="za-button za-button--primary"
             >
               {pendingKey === 'create' ? 'Creating…' : 'Create Stack'}
             </button>
@@ -393,16 +392,11 @@ export default function StacksClient({
       )}
 
       {stacks.length === 0 ? (
-        <div className="za-bookplate border border-dashed border-decorative bg-surface-subtle p-12 text-center text-xs text-ink-muted">
-          <Layers size={32} className="mx-auto mb-3 text-accent opacity-60" />
-          <p className="font-[var(--za-font-display)] text-sm font-semibold uppercase tracking-[0.05em] text-ink">
-            No stacks created yet
-          </p>
-          <p className="mt-1">
-            Create a working anthology, then arrange the titles and write the notes that give it
-            meaning.
-          </p>
-        </div>
+        <EmptyLedger
+          icon={<Layers size={32} strokeWidth={1.5} />}
+          title="No stacks created yet"
+          description="Create a working anthology, then arrange the titles and write the notes that give it meaning."
+        />
       ) : (
         <div className="space-y-10">
           {stacks.map((stack) => (
@@ -413,7 +407,7 @@ export default function StacksClient({
               <header className="border-b border-decorative pb-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+                    <span className="za-kicker">
                       Anthology · {stack.items.length.toString().padStart(2, '0')} titles
                     </span>
                     <h2 className="mt-2 font-[var(--za-font-display)] text-xl font-semibold leading-tight tracking-[0.03em] text-ink sm:text-2xl">
@@ -421,7 +415,7 @@ export default function StacksClient({
                     </h2>
                   </div>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-small border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                    className={`inline-flex items-center gap-1 rounded-small border px-2 py-1 text-[length:var(--za-text-fine)] font-semibold uppercase tracking-[0.08em] ${
                       stack.isPublic
                         ? 'border-accent/30 bg-accent/10 text-accent'
                         : 'border-decorative bg-surface-subtle text-ink-muted'
@@ -443,7 +437,7 @@ export default function StacksClient({
                   <div className="min-w-0 flex-1">
                     <label
                       htmlFor={`stack-library-${stack.id}`}
-                      className="mb-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink-muted"
+                      className="mb-1 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
                     >
                       Add from your library
                     </label>
@@ -464,7 +458,7 @@ export default function StacksClient({
                         ) ||
                         pendingKey === `add-${stack.id}`
                       }
-                      className="za-input w-full text-xs"
+                      className="za-field w-full"
                     >
                       <option value="" disabled>
                         {initialMediaEntries.length === 0
@@ -489,7 +483,7 @@ export default function StacksClient({
                     type="button"
                     onClick={() => void handleAddItem(stack)}
                     disabled={!selectedMedia[stack.id] || pendingKey === `add-${stack.id}`}
-                    className="za-button za-button--secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                    className="za-button za-button--secondary inline-flex shrink-0 items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus size={13} />
                     {pendingKey === `add-${stack.id}` ? 'Adding…' : 'Attach title'}
@@ -530,7 +524,7 @@ export default function StacksClient({
                         <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-muted">
+                              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
                                 {getMediaMeta(item.media)}
                               </span>
                               <h3 className="mt-1 break-words font-[var(--za-font-display)] text-base font-semibold leading-tight text-ink sm:text-lg">
@@ -579,7 +573,7 @@ export default function StacksClient({
                           </div>
                           <label
                             htmlFor={`annotation-${item.id}`}
-                            className="mt-4 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink-muted"
+                            className="mt-4 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
                           >
                             Curator&apos;s note · saves on blur
                           </label>
@@ -596,10 +590,10 @@ export default function StacksClient({
                             rows={3}
                             maxLength={2000}
                             placeholder="Why does this title belong in the anthology?"
-                            className="za-input mt-1 w-full resize-y text-sm leading-relaxed"
+                            className="za-field mt-1 w-full resize-y text-sm leading-relaxed"
                             disabled={annotationPending}
                           />
-                          <div className="mt-1 flex justify-end text-[10px] text-ink-muted">
+                          <div className="mt-1 flex justify-end text-[length:var(--za-text-fine)] text-ink-muted">
                             {annotationPending ? 'Saving…' : `${annotation.length}/2000`}
                           </div>
                         </div>
@@ -627,7 +621,7 @@ export default function StacksClient({
                       {copiedStackId === stack.id ? <Check size={13} /> : <Copy size={13} />}
                       {copiedStackId === stack.id ? 'Copied!' : 'Copy URL'}
                     </button>
-                    <code className="max-w-full truncate text-[10px] text-ink-muted">
+                    <code className="max-w-full truncate text-[length:var(--za-text-fine)] text-ink-muted">
                       {getStackPath(username, stack.slug)}
                     </code>
                   </div>

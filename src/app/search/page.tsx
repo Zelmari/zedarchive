@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { searchPublicProfiles } from '@/server/queries/user';
-import BrandWordmark from '@/components/navigation/BrandWordmark';
+import SubPageHeader from '@/components/navigation/SubPageHeader';
 import SearchResultsClient from './SearchResultsClient';
 import { isAuthenticated } from '@/server/queries/user';
 
@@ -25,35 +25,25 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      {/* Header */}
-      <header className="za-site-header">
-        <div className="za-container za-container--wide za-site-header__inner">
-          <BrandWordmark />
-
-          <nav aria-label="Account" className="za-site-header__nav">
-            {loggedIn ? (
-              <Link href="/dashboard" className="za-button za-button--secondary">
-                Dashboard
+      <SubPageHeader
+        actions={
+          loggedIn ? (
+            <Link href="/dashboard" className="za-button za-button--secondary">
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="za-link">
+                Sign in
               </Link>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/login"
-                  className="za-link inline-flex min-h-[var(--za-control-min-block-size)] items-center text-xs"
-                >
-                  Log in
-                </Link>
-                <Link href="/signup" className="za-button za-button--primary text-xs">
-                  Create Archive
-                </Link>
-              </div>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main id="main-content" className="flex-1 py-10">
+              <Link href="/signup" className="za-button za-button--primary">
+                Get started
+              </Link>
+            </>
+          )
+        }
+      />
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           <SearchResultsClient initialQuery={query} initialResults={results} />
         </div>

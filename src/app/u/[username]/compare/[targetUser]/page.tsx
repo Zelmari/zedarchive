@@ -5,7 +5,8 @@ import { calculateTasteMatch } from '@/lib/tasteMatch';
 import { Sparkles } from 'lucide-react';
 import MediaCover from '@/components/cards/MediaCover';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
-import { Badge, RatingBadge } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
+import { isAuthenticated } from '@/server/queries/user';
 
 interface PageProps {
   params: Promise<{ username: string; targetUser: string }>;
@@ -32,6 +33,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
   }
 
   const match = calculateTasteMatch(dataA.entries, dataB.entries);
+  const signedIn = await isAuthenticated();
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -42,12 +44,18 @@ export default async function CompareUsersPage({ params }: PageProps) {
         }}
         breadcrumbs={[{ label: 'Taste Match' }]}
         actions={
-          <Link href="/signup" className="za-button za-button--primary text-xs">
-            Create Archive
-          </Link>
+          signedIn ? (
+            <Link href="/dashboard" className="za-button za-button--secondary">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/signup" className="za-button za-button--primary">
+              Create Archive
+            </Link>
+          )
         }
       />
-      <main id="main-content" className="flex-1 py-10">
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           {/* Header diptych */}
           <div className="za-bookplate relative mb-8 p-6 text-center sm:p-8">
@@ -152,13 +160,6 @@ export default async function CompareUsersPage({ params }: PageProps) {
                           <span className="text-gold-dark">{item.ratingB}★</span>
                         </span>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {item.ratingA != null && <RatingBadge rating={item.ratingA} />}
-                        {item.ratingB != null && <RatingBadge rating={item.ratingB} />}
-                      </div>
-                      <span className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-faint">
-                        {item.category}
-                      </span>
                     </div>
                   </div>
                 ))}

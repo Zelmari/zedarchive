@@ -3,7 +3,6 @@ import { getGroupDetails, getGroupMessages } from '@/server/queries/groups';
 import { getGroupMediaEntries } from '@/server/queries/media';
 import { getUserProfileById } from '@/server/queries/user';
 import { requireSession, toDashboardUser } from '@/server/internal';
-import { Layers } from 'lucide-react';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import GroupWorkspaceClient from './GroupWorkspaceClient';
 
@@ -76,14 +75,8 @@ export default async function GroupWorkspacePage({
       <SubPageHeader
         backLink={{ href: '/groups', label: 'Groups' }}
         breadcrumbs={[{ label: details.name }]}
-        navItems={[{ label: 'Dashboard', href: '/dashboard', icon: Layers }]}
-        actions={
-          <span className="hidden font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint md:inline">
-            Collective volume · correspondence
-          </span>
-        }
       />
-      <main id="main-content" className="flex-1 py-8">
+      <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           <GroupWorkspaceClient
             group={details}

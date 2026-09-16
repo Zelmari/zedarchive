@@ -17,6 +17,7 @@ import {
 import type { YearlyStats } from '@/lib/stats';
 import { RatingBadge } from '@/components/ui/Badge';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
+import SegmentButton from '@/components/ui/SegmentButton';
 
 interface WrappedClientProps {
   stats: YearlyStats;
@@ -89,7 +90,7 @@ export default function WrappedClient({
           <button
             type="button"
             onClick={handleShare}
-            className="za-button za-button--primary text-xs shrink-0"
+            className="za-button za-button--primary shrink-0"
             title="Copy share link to clipboard"
             aria-label="Copy share link"
           >
@@ -114,7 +115,7 @@ export default function WrappedClient({
       </SubPageHeader>
 
       {/* Main Content */}
-      <main id="main-content" className="pb-16 pt-10">
+      <main id="main-content" className="pb-16 pt-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           {/* Year selector tabs */}
           {stats.availableYears.length > 1 && (
@@ -123,18 +124,13 @@ export default function WrappedClient({
                 Editions
               </span>
               {stats.availableYears.map((yr) => (
-                <button
+                <SegmentButton
                   key={yr}
-                  type="button"
+                  active={yr === stats.year}
                   onClick={() => handleYearChange(yr)}
-                  className={`min-h-[var(--za-control-min-block-size)] rounded-full border px-3 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] transition-colors ${
-                    yr === stats.year
-                      ? 'border-accent bg-accent text-on-accent shadow-sm'
-                      : 'border-decorative bg-surface text-ink-muted hover:border-required hover:bg-surface-subtle hover:text-ink'
-                  }`}
                 >
                   {yr}
-                </button>
+                </SegmentButton>
               ))}
             </div>
           )}
@@ -148,16 +144,13 @@ export default function WrappedClient({
             >
               {stats.year}
             </div>
-            <p className="relative mb-3 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
-              Annual retrospective · {userName}
+            <p className="relative mb-3 za-kicker">
+              {userName} · {stats.year}
             </p>
-            <div className="relative mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-gold bg-gold/10 text-gold">
+            <div className="relative mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-small border border-gold bg-gold/10 text-gold">
               <Sparkles size={22} />
             </div>
-            <p className="relative mb-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.1em] text-ink-muted">
-              {userName}’s {stats.year} Year in Media
-            </p>
-            <h1 className="relative font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink sm:text-4xl">
+            <h1 className="relative font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink sm:text-[length:var(--za-text-heading-xl)]">
               The {stats.year} Archive Report
             </h1>
             <p className="relative mx-auto mt-3 max-w-[36rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">

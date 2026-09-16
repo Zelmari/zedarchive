@@ -48,7 +48,7 @@ export default function DangerSection({ email }: DangerSectionProps) {
     <>
       <section className="za-bookplate relative p-6 sm:p-8">
         <span className="za-ribbon-bookmark" aria-hidden="true" />
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
           <Trash2 size={18} className="text-danger" />
           <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-danger">
             Danger Zone
@@ -67,7 +67,7 @@ export default function DangerSection({ email }: DangerSectionProps) {
             setDeleteError('');
             setIsDeleteModalOpen(true);
           }}
-          className="za-button za-button--destructive text-xs"
+          className="za-button za-button--destructive"
         >
           Delete My Account
         </button>
@@ -123,14 +123,14 @@ export default function DangerSection({ email }: DangerSectionProps) {
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="za-button za-button--secondary text-xs"
+                className="za-button za-button--secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isDeleting}
-                className="za-button za-button--destructive text-xs"
+                className="za-button za-button--destructive"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Permanently'}
               </button>

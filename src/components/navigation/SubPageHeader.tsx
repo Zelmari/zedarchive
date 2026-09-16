@@ -65,9 +65,7 @@ export default function SubPageHeader({
   const leadingClass = isSticky
     ? 'flex min-w-0 flex-1 flex-wrap items-center gap-3'
     : 'flex flex-wrap items-center gap-3 min-w-0';
-  const backClass = `za-button za-button--secondary p-2 text-xs font-[var(--za-weight-heading)]${
-    isSticky ? ' shrink-0' : ''
-  }`;
+  const backClass = `za-button za-button--secondary p-2${isSticky ? ' shrink-0' : ''}`;
   const breadcrumbClass = `flex items-center gap-1.5 text-xs text-ink-muted min-w-0 overflow-hidden${
     isSticky ? ' shrink' : ''
   }`;

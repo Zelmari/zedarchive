@@ -290,7 +290,7 @@ export default function MediaCard({
       </h3>
       {item.isPrivate && (
         <span
-          className="mt-1 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[10px] text-ink-muted"
+          className="mt-1 inline-flex items-center gap-[var(--za-space-1)] rounded-[var(--za-radius-small)] bg-surface-subtle px-[var(--za-space-2)] py-0.5 text-[length:var(--za-text-fine)] text-ink-muted"
           title="Private — hidden from public profile and RSS"
         >
           <Lock size={10} strokeWidth={2} aria-hidden="true" />

@@ -122,7 +122,7 @@ export default function FriendButton({
       <button
         onClick={handleAdd}
         disabled={pending}
-        className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+        className="za-button za-button--primary inline-flex items-center gap-1.5 disabled:opacity-50"
       >
         <UserPlus size={13} /> Add Friend
       </button>
@@ -134,7 +134,7 @@ export default function FriendButton({
       <button
         onClick={handleCancel}
         disabled={pending}
-        className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+        className="za-button za-button--secondary inline-flex items-center gap-1.5 disabled:opacity-50"
       >
         <Clock size={13} /> Request Pending · Cancel
       </button>
@@ -147,14 +147,14 @@ export default function FriendButton({
         <button
           onClick={handleAccept}
           disabled={pending}
-          className="za-button za-button--primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+          className="za-button za-button--primary inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           <Check size={13} /> Accept Request
         </button>
         <button
           onClick={handleReject}
           disabled={pending}
-          className="za-button za-button--secondary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+          className="za-button za-button--secondary inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           <XIcon /> Reject
         </button>
@@ -171,7 +171,7 @@ export default function FriendButton({
         <button
           onClick={handleUnfriend}
           disabled={pending}
-          className="za-button za-button--tertiary inline-flex items-center gap-1 text-xs"
+          className="za-button za-button--tertiary inline-flex items-center gap-1"
           title="Unfriend"
         >
           <UserX size={13} /> Unfriend

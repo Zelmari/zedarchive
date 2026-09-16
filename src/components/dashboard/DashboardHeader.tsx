@@ -70,9 +70,10 @@ export default function DashboardHeader({
               aria-pressed={activeTab === id}
             >
               <Icon size={16} strokeWidth={1.75} />
-              <span>
+              <span className="hidden sm:inline">
                 {label} ({counts[id]})
               </span>
+              <span className="sm:hidden">{counts[id]}</span>
             </button>
           ))}
           <Link
@@ -137,7 +138,7 @@ export default function DashboardHeader({
           </Link>
 
           <span
-            className="za-site-header__identity"
+            className="za-site-header__identity hidden md:inline"
             style={{
               fontSize: 'var(--za-text-supporting)',
               fontWeight: 'var(--za-weight-heading)',
@@ -155,7 +156,7 @@ export default function DashboardHeader({
             aria-label="Sign Out"
           >
             <LogOut size={15} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Sign out</span>
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </nav>
       </div>

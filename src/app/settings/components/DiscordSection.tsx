@@ -117,21 +117,21 @@ export default function DiscordSection() {
           </h2>
         </div>
         {status?.linked && (
-          <span className="inline-flex items-center gap-1 rounded-small border border-success bg-success-surface px-2 py-0.5 text-[10px] font-[var(--za-weight-emphasis)] text-success">
+          <span className="inline-flex items-center gap-1 rounded-small border border-success bg-success-surface px-2 py-0.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-success">
             <LinkIcon size={12} /> Linked
           </span>
         )}
       </div>
 
       {actionError && (
-        <div className="mb-4 rounded-small border border-warning bg-warning-surface p-2 text-xs text-warning">
+        <div className="za-notice za-notice--warning mb-4 text-[length:var(--za-text-supporting)]">
           {actionError}
         </div>
       )}
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-4 text-xs text-ink-muted">
-          <RefreshCw size={14} className="animate-spin" /> Checking link status...
+          <RefreshCw size={14} className="za-spin" /> Checking link status...
         </div>
       ) : status?.linked ? (
         <div className="space-y-4 text-xs">
@@ -139,7 +139,7 @@ export default function DiscordSection() {
             Your archive is connected to Discord. You can log episodes, inspect your library, and
             check stats directly from Discord.
           </p>
-          <div className="space-y-3 rounded-small border border-decorative p-4 bg-surfaceSubtle">
+          <div className="space-y-3 rounded-small border border-decorative bg-surface-subtle p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-decorative pb-2">
               <span className="text-ink-muted">Discord Username</span>
               <span className="font-[var(--za-weight-emphasis)] text-ink">
@@ -165,7 +165,7 @@ export default function DiscordSection() {
               type="button"
               disabled={isPending}
               onClick={handleUnlink}
-              className="inline-flex items-center gap-1.5 rounded-small border border-decorative px-3 py-1.5 text-xs text-ink-muted hover:border-warning hover:text-warning transition-colors"
+              className="inline-flex items-center gap-1.5 za-button za-button--secondary"
             >
               <Unlink size={14} />
               Unlink Discord
@@ -180,7 +180,7 @@ export default function DiscordSection() {
           </p>
 
           {activeCode ? (
-            <div className="rounded-small border border-accent/40 bg-surfaceSubtle p-4 space-y-3">
+            <div className="rounded-small border border-accent/40 bg-surface-subtle p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-ink font-[var(--za-weight-emphasis)]">
                   Your One-Time Link Code
@@ -196,7 +196,7 @@ export default function DiscordSection() {
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="inline-flex items-center gap-1 rounded-small bg-accent px-2.5 py-1 text-[11px] font-[var(--za-weight-emphasis)] text-onAccent hover:opacity-90"
+                  className="za-button za-button--primary"
                 >
                   {copied ? <Check size={12} /> : <Copy size={12} />}
                   {copied ? 'Copied command' : 'Copy command'}
@@ -213,7 +213,7 @@ export default function DiscordSection() {
                 type="button"
                 disabled={isPending}
                 onClick={handleGenerateCode}
-                className="inline-flex items-center gap-2 rounded-small bg-accent px-4 py-2 text-xs font-[var(--za-weight-emphasis)] text-onAccent hover:opacity-90 transition-opacity"
+                className="za-button za-button--primary"
               >
                 {isPending && <RefreshCw size={14} className="animate-spin" />}
                 Generate Discord Link Code

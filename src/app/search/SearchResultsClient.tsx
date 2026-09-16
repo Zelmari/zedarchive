@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, Globe, User } from 'lucide-react';
 import { getInitials, formatMonthYear } from '@/lib/format';
 import type { PublicUserSearchResult } from '@/types/user';
 import UserSearchCombobox from '@/components/search/UserSearchCombobox';
+import EmptyLedger from '@/components/ui/EmptyLedger';
 
 interface SearchResultsClientProps {
   initialQuery: string;
@@ -50,9 +51,6 @@ export default function SearchResultsClient({
           <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Discover Public Archives
           </h1>
-          <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
-            Explore reading lists, anime logs, and media archives created by other members.
-          </p>
         </div>
       )}
 
@@ -115,7 +113,7 @@ export default function SearchResultsClient({
                 </span>
                 <Link
                   href={`/u/${user.username}`}
-                  className="za-button za-button--primary inline-flex shrink-0 items-center gap-1.5 text-xs"
+                  className="za-button za-button--primary inline-flex shrink-0 items-center gap-1.5"
                 >
                   <span>View Archive</span>
                   <ArrowRight size={13} />
@@ -125,27 +123,17 @@ export default function SearchResultsClient({
           ))}
         </div>
       ) : initialQuery ? (
-        <div className="za-bookplate p-12 text-center">
-          <User size={36} className="mx-auto mb-3 text-ink-muted opacity-40" />
-          <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-            No public archives found
-          </h2>
-          <p className="mx-auto mt-2 max-w-md font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted [overflow-wrap:anywhere]">
-            We couldn&rsquo;t find any public members matching &ldquo;{initialQuery}&rdquo;. Check
-            the spelling or search for another username.
-          </p>
-        </div>
+        <EmptyLedger
+          icon={<User size={36} strokeWidth={1.5} />}
+          title="No public archives found"
+          description={`We couldn’t find any public members matching “${initialQuery}”. Check the spelling or try another name.`}
+        />
       ) : (
-        <div className="za-bookplate p-12 text-center">
-          <BookOpen size={36} className="mx-auto mb-3 text-ink-muted opacity-40" />
-          <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-            Search Public Profiles
-          </h2>
-          <p className="mx-auto mt-2 max-w-md font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
-            Type a username or display name above to explore other members&rsquo; reading logs,
-            anime lists, and media archives.
-          </p>
-        </div>
+        <EmptyLedger
+          icon={<BookOpen size={36} strokeWidth={1.5} />}
+          title="Search public profiles"
+          description="Type a username or display name above to explore other members’ reading logs, anime lists, and media archives."
+        />
       )}
     </div>
   );

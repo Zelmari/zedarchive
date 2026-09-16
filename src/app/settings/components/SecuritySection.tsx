@@ -24,7 +24,7 @@ export default function SecuritySection({ profile }: SecuritySectionProps) {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-decorative pb-2">
           <span className="text-ink-muted">Email Verification</span>
           <span
-            className={`inline-flex rounded-small border border-current px-2 py-0.5 text-[10px] font-[var(--za-weight-emphasis)] ${
+            className={`inline-flex rounded-small border border-current px-2 py-0.5 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] ${
               profile.emailVerified
                 ? 'bg-success-surface text-success'
                 : 'bg-warning-surface text-warning'
