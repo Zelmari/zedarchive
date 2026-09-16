@@ -56,7 +56,7 @@ export default function DashboardHeader({
 
   return (
     <header className="za-site-header">
-      <div className="za-container za-container--wide za-site-header__inner">
+      <div className="za-container za-container--wide za-site-header__inner za-site-header__inner--dashboard">
         <BrandWordmark />
 
         <nav aria-label="Primary" className="za-site-header__nav za-site-header__nav--fill">
@@ -124,7 +124,7 @@ export default function DashboardHeader({
             aria-label="Change Theme"
           >
             <Palette size={16} strokeWidth={1.75} />
-            <span className="hidden xl:inline">Theme</span>
+            <span className="hidden lg:inline">Theme</span>
           </button>
 
           <Link
@@ -134,10 +134,10 @@ export default function DashboardHeader({
             aria-label="Settings"
           >
             <Settings size={16} strokeWidth={1.75} />
-            <span className="hidden xl:inline">Settings</span>
+            <span className="hidden lg:inline">Settings</span>
           </Link>
 
-          <span className="za-site-header__identity hidden lg:inline text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)]">
+          <span className="za-site-header__identity hidden md:inline text-[length:var(--za-text-supporting)] font-[var(--za-weight-heading)]">
             {username ? `@${username}` : userName || 'user'}
           </span>
 
@@ -150,7 +150,7 @@ export default function DashboardHeader({
             aria-label="Sign Out"
           >
             <LogOut size={15} strokeWidth={1.75} />
-            <span className="hidden xl:inline">Sign out</span>
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </div>
       </div>

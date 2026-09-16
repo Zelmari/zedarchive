@@ -687,6 +687,36 @@ html[data-theme='cyber'] body {
   padding-block: var(--za-space-2);
 }
 
+.za-site-header__inner--dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'brand account'
+    'nav nav';
+  align-items: center;
+  column-gap: var(--za-space-3);
+  row-gap: var(--za-space-2);
+}
+
+.za-site-header__inner--dashboard > .za-wordmark {
+  grid-area: brand;
+  justify-self: start;
+}
+
+.za-site-header__inner--dashboard > .za-site-header__nav {
+  grid-area: nav;
+  flex-wrap: nowrap;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.za-site-header__inner--dashboard > .za-site-header__account {
+  grid-area: account;
+  margin-inline-start: 0;
+}
+
 @media (min-width: 40rem) {
   .za-site-header__nav,
   .za-site-header__account {
@@ -707,6 +737,10 @@ html[data-theme='cyber'] body {
 
 @media (max-width: 40rem) {
   .za-wordmark__subline {
+    display: none;
+  }
+
+  .za-site-header--sticky .za-wordmark {
     display: none;
   }
 
@@ -1059,7 +1093,6 @@ select.za-field {
 /* 8. Cards & Surfaces */
 .za-card {
   min-inline-size: 0;
-  max-inline-size: 100%;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
   border-radius: var(--za-radius-small);
   background: var(--za-color-surface);
@@ -1143,7 +1176,6 @@ select.za-field {
 
 .za-bookplate {
   min-inline-size: 0;
-  max-inline-size: 100%;
   border: var(--za-border-width) solid var(--za-color-border-decorative);
   border-radius: var(--za-radius-small);
   background: var(--za-color-surface);

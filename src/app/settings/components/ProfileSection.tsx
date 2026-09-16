@@ -135,7 +135,7 @@ export default function ProfileSection({ profile }: ProfileSectionProps) {
 
       <form onSubmit={handleSaveProfile} className="space-y-5">
         {/* Avatar & Profile Picture */}
-        <div className="mb-2 flex items-center gap-4 rounded-control border border-decorative bg-surface-subtle p-4">
+        <div className="mb-2 flex flex-col gap-4 rounded-control border border-decorative bg-surface-subtle p-4 sm:flex-row sm:items-center">
           {avatarPreview ? (
             // eslint-disable-next-line @next/next/no-img-element -- compressed data URLs / presets, unoptimized by design
             <img
