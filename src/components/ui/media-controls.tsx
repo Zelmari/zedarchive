@@ -27,11 +27,7 @@ export function chipClass(active: boolean): string {
 }
 
 export function pillClass(active: boolean): string {
-  return cn(
-    'inline-flex min-h-[var(--za-control-min-block-size)] cursor-pointer items-center whitespace-nowrap rounded-small border border-decorative bg-transparent px-[0.65rem] py-[0.3rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted transition-[all] duration-[var(--za-motion-fast)] hover:border-required hover:text-ink',
-    active &&
-      'border-accent bg-accent font-[var(--za-weight-emphasis)] text-on-accent shadow-[0_2px_6px_color-mix(in_srgb,var(--za-color-accent)_20%,transparent)]',
-  );
+  return cn('za-segment', active && 'za-segment--active');
 }
 
 export interface DropReasonPickerProps {

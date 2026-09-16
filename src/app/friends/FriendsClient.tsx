@@ -156,6 +156,15 @@ export default function FriendsClient({
             <EmptyLedger
               title="No companions yet"
               description="Find and add people from the Find Friends tab, or from a public profile."
+              action={
+                <button
+                  type="button"
+                  className="za-button za-button--primary"
+                  onClick={() => setTab('find')}
+                >
+                  Find Friends
+                </button>
+              }
             />
           ) : (
             friends.map((item) => (

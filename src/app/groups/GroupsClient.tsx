@@ -52,14 +52,16 @@ export default function GroupsClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowCreate(true)}
-          className="za-button za-button--primary inline-flex items-center gap-1.5"
-        >
-          <Plus size={14} /> Create Group
-        </button>
-      </div>
+      {groups.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="za-button za-button--primary inline-flex items-center gap-1.5"
+          >
+            <Plus size={14} /> Create Group
+          </button>
+        </div>
+      )}
 
       {msg && (
         <div className="za-notice za-notice--info font-[var(--za-font-serif-body)] text-sm">
@@ -72,6 +74,14 @@ export default function GroupsClient({
           icon={<Users size={32} strokeWidth={1.5} />}
           title="No groups yet"
           description="Create a reading room and invite your friends. Only accepted companions can be added."
+          action={
+            <button
+              onClick={() => setShowCreate(true)}
+              className="za-button za-button--primary inline-flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Create Group
+            </button>
+          }
         />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

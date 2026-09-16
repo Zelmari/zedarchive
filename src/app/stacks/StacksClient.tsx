@@ -308,15 +308,17 @@ export default function StacksClient({
         </div>
       )}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setIsCreating(!isCreating)}
-          className="za-button za-button--primary inline-flex items-center gap-1.5"
-        >
-          <Plus size={14} /> Create New Stack
-        </button>
-      </div>
+      {!(stacks.length === 0 && !isCreating) && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsCreating(!isCreating)}
+            className="za-button za-button--primary inline-flex items-center gap-1.5"
+          >
+            <Plus size={14} /> Create New Stack
+          </button>
+        </div>
+      )}
 
       {isCreating && (
         <form
@@ -396,6 +398,15 @@ export default function StacksClient({
           icon={<Layers size={32} strokeWidth={1.5} />}
           title="No stacks created yet"
           description="Create a working anthology, then arrange the titles and write the notes that give it meaning."
+          action={
+            <button
+              type="button"
+              onClick={() => setIsCreating(true)}
+              className="za-button za-button--primary inline-flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Create New Stack
+            </button>
+          }
         />
       ) : (
         <div className="space-y-10">

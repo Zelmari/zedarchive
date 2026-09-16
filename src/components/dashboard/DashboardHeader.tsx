@@ -83,7 +83,7 @@ export default function DashboardHeader({
             aria-label="Friends"
           >
             <Users size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Friends</span>
+            <span className="hidden md:inline">Friends</span>
           </Link>
           <Link
             href="/groups"
@@ -92,7 +92,7 @@ export default function DashboardHeader({
             aria-label="Groups"
           >
             <MessageSquare size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Groups</span>
+            <span className="hidden md:inline">Groups</span>
           </Link>
           <Link
             href="/stacks"
@@ -101,7 +101,7 @@ export default function DashboardHeader({
             aria-label="Stacks"
           >
             <Library size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Stacks</span>
+            <span className="hidden md:inline">Stacks</span>
           </Link>
           <Link
             href="/wrapped"
@@ -110,11 +110,8 @@ export default function DashboardHeader({
             aria-label="Wrapped"
           >
             <Sparkles size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Wrapped</span>
+            <span className="hidden md:inline">Wrapped</span>
           </Link>
-        </nav>
-
-        <nav aria-label="Account" className="za-site-header__nav">
           <SyncIndicator />
           <button
             type="button"
@@ -124,7 +121,7 @@ export default function DashboardHeader({
             aria-label="Change Theme"
           >
             <Palette size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Theme</span>
+            <span className="hidden lg:inline">Theme</span>
           </button>
 
           <Link
@@ -134,7 +131,7 @@ export default function DashboardHeader({
             aria-label="Settings"
           >
             <Settings size={16} strokeWidth={1.75} />
-            <span className="hidden sm:inline">Settings</span>
+            <span className="hidden lg:inline">Settings</span>
           </Link>
 
           <span

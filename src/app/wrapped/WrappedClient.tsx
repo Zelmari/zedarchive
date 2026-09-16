@@ -18,6 +18,7 @@ import type { YearlyStats } from '@/lib/stats';
 import { RatingBadge } from '@/components/ui/Badge';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import SegmentButton from '@/components/ui/SegmentButton';
+import EmptyLedger from '@/components/ui/EmptyLedger';
 
 interface WrappedClientProps {
   stats: YearlyStats;
@@ -160,161 +161,171 @@ export default function WrappedClient({
             </p>
           </section>
 
-          {/* Highlights Grid */}
-          <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-4">
-            <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-              <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
-                {stats.totalCompleted}
-              </div>
-              <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
-                Titles Finished
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-              <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
-                {stats.episodesWatched}
-              </div>
-              <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
-                Episodes Watched
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-              <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
-                {stats.chaptersRead}
-              </div>
-              <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
-                Chapters / Pages
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-              <div className="za-gold-stamp flex items-center gap-1 font-[var(--za-font-mono)] text-2xl sm:text-3xl">
-                <Star size={20} fill="currentColor" />
-                <span>{stats.avgRating}</span>
-              </div>
-              <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
-                Avg Rating ({stats.ratedCount})
-              </div>
-            </div>
-          </div>
-
-          {/* Category Breakdown */}
-          <section className="za-bookplate mb-8 p-6 sm:p-7">
-            <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-decorative pb-3">
-              <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-                Category Breakdown
-              </h2>
-              {stats.favoriteCategory && (
-                <div className="flex items-center gap-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
-                  <Flame size={13} className="text-accent" aria-hidden="true" />
-                  <span>Top focus: {stats.favoriteCategory}</span>
+          {stats.totalCompleted === 0 ? (
+            <EmptyLedger
+              icon={<Sparkles size={32} strokeWidth={1.5} />}
+              title={`Nothing completed in ${stats.year}`}
+              description="Finished shows, films, and books will be tallied here when the year has something to report."
+            />
+          ) : (
+            <>
+              {/* Highlights Grid */}
+              <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-4">
+                <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
+                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                    {stats.totalCompleted}
+                  </div>
+                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                    Titles Finished
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-4">
-              {categoryBreakdown.map(({ label, count, Icon, tone }) => {
-                const width = Math.round((count / maxCategoryCount) * 100);
-                return (
-                  <div key={label}>
-                    <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
-                        <Icon size={14} className="text-ink-muted" aria-hidden="true" />
-                        {label}
-                      </span>
-                      <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
-                        {count}
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-surface-sunken">
-                      <div
-                        className={`h-full rounded-full ${tone} transition-[width] duration-300`}
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
+                <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
+                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                    {stats.episodesWatched}
                   </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Month Activity Bar Chart */}
-          <section className="za-bookplate mb-8 p-6 sm:p-7">
-            <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
-              <Calendar size={16} className="text-accent" aria-hidden="true" />
-              <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-                Completions by Month ({stats.year})
-              </h2>
-            </div>
-
-            <div className="flex h-44 items-end gap-1.5 pt-4 sm:gap-3">
-              {stats.completionsByMonth.map((count, idx) => {
-                const heightPct =
-                  maxMonthCompletions > 0 ? Math.round((count / maxMonthCompletions) * 100) : 0;
-                return (
-                  <div key={idx} className="flex flex-1 flex-col items-center gap-2">
-                    <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
-                      {count > 0 ? count : ''}
-                    </span>
-                    <div className="h-24 w-full rounded-xs bg-surface-sunken">
-                      <div
-                        className={`w-full rounded-xs transition-[height] duration-300 ${
-                          count === maxMonthCompletions && count > 0 ? 'bg-gold' : 'bg-accent'
-                        }`}
-                        style={{ height: `${Math.max(count > 0 ? 15 : 0, heightPct)}%` }}
-                      />
-                    </div>
-                    <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
-                      {MONTH_NAMES[idx]}
-                    </span>
+                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                    Episodes Watched
                   </div>
-                );
-              })}
-            </div>
-          </section>
+                </div>
 
-          {/* Top Rated Titles */}
-          {stats.topRated.length > 0 && (
-            <section className="za-bookplate p-6 sm:p-7">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-gold/40 pb-3">
-                <div className="flex items-center gap-2">
-                  <Award size={16} className="text-gold" aria-hidden="true" />
+                <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
+                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                    {stats.chaptersRead}
+                  </div>
+                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                    Chapters / Pages
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
+                  <div className="za-gold-stamp flex items-center gap-1 font-[var(--za-font-mono)] text-2xl sm:text-3xl">
+                    <Star size={20} fill="currentColor" />
+                    <span>{stats.avgRating}</span>
+                  </div>
+                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                    Avg Rating ({stats.ratedCount})
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Breakdown */}
+              <section className="za-bookplate mb-8 p-6 sm:p-7">
+                <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-decorative pb-3">
                   <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-                    Hall of Fame
+                    Category Breakdown
                   </h2>
+                  {stats.favoriteCategory && (
+                    <div className="flex items-center gap-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                      <Flame size={13} className="text-accent" aria-hidden="true" />
+                      <span>Top focus: {stats.favoriteCategory}</span>
+                    </div>
+                  )}
                 </div>
-                <span className="font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
-                  Highest rated of {stats.year}
-                </span>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {stats.topRated.map((item, i) => (
-                  <div
-                    key={item.id}
-                    className="relative flex items-center justify-between gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
-                  >
-                    <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
-                      {i + 1}
-                    </span>
-                    <div className="flex min-w-0 items-center gap-3 pl-2">
-                      <div className="min-w-0">
-                        <div className="truncate font-[var(--za-font-editorial)] text-lg text-ink">
-                          {item.title}
+
+                <div className="space-y-4">
+                  {categoryBreakdown.map(({ label, count, Icon, tone }) => {
+                    const width = Math.round((count / maxCategoryCount) * 100);
+                    return (
+                      <div key={label}>
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                            <Icon size={14} className="text-ink-muted" aria-hidden="true" />
+                            {label}
+                          </span>
+                          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                            {count}
+                          </span>
                         </div>
-                        <div className="mt-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
-                          {item.category}
+                        <div className="h-2 overflow-hidden rounded-full bg-surface-sunken">
+                          <div
+                            className={`h-full rounded-full ${tone} transition-[width] duration-300`}
+                            style={{ width: `${width}%` }}
+                          />
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Month Activity Bar Chart */}
+              <section className="za-bookplate mb-8 p-6 sm:p-7">
+                <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
+                  <Calendar size={16} className="text-accent" aria-hidden="true" />
+                  <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                    Completions by Month ({stats.year})
+                  </h2>
+                </div>
+
+                <div className="flex h-44 items-end gap-1.5 pt-4 sm:gap-3">
+                  {stats.completionsByMonth.map((count, idx) => {
+                    const heightPct =
+                      maxMonthCompletions > 0 ? Math.round((count / maxMonthCompletions) * 100) : 0;
+                    return (
+                      <div key={idx} className="flex flex-1 flex-col items-center gap-2">
+                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                          {count > 0 ? count : ''}
+                        </span>
+                        <div className="h-24 w-full rounded-xs bg-surface-sunken">
+                          <div
+                            className={`w-full rounded-xs transition-[height] duration-300 ${
+                              count === maxMonthCompletions && count > 0 ? 'bg-gold' : 'bg-accent'
+                            }`}
+                            style={{ height: `${Math.max(count > 0 ? 15 : 0, heightPct)}%` }}
+                          />
+                        </div>
+                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
+                          {MONTH_NAMES[idx]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Top Rated Titles */}
+              {stats.topRated.length > 0 && (
+                <section className="za-bookplate p-6 sm:p-7">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-gold/40 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Award size={16} className="text-gold" aria-hidden="true" />
+                      <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                        Hall of Fame
+                      </h2>
                     </div>
-                    <div className="shrink-0 pl-2">
-                      <RatingBadge rating={item.rating ?? 0} />
-                    </div>
+                    <span className="font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                      Highest rated of {stats.year}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {stats.topRated.map((item, i) => (
+                      <div
+                        key={item.id}
+                        className="relative flex items-center justify-between gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
+                      >
+                        <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
+                          {i + 1}
+                        </span>
+                        <div className="flex min-w-0 items-center gap-3 pl-2">
+                          <div className="min-w-0">
+                            <div className="truncate font-[var(--za-font-editorial)] text-lg text-ink">
+                              {item.title}
+                            </div>
+                            <div className="mt-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
+                              {item.category}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="shrink-0 pl-2">
+                          <RatingBadge rating={item.rating ?? 0} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </div>
       </main>

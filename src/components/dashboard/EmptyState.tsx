@@ -45,12 +45,12 @@ export default function EmptyState({ activeTab, hasActiveFilters, onAddClick }: 
       <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
         {hasActiveFilters
           ? 'Try adjusting your search, shelf, or status filter.'
-          : `Use the ribbon below to catalogue your first ${noun ?? 'media'} title.`}
+          : `Catalogue your first ${noun ?? 'media'} title when you are ready.`}
       </p>
       {!hasActiveFilters && onAddClick && (
         <button type="button" className="za-button za-button--primary" onClick={onAddClick}>
           <Plus size={16} strokeWidth={2.2} />
-          <span>Add Title</span>
+          <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
         </button>
       )}
     </div>

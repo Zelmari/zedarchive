@@ -34,7 +34,7 @@ interface DashboardToolbarProps {
 }
 
 const SORT_OPTIONS: Array<[SortKey, string]> = [
-  ['priority_asc', '⚡ Queue Priority'],
+  ['priority_asc', 'Queue Priority'],
   ['updated_desc', 'Recently Updated'],
   ['created_desc', 'Date Added (Newest)'],
   ['created_asc', 'Date Added (Oldest)'],
@@ -62,7 +62,7 @@ export default function DashboardToolbar({
 }: DashboardToolbarProps) {
   const pills: Array<{ id: string; label: string }> = [
     { id: 'all', label: `All (${counts.all ?? 0})` },
-    { id: 'queue', label: `⚡ Up Next (${counts.queue ?? 0})` },
+    { id: 'queue', label: `Up Next (${counts.queue ?? 0})` },
     { id: 'in_progress', label: `In Progress (${counts.in_progress ?? 0})` },
     { id: 'completed', label: `Completed (${counts.completed ?? 0})` },
     { id: 'planning', label: `Planning (${counts.planning ?? 0})` },

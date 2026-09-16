@@ -680,6 +680,20 @@ html[data-theme='cyber'] body {
   word-break: break-word;
 }
 
+@media (max-width: 40rem) {
+  .za-wordmark__subline {
+    display: none;
+  }
+
+  .za-site-header__nav {
+    flex-wrap: nowrap;
+    max-inline-size: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    gap: var(--za-space-1);
+  }
+}
+
 /* 4. Links */
 .za-link {
   color: var(--za-color-accent);

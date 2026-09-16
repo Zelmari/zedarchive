@@ -21,10 +21,7 @@ export default async function StacksPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
-      <SubPageHeader
-        backLink={{ href: '/dashboard', label: 'Dashboard' }}
-        breadcrumbs={[{ label: 'Curated Stacks' }]}
-      />
+      <SubPageHeader backLink={{ href: '/dashboard', label: 'Dashboard' }} />
       <main id="main-content" className="flex-1 py-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           <PageIntro

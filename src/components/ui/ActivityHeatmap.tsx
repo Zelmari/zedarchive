@@ -27,7 +27,7 @@ const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 // The light palette is intentionally explicit: these are the four ink levels
 // used by the Tactile Folio. Dark and one-bit themes replace the warm colors
 // with their own accent so the grid remains legible on OLED and e-ink surfaces.
-const PARCHMENT_RAMP = ['#EFEAE0', '#D9C3A8', '#B36856', '#8C2D19'] as const;
+const PARCHMENT_RAMP = ['#E8E1D4', '#D9C3A8', '#B36856', '#8C2D19'] as const;
 
 function getRampLevel(count: number, max: number): number {
   if (count <= 0 || max <= 0) return 0;
@@ -157,7 +157,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
         <div className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           Activity Over Past Year
         </div>
-        <div className="font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
+        <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
           {totalLogs} {totalLogs === 1 ? 'log' : 'logs'} · Max {maxInOneDay} in one day
         </div>
       </div>
@@ -217,7 +217,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
       </div>
 
       {/* Legend footer */}
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-decorative pt-2 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-decorative pt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
         <span>52-week habit timeline</span>
         <div className="flex items-center gap-1.5">
           <span>Less</span>
