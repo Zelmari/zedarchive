@@ -506,10 +506,8 @@ export default function MediaCard({
       aria-label={`${item.title} card`}
       data-card-layout={layout}
       className={cn(
-        'za-bookplate group relative flex min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere] transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-layered',
-        isRow
-          ? 'flex-row items-start gap-[var(--za-space-3)]'
-          : 'flex-col gap-[var(--za-space-4)] p-[var(--za-space-4)]',
+        'za-bookplate group relative flex min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere] p-[var(--za-space-4)] transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-layered',
+        isRow ? 'flex-row items-start gap-[var(--za-space-3)]' : 'flex-col gap-[var(--za-space-4)]',
       )}
     >
       {item.priorityIndex != null && (
