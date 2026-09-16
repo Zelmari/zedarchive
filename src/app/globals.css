@@ -692,6 +692,13 @@ html[data-theme='cyber'] body {
     overscroll-behavior-x: contain;
     gap: var(--za-space-1);
   }
+
+  .za-landing .za-site-header__nav {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    overflow: visible;
+    margin-inline-start: auto;
+  }
 }
 
 /* 4. Links */

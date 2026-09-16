@@ -154,11 +154,12 @@ export default function WrappedClient({
             <h1 className="relative font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink sm:text-[length:var(--za-text-heading-xl)]">
               The {stats.year} Archive Report
             </h1>
-            <p className="relative mx-auto mt-3 max-w-[36rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
-              {stats.totalCompleted > 0
-                ? `You completed ${stats.totalCompleted} titles across shows, anime, and reading lists in ${stats.year}.`
-                : `No titles recorded as completed for ${stats.year}.`}
-            </p>
+            {stats.totalCompleted > 0 && (
+              <p className="relative mx-auto mt-3 max-w-[36rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                You completed {stats.totalCompleted} titles across shows, anime, and reading lists
+                in {stats.year}.
+              </p>
+            )}
           </section>
 
           {stats.totalCompleted === 0 ? (
