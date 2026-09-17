@@ -38,7 +38,7 @@ export default function SearchResultsClient({
       {/* Results Header */}
       {initialQuery ? (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-decorative pb-2">
-          <h1 className="min-w-0 flex-1 [overflow-wrap:anywhere] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <h1 className="min-w-0 flex-1 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Search Results for &ldquo;{initialQuery}&rdquo;
           </h1>
           <span className="shrink-0 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
@@ -82,7 +82,7 @@ export default function SearchResultsClient({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <h2 className="font-[var(--za-font-editorial)] text-xl text-ink">
+                    <h2 className="min-w-0 break-words font-[var(--za-font-editorial)] text-xl text-ink">
                       {user.name}
                     </h2>
                     <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-supporting)] text-ink-muted">

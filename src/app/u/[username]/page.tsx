@@ -201,7 +201,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
               )}
 
               <div className="min-w-0 flex-1 basis-64">
-                <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.03em] text-ink">
+                <h1 className="min-w-0 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.03em] text-ink">
                   {user.name}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -356,7 +356,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
           <section aria-labelledby="cataloged-titles-heading" className="mt-8">
             <h2
               id="cataloged-titles-heading"
-              className="mb-4 flex items-baseline justify-between border-b border-decorative pb-3 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+              className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-decorative pb-3 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
             >
               <span>Cataloged Titles</span>
               <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-normal tracking-normal text-ink-faint">
@@ -418,7 +418,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
                         <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
                           <h3
-                            className="font-[var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
+                            className="min-w-0 break-words font-[var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
                             title={item.title}
                           >
                             {item.title}

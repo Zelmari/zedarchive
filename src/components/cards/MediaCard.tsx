@@ -196,12 +196,7 @@ export default function MediaCard({
     'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
 
   const actionButtons = (
-    <div
-      className={cn(
-        'flex items-center gap-[var(--za-space-2)]',
-        isRow ? 'shrink-0' : 'justify-end',
-      )}
-    >
+    <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
       <button
         type="button"
         className={`${miniActionBtn} ${
@@ -274,10 +269,10 @@ export default function MediaCard({
   );
 
   const titleBlock = (
-    <div className="min-w-0">
+    <div className="min-w-0 w-full">
       <h3
         className={cn(
-          '[overflow-wrap:anywhere] font-[family-name:var(--za-font-editorial)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink',
+          'break-words font-[family-name:var(--za-font-editorial)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink',
           isRow
             ? 'text-[length:var(--za-text-heading-sm)]'
             : 'text-[length:var(--za-text-heading-md)]',
@@ -318,8 +313,8 @@ export default function MediaCard({
       droppedProgressPrimary={item.droppedProgressPrimary}
       droppedProgressSecondary={item.droppedProgressSecondary}
       priorityIndex={item.priorityIndex}
-      showStatus={isRow}
-      showRating={isRow ? rating != null : rating != null && rating < 9}
+      showStatus
+      showRating={rating != null}
       showCategory={!isRow}
     />
   );
@@ -373,7 +368,7 @@ export default function MediaCard({
     isAtFinalUnit && status !== 'completed' && rawCategory !== 'movie' ? (
       <div
         className={cn(
-          'flex items-center justify-between rounded-small border border-success/25 bg-success-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-success',
+          'flex flex-wrap items-center justify-between gap-2 rounded-small border border-success/25 bg-success-surface px-[var(--za-space-3)] py-[var(--za-space-2)] text-success',
           !isRow && 'mt-2',
         )}
       >
@@ -470,7 +465,7 @@ export default function MediaCard({
       ) : null}
 
       {nextAir && (
-        <div className="flex items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-normal text-ink-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle/70 px-[var(--za-space-3)] py-[var(--za-space-2)] text-[length:var(--za-text-fine)] leading-normal text-ink-muted">
           <span className="flex items-center gap-1.5 font-[var(--za-weight-emphasis)] text-ink">
             <Calendar size={13} className="shrink-0 text-ink-muted" />
             <span>
@@ -493,9 +488,6 @@ export default function MediaCard({
       coverImage={item.coverImage}
       category={rawCategory}
       variant={isRow ? 'row' : 'card'}
-      status={isRow ? undefined : status}
-      statusLabel={isRow ? undefined : itemStatusLabel}
-      rating={rating}
       onOpenDetail={onOpenDetail ? () => onOpenDetail(item) : undefined}
       openDetailProps={openDetailProps}
     />
@@ -506,7 +498,7 @@ export default function MediaCard({
       aria-label={`${item.title} card`}
       data-card-layout={layout}
       className={cn(
-        'za-bookplate group relative flex min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere] p-[var(--za-space-4)] transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-layered',
+        'za-bookplate group relative flex min-w-0 max-w-full overflow-hidden break-words p-[var(--za-space-4)] transition-[box-shadow,transform] duration-[var(--za-motion-fast)] hover:-translate-y-0.5 hover:shadow-layered',
         isRow ? 'flex-row items-start gap-[var(--za-space-3)]' : 'flex-col gap-[var(--za-space-4)]',
       )}
     >
@@ -522,7 +514,7 @@ export default function MediaCard({
         <>
           {cover}
           <div className="flex min-w-0 flex-1 flex-col justify-start gap-1.5 py-0.5">
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <div className="min-w-0">
                 <span className="block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-accent">
                   {categoryLabel(rawCategory)}
@@ -552,9 +544,9 @@ export default function MediaCard({
           <div className="flex flex-col gap-[var(--za-space-4)]">
             {cover}
             <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-              <div className="flex flex-col gap-1">
-                {actionButtons}
+              <div className="flex min-w-0 flex-col gap-1">
                 {titleBlock}
+                {actionButtons}
               </div>
               {badges}
               {unitSteppers}

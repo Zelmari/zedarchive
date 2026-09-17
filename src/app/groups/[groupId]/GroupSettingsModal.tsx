@@ -125,18 +125,18 @@ export default function GroupSettingsModal({
       contentClassName="max-h-[90vh] max-w-xl overflow-y-auto p-6"
     >
       <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
             Volume administration
           </p>
-          <h2 className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <h2 className="mt-1 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Group Settings
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="za-modal-close"
+          className="za-modal-close shrink-0"
           aria-label="Close group settings"
         >
           <X size={16} strokeWidth={1.75} />
@@ -243,22 +243,22 @@ export default function GroupSettingsModal({
             {group.members.map((m) => (
               <div
                 key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-small border border-decorative bg-surface-subtle px-3 py-2.5"
+                className="flex flex-col gap-3 rounded-small border border-decorative bg-surface-subtle px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                   {m.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={m.image}
                       alt={m.name}
-                      className="h-8 w-8 rounded-small border border-required object-cover"
+                      className="h-8 w-8 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-8 w-8 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
                       {m.name.slice(0, 1)}
                     </span>
                   )}
-                  <span className="font-[var(--za-font-serif-body)] text-sm text-ink">
+                  <span className="min-w-0 break-words font-[var(--za-font-serif-body)] text-sm text-ink">
                     {m.name}{' '}
                     <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                       @{m.username}

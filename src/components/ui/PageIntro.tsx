@@ -22,7 +22,7 @@ export default function PageIntro({
     <header className={cn('za-page-intro', centered && 'text-center')}>
       {kicker && <p className="za-kicker mb-2">{kicker}</p>}
       <div className={cn('flex flex-col gap-1', centered && 'items-center')}>
-        <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+        <h1 className="break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
           {title}
         </h1>
         {meta && (

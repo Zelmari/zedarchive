@@ -515,7 +515,7 @@ export default function DashboardClient({
                       ? `The shared collection of ${groupName}`
                       : `The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
                   </p>
-                  <h1 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
+                  <h1 className="min-w-0 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
                     {isGroup && groupName
                       ? groupName
                       : activeTab === 'total'

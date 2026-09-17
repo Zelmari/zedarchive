@@ -1,16 +1,11 @@
-import { Star } from 'lucide-react';
 import { getInitials } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import type { MediaStatus } from '@/types/media';
 
 interface MediaCoverProps {
   title: string;
   coverImage?: string | null;
   category?: string;
   variant?: 'compact' | 'card' | 'row';
-  status?: MediaStatus;
-  statusLabel?: string;
-  rating?: number | null;
   onOpenDetail?: () => void;
   openDetailProps?: Record<string, unknown>;
 }
@@ -22,29 +17,17 @@ const compactCoverClass = 'w-28 min-w-28 flex-none basis-28';
 const cardCoverClass = 'w-full min-w-0';
 const rowCoverClass = 'w-28 min-w-28 flex-none basis-28 self-start';
 
-const STATUS_OVERLAY_CLASSES: Record<MediaStatus, string> = {
-  in_progress: 'border-success bg-success/90 text-on-accent',
-  completed: 'border-ink bg-ink/90 text-on-accent',
-  planning: 'border-ink-muted bg-ink-muted/90 text-on-accent',
-  on_hold: 'border-warning bg-warning/90 text-ink',
-  dropped: 'border-danger bg-danger/95 text-on-accent',
-};
-
 export default function MediaCover({
   title,
   coverImage,
   category = 'show',
   variant = 'compact',
-  status,
-  statusLabel,
-  rating,
   onOpenDetail,
   openDetailProps = {},
 }: MediaCoverProps) {
   const bookish = category === 'book' || category === 'manga';
   const isCard = variant === 'card';
   const isRow = variant === 'row';
-  const isMasterwork = rating != null && rating >= 9;
   const categoryLabel =
     category === 'anime'
       ? 'Anime'
@@ -107,25 +90,6 @@ export default function MediaCover({
             </span>
           )}
         </div>
-      )}
-      {isCard && status && statusLabel && (
-        <span
-          className={`absolute left-3 top-3 z-[2] rounded-small border px-2 py-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.06em] shadow-raised backdrop-blur-sm ${STATUS_OVERLAY_CLASSES[status]}`}
-        >
-          {statusLabel}
-        </span>
-      )}
-      {(isCard || isRow) && isMasterwork && (
-        <span
-          className={`za-gold-stamp absolute z-[2] rounded-small border border-gold/60 bg-surface/95 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] ${
-            isRow ? 'right-1.5 top-1.5 px-1.5 py-0.5' : 'right-3 top-3 px-2 py-1'
-          }`}
-          title={`Rated ${rating}/10`}
-          aria-label={`Rated ${rating} out of 10`}
-        >
-          <Star size={11} fill="currentColor" aria-hidden="true" />
-          <span>{rating}</span>
-        </span>
       )}
     </div>
   );

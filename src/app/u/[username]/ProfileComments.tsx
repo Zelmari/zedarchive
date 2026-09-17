@@ -28,7 +28,7 @@ function MentionText({
   const parts = String(body || '').split(MENTION_SPLIT);
 
   return (
-    <div className="m-0 [overflow-wrap:anywhere] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
+    <div className="m-0 break-words font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
       {parts.map((part, index) => {
         const match = part.match(/^@([a-z0-9_-]{1,30})$/i);
         if (!match) {

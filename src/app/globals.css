@@ -731,8 +731,7 @@ html[data-theme='cyber'] body {
 }
 
 .za-site-header__identity {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 40rem) {
@@ -745,7 +744,7 @@ html[data-theme='cyber'] body {
   }
 
   .za-site-header__inner {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: var(--za-space-2);
   }
 
@@ -1100,7 +1099,7 @@ select.za-field {
   outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 25%, transparent);
   outline-offset: -5px;
   box-shadow: var(--za-shadow-raised);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .za-card--raised {
@@ -1182,7 +1181,7 @@ select.za-field {
   outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 25%, transparent);
   outline-offset: -5px;
   box-shadow: var(--za-shadow-raised);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .za-ribbon-bookmark {
@@ -1299,7 +1298,7 @@ select.za-field {
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.08;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .za-landing .za-hero__title em {

@@ -296,7 +296,7 @@ export default function UserSearchCombobox({
             </div>
           ) : hasSearched && !isLoading ? (
             <div className="p-4 text-center">
-              <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted [overflow-wrap:anywhere]">
+              <p className="break-words font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
                 No public archives found matching &ldquo;{query.trim()}&rdquo;
               </p>
               <button

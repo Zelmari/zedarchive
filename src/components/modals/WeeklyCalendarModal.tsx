@@ -231,7 +231,7 @@ export default function WeeklyCalendarModal({
                             )}
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="[overflow-wrap:anywhere] font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
+                                className="break-words font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
                                 title={media.title}
                               >
                                 {media.title}
