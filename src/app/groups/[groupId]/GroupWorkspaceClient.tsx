@@ -87,18 +87,20 @@ export default function GroupWorkspaceClient({
               <Users size={22} />
             )}
           </span>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="mb-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.14em] text-accent">
               Collective volume
             </p>
-            <h1 className="flex items-center gap-2 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.03em] text-ink">
-              {group.name}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h1 className="min-w-0 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.03em] text-ink">
+                {group.name}
+              </h1>
               {group.isOwner && (
-                <span className="inline-flex items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-accent">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-accent">
                   <Crown size={10} /> Owner
                 </span>
               )}
-            </h1>
+            </div>
             {group.description && (
               <p className="mt-2 max-w-2xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                 {group.description}

@@ -225,7 +225,7 @@ function CycleLedger({
               className="rounded-small border border-decorative bg-surface-subtle p-2.5 text-xs"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="font-[var(--za-weight-emphasis)] text-ink">
+                <span className="min-w-0 break-words font-[var(--za-weight-emphasis)] text-ink">
                   {isOriginal
                     ? 'Cycle 1 (Original)'
                     : `Cycle ${cycle.cycleNumber} (${isBookLike ? 'Reread' : 'Rewatch'} ${cycle.cycleNumber - 1})`}
@@ -1277,7 +1277,7 @@ export default function MediaDetailModal({
                     }
                   }}
                   title="Click to edit title"
-                  className="cursor-pointer rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
+                  className="min-w-0 cursor-pointer break-words rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
                 >
                   {titleDraft.trim() || item.title}
                 </h2>
@@ -1725,8 +1725,10 @@ export default function MediaDetailModal({
                       className="group relative rounded-control border border-decorative bg-surface-subtle p-3 text-xs transition-colors hover:border-required"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="italic leading-relaxed text-ink">&ldquo;{q.text}&rdquo;</p>
-                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                        <p className="min-w-0 flex-1 break-words italic leading-relaxed text-ink">
+                          &ldquo;{q.text}&rdquo;
+                        </p>
+                        <div className="flex shrink-0 items-center gap-1 opacity-80 group-hover:opacity-100">
                           <button
                             type="button"
                             onClick={() => handleCopyQuote(q)}

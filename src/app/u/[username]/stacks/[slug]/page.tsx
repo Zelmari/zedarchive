@@ -95,7 +95,7 @@ export default async function PublicStackPage({ params }: PageProps) {
                 <span className="text-decorative">·</span>
                 <span>Curated by @{curatorUsername}</span>
               </div>
-              <h1 className="mt-3 font-[var(--za-font-display)] text-2xl font-semibold leading-tight tracking-[0.04em] text-ink sm:text-3xl">
+              <h1 className="mt-3 break-words font-[var(--za-font-display)] text-2xl font-semibold leading-tight tracking-[0.04em] text-ink sm:text-3xl">
                 {stack.title}
               </h1>
               {stack.description && (

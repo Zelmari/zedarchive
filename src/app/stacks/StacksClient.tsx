@@ -417,16 +417,16 @@ export default function StacksClient({
             >
               <header className="border-b border-decorative pb-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <span className="za-kicker">
                       Anthology · {stack.items.length.toString().padStart(2, '0')} titles
                     </span>
-                    <h2 className="mt-2 font-[var(--za-font-display)] text-xl font-semibold leading-tight tracking-[0.03em] text-ink sm:text-2xl">
+                    <h2 className="mt-2 break-words font-[var(--za-font-display)] text-xl font-semibold leading-tight tracking-[0.03em] text-ink sm:text-2xl">
                       {stack.title}
                     </h2>
                   </div>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-small border px-2 py-1 text-[length:var(--za-text-fine)] font-semibold uppercase tracking-[0.08em] ${
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-small border px-2 py-1 text-[length:var(--za-text-fine)] font-semibold uppercase tracking-[0.08em] ${
                       stack.isPublic
                         ? 'border-accent/30 bg-accent/10 text-accent'
                         : 'border-decorative bg-surface-subtle text-ink-muted'
@@ -533,7 +533,7 @@ export default function StacksClient({
                           />
                         </div>
                         <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-col gap-2">
                             <div className="min-w-0">
                               <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
                                 {getMediaMeta(item.media)}
@@ -542,7 +542,7 @@ export default function StacksClient({
                                 {mediaTitle}
                               </h3>
                             </div>
-                            <div className="flex shrink-0 items-center gap-[var(--za-space-2)]">
+                            <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
                               <button
                                 type="button"
                                 onClick={() => void handleMoveItem(stack.id, item.id, -1)}

@@ -74,8 +74,8 @@ export default function SubPageHeader({
 
           {backLink && (
             <Link href={backLink.href} className={backClass} title={backLink.label}>
-              <ArrowLeft size={14} className="mr-1" />
-              <span>{backLink.label}</span>
+              <ArrowLeft size={14} className="sm:mr-1" />
+              <span className="hidden sm:inline">{backLink.label}</span>
             </Link>
           )}
 
@@ -101,7 +101,9 @@ export default function SubPageHeader({
             </nav>
           )}
 
-          {children}
+          {children ? (
+            <div className="min-w-0 flex-1 basis-full sm:basis-auto">{children}</div>
+          ) : null}
         </div>
 
         <nav aria-label={isSticky ? 'Secondary' : 'Navigation'} className={navigationClass}>

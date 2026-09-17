@@ -18,6 +18,15 @@ import {
 
 type Tab = 'friends' | 'incoming' | 'outgoing' | 'find';
 
+const personRowClass =
+  'za-bookplate relative flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between';
+const personIdentityClass = 'flex min-w-0 flex-1 items-center gap-3';
+const personNameClass =
+  'break-words font-[var(--za-font-editorial)] text-lg leading-tight text-ink';
+const personHandleClass =
+  'break-words font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted';
+const personActionsClass = 'flex flex-wrap items-center gap-2 sm:shrink-0';
+
 interface Props {
   initialFriends: FriendshipItem[];
   initialIncoming: FriendshipItem[];
@@ -172,11 +181,8 @@ export default function FriendsClient({
             />
           ) : (
             friends.map((item) => (
-              <div
-                key={item.id}
-                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
-              >
-                <div className="flex min-w-0 items-center gap-3">
+              <div key={item.id} className={personRowClass}>
+                <div className={personIdentityClass}>
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -190,20 +196,16 @@ export default function FriendsClient({
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
-                      {item.friend.name}
-                    </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
-                      @{item.friend.username || 'unknown'}{' '}
-                    </div>
+                    <div className={personNameClass}>{item.friend.name}</div>
+                    <div className={personHandleClass}>@{item.friend.username || 'unknown'} </div>
                     {item.friend.bio && (
-                      <p className="mt-1 max-w-xl font-[var(--za-font-serif-body)] text-sm italic text-ink-muted [overflow-wrap:anywhere]">
+                      <p className="mt-1 max-w-xl break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                         {item.friend.bio.slice(0, 100)}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className={personActionsClass}>
                   {item.friend.username && (
                     <Link
                       href={`/u/${item.friend.username}`}
@@ -244,11 +246,8 @@ export default function FriendsClient({
             />
           ) : (
             incoming.map((item) => (
-              <div
-                key={item.id}
-                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
-              >
-                <div className="flex min-w-0 items-center gap-3">
+              <div key={item.id} className={personRowClass}>
+                <div className={personIdentityClass}>
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -262,15 +261,13 @@ export default function FriendsClient({
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
-                      {item.friend.name}
-                    </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
+                    <div className={personNameClass}>{item.friend.name}</div>
+                    <div className={personHandleClass}>
                       @{item.friend.username} wants to be friends
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className={personActionsClass}>
                   <button
                     onClick={() => handleAccept(item.id)}
                     disabled={pending}
@@ -301,11 +298,8 @@ export default function FriendsClient({
             />
           ) : (
             outgoing.map((item) => (
-              <div
-                key={item.id}
-                className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
-              >
-                <div className="flex min-w-0 items-center gap-3">
+              <div key={item.id} className={personRowClass}>
+                <div className={personIdentityClass}>
                   {item.friend.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -319,21 +313,19 @@ export default function FriendsClient({
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
-                      {item.friend.name}
-                    </div>
-                    <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
-                      @{item.friend.username} · pending
-                    </div>
+                    <div className={personNameClass}>{item.friend.name}</div>
+                    <div className={personHandleClass}>@{item.friend.username} · pending</div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleCancel(item.id)}
-                  disabled={pending}
-                  className="za-button za-button--secondary disabled:opacity-50"
-                >
-                  <X size={14} /> Cancel
-                </button>
+                <div className={personActionsClass}>
+                  <button
+                    onClick={() => handleCancel(item.id)}
+                    disabled={pending}
+                    className="za-button za-button--secondary disabled:opacity-50"
+                  >
+                    <X size={14} /> Cancel
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -368,11 +360,8 @@ export default function FriendsClient({
           ) : (
             <div className="space-y-3">
               {searchResults.map((u) => (
-                <div
-                  key={u.id}
-                  className="za-bookplate relative flex flex-wrap items-center justify-between gap-4 p-4 sm:flex-nowrap"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
+                <div key={u.id} className={personRowClass}>
+                  <div className={personIdentityClass}>
                     {u.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -386,26 +375,24 @@ export default function FriendsClient({
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="font-[var(--za-font-editorial)] text-lg leading-tight text-ink [overflow-wrap:anywhere]">
-                        {u.name}
-                      </div>
-                      <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted [overflow-wrap:anywhere]">
-                        @{u.username || 'unknown'}
-                      </div>
+                      <div className={personNameClass}>{u.name}</div>
+                      <div className={personHandleClass}>@{u.username || 'unknown'}</div>
                       {u.bio && (
-                        <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted [overflow-wrap:anywhere]">
+                        <p className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                           {u.bio.slice(0, 100)}
                         </p>
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleSend(u.id)}
-                    disabled={pending}
-                    className="za-button za-button--primary disabled:opacity-50"
-                  >
-                    <UserPlus size={14} /> Add Friend
-                  </button>
+                  <div className={personActionsClass}>
+                    <button
+                      onClick={() => handleSend(u.id)}
+                      disabled={pending}
+                      className="za-button za-button--primary disabled:opacity-50"
+                    >
+                      <UserPlus size={14} /> Add Friend
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

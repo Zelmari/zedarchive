@@ -111,7 +111,7 @@ export default function WrappedClient({
       >
         <div className="flex min-w-0 items-center gap-1.5 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           <Sparkles size={16} className="shrink-0 text-gold" />
-          <span className="min-w-0 [overflow-wrap:anywhere]">ZedArchive Wrapped</span>
+          <span className="min-w-0 break-words">ZedArchive Wrapped</span>
         </div>
       </SubPageHeader>
 

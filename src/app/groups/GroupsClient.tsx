@@ -105,7 +105,7 @@ export default function GroupsClient({
                     <Users size={12} /> {g.role}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-small border border-required bg-surface-subtle text-accent">
                     {g.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -114,7 +114,7 @@ export default function GroupsClient({
                       <Users size={18} />
                     )}
                   </span>
-                  <h3 className="truncate font-[var(--za-font-editorial)] text-xl leading-tight text-ink">
+                  <h3 className="min-w-0 break-words font-[var(--za-font-editorial)] text-xl leading-tight text-ink">
                     {g.name}
                   </h3>
                 </div>

@@ -66,10 +66,10 @@ export default async function CompareUsersPage({ params }: PageProps) {
             </p>
             <div className="grid items-center gap-3 text-center sm:grid-cols-[1fr_auto_1fr]">
               <div className="min-w-0">
-                <div className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                <div className="break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
                   @{dataA.user.username}
                 </div>
-                <div className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <div className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   {dataA.user.name}
                 </div>
               </div>
@@ -77,10 +77,10 @@ export default async function CompareUsersPage({ params }: PageProps) {
                 VS
               </span>
               <div className="min-w-0">
-                <div className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                <div className="break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
                   @{dataB.user.username}
                 </div>
-                <div className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <div className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   {dataB.user.name}
                 </div>
               </div>
@@ -146,9 +146,9 @@ export default async function CompareUsersPage({ params }: PageProps) {
                       coverImage={item.coverImage}
                       category={item.category}
                     />
-                    <div className="flex flex-col justify-center overflow-hidden">
+                    <div className="flex min-w-0 flex-1 flex-col justify-center">
                       <Badge>{item.category}</Badge>
-                      <h3 className="mt-2 truncate font-[var(--za-font-editorial)] text-lg text-ink">
+                      <h3 className="mt-2 min-w-0 break-words font-[var(--za-font-editorial)] text-lg text-ink">
                         {item.title}
                       </h3>
                       <div className="mt-2 grid gap-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
