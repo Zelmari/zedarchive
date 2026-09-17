@@ -303,22 +303,20 @@ export default function WrappedClient({
                     {stats.topRated.map((item, i) => (
                       <div
                         key={item.id}
-                        className="relative flex items-center justify-between gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
+                        className="relative flex min-w-0 items-start gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
                       >
                         <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-small border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
                           {i + 1}
                         </span>
-                        <div className="flex min-w-0 items-center gap-3 pl-2">
-                          <div className="min-w-0">
-                            <div className="truncate font-[var(--za-font-editorial)] text-lg text-ink">
-                              {item.title}
-                            </div>
-                            <div className="mt-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
-                              {item.category}
-                            </div>
+                        <div className="min-w-0 flex-1 pl-2">
+                          <div className="break-words font-[var(--za-font-editorial)] text-lg text-ink">
+                            {item.title}
+                          </div>
+                          <div className="mt-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
+                            {item.category}
                           </div>
                         </div>
-                        <div className="shrink-0 pl-2">
+                        <div className="shrink-0 pt-0.5">
                           <RatingBadge rating={item.rating ?? 0} />
                         </div>
                       </div>

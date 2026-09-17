@@ -151,3 +151,44 @@ export async function logIn(page: Page, user: E2EUser): Promise<void> {
   }
   throw new Error('logIn: dashboard navigation never succeeded');
 }
+
+const TINY_COVER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
+/** Insert a catalogue row for an already-registered user (email lookup). */
+export async function insertMediaForEmail(
+  email: string,
+  entry: {
+    title: string;
+    rating?: number | null;
+    category?: string;
+    status?: string;
+    coverImage?: string | null;
+  },
+): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is required to seed e2e media');
+  const sql = postgres(url, { max: 1 });
+  try {
+    const users = await sql<{ id: string }[]>`SELECT id FROM "user" WHERE email = ${email} LIMIT 1`;
+    const userId = users[0]?.id;
+    if (!userId) throw new Error(`insertMediaForEmail: no user for ${email}`);
+    await sql`
+      INSERT INTO media_entries (
+        id, user_id, title, category, status, rating, cover_image,
+        primary_unit_current, secondary_unit_current
+      ) VALUES (
+        ${`e2e-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`},
+        ${userId},
+        ${entry.title},
+        ${entry.category ?? 'show'},
+        ${entry.status ?? 'completed'},
+        ${entry.rating ?? null},
+        ${entry.coverImage === undefined ? TINY_COVER : entry.coverImage},
+        1,
+        0
+      )
+    `;
+  } finally {
+    await sql.end();
+  }
+}
