@@ -95,7 +95,7 @@ export default function SignUpForm() {
       )}
 
       <form onSubmit={handleSubmit} className="grid gap-5">
-        <AuthField label="Username" htmlFor="name">
+        <AuthField label="Display name" htmlFor="name">
           <input
             id="name"
             type="text"

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, authClient } from '@/lib/client/auth-client';
 import { AuthCard, AuthField } from '@/components/auth/AuthCard';
+import { safeCallbackUrl } from '@/lib/safe-callback-url';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -31,8 +32,7 @@ export default function LoginForm() {
       if (res?.error) {
         setError(res.error.message || 'Invalid email or password.');
       } else {
-        const dest =
-          callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/dashboard';
+        const dest = safeCallbackUrl(callbackUrl);
         router.push(dest);
         router.refresh();
       }

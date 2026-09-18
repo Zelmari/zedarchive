@@ -50,7 +50,8 @@ async function withStore<T>(
     } finally {
       db.close();
     }
-  } catch {
+  } catch (err) {
+    console.error('[OfflineOutbox] IndexedDB error', err);
     return null;
   }
 }
@@ -88,6 +89,13 @@ function deleteMutation(store: IDBObjectStore, id: string): Promise<void> {
   });
 }
 
+function newMutationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `za-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /**
  * Enqueue a mutation to be replayed when connection is re-established.
  */
@@ -96,7 +104,7 @@ export async function enqueueMutation(
 ): Promise<QueuedMutation> {
   const item: QueuedMutation = {
     ...mutation,
-    id: crypto.randomUUID(),
+    id: newMutationId(),
     timestamp: Date.now(),
     retryCount: 0,
   };

@@ -106,7 +106,6 @@ export default function ProfileComments({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canComment = Boolean(viewer?.isLoggedIn && viewer?.isPublic);
   const isOwner = Boolean(viewer?.isLoggedIn && viewer?.id === profileUser.id);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,6 +298,10 @@ export default function ProfileComments({
               public in settings
             </Link>{' '}
             to comment here.
+          </p>
+        ) : !viewer.username ? (
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+            Choose a username handle in settings before leaving a note.
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
