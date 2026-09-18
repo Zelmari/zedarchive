@@ -32,12 +32,13 @@ export function seasonTotal(structure: SeasonRef[], seasonNumber: number): numbe
 export function getNextSeason(
   current: number,
   structure: SeasonRef[],
-  total: number,
+  total: number | null,
 ): number | null {
   if (structure.length > 0) {
     const next = structure.find((s) => s.number > current);
     return next ? next.number : null;
   }
+  if (total === null) return current + 1;
   const linear = current + 1;
   return linear <= total ? linear : null;
 }
@@ -48,7 +49,7 @@ export function getNextSeason(
 export function getPrevSeason(
   current: number,
   structure: SeasonRef[],
-  total: number,
+  total: number | null,
 ): number | null {
   if (structure.length > 0) {
     const prev = [...structure].reverse().find((s) => s.number < current);

@@ -86,7 +86,14 @@ export default function BookStepper({
 
   const handleInputBlur = (raw: string) => {
     const parsed = parseInt(raw, 10);
-    let nextValue = isNaN(parsed) ? 0 : parsed;
+    if (raw.trim() === '' || isNaN(parsed)) {
+      setInputValue(
+        mode === 'percent' && total ? String(pageToPercent(current, total)) : String(current),
+      );
+      setIsFocused(false);
+      return;
+    }
+    let nextValue = parsed;
     if (mode === 'percent' && total) {
       const safePct = Math.min(100, Math.max(0, nextValue));
       nextValue = percentToPage(safePct, total);
@@ -99,20 +106,12 @@ export default function BookStepper({
     onCommit(nextValue);
   };
 
-  const handleStepPercent = (deltaPct: number) => {
-    if (!total) return;
-    const nextPct = Math.min(100, Math.max(0, pageToPercent(current, total) + deltaPct));
-    const nextPg = percentToPage(nextPct, total);
-    setInputValue(String(nextPg));
-    onCommit(nextPg);
-  };
-
   return (
     <div className="flex items-center gap-[var(--za-space-2)]" data-testid="book-stepper">
       <button
         type="button"
         className={stepperBtn}
-        onClick={() => (mode === 'percent' && hasTotal ? handleStepPercent(-1) : onStep(-1))}
+        onClick={() => onStep(-1)}
         disabled={!canDecrement || disabled}
         title={mode === 'percent' ? 'Step -1%' : 'Decrement chapter/page (-1)'}
         aria-label={mode === 'percent' ? 'Step -1%' : 'Decrement chapter/page'}
@@ -148,7 +147,7 @@ export default function BookStepper({
       <button
         type="button"
         className={stepperBtn}
-        onClick={() => (mode === 'percent' && hasTotal ? handleStepPercent(1) : onStep(1))}
+        onClick={() => onStep(1)}
         disabled={!canIncrement || disabled}
         title={mode === 'percent' ? 'Step +1%' : 'Increment chapter/page (+1)'}
         aria-label={mode === 'percent' ? 'Step +1%' : 'Increment chapter/page'}
@@ -166,6 +165,7 @@ export default function BookStepper({
             ? `Switch to ${mode === 'page' ? 'Percentage (%) mode' : 'Page (p.) mode'}`
             : 'Set total pages in edit modal to enable percentage mode'
         }
+        aria-pressed={mode === 'percent'}
         aria-label="Toggle Page or Percentage Mode"
         className={`inline-flex h-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border px-2 font-[family-name:var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] transition-[all] duration-[var(--za-motion-fast)] ${
           !hasTotal

@@ -7,6 +7,7 @@ interface ShowStepperProps {
   current: number;
   total: number | null;
   hasNextUnit: boolean;
+  hasPrevUnit?: boolean;
   disabled?: boolean;
   onStep: (delta: number) => void;
 }
@@ -16,6 +17,7 @@ export default function ShowStepper({
   current,
   total,
   hasNextUnit,
+  hasPrevUnit = false,
   disabled = false,
   onStep,
 }: ShowStepperProps) {
@@ -28,7 +30,7 @@ export default function ShowStepper({
         type="button"
         className={stepperBtn}
         onClick={() => onStep(-1)}
-        disabled={current <= 0 || disabled}
+        disabled={disabled || (current <= 0 && !hasPrevUnit)}
         title="Decrement episode"
         aria-label="Decrement episode"
       >
