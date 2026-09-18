@@ -26,7 +26,7 @@ interface ModalProps {
 }
 
 const DEFAULT_PANEL =
-  'za-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-small border-2 border-required bg-surface shadow-layered';
+  'za-modal-panel relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-small border-2 border-required bg-surface shadow-layered';
 
 /**
  * Shared modal frame: focus-trapped dialog with backdrop, standard header,
@@ -53,6 +53,10 @@ export default function Modal({
   useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
+
+  if (process.env.NODE_ENV !== 'production' && !labelledBy && !ariaLabel && !title) {
+    console.warn('Modal is missing an accessible name (labelledBy, ariaLabel, or title)');
+  }
 
   const showHeader = Boolean(title || header);
 
@@ -98,6 +102,16 @@ export default function Modal({
               <X size={18} strokeWidth={2} />
             </button>
           </div>
+        )}
+        {!showHeader && (
+          <button
+            type="button"
+            aria-label={closeLabel}
+            onClick={onClose}
+            className="za-modal-close absolute right-3 top-3 z-10"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         )}
         {children}
       </div>

@@ -172,7 +172,10 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
             Recent Entries
           </div>
           {loading ? (
-            <div className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+            <div
+              className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted"
+              role="status"
+            >
               Loading activity timeline...
             </div>
           ) : logs.length === 0 ? (
@@ -195,7 +198,10 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
                           {getActionIcon(item.actionType)}
-                          <span className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                          <span
+                            className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink"
+                            title={formatActionMessage(item)}
+                          >
                             {formatActionMessage(item)}
                           </span>
                         </div>

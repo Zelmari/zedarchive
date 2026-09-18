@@ -80,7 +80,6 @@ export default function DropReasonModal({
           value={reason}
           onChange={(value) => {
             setReason(value);
-            inputRef.current?.focus();
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

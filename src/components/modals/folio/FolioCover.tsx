@@ -37,13 +37,15 @@ export default function FolioCover({
           // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
           <img src={coverImage} alt={title} className="h-full w-full object-cover" />
         ) : (
-          <div
+          <button
+            type="button"
             className="flex h-full w-full cursor-pointer items-center justify-center font-bold text-[1.5rem] select-none hover:bg-surface-hover transition-colors"
             onClick={onOpenFilePicker}
             title="Upload custom cover image"
+            aria-label="Upload custom cover image"
           >
             {getTileInitials(title)}
-          </div>
+          </button>
         )}
 
         {/* Overlay hit targets on the matte: Replace (opens file picker) and Remove (only if cover exists) */}

@@ -28,6 +28,7 @@ export default function ConfirmModal({
   onCancel,
 }: ConfirmModalProps) {
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const cancelBtnRef = useRef<HTMLButtonElement>(null);
 
   if (!isOpen) return null;
 
@@ -39,7 +40,7 @@ export default function ConfirmModal({
       onClose={onCancel}
       labelledBy="confirm-modal-title"
       describedBy="confirm-modal-message"
-      initialFocusRef={confirmBtnRef}
+      initialFocusRef={isDanger ? cancelBtnRef : confirmBtnRef}
       contentClassName="max-w-[28rem] overflow-hidden"
     >
       <div className="flex gap-[var(--za-space-4)] bg-surface p-[var(--za-space-6)]">
@@ -73,7 +74,12 @@ export default function ConfirmModal({
       </div>
 
       <div className="flex flex-wrap justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-sunken px-[var(--za-space-6)] py-[var(--za-space-4)]">
-        <button type="button" className="za-button za-button--secondary" onClick={onCancel}>
+        <button
+          ref={cancelBtnRef}
+          type="button"
+          className="za-button za-button--secondary"
+          onClick={onCancel}
+        >
           {cancelText}
         </button>
         <button

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock, Eye } from 'lucide-react';
+import { Trash2, FileText, Calendar, Bookmark, Lock, Eye } from 'lucide-react';
 import { formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
@@ -212,7 +212,7 @@ export default function MediaCard({
 
   const isRow = layout === 'row';
   const miniActionBtn =
-    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-100 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100 focus-visible:opacity-100';
 
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
@@ -262,17 +262,6 @@ export default function MediaCard({
           <Eye size={13} strokeWidth={1.75} />
         </button>
       )}
-      {onOpenDetail && (
-        <button
-          type="button"
-          className={`${miniActionBtn} text-ink-muted hover:border-[var(--za-color-border-focus)] hover:bg-surface-hover hover:text-ink`}
-          onClick={() => onOpenDetail(item)}
-          title={`Edit ${item.title}`}
-          aria-label={`Edit ${item.title}`}
-        >
-          <Pencil size={13} strokeWidth={1.75} />
-        </button>
-      )}
       {onDelete && (
         <button
           type="button"
@@ -298,7 +287,6 @@ export default function MediaCard({
           onOpenDetail && 'cursor-pointer',
         )}
         title={item.title}
-        {...openDetailProps}
       >
         {item.title}
       </h3>
@@ -475,7 +463,14 @@ export default function MediaCard({
 
       {secondaryUnitTotal ? (
         <div className="flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
+          <div
+            className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercentage}
+            aria-label={`${item.title} progress`}
+          >
             <div
               className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
               style={{ width: `${progressPercentage}%` }}

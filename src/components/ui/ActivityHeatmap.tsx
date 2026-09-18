@@ -179,7 +179,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
                 key={i}
                 style={{
                   position: 'absolute',
-                  left: `${m.colIndex * 15 + 32}px`,
+                  left: `${m.colIndex * 15 + 27}px`,
                 }}
               >
                 {m.monthName}
@@ -198,7 +198,11 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
             </div>
 
             {/* Weeks columns */}
-            <div className="flex gap-[3px]">
+            <div
+              className="flex gap-[3px]"
+              role="img"
+              aria-label={`Activity over past year: ${totalLogs} ${totalLogs === 1 ? 'log' : 'logs'}`}
+            >
               {weeks.map((week, weekIdx) => (
                 <div key={weekIdx} className="flex flex-col gap-[3px]">
                   {week.map((day) => {
@@ -210,7 +214,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
                       <div
                         key={day.dateKey}
                         title={tooltip}
-                        aria-label={tooltip}
+                        aria-hidden="true"
                         className="size-3 rounded-[2px] border transition-transform hover:z-10 hover:scale-125"
                         style={getCellStyle(level, useThemeRamp)}
                       />

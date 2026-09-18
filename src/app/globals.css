@@ -96,7 +96,7 @@
      ========================================================================== */
   --za-color-text: #201e1b; /* Obsidian Ink */
   --za-color-text-muted: #686256; /* Muted Sepia */
-  --za-color-text-faint: #989182; /* Faint Meta */
+  --za-color-text-faint: #6e695e; /* Faint Meta */
   --za-color-disabled-text: #989182; /* Inactive / Disabled Text */
   --za-color-disabled-surface: #efeae0; /* Inactive / Disabled Surface */
 
@@ -517,6 +517,11 @@ html[data-theme='cyber'] body {
     #main-content
   ):focus-visible {
     outline-color: Highlight;
+  }
+
+  .za-field:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }
 
@@ -984,10 +989,11 @@ select.za-field {
   text-overflow: ellipsis;
 }
 
-.za-field:focus {
+.za-field:focus-visible {
   border-color: var(--za-color-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--za-color-accent) 15%, transparent);
-  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--za-color-accent) 35%, transparent);
+  outline: var(--za-focus-width) solid var(--za-color-accent);
+  outline-offset: var(--za-focus-offset);
 }
 
 .za-field[aria-invalid='true'] {
@@ -1773,22 +1779,38 @@ select.za-field {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .za-link,
-  .za-button,
-  .za-field {
-    transition-duration: var(--za-motion-reduced);
-    animation-duration: var(--za-motion-reduced);
-    animation-iteration-count: 1;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 
   .za-spin {
-    animation: none;
+    animation: none !important;
   }
 }
 
 @media (prefers-contrast: more) {
   :root {
     --za-color-text-muted: var(--za-color-text);
+    --za-color-text-faint: var(--za-color-text);
     --za-color-border-decorative: var(--za-color-border-required);
+  }
+}
+
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .za-skip-link,
+  .za-modal-backdrop,
+  [class*='ToastContainer'],
+  .za-site-header {
+    display: none !important;
   }
 }

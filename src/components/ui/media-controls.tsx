@@ -75,7 +75,10 @@ export function DropReasonPicker({
       >
         {label}
       </label>
-      <span className={cn('text-[length:var(--za-text-fine)] text-ink-muted', counterClassName)}>
+      <span
+        id={`${inputId}-count`}
+        className={cn('text-[length:var(--za-text-fine)] text-ink-muted', counterClassName)}
+      >
         {currentValue.length}/{MAX_DROP_REASON_LENGTH}
       </span>
     </div>
@@ -120,6 +123,7 @@ export function DropReasonPicker({
         value={currentValue}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
+        aria-describedby={`${inputId}-count`}
         className={cn(DEFAULT_INPUT_CLASS, inputClassName)}
       />
     </div>

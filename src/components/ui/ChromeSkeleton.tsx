@@ -5,7 +5,12 @@ interface ChromeSkeletonProps {
 
 export default function ChromeSkeleton({ label, sticky = false }: ChromeSkeletonProps) {
   return (
-    <div className="min-h-screen bg-canvas text-ink" aria-busy="true" aria-label={label}>
+    <div
+      className="min-h-screen bg-canvas text-ink"
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+    >
       <header className={sticky ? 'za-site-header za-site-header--sticky' : 'za-site-header'}>
         <div className="za-container za-container--wide za-site-header__inner">
           <div className="flex items-center gap-3">

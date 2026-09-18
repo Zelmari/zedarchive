@@ -51,12 +51,29 @@
       cursor: pointer;
       margin-top: 1rem;
     }
+    button:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1917;
+        --surface: #242220;
+        --text: #f4f1ea;
+        --muted: #b7b1a4;
+        --border: #3a3732;
+      }
+      button {
+        background: #f4f1ea;
+        color: #1a1917;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>You’re Offline</h1>
-    <p>ZedArchive requires an active internet connection to load your media entries. Reconnect to the internet and try again.</p>
+    <p>This page could not be loaded from the network. Queued archive changes will sync when you reconnect.</p>
     <button onclick="window.location.reload()">Retry Connection</button>
   </div>
 </body>

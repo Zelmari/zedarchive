@@ -65,7 +65,7 @@ export default function MediaCover({
           }`}
         >
           <span
-            className={`font-[family-name:var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink ${
+            className={`line-clamp-4 break-words font-[family-name:var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink ${
               isCard
                 ? 'text-[length:var(--za-text-heading-md)]'
                 : 'text-[length:var(--za-text-heading-lg)]'
