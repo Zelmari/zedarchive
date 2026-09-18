@@ -62,3 +62,48 @@ export function getSearchHits(
     category: entry.category,
   };
 }
+
+interface CustomTitleCache {
+  stashId: string;
+  discordUserId: string;
+  query: string;
+  category: MediaCategory;
+  expiresAt: number;
+}
+
+const customTitleStore = new Map<string, CustomTitleCache>();
+
+export function stashCustomTitle(
+  discordUserId: string,
+  query: string,
+  category: MediaCategory,
+): { stashId: string } {
+  let stashId = crypto.randomUUID().slice(0, 8);
+  while (customTitleStore.has(stashId)) {
+    stashId = crypto.randomUUID().slice(0, 8);
+  }
+  customTitleStore.set(stashId, {
+    stashId,
+    discordUserId,
+    query,
+    category,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+  return { stashId };
+}
+
+export function getCustomTitle(
+  stashId: string,
+): { query: string; category: MediaCategory; discordUserId: string } | null {
+  const entry = customTitleStore.get(stashId);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    customTitleStore.delete(stashId);
+    return null;
+  }
+  return {
+    query: entry.query,
+    category: entry.category,
+    discordUserId: entry.discordUserId,
+  };
+}

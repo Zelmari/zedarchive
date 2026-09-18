@@ -8,7 +8,7 @@ import {
 import { requireLinkedUser } from '../auth/require-linked-user';
 import { botEnv } from '../env';
 import { createDraft, type MediaDraft } from '../drafts';
-import { stashSearchHits } from '../search-cache';
+import { stashSearchHits, stashCustomTitle } from '../search-cache';
 import { folioReplyOptions } from '../format/reply-cover';
 import { buildDraftFolio, type FolioActionRow, type FolioMessage } from '../format/folio';
 import { formatShelf } from '../format/labels';
@@ -128,9 +128,10 @@ export async function handleAddCommand(interaction: ChatInputCommandInteraction)
 
   // If no results, offer manual custom title button
   if (results.length === 0) {
+    const { stashId } = stashCustomTitle(interaction.user.id, query, category);
     const manualBtn = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(`za:add:custom:${encodeURIComponent(query)}:${category}`)
+        .setCustomId(`za:add:custom:${stashId}`)
         .setLabel(`Add "${query.slice(0, 30)}" as a custom title`)
         .setStyle(ButtonStyle.Primary),
     );
@@ -164,9 +165,10 @@ export async function handleAddCommand(interaction: ChatInputCommandInteraction)
   }
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+  const { stashId } = stashCustomTitle(interaction.user.id, query, category);
   const manualRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`za:add:custom:${encodeURIComponent(query)}:${category}`)
+      .setCustomId(`za:add:custom:${stashId}`)
       .setLabel(`Use "${query.slice(0, 30)}" as custom title instead`)
       .setStyle(ButtonStyle.Secondary),
   );

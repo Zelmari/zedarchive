@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { stashSearchHits, getSearchHits } from '../../bot/src/search-cache';
+import {
+  stashSearchHits,
+  getSearchHits,
+  stashCustomTitle,
+  getCustomTitle,
+} from '../../bot/src/search-cache';
 import type { SearchResult } from '@/types/search';
 
 const sampleHit: SearchResult = {
@@ -40,5 +45,20 @@ describe('bot search hit cache', () => {
 
     vi.advanceTimersByTime(14 * 60 * 1000 + 1);
     expect(getSearchHits(cacheId)).toBeNull();
+  });
+});
+
+describe('bot custom title stash', () => {
+  it('stashes queries so Discord customIds stay under 100 characters', () => {
+    const query = `${'映画'.repeat(50)}`;
+    expect(query.length).toBe(100);
+    const { stashId } = stashCustomTitle('disc-1', query, 'movie');
+    const customId = `za:add:custom:${stashId}`;
+    expect(customId.length).toBeLessThanOrEqual(100);
+
+    const stored = getCustomTitle(stashId);
+    expect(stored?.query).toBe(query);
+    expect(stored?.category).toBe('movie');
+    expect(stored?.discordUserId).toBe('disc-1');
   });
 });
