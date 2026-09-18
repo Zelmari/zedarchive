@@ -14,6 +14,7 @@ import {
   profileComments,
   discordLinks,
   discordLinkCodes,
+  groups,
 } from '@/db/schema';
 import { getAuthUser } from './internal';
 import { deleteAccountSchema } from '@/lib/validations/auth';
@@ -49,6 +50,22 @@ export async function deleteAccount(
     }
   } catch {
     return { success: false, error: 'Incorrect password. Account deletion aborted.' };
+  }
+
+  const ownedGroups = await db
+    .select({ id: groups.id, name: groups.name })
+    .from(groups)
+    .where(eq(groups.ownerId, user.id));
+  if (ownedGroups.length > 0) {
+    const names = ownedGroups
+      .map((g) => g.name)
+      .slice(0, 3)
+      .join(', ');
+    const extra = ownedGroups.length > 3 ? ` and ${ownedGroups.length - 3} more` : '';
+    return {
+      success: false,
+      error: `Transfer or delete your group${ownedGroups.length === 1 ? '' : 's'} (${names}${extra}) before deleting your account. Shared archives would otherwise be destroyed for every member.`,
+    };
   }
 
   // Atomic database wipe across all related tables

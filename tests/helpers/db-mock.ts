@@ -21,6 +21,7 @@ export function createMockDb(state: {
   deletedTables?: string[];
   accounts?: MockRow[];
   memberships?: MockRow[];
+  ownedGroups?: MockRow[];
   joinConditions?: unknown[];
   updates?: Array<{ table: string; fields: MockRow }>;
 }) {
@@ -90,8 +91,10 @@ export function createMockDb(state: {
         const result =
           getTableNameSafe(table) === 'group_members' && state.memberships
             ? state.memberships
-            : (state.accounts ??
-              (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows()));
+            : getTableNameSafe(table) === 'groups' && state.ownedGroups
+              ? state.ownedGroups
+              : (state.accounts ??
+                (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows()));
         const p = createAwaitable(result);
         p.where = () => p;
         p.orderBy = () => p;
