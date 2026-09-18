@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { getPublicUserProfile, getUserProfileById } from '@/server/queries/user';
 import { getCommentsByProfileUserId } from '@/server/queries/comments';
 import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
@@ -15,6 +14,7 @@ import FriendButton from './FriendButton';
 import { getFriendshipStatus } from '@/server/queries/friends';
 
 import { THEME_LABELS } from '@/lib/constants';
+import { getCanonicalProfileUrl } from '@/lib/site-url';
 import { MarkdownNotes } from '@/lib/markdown';
 import ArchiveUnavailable from '@/components/ui/ArchiveUnavailable';
 import { Badge, RatingBadge, StatusBadge } from '@/components/ui/Badge';
@@ -126,10 +126,9 @@ export default async function PublicProfilePage({ params }: PageParams) {
     : null;
   const publicGoalProgress = publicGoal ? calculateReadingGoalProgress(entries, publicGoal) : null;
 
-  const hostHeaders = await headers();
-  const host = hostHeaders.get('x-forwarded-host') ?? hostHeaders.get('host') ?? 'zedarchive.com';
-  const proto = hostHeaders.get('x-forwarded-proto') ?? 'https';
-  const profileUrl = `${proto}://${host}/u/${user.username}`;
+  const profileUrl = user.username
+    ? getCanonicalProfileUrl(user.username)
+    : getCanonicalProfileUrl('');
 
   const customStyles =
     user.theme === 'custom' && user.customTheme

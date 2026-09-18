@@ -1,8 +1,11 @@
 import { escapeXml, loadPublicFeed } from '@/server/feeds';
 
-export async function GET(request: Request, { params }: { params: Promise<{ username: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ username: string }> },
+) {
   const { username } = await params;
-  const data = await loadPublicFeed(username, request);
+  const data = await loadPublicFeed(username);
 
   if (!data) {
     return new Response('User not found or archive is private', { status: 404 });
@@ -14,17 +17,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
       const entryTitle = escapeXml(`${entry.title} (${entry.category.toUpperCase()})`);
       const statusText = entry.status.replace('_', ' ');
       const ratingText = entry.rating ? ` - Rated ${entry.rating}/10` : '';
-      const notesText = entry.notes ? `<br/><br/>${escapeXml(entry.notes)}` : '';
-      const desc = escapeXml(`Status: ${statusText}${ratingText}`) + notesText;
+      const notesText = entry.notes ? `\n\n${entry.notes}` : '';
+      const rawDesc = `Status: ${statusText}${ratingText}${notesText}`;
+      const safeCdata = rawDesc.replace(/\]\]>/g, ']]]]><![CDATA[>');
       const updatedDate = new Date(entry.updatedAt).toISOString();
 
       return `
   <entry>
     <title>${entryTitle}</title>
-    <link href="${profileUrl}" />
-    <id>urn:uuid:${entry.id}</id>
+    <link href="${escapeXml(profileUrl)}" />
+    <id>urn:uuid:${escapeXml(entry.id)}</id>
     <updated>${updatedDate}</updated>
-    <summary type="html"><![CDATA[${desc}]]></summary>
+    <summary type="html"><![CDATA[${safeCdata}]]></summary>
   </entry>`;
     })
     .join('\n');
@@ -33,9 +37,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(user.name)} (@${escapeXml(user.username || '')}) - ZedArchive</title>
   <subtitle>${escapeXml(user.bio || `Public media archive for @${user.username}`)}</subtitle>
-  <link href="${profileUrl}" />
-  <link href="${profileUrl}/atom.xml" rel="self" />
-  <id>${profileUrl}</id>
+  <link href="${escapeXml(profileUrl)}" />
+  <link href="${escapeXml(profileUrl)}/atom.xml" rel="self" />
+  <id>${escapeXml(profileUrl)}</id>
   <updated>${new Date().toISOString()}</updated>
   <author>
     <name>${escapeXml(user.name)}</name>
