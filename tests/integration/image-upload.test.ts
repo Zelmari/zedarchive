@@ -68,6 +68,17 @@ describe('POST /api/assets/upload', () => {
     expect(data.error).toBe('Invalid image content');
   });
 
+  it('rejects an oversized content-length before decoding', async () => {
+    const req = new Request('http://localhost/api/assets/upload', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': String(20 * 1024 * 1024) },
+      body: JSON.stringify({ image: VALID_PNG_BASE64 }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+  });
+
   it('rejects empty or missing payload', async () => {
     const req = new Request('http://localhost/api/assets/upload', {
       method: 'POST',
