@@ -8,11 +8,12 @@ import {
   type SyncState,
   type SyncStatusEventDetail,
 } from '@/lib/offline/syncEngine';
-import { getPendingMutations } from '@/lib/offline/outbox';
+import { getReplayableMutations, getDeadLetteredMutations } from '@/lib/offline/outbox';
 
 export default function SyncIndicator() {
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [pendingCount, setPendingCount] = useState(0);
+  const [conflictCount, setConflictCount] = useState(0);
 
   useEffect(() => {
     const cleanup = initSyncEngine();
@@ -22,18 +23,24 @@ export default function SyncIndicator() {
       if (customEvent.detail) {
         setSyncState(customEvent.detail.state);
         setPendingCount(customEvent.detail.pendingCount);
+        setConflictCount(customEvent.detail.conflictCount ?? 0);
       }
     };
 
     window.addEventListener('za:sync-status', handleSyncStatus);
 
     // Initial query
-    getPendingMutations().then((items) => {
-      setPendingCount(items.length);
-      if (!navigator.onLine) {
-        setSyncState('offline');
-      }
-    });
+    Promise.all([getReplayableMutations(), getDeadLetteredMutations()]).then(
+      ([pending, conflicts]) => {
+        setPendingCount(pending.length);
+        setConflictCount(conflicts.length);
+        if (!navigator.onLine) {
+          setSyncState('offline');
+        } else if (conflicts.length > 0) {
+          setSyncState('error');
+        }
+      },
+    );
 
     return () => {
       cleanup();
@@ -41,7 +48,7 @@ export default function SyncIndicator() {
     };
   }, []);
 
-  if (syncState === 'idle' && pendingCount === 0) {
+  if (syncState === 'idle' && pendingCount === 0 && conflictCount === 0) {
     return null; // Keep header quiet when fully synced
   }
 
@@ -50,7 +57,7 @@ export default function SyncIndicator() {
       ? 'border-decorative bg-surface-subtle text-ink-muted'
       : syncState === 'syncing'
         ? 'border-accent bg-accent-soft text-accent'
-        : syncState === 'error'
+        : syncState === 'error' || conflictCount > 0
           ? 'border-danger bg-danger-surface text-danger'
           : pendingCount > 0
             ? 'border-warning bg-warning-surface text-warning'
@@ -61,11 +68,13 @@ export default function SyncIndicator() {
       ? `Offline (${pendingCount})`
       : syncState === 'syncing'
         ? `Syncing (${pendingCount})...`
-        : syncState === 'error'
-          ? `Sync failed (${pendingCount})`
-          : pendingCount > 0
-            ? `${pendingCount} queued`
-            : 'In Sync';
+        : conflictCount > 0
+          ? `${conflictCount} sync conflict${conflictCount === 1 ? '' : 's'}`
+          : syncState === 'error'
+            ? `Sync failed (${pendingCount})`
+            : pendingCount > 0
+              ? `${pendingCount} queued`
+              : 'In Sync';
 
   return (
     <button
@@ -75,8 +84,8 @@ export default function SyncIndicator() {
       title={
         syncState === 'offline'
           ? 'Working offline. Changes are saved locally and will sync when reconnected.'
-          : syncState === 'error'
-            ? 'Sync failed. Click to retry.'
+          : syncState === 'error' || conflictCount > 0
+            ? 'Sync conflict. Your offline change was not applied because the entry changed on the server. Click to retry remaining items.'
             : pendingCount > 0
               ? `${pendingCount} offline change(s) pending sync. Click to retry.`
               : 'Archive is in sync.'
@@ -93,7 +102,7 @@ export default function SyncIndicator() {
           <RefreshCw size={12} strokeWidth={2} className="animate-spin text-accent" />
           <span>{statusLabel}</span>
         </>
-      ) : syncState === 'error' ? (
+      ) : syncState === 'error' || conflictCount > 0 ? (
         <>
           <AlertTriangle size={12} strokeWidth={2} className="text-danger" />
           <span>{statusLabel}</span>

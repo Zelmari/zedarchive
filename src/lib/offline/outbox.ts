@@ -7,6 +7,9 @@ export interface QueuedMutation {
   timestamp: number;
   retryCount: number;
   originalUpdatedAt?: string;
+  lastAttemptAt?: number;
+  lastError?: string;
+  deadLettered?: boolean;
 }
 
 const DB_NAME = 'za_offline_db';
@@ -129,6 +132,16 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
   const seen = new Set(idbItems.map((m) => m.id));
   const merged = [...idbItems, ...lsItems.filter((m) => !seen.has(m.id))];
   return merged.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function getReplayableMutations(): Promise<QueuedMutation[]> {
+  const pending = await getPendingMutations();
+  return pending.filter((mutation) => !mutation.deadLettered);
+}
+
+export async function getDeadLetteredMutations(): Promise<QueuedMutation[]> {
+  const pending = await getPendingMutations();
+  return pending.filter((mutation) => Boolean(mutation.deadLettered));
 }
 
 /**
