@@ -21,6 +21,7 @@ interface ModalProps {
   contentClassName?: string;
   contentStyle?: React.CSSProperties;
   closeLabel?: string;
+  layer?: 'modal' | 'nested';
   children: ReactNode;
 }
 
@@ -45,6 +46,7 @@ export default function Modal({
   contentClassName,
   contentStyle,
   closeLabel = 'Close modal',
+  layer = 'modal',
   children,
 }: ModalProps) {
   const modalRef = useFocusTrap(isOpen, onClose, { initialFocusRef });
@@ -57,7 +59,8 @@ export default function Modal({
   return (
     <div
       className={cn(
-        'za-modal-backdrop animate-fade-in fixed inset-0 z-[var(--za-layer-modal)] flex justify-center bg-backdrop p-[var(--za-space-4)]',
+        'za-modal-backdrop animate-fade-in fixed inset-0 flex justify-center bg-backdrop p-[var(--za-space-4)]',
+        layer === 'nested' ? 'z-[var(--za-layer-nested-modal)]' : 'z-[var(--za-layer-modal)]',
         placement === 'top' ? 'items-start pt-[12vh]' : 'items-center',
       )}
       onClick={onClose}

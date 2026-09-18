@@ -209,7 +209,7 @@ export default function UserSearchCombobox({
         <div
           id="user-search-listbox"
           role="listbox"
-          className="animate-fade-in absolute left-0 right-0 top-full z-[var(--za-layer-modal)] mt-2 max-h-80 overflow-hidden rounded-small border-2 border-required bg-surface shadow-layered"
+          className="animate-fade-in absolute left-0 right-0 top-full z-[var(--za-layer-dropdown)] mt-2 max-h-80 overflow-hidden rounded-small border-2 border-required bg-surface shadow-layered"
         >
           {results.length > 0 ? (
             <div>

@@ -5,6 +5,9 @@ import { useEffect, useRef, type RefObject } from 'react';
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+let trapStack: number[] = [];
+let nextTrapId = 0;
+
 interface FocusTrapOptions {
   /** Specific element to focus on open */
   initialFocusRef?: RefObject<HTMLElement | null>;
@@ -15,6 +18,7 @@ interface FocusTrapOptions {
  * - Captures the trigger element once per open transition and restores focus upon closing or unmount
  * - Traps Tab and Shift+Tab navigation within the container
  * - Handles Escape key presses via callback
+ * - Nested dialogs: only the topmost trap handles Tab/Escape
  *
  * Visibility of candidate elements is detected via getClientRects() so
  * position: fixed elements are not wrongly excluded (offsetParent is null
@@ -27,6 +31,7 @@ export function useFocusTrap(
 ): RefObject<HTMLDivElement | null> {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const trapIdRef = useRef<number | null>(null);
   const optionsRef = useRef(options);
 
   useEffect(() => {
@@ -36,7 +41,10 @@ export function useFocusTrap(
   useEffect(() => {
     if (!isOpen) return;
 
-    // Capture the trigger exactly once per open transition.
+    const trapId = ++nextTrapId;
+    trapIdRef.current = trapId;
+    trapStack.push(trapId);
+
     previousActiveElementRef.current = document.activeElement as HTMLElement | null;
 
     const timer = setTimeout(() => {
@@ -51,9 +59,9 @@ export function useFocusTrap(
 
     return () => {
       clearTimeout(timer);
+      trapStack = trapStack.filter((id) => id !== trapId);
+      trapIdRef.current = null;
 
-      // Restore focus whether the modal was closed via state or removed
-      // from the tree entirely (unmount while still open).
       const previous = previousActiveElementRef.current;
       previousActiveElementRef.current = null;
       previous?.focus();
@@ -64,9 +72,12 @@ export function useFocusTrap(
     if (!isOpen) return;
 
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (trapStack[trapStack.length - 1] !== trapIdRef.current) return;
+
       if (e.key === 'Escape') {
         if (onEscape) {
           e.preventDefault();
+          e.stopPropagation();
           onEscape(e);
         }
         return;
