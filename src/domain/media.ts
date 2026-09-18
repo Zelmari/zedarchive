@@ -23,6 +23,8 @@ import { serializeEntry, stableMediaChildDate, stableMediaChildId } from '@/lib/
 import { logActivity } from '@/domain/activity-log';
 import { domainDb, type DbClient } from '@/domain/db-context';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
+import { escapeIlikePattern, ilikeContainsPattern } from '@/lib/ilike';
+import { OFFLINE_CONFLICT_MESSAGE } from '@/lib/offline/conflict';
 
 export type MediaRow = typeof mediaEntries.$inferSelect;
 export type MediaPayload = Omit<
@@ -418,6 +420,11 @@ export function buildMediaPayload(
         ? trimMaybeCap(input.sourceId, MAX_SOURCE_ID_LENGTH)
         : null,
     notes: input.notes ? trimMaybeCap(String(input.notes), MAX_NOTES_LENGTH) : null,
+    quotes: sanitizeQuotes(input.quotes, typeof input.id === 'string' ? input.id : ''),
+    priorityIndex:
+      input.priorityIndex != null && input.priorityIndex !== ''
+        ? Math.max(1, toInt(input.priorityIndex, 1))
+        : null,
     updatedAt: new Date(),
   };
 }
@@ -634,7 +641,7 @@ export async function updateMediaProgressForUser(
 
     if (validatedUpdates._offlineUpdatedAt) {
       if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {
-        throw new Error('Entry was modified since offline mutation was created');
+        throw new Error(OFFLINE_CONFLICT_MESSAGE);
       }
     }
 
@@ -672,24 +679,31 @@ export async function updateMediaProgressForUser(
         existing.id,
       );
       const nextCycleNumber = existingCycles.length + 1;
+      const isMovie = existing.category === 'movie';
       const newCycle: MediaCycle = {
         id: crypto.randomUUID(),
         cycleNumber: nextCycleNumber,
         startedAt: new Date().toISOString(),
-        completedAt: null,
+        completedAt: isMovie ? new Date().toISOString() : null,
         rating: null,
         notes: null,
       };
       updateFields.cycles = [...existingCycles, newCycle];
       updateFields.rewatchCount = Math.max(0, (existing.rewatchCount || 0) + 1);
-      updateFields.status = 'in_progress';
-      updateFields.completedAt = null;
       updateFields.droppedAt = null;
       updateFields.dropReason = null;
       updateFields.droppedProgressPrimary = null;
       updateFields.droppedProgressSecondary = null;
-      updateFields.primaryUnitCurrent = 1;
-      updateFields.secondaryUnitCurrent = 0;
+      if (isMovie) {
+        updateFields.status = 'completed';
+        updateFields.completedAt = new Date();
+        updateFields.primaryUnitCurrent = Math.max(1, (existing.primaryUnitCurrent || 0) + 1);
+      } else {
+        updateFields.status = 'in_progress';
+        updateFields.completedAt = null;
+        updateFields.primaryUnitCurrent = 1;
+        updateFields.secondaryUnitCurrent = 0;
+      }
     } else if (updateFields.status === 'completed') {
       const currentCycles =
         updateFields.cycles ??
@@ -834,10 +848,12 @@ export async function bulkImportMediaEntriesForUser(
   const MAX_IMPORT_ITEMS = 1000;
   const batch = (items as unknown[]).slice(0, MAX_IMPORT_ITEMS);
 
-  const existing = await domainDb()
+  const existingRows = await domainDb()
     .select()
     .from(mediaEntries)
-    .where(eq(mediaEntries.userId, userId));
+    .where(and(eq(mediaEntries.userId, userId), isNull(mediaEntries.groupId)));
+  const listed = Array.isArray(existingRows) ? existingRows : [];
+  const existing = listed.filter((e) => e && !e.groupId);
 
   const existingBySourceOrTitle = new Map<string, Pick<MediaRow, 'id'>>();
   existing.forEach((e) => {
@@ -849,57 +865,83 @@ export async function bulkImportMediaEntriesForUser(
   let updated = 0;
   let skipped = 0;
 
+  const strategy = conflictStrategy === 'overwrite' ? 'overwrite' : 'skip';
+  if (conflictStrategy !== 'skip' && conflictStrategy !== 'overwrite') {
+    throw new Error('Invalid conflict strategy. Use "skip" or "overwrite".');
+  }
+
   for (const rawItem of batch) {
-    if (!rawItem || typeof rawItem !== 'object') continue;
+    if (!rawItem || typeof rawItem !== 'object') {
+      skipped++;
+      continue;
+    }
     const item = rawItem as Record<string, unknown>;
     const title = String(item.title || '')
       .trim()
       .slice(0, MAX_TITLE_LENGTH);
-    if (!title) continue;
-
-    const category = (
-      isInList(VALID_CATEGORIES, item.category) ? item.category : 'show'
-    ) as MediaRow['category'];
-    const sourceKey = typeof item.sourceId === 'string' ? item.sourceId.toLowerCase() : null;
-    const titleKey = `${category}:${title.toLowerCase()}`;
-
-    const match =
-      (sourceKey && existingBySourceOrTitle.get(sourceKey)) ||
-      existingBySourceOrTitle.get(titleKey);
-
-    if (match && conflictStrategy === 'skip') {
+    if (!title) {
       skipped++;
       continue;
     }
 
-    const rowId = match && conflictStrategy === 'overwrite' ? match.id : crypto.randomUUID();
-    const payload = buildMediaPayload(
-      { ...item, id: rowId },
-      {
-        category,
-        title,
-        mode: 'bulk',
-      },
-    );
+    try {
+      const category = (
+        isInList(VALID_CATEGORIES, item.category) ? item.category : 'show'
+      ) as MediaRow['category'];
+      const sourceKey = typeof item.sourceId === 'string' ? item.sourceId.toLowerCase() : null;
+      const titleKey = `${category}:${title.toLowerCase()}`;
 
-    if (match && conflictStrategy === 'overwrite') {
-      await domainDb().update(mediaEntries).set(payload).where(eq(mediaEntries.id, match.id));
-      if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
-      existingBySourceOrTitle.set(titleKey, match);
-      updated++;
-    } else {
-      await domainDb()
-        .insert(mediaEntries)
-        .values({
-          ...payload,
-          id: rowId,
-          userId,
-          createdAt: toDateOrNull(item.createdAt) ?? new Date(),
-        });
-      const inserted = { id: rowId };
-      if (sourceKey) existingBySourceOrTitle.set(sourceKey, inserted);
-      existingBySourceOrTitle.set(titleKey, inserted);
-      added++;
+      const match =
+        (sourceKey && existingBySourceOrTitle.get(sourceKey)) ||
+        existingBySourceOrTitle.get(titleKey);
+
+      if (match && strategy === 'skip') {
+        skipped++;
+        continue;
+      }
+
+      const rowId = match && strategy === 'overwrite' ? match.id : crypto.randomUUID();
+      const payload = buildMediaPayload(
+        { ...item, id: rowId },
+        {
+          category,
+          title,
+          mode: 'bulk',
+        },
+      );
+      const isPrivate = Boolean(item.isPrivate);
+
+      if (match && strategy === 'overwrite') {
+        await domainDb()
+          .update(mediaEntries)
+          .set({ ...payload, isPrivate })
+          .where(
+            and(
+              eq(mediaEntries.id, match.id),
+              eq(mediaEntries.userId, userId),
+              isNull(mediaEntries.groupId),
+            ),
+          );
+        if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
+        existingBySourceOrTitle.set(titleKey, match);
+        updated++;
+      } else {
+        await domainDb()
+          .insert(mediaEntries)
+          .values({
+            ...payload,
+            id: rowId,
+            userId,
+            createdAt: toDateOrNull(item.createdAt) ?? new Date(),
+            isPrivate,
+          });
+        const inserted = { id: rowId };
+        if (sourceKey) existingBySourceOrTitle.set(sourceKey, inserted);
+        existingBySourceOrTitle.set(titleKey, inserted);
+        added++;
+      }
+    } catch {
+      skipped++;
     }
   }
 
@@ -1190,7 +1232,7 @@ export async function listPersonalLibraryLite(
     conditions.push(eq(mediaEntries.category, opts.category as MediaRow['category']));
   }
   if (opts.query && opts.query.trim()) {
-    conditions.push(ilike(mediaEntries.title, `%${opts.query.trim()}%`));
+    conditions.push(ilike(mediaEntries.title, ilikeContainsPattern(opts.query.trim())));
   }
 
   const queryBuilder = domainDb()
@@ -1304,7 +1346,7 @@ export async function resolvePersonalTitle(
       and(
         eq(mediaEntries.userId, userId),
         isNull(mediaEntries.groupId),
-        ilike(mediaEntries.title, trimmed),
+        ilike(mediaEntries.title, escapeIlikePattern(trimmed)),
       ),
     )
     .limit(2);
@@ -1321,7 +1363,7 @@ export async function resolvePersonalTitle(
       and(
         eq(mediaEntries.userId, userId),
         isNull(mediaEntries.groupId),
-        ilike(mediaEntries.title, `%${trimmed}%`),
+        ilike(mediaEntries.title, ilikeContainsPattern(trimmed)),
       ),
     )
     .limit(25);

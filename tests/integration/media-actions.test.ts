@@ -218,6 +218,18 @@ describe('bulkImportMediaEntries', () => {
         startedAt: '2026-01-15T00:00:00.000Z',
         synopsis: 'The Golden Age arc.',
         genres: ['seinen', 'dark fantasy'],
+        isPrivate: true,
+        priorityIndex: 4,
+        quotes: [
+          {
+            id: 'quote-1',
+            text: 'Struggle, endure, contend.',
+            speaker: 'Guts',
+            citation: 'Vol. 13',
+            isFavorite: true,
+            createdAt: '2026-01-15T00:00:00.000Z',
+          },
+        ],
       },
     ]);
 
@@ -229,6 +241,51 @@ describe('bulkImportMediaEntries', () => {
     ).toBe('2026-01-15T00:00:00.000Z');
     expect(row?.synopsis).toBe('The Golden Age arc.');
     expect(row?.genres).toEqual(['seinen', 'dark fantasy']);
+    expect(row?.isPrivate).toBe(true);
+    expect(row?.priorityIndex).toBe(4);
+    expect(row?.quotes).toEqual([
+      expect.objectContaining({
+        id: 'quote-1',
+        text: 'Struggle, endure, contend.',
+        speaker: 'Guts',
+        citation: 'Vol. 13',
+        isFavorite: true,
+      }),
+    ]);
+  });
+
+  it('round-trips quotes, privacy, and queue rank on overwrite restore', async () => {
+    dbState.rows.push({
+      id: 'existing-1',
+      sourceId: 'za-berserk',
+      category: 'manga',
+      title: 'Berserk',
+      isPrivate: false,
+      priorityIndex: null,
+      quotes: [],
+    });
+
+    const result = await bulkImportMediaEntries(
+      [
+        {
+          title: 'Berserk',
+          category: 'manga',
+          sourceId: 'za-berserk',
+          isPrivate: true,
+          priorityIndex: 2,
+          quotes: [{ id: 'q1', text: 'Keep struggling.', speaker: 'Guts' }],
+        },
+      ],
+      'overwrite',
+    );
+
+    expect(result.updated).toBe(1);
+    const row = dbState.rows[0];
+    expect(row?.isPrivate).toBe(true);
+    expect(row?.priorityIndex).toBe(2);
+    expect(row?.quotes).toEqual([
+      expect.objectContaining({ id: 'q1', text: 'Keep struggling.', speaker: 'Guts' }),
+    ]);
   });
 
   it('skips intra-batch duplicates instead of inserting twice', async () => {
@@ -345,7 +402,36 @@ describe('bulkImportMediaEntries', () => {
     ]);
 
     expect(result.added).toBe(1);
+    expect(result.skipped).toBe(5);
     expect(dbState.rows[0]?.title).toBe('Survivor');
+  });
+
+  it('rejects an unknown conflict strategy instead of creating duplicates', async () => {
+    await expect(bulkImportMediaEntries([{ title: 'Dune' }], 'merge')).rejects.toThrow(
+      'Invalid conflict strategy',
+    );
+  });
+
+  it('does not overwrite group archive entries during a personal import', async () => {
+    dbState.rows.push({
+      id: 'group-row',
+      userId: 'user-1',
+      groupId: 'group-1',
+      sourceId: 'tvmaze-9',
+      category: 'show',
+      title: 'Shared Show',
+      rating: 5,
+    });
+
+    const result = await bulkImportMediaEntries(
+      [{ title: 'Shared Show', category: 'show', sourceId: 'tvmaze-9', rating: 10 }],
+      'overwrite',
+    );
+
+    expect(result.updated).toBe(0);
+    expect(result.added).toBe(1);
+    expect(dbState.rows[0]?.rating).toBe(5);
+    expect(dbState.rows[1]?.rating).toBe(10);
   });
 
   it('supports movie category creation and progress updates', async () => {
@@ -517,6 +603,24 @@ describe('bulkImportMediaEntries', () => {
     const afterDelete = await deleteMediaCycle(entry.id, cycleToUpdate.id);
     expect(afterDelete.cycles).toHaveLength(2);
     expect(afterDelete.rewatchCount).toBe(1);
+  });
+
+  it('increments movie times-watched on rewatch without resetting runtime', async () => {
+    const movie = await createMediaEntry({
+      title: 'Inception',
+      category: 'movie',
+      status: 'completed',
+      primaryUnitCurrent: 1,
+      secondaryUnitCurrent: 148,
+      secondaryUnitTotal: 148,
+    });
+
+    const movieRewatch = await updateMediaProgress(movie.id, { rewatch: true });
+    expect(movieRewatch.status).toBe('completed');
+    expect(movieRewatch.primaryUnitCurrent).toBe(2);
+    expect(movieRewatch.secondaryUnitCurrent).toBe(148);
+    expect(movieRewatch.rewatchCount).toBe(1);
+    expect(movieRewatch.cycles[1]?.completedAt).toBeTruthy();
   });
 
   it('supports priority queue toggling, reordering, and retirement on completion', async () => {
