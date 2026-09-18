@@ -40,7 +40,9 @@ export const PRESET_DROP_REASONS = [
   'Will revisit in the future',
 ] as const;
 
+export const MIN_USERNAME_LENGTH = 3;
 export const MAX_USERNAME_LENGTH = 30;
+export const HANDLE_PATTERN = /^[a-z0-9_-]{3,30}$/;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_BIO_LENGTH = 500;
 
