@@ -29,6 +29,7 @@ export async function getCommentsByProfileUserId(
     .delete(profileComments)
     .where(and(eq(profileComments.profileUserId, target.id), lte(profileComments.expiresAt, now)));
 
+  const visibility = viewerUserId === target.id ? undefined : eq(userTable.isPublic, true);
   const rows = await db
     .select({
       id: profileComments.id,
@@ -47,7 +48,7 @@ export async function getCommentsByProfileUserId(
       and(
         eq(profileComments.profileUserId, target.id),
         gt(profileComments.expiresAt, now),
-        eq(userTable.isPublic, true),
+        visibility,
       ),
     )
     .orderBy(asc(profileComments.createdAt))

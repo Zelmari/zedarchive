@@ -126,7 +126,12 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     .orderBy(desc(mediaEntries.updatedAt));
 
   return {
-    user: foundUser,
+    user: {
+      ...foundUser,
+      readingGoals: Object.fromEntries(
+        Object.entries(foundUser.readingGoals || {}).filter(([, goal]) => goal?.isPublic),
+      ),
+    },
     entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
   };
 }

@@ -13,7 +13,7 @@ export const createGroupSchema = z.object({
       (val) => !val || /^https:\/\//i.test(val) || /^data:image\//i.test(val),
       'Image must be https:// or data:image/',
     ),
-  memberUserIds: z.array(z.string()).default([]),
+  memberUserIds: z.array(z.string().min(1)).max(50).default([]),
 });
 
 export const updateGroupSchema = z.object({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Send, Clock, Trash2 } from 'lucide-react';
 import type { GroupMessageItem } from '@/types/groups';
 import { sendGroupMessageAction, deleteGroupMessageAction } from '@/server/groups';
@@ -64,17 +64,14 @@ export default function GroupChatView({
     });
   };
 
-  // Sync when parent updates
-
-  if (initialMessages !== messages && initialMessages.length !== messages.length) {
-    // simple effect via render: update if parent has new poll data
-    // We check by id set diff
-    const ids = new Set(messages.map((m) => m.id));
-    const hasNew = initialMessages.some((m) => !ids.has(m.id));
-    if (hasNew) {
-      setMessages(initialMessages);
-    }
-  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync newly polled messages
+    setMessages((current) => {
+      const ids = new Set(current.map((m) => m.id));
+      const hasNew = initialMessages.some((m) => !ids.has(m.id));
+      return hasNew ? initialMessages : current;
+    });
+  }, [initialMessages]);
 
   return (
     <div className="space-y-4">

@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { groups, groupMembers, groupMessages, user as userTable, mediaEntries } from '@/db/schema';
-import { eq, and, count, gt, lte } from 'drizzle-orm';
+import { eq, and, count, gt, lte, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import {
   COMMENT_TTL_MS,
@@ -40,15 +40,9 @@ export async function createGroupAction(input: Record<string, unknown>) {
   const uniqueIds = [...new Set(memberUserIds.filter((id) => id !== me.id))];
 
   if (uniqueIds.length > 0) {
-    // Fetch accepted friends of me
     const friendIds = new Set(await getFriendIds(me.id));
-    for (const uid of uniqueIds) {
-      if (!friendIds.has(uid)) throw new Error(`User ${uid} is not your friend`);
-      const [u] = await db
-        .select({ id: userTable.id })
-        .from(userTable)
-        .where(eq(userTable.id, uid));
-      if (!u) throw new Error(`User ${uid} not found`);
+    if (uniqueIds.some((uid) => !friendIds.has(uid))) {
+      throw new Error('One or more selected users cannot be added');
     }
   }
 
@@ -115,35 +109,52 @@ export async function addGroupMembersAction(input: { groupId: string; userIds: s
   const groupId = String(input.groupId || '').trim();
   const userIds = Array.isArray(input.userIds) ? input.userIds : [];
   if (!groupId) throw new Error('Group ID is required');
-  if (userIds.length === 0) throw new Error('No users to add');
+  const uniqueIds = [
+    ...new Set(
+      userIds
+        .map((id) => String(id || '').trim())
+        .filter((id): id is string => Boolean(id) && id !== me.id),
+    ),
+  ].slice(0, 50);
+  if (uniqueIds.length === 0) throw new Error('No users to add');
 
   const owner = await isGroupOwner(groupId, me.id);
   if (!owner) throw new Error('Only the owner can add members');
 
-  // Validate each is friend of owner and not already member
   const friendSet = new Set(await getFriendIds(me.id));
+  if (uniqueIds.some((uid) => !friendSet.has(uid))) {
+    throw new Error('One or more selected users cannot be added');
+  }
 
-  for (const uid of userIds) {
-    if (uid === me.id) continue;
-    if (!friendSet.has(uid)) throw new Error(`User ${uid} is not your friend`);
-    const [exists] = await db
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, uid)))
-      .limit(1);
-    if (exists) throw new Error(`User ${uid} is already a member`);
+  const existingRows = await db
+    .select({ userId: groupMembers.userId })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), inArray(groupMembers.userId, uniqueIds)));
+  const alreadyMember = new Set(existingRows.map((row) => row.userId));
+  const toAdd = uniqueIds.filter((uid) => !alreadyMember.has(uid));
+  if (toAdd.length === 0) {
+    return { success: true };
   }
 
   const now = new Date();
-  for (const uid of userIds) {
-    if (uid === me.id) continue;
-    await db.insert(groupMembers).values({
-      id: crypto.randomUUID(),
-      groupId,
-      userId: uid,
-      role: 'member',
-      joinedAt: now,
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(groupMembers).values(
+        toAdd.map((uid) => ({
+          id: crypto.randomUUID(),
+          groupId,
+          userId: uid,
+          role: 'member' as const,
+          joinedAt: now,
+        })),
+      );
     });
+  } catch (err: unknown) {
+    const code = typeof err === 'object' && err && 'code' in err ? String(err.code) : '';
+    if (code === '23505') {
+      throw new Error('One or more selected users cannot be added');
+    }
+    throw err;
   }
 
   revalidatePath(`/groups/${groupId}`);
@@ -341,5 +352,7 @@ export async function getGroupMessagesAction(groupId: string) {
 
 export async function getEligibleFriendsToInviteAction(groupId: string) {
   const me = await getAuthUser();
+  const owner = await isGroupOwner(groupId, me.id);
+  if (!owner) throw new Error('Only the owner can invite members');
   return getEligibleQuery(groupId, me.id);
 }
