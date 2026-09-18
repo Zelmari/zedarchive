@@ -36,6 +36,11 @@ export async function handleTitleAutocomplete(interaction: AutocompleteInteracti
       limit: 25,
     });
     autocompleteCache.set(cacheKey, { items: entries, cachedAt: now });
+    if (autocompleteCache.size > 500) {
+      for (const [key, item] of autocompleteCache) {
+        if (now - item.cachedAt >= CACHE_TTL_MS) autocompleteCache.delete(key);
+      }
+    }
   }
 
   const choices = entries.slice(0, 25).map((entry) => {

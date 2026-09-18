@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { allocCompactId } from '../compact-id';
 
 const LIBRARY_TTL_MS = 14 * 60 * 1000;
 
@@ -31,7 +31,7 @@ export function createLibraryPageQuery(data: Omit<LibraryPageQuery, 'createdAt' 
   cacheId: string;
   query: LibraryPageQuery;
 } {
-  const cacheId = crypto.randomUUID().slice(0, 8);
+  const cacheId = allocCompactId(libraryStore);
   const now = Date.now();
   const query: LibraryPageQuery = {
     ...data,

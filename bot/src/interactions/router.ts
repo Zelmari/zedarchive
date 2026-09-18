@@ -337,6 +337,13 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
       });
       return;
     }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
+      return;
+    }
 
     if (action === 'cancel') {
       deleteDraft(draft.draftId);
@@ -474,6 +481,13 @@ async function handleSelectMenuInteraction(
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
       return;
     }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
+      return;
+    }
 
     const newStatus = interaction.values[0] || 'in_progress';
     if (newStatus === 'dropped') {
@@ -494,6 +508,13 @@ async function handleSelectMenuInteraction(
     const draft = getDraft(draftId || '');
     if (!draft) {
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
+      return;
+    }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -670,6 +691,13 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
       return;
     }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
+      return;
+    }
 
     await interaction.deferUpdate();
 
@@ -696,6 +724,13 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
     const draft = getDraft(draftId || '');
     if (!draft) {
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
+      return;
+    }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
       return;
     }
 

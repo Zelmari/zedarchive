@@ -1,6 +1,6 @@
-import crypto from 'crypto';
 import type { SearchResult } from '@/types/search';
 import type { MediaCategory } from '@/types/media';
+import { allocCompactId } from './compact-id';
 
 const CACHE_TTL_MS = 14 * 60 * 1000; // 14 minutes (Discord tokens expire at 15m)
 
@@ -33,7 +33,7 @@ export function stashSearchHits(
   category: MediaCategory,
   hits: SearchResult[],
 ): { cacheId: string } {
-  const cacheId = crypto.randomUUID().slice(0, 8);
+  const cacheId = allocCompactId(cacheStore);
   const now = Date.now();
   const entry: SearchHitCache = {
     cacheId,
@@ -78,10 +78,7 @@ export function stashCustomTitle(
   query: string,
   category: MediaCategory,
 ): { stashId: string } {
-  let stashId = crypto.randomUUID().slice(0, 8);
-  while (customTitleStore.has(stashId)) {
-    stashId = crypto.randomUUID().slice(0, 8);
-  }
+  const stashId = allocCompactId(customTitleStore);
   customTitleStore.set(stashId, {
     stashId,
     discordUserId,

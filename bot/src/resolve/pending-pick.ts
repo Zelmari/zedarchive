@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -9,6 +8,7 @@ import {
 import type { MediaRow, TitleResolutionResult } from '@/domain/media';
 import { formatProgressString } from '../format/progress';
 import { TITLE_NOT_FOUND } from '../format/labels';
+import { allocCompactId } from '../compact-id';
 
 const PICK_TTL_MS = 14 * 60 * 1000;
 
@@ -60,7 +60,7 @@ function buildPickOptionLabel(entry: MediaRow): string {
 export function createPendingPick(
   data: Omit<PendingPick, 'pendingId' | 'createdAt' | 'expiresAt'>,
 ): PendingPick {
-  const pendingId = crypto.randomUUID().slice(0, 8);
+  const pendingId = allocCompactId(pickStore);
   const now = Date.now();
   const pick: PendingPick = {
     ...data,
