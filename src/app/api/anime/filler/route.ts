@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAnimeFillerGuide, resolveMalId } from '@/lib/services/anime';
+import { parseSearchQuery } from '@/lib/search';
+import { MAX_QUERY_LENGTH } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const sourceId = searchParams.get('sourceId') || undefined;
-  const title = searchParams.get('title') || undefined;
+  const parsed = parseSearchQuery(request);
+  if (parsed instanceof Response) return parsed;
+
+  const { searchParams } = parsed;
+  const sourceId =
+    (searchParams.get('sourceId') || '').trim().slice(0, MAX_QUERY_LENGTH) || undefined;
+  const title =
+    (searchParams.get('title') || parsed.query || '').trim().slice(0, MAX_QUERY_LENGTH) ||
+    undefined;
 
   try {
     const malId = await resolveMalId(sourceId, title);

@@ -20,7 +20,7 @@ export async function GET(request: Request): Promise<Response> {
       {},
       {
         headers: {
-          'Cache-Control': 'public, max-age=21600',
+          'Cache-Control': 'private, no-store',
         },
       },
     );
@@ -31,22 +31,24 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const parsed: unknown = JSON.parse(titlesParam);
     if (Array.isArray(parsed)) {
-      titles = parsed.map((t) => String(t ?? ''));
+      titles = parsed.map((t) => String(t ?? '').slice(0, 200));
     }
   } catch {
     titles = [];
   }
 
-  const items = rawIds.map((sourceId, index) => ({
-    sourceId,
-    title: titles[index] ?? '',
-  }));
+  const items = rawIds
+    .filter((sourceId) => sourceId.length <= 200)
+    .map((sourceId, index) => ({
+      sourceId,
+      title: titles[index] ?? '',
+    }));
 
   const result = await getUpcomingAirdates(items);
 
   return Response.json(result, {
     headers: {
-      'Cache-Control': 'public, max-age=21600',
+      'Cache-Control': 'private, no-store',
     },
   });
 }

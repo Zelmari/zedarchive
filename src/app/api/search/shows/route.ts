@@ -14,7 +14,14 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const results = await searchTvmazeShows(query);
-    return Response.json({ results });
+    return Response.json(
+      { results },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      },
+    );
   } catch (error) {
     console.error('TVMaze search error:', error);
     return Response.json({ results: [], error: 'Failed to fetch TV shows' }, { status: 500 });

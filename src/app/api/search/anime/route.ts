@@ -24,7 +24,14 @@ export async function GET(request: Request): Promise<Response> {
     if (!results) {
       return Response.json({ results: [], error: 'Search service unavailable' }, { status: 502 });
     }
-    return Response.json({ results });
+    return Response.json(
+      { results },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      },
+    );
   } catch (error) {
     console.error('AniList search error:', error);
     return Response.json({ results: [], error: 'Failed to fetch anime/manga' }, { status: 500 });

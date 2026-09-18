@@ -99,7 +99,7 @@ describe('GET /api/shows/airdate', () => {
     const res = await GET(makeRequest('tvmaze-82'));
     const body = await res.json();
     expect(body['tvmaze-82']).toMatchObject({ season: 2, number: 5, airdate: '2026-09-10' });
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=21600');
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it.each(['Ended', 'In Development'])(
