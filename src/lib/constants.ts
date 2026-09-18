@@ -75,6 +75,13 @@ export const RESERVED_HANDLES = [
   'reset-password',
   'friends',
   'groups',
+  'stacks',
+  'compare',
+  'rss',
+  'atom',
+  'me',
+  'null',
+  'undefined',
 ] as const;
 
 export interface ThemeDefinition {

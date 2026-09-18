@@ -1,4 +1,4 @@
-const CACHE_NAME = 'za-static-v3';
+const CACHE_NAME = 'za-static-v4';
 const STATIC_ASSETS = [
   '/offline.html',
   '/favicon.ico',
@@ -8,9 +8,15 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    }),
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        STATIC_ASSETS.map((asset) =>
+          cache.add(asset).catch(() => {
+            console.warn('[sw] skipped missing precache asset', asset);
+          }),
+        ),
+      ),
+    ),
   );
   self.skipWaiting();
 });

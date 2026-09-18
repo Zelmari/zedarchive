@@ -96,6 +96,30 @@ describe('parseImportFile', () => {
     );
   });
 
+  it('maps Goodreads exclusive shelves, ratings, and authors', () => {
+    const csv = [
+      'Book Id,Title,Author,ISBN,My Rating,Exclusive Shelf',
+      '1,Atomic Habits,James Clear,123,4,read',
+      '2,Dune,Frank Herbert,456,0,to-read',
+      '3,Tomorrow and Tomorrow,Gabrielle Zevin,789,5,currently-reading',
+    ].join('\n');
+    const items = parseImportFile('goodreads.csv', csv);
+    expect(items).toEqual([
+      expect.objectContaining({
+        title: 'Atomic Habits',
+        status: 'completed',
+        rating: 8,
+        notes: 'Author: James Clear',
+      }),
+      expect.objectContaining({ title: 'Dune', status: 'planning', rating: null }),
+      expect.objectContaining({
+        title: 'Tomorrow and Tomorrow',
+        status: 'in_progress',
+        rating: 10,
+      }),
+    ]);
+  });
+
   it('parses Goodreads-style CSV rows', () => {
     const csv = 'Book Id,Title,Author\n1,"Bell Hooks, All About Love",someone\n2,Atomic Habits,x\n';
     const items = parseImportFile('books.csv', csv);
@@ -191,6 +215,36 @@ describe('parseImportFile', () => {
       secondaryUnitTotal: 64,
       rating: 9,
       sourceId: 'mal-5114',
+    });
+  });
+
+  it('parses MyAnimeList manga exports with chapter and volume progress', () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <manga>
+          <manga_mangadb_id>2</manga_mangadb_id>
+          <manga_title>Berserk</manga_title>
+          <series_chapters>364</series_chapters>
+          <series_volumes>41</series_volumes>
+          <my_read_chapters>120</my_read_chapters>
+          <my_read_volumes>12</my_read_volumes>
+          <my_score>10</my_score>
+          <my_status>1</my_status>
+        </manga>
+      </myanimelist>`;
+
+    const items = parseImportFile('mangalist.xml', malXml);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Berserk',
+      category: 'manga',
+      status: 'in_progress',
+      secondaryUnitCurrent: 120,
+      secondaryUnitTotal: 364,
+      primaryUnitCurrent: 12,
+      primaryUnitTotal: 41,
+      rating: 10,
+      sourceId: 'mal-manga-2',
     });
   });
 
@@ -315,6 +369,7 @@ describe('parseImportFile', () => {
       status: 'completed',
       primaryUnitCurrent: 2, // Rewatch
       primaryUnitTotal: 1,
+      rewatchCount: 1,
       rating: 9, // 4.5 * 2 = 9
       tags: ['sci-fi', 'thriller'],
     });

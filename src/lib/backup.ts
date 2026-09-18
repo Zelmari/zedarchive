@@ -59,15 +59,13 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
   const parsed = parser.parse(xmlText) as {
     myanimelist?: {
       anime?: Record<string, unknown> | Array<Record<string, unknown>>;
+      manga?: Record<string, unknown> | Array<Record<string, unknown>>;
     };
   };
 
-  const rawAnime = parsed?.myanimelist?.anime;
-  if (!rawAnime) return [];
-
-  const animeList = Array.isArray(rawAnime) ? rawAnime : [rawAnime];
   const items: ImportDraft[] = [];
-
+  const rawAnime = parsed?.myanimelist?.anime;
+  const animeList = rawAnime ? (Array.isArray(rawAnime) ? rawAnime : [rawAnime]) : [];
   for (const a of animeList) {
     if (!a || typeof a !== 'object') continue;
     const title = String(a.series_title ?? a.title ?? '').trim();
@@ -90,6 +88,35 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
       rating,
       notes: comments || null,
       sourceId: a.series_animedb_id ? `mal-${a.series_animedb_id}` : null,
+    });
+  }
+
+  const rawManga = parsed?.myanimelist?.manga;
+  const mangaList = rawManga ? (Array.isArray(rawManga) ? rawManga : [rawManga]) : [];
+  for (const m of mangaList) {
+    if (!m || typeof m !== 'object') continue;
+    const title = String(m.manga_title ?? m.series_title ?? m.title ?? '').trim();
+    if (!title) continue;
+
+    const totalCh = Number(m.series_chapters) || null;
+    const readCh = Number(m.my_read_chapters) || 0;
+    const totalVol = Number(m.series_volumes) || null;
+    const readVol = Number(m.my_read_volumes) || 0;
+    const score = Number(m.my_score);
+    const rating = !isNaN(score) && score > 0 ? Math.min(10, Math.max(1, Math.round(score))) : null;
+    const comments = m.my_comments ? String(m.my_comments).trim() : null;
+
+    items.push({
+      title,
+      category: 'manga',
+      status: mapListStatus(m.my_status),
+      secondaryUnitCurrent: readCh,
+      secondaryUnitTotal: totalCh && totalCh > 0 ? totalCh : null,
+      primaryUnitCurrent: readVol > 0 ? readVol : 1,
+      primaryUnitTotal: totalVol && totalVol > 0 ? totalVol : 1,
+      rating,
+      notes: comments || null,
+      sourceId: m.manga_mangadb_id ? `mal-manga-${m.manga_mangadb_id}` : null,
     });
   }
 
@@ -227,32 +254,51 @@ export function parseZedArchiveCsv(text: string): ImportDraft[] {
   return items;
 }
 
-function parseGoodreadsCsv(text: string): ImportDraft[] {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length <= 1) throw new Error('CSV file is empty');
+function mapGoodreadsShelf(shelf: string): string {
+  const s = shelf.toLowerCase().trim();
+  if (s === 'read') return 'completed';
+  if (s === 'currently-reading' || s === 'currently reading') return 'in_progress';
+  if (s === 'to-read' || s === 'to read') return 'planning';
+  return mapListStatus(s);
+}
 
-  const headerLine = lines[0] ?? '';
+function parseGoodreadsCsv(text: string): ImportDraft[] {
+  const rows = parseCsvRows(text);
+  if (rows.length <= 1) throw new Error('CSV file is empty');
+
+  const headerLine = (rows[0] ?? []).join(',');
   if (!looksLikeGoodreadsHeader(headerLine)) return [];
 
-  const headers = parseCsvCells(headerLine).map((header) => header.toLowerCase());
+  const headers = (rows[0] ?? []).map((header) => header.toLowerCase());
   const titleIdx = headers.indexOf('title');
   if (titleIdx === -1) return [];
+  const authorIdx = headers.findIndex((h) => h === 'author' || h === 'author l-f');
+  const ratingIdx = headers.indexOf('my rating');
+  const shelfIdx = headers.indexOf('exclusive shelf');
 
   const items: ImportDraft[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCsvCells(lines[i] ?? '');
-    const cleanTitle = cols[titleIdx]?.trim();
-    if (cleanTitle) {
-      items.push({
-        title: cleanTitle,
-        category: 'book',
-        status: 'in_progress',
-        primaryUnitCurrent: 1,
-        primaryUnitTotal: 1,
-        secondaryUnitCurrent: 0,
-        secondaryUnitTotal: null,
-      });
-    }
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i] ?? [];
+    const cleanTitle = cols[titleIdx]?.replace(/^"|"$/g, '').trim();
+    if (!cleanTitle) continue;
+    const author = authorIdx >= 0 ? cols[authorIdx]?.replace(/^"|"$/g, '').trim() : '';
+    const rawRating = ratingIdx >= 0 ? parseFloat(cols[ratingIdx] ?? '') : NaN;
+    const rating =
+      !isNaN(rawRating) && rawRating > 0
+        ? Math.min(10, Math.max(1, Math.round(rawRating <= 5 ? rawRating * 2 : rawRating)))
+        : null;
+    const shelf = shelfIdx >= 0 ? (cols[shelfIdx] ?? '') : '';
+    items.push({
+      title: cleanTitle,
+      category: 'book',
+      status: mapGoodreadsShelf(shelf),
+      rating,
+      notes: author ? `Author: ${author}` : null,
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 0,
+      secondaryUnitTotal: null,
+    });
   }
   return items;
 }
@@ -270,28 +316,42 @@ export function looksLikeLetterboxdHeader(header: string): boolean {
   );
 }
 
-function parseCsvCells(line: string): string[] {
-  const cells: string[] = [];
+function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = '';
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && text[i + 1] === '"') {
         cur += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (ch === ',' && !inQuotes) {
-      cells.push(cur.trim());
+      row.push(cur.trim());
+      cur = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur.trim());
+      if (row.some((cell) => cell.length > 0)) rows.push(row);
+      row = [];
       cur = '';
     } else {
       cur += ch;
     }
   }
-  cells.push(cur.trim());
-  return cells;
+  if (cur.length > 0 || row.length > 0) {
+    row.push(cur.trim());
+    if (row.some((cell) => cell.length > 0)) rows.push(row);
+  }
+  return rows;
+}
+
+function parseCsvCells(line: string): string[] {
+  return parseCsvRows(line)[0] ?? [];
 }
 
 export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft[] {
@@ -353,6 +413,7 @@ export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft
       primaryUnitTotal: 1,
       secondaryUnitCurrent: 0,
       secondaryUnitTotal: null,
+      rewatchCount: isRewatch ? 1 : 0,
       rating,
       notes: review || null,
       tags: tags.length > 0 ? tags : undefined,
