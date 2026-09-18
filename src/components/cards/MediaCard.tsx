@@ -127,13 +127,13 @@ export default function MediaCard({
     }
 
     const totalKnown = secondaryUnitTotal !== null;
-    if (!totalKnown || secondaryUnitCurrent >= (secondaryUnitTotal as number)) {
+    if (totalKnown && secondaryUnitCurrent >= (secondaryUnitTotal as number)) {
       const next = nextSeason(primaryUnitCurrent);
       if (next !== null) {
         void runUpdate({
           primaryUnitCurrent: next,
           secondaryUnitCurrent: 1,
-          secondaryUnitTotal: seasonTotal(structure, next),
+          secondaryUnitTotal: seasonTotal(sortedStructure, next),
         });
       }
       return;

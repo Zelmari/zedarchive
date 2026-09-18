@@ -63,10 +63,7 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
     .filter((e) => e.category === 'book' || e.category === 'manga')
     .reduce((sum, e) => sum + (e.secondaryUnitCurrent || 0), 0);
 
-  const totalMovieMinutes = movieEntries.reduce(
-    (sum, e) => sum + (e.secondaryUnitCurrent || e.secondaryUnitTotal || 0),
-    0,
-  );
+  const totalMovieMinutes = movieEntries.reduce((sum, e) => sum + (e.secondaryUnitCurrent ?? 0), 0);
 
   const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
   const avgRating =
@@ -152,15 +149,15 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     if (entry.category === 'show') completedShows++;
     else if (entry.category === 'movie') {
       completedMovies++;
-      movieMinutesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      movieMinutesWatched += entry.secondaryUnitCurrent ?? 0;
     } else if (entry.category === 'anime') completedAnime++;
     else if (entry.category === 'book') completedBooks++;
     else if (entry.category === 'manga') completedManga++;
 
     if (entry.category === 'show' || entry.category === 'anime') {
-      episodesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      episodesWatched += entry.secondaryUnitCurrent ?? 0;
     } else if (entry.category === 'book' || entry.category === 'manga') {
-      chaptersRead += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      chaptersRead += entry.secondaryUnitCurrent ?? 0;
     }
 
     const dateStr = entry.completedAt || entry.updatedAt || entry.createdAt;

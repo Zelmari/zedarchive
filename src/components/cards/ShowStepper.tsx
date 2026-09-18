@@ -47,7 +47,7 @@ export default function ShowStepper({
         type="button"
         className={stepperBtn}
         onClick={() => onStep(1)}
-        disabled={disabled || (!hasNextUnit && (total === null || current >= total))}
+        disabled={disabled || (total !== null && current >= total && !hasNextUnit)}
         title={
           total !== null && current >= total && hasNextUnit
             ? 'Advance to next season (Ep 1)'
