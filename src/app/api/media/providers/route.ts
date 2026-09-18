@@ -40,27 +40,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const tmdbId = await resolveTmdbId(sourceId, title, category);
+    const headers: Record<string, string> = {
+      Vary: 'cf-ipcountry',
+      'Cache-Control': searchParams.get('country')
+        ? 'public, s-maxage=86400, stale-while-revalidate=43200'
+        : 'private, no-store',
+    };
+
     if (!tmdbId) {
-      return NextResponse.json(
-        { providers: null, country, tmdbId: null },
-        {
-          headers: {
-            'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
-          },
-        },
-      );
+      return NextResponse.json({ providers: null, country, tmdbId: null }, { headers });
     }
 
     const providers = await fetchWatchProviders(tmdbId, category, country);
 
-    return NextResponse.json(
-      { providers, country, tmdbId },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
-        },
-      },
-    );
+    return NextResponse.json({ providers, country, tmdbId }, { headers });
   } catch (error) {
     console.error('Failed to fetch watch providers:', error);
     return NextResponse.json(

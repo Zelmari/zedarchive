@@ -151,6 +151,7 @@ export async function searchUsersForFriendDiscovery(
     .where(
       and(
         ne(userTable.id, currentUserId),
+        eq(userTable.isPublic, true),
         isNotNull(userTable.username),
         ne(userTable.username, ''),
         or(

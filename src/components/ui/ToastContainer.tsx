@@ -18,12 +18,34 @@ interface ToastItemProps {
 
 function ToastItem({ toast, onDismiss }: ToastItemProps) {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onDismiss(toast.id);
-    }, toast.duration || 3000);
+    const duration =
+      toast.duration ?? (toast.type === 'error' ? 8000 : toast.type === 'warning' ? 6000 : 3000);
+    let remaining = duration;
+    let startedAt = Date.now();
+    let timer = window.setTimeout(() => onDismiss(toast.id), remaining);
 
-    return () => clearTimeout(timer);
-  }, [toast.id, toast.duration, onDismiss]);
+    const node = document.getElementById(`za-toast-${toast.id}`);
+    const pause = () => {
+      remaining -= Date.now() - startedAt;
+      window.clearTimeout(timer);
+    };
+    const resume = () => {
+      startedAt = Date.now();
+      timer = window.setTimeout(() => onDismiss(toast.id), Math.max(0, remaining));
+    };
+    node?.addEventListener('mouseenter', pause);
+    node?.addEventListener('mouseleave', resume);
+    node?.addEventListener('focusin', pause);
+    node?.addEventListener('focusout', resume);
+
+    return () => {
+      window.clearTimeout(timer);
+      node?.removeEventListener('mouseenter', pause);
+      node?.removeEventListener('mouseleave', resume);
+      node?.removeEventListener('focusin', pause);
+      node?.removeEventListener('focusout', resume);
+    };
+  }, [toast.id, toast.duration, toast.type, onDismiss]);
 
   const getIcon = () => {
     switch (toast.type) {
@@ -54,12 +76,12 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
   return (
     <div
+      id={`za-toast-${toast.id}`}
       className={cn(
         'za-toast animate-slide-in-toast pointer-events-auto flex items-center gap-[var(--za-space-3)] rounded-small border px-[var(--za-space-4)] py-[var(--za-space-3)] text-ink shadow-layered',
         surfaceClass,
       )}
-      role="status"
-      aria-live="polite"
+      role={toast.type === 'error' ? 'alert' : undefined}
     >
       <span className={cn('flex shrink-0 items-center justify-center', toneClass)}>
         {getIcon()}
