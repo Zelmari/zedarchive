@@ -254,8 +254,8 @@ export function calculateReadingGoalProgress(
 ): ReadingGoalProgress {
   const currentYear = goalConfig.year;
   const startOfYear = new Date(currentYear, 0, 1).getTime();
-  const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59).getTime();
-  const nowTime = Math.min(endOfYear, Math.max(startOfYear, referenceDate.getTime()));
+  const startOfNextYear = new Date(currentYear + 1, 0, 1).getTime();
+  const nowTime = Math.min(startOfNextYear - 1, Math.max(startOfYear, referenceDate.getTime()));
 
   // Completed books/manga in target year
   const completedBooks = entries.filter((e) => {
@@ -268,15 +268,16 @@ export function calculateReadingGoalProgress(
 
   const completedCount = completedBooks.length;
   const target = Math.max(1, goalConfig.annualTarget);
-  const percentage = Math.min(100, Math.round((completedCount / target) * 100));
+  const percentage = Math.round((completedCount / target) * 100);
 
-  const yearFraction = (nowTime - startOfYear) / (endOfYear - startOfYear);
+  const yearLength = startOfNextYear - startOfYear;
+  const yearFraction = (nowTime - startOfYear) / yearLength;
   const expectedCount = Math.round(yearFraction * target * 10) / 10;
   const paceDiff = Math.round((completedCount - expectedCount) * 10) / 10;
 
   const status: 'ahead' | 'on_track' | 'behind' =
     paceDiff >= 1 ? 'ahead' : paceDiff <= -1 ? 'behind' : 'on_track';
-  const totalDaysInYear = (endOfYear - startOfYear) / (1000 * 60 * 60 * 24);
+  const totalDaysInYear = yearLength / (1000 * 60 * 60 * 24);
   const daysPassed = (nowTime - startOfYear) / (1000 * 60 * 60 * 24);
   const daysRemainingInYear = Math.max(0, Math.ceil(totalDaysInYear - daysPassed));
   const projectedFinishCount =

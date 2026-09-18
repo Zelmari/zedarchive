@@ -162,7 +162,7 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
         secondaryUnitTotal: item.media?.episodes ?? item.media?.chapters ?? null,
         coverImage: item.media?.coverImage?.large || null,
         notes: item.notes || null,
-        rating: item.score ? Math.round(item.score / 10) : null,
+        rating: item.score ? Math.max(1, Math.round(item.score / 10)) : null,
         sourceId: item.media?.id ? `anilist-${item.media.id}` : null,
       });
     });
@@ -482,13 +482,14 @@ export function parseSimklJson(json: unknown): ImportDraft[] | null {
     }
   }
 
-  return items.length > 0 ? items : null;
+  return items;
 }
 
 export function parseImportFile(fileName: string, text: string): ImportDraft[] {
   let items: ImportDraft[] = [];
+  const lowerName = fileName.toLowerCase();
 
-  if (fileName.endsWith('.json')) {
+  if (lowerName.endsWith('.json')) {
     const json = JSON.parse(text) as unknown;
     if (Array.isArray(json)) {
       items = (json as unknown[]).filter((item): item is ImportDraft =>
@@ -512,7 +513,7 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
         );
       }
     }
-  } else if (fileName.endsWith('.csv')) {
+  } else if (lowerName.endsWith('.csv')) {
     const zedArchiveItems = parseZedArchiveCsv(text);
     if (zedArchiveItems.length > 0) {
       items = zedArchiveItems;
@@ -525,7 +526,7 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
       }
     }
   } else if (
-    fileName.endsWith('.xml') ||
+    lowerName.endsWith('.xml') ||
     text.trim().startsWith('<?xml') ||
     text.trim().startsWith('<myanimelist>')
   ) {

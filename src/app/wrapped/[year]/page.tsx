@@ -2,6 +2,8 @@ import { getUserProfileById } from '@/server/queries/user';
 import { getMediaEntriesByUserId } from '@/server/queries/media';
 import { requireSession } from '@/server/internal';
 import { calculateYearlyStats } from '@/lib/stats';
+import { parseWrappedYear } from '@/lib/wrapped-year';
+import { notFound } from 'next/navigation';
 import WrappedClient from '@/app/wrapped/WrappedClient';
 
 type PageParams = {
@@ -20,7 +22,8 @@ export default async function AuthenticatedWrappedPage({ params }: PageParams) {
   const { year } = await params;
   const session = await requireSession();
 
-  const targetYear = parseInt(year, 10) || new Date().getFullYear();
+  const targetYear = parseWrappedYear(year);
+  if (targetYear == null) notFound();
 
   const dbUser = await getUserProfileById(session.id);
   const entries = await getMediaEntriesByUserId(session.id);

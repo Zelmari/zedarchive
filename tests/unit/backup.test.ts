@@ -96,6 +96,12 @@ describe('parseImportFile', () => {
     );
   });
 
+  it('reports no entries for a recognized but empty Simkl export', () => {
+    expect(() => parseImportFile('simkl.JSON', '{"shows":[],"movies":[],"anime":[]}')).toThrow(
+      'No valid entries could be parsed from the file.',
+    );
+  });
+
   it('maps Goodreads exclusive shelves, ratings, and authors', () => {
     const csv = [
       'Book Id,Title,Author,ISBN,My Rating,Exclusive Shelf',

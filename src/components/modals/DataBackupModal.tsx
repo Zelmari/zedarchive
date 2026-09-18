@@ -92,7 +92,7 @@ export default function DataBackupModal({
       `"${String(e.dropReason || '').replace(/"/g, '""')}"`,
       e.droppedAt || '',
       e.rating || '',
-      e.primaryUnitCurrent || 1,
+      e.primaryUnitCurrent ?? 1,
       e.primaryUnitTotal || '',
       e.secondaryUnitCurrent || 0,
       e.secondaryUnitTotal || '',

@@ -51,6 +51,7 @@ export function toDateOrNull(value: unknown): Date | null {
 
 export function sanitizeStructure(structure: unknown): StructureItem[] {
   if (!Array.isArray(structure)) return [];
+  const seen = new Set<number>();
   return (structure as Record<string, unknown>[])
     .slice(0, MAX_STRUCTURE_LENGTH)
     .map((item) => {
@@ -60,11 +61,15 @@ export function sanitizeStructure(structure: unknown): StructureItem[] {
         item.total === null || item.total === undefined || item.total === ''
           ? null
           : toInt(item.total, null);
-      return number === null
+      return number === null || number < 1
         ? null
         : { number, name: String(item.name ?? `Season ${number}`).slice(0, 100), total };
     })
-    .filter((item): item is StructureItem => item !== null);
+    .filter((item): item is StructureItem => {
+      if (!item || seen.has(item.number)) return false;
+      seen.add(item.number);
+      return true;
+    });
 }
 
 export function sanitizeTags(tags: unknown): string[] {
@@ -613,7 +618,7 @@ export async function updateMediaProgressForUser(
   if (validatedUpdates.secondaryUnitTotal !== undefined) {
     updateFields.secondaryUnitTotal =
       validatedUpdates.secondaryUnitTotal !== null
-        ? Math.max(0, validatedUpdates.secondaryUnitTotal)
+        ? Math.max(0, validatedUpdates.secondaryUnitTotal) || null
         : null;
   }
 
@@ -642,6 +647,14 @@ export async function updateMediaProgressForUser(
 
   const updated = await domainDb().transaction(async (tx) => {
     const existing = await assertCanWriteMedia(id, userId, tx);
+
+    if (
+      updateFields.primaryUnitCurrent !== undefined &&
+      existing.category !== 'movie' &&
+      updateFields.primaryUnitCurrent < 1
+    ) {
+      updateFields.primaryUnitCurrent = 1;
+    }
 
     if (validatedUpdates._offlineUpdatedAt) {
       if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {

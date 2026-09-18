@@ -781,7 +781,7 @@ export default function MediaDetailModal({
     };
 
     if (targetFamily === 'movie') {
-      patch.primaryUnitCurrent = item.rewatchCount ?? 0;
+      patch.primaryUnitCurrent = (item.rewatchCount ?? 0) + (item.status === 'completed' ? 1 : 0);
       if (item.secondaryUnitTotal != null) {
         // If old secondary is episode-scale, keep secondaryTotal as runtime only if it looks like minutes;
         // otherwise leave as-is if already a runtime. If secondaryUnitTotal missing, do not invent one.
