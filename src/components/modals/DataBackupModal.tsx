@@ -13,6 +13,7 @@ import {
 import Modal from '@/components/ui/Modal';
 import { bulkImportMediaEntries } from '@/server/media';
 import { parseImportBuffer } from '@/lib/backup';
+import { MAX_IMPORT_FILE_BYTES } from '@/lib/constants';
 import type { MediaEntry } from '@/types/media';
 
 interface DataBackupModalProps {
@@ -110,6 +111,15 @@ export default function DataBackupModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setImportStatus({
+        state: 'error',
+        message: `File is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / (1024 * 1024))} MB).`,
+      });
+      e.target.value = '';
+      return;
+    }
+
     setImportStatus({ state: 'loading', message: `Importing ${file.name}...` });
 
     try {
@@ -128,6 +138,8 @@ export default function DataBackupModal({
         state: 'error',
         message: err instanceof Error ? err.message : 'Failed to process import file',
       });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 

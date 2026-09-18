@@ -104,6 +104,35 @@ describe('parseImportFile', () => {
     expect(items[0]?.category).toBe('book');
   });
 
+  it('re-imports a ZedArchive CSV export without treating it as Goodreads', () => {
+    const csv = [
+      'Title,Category,Status,Drop Reason,Dropped At,Rating,Current Primary Unit,Total Primary Units,Current Secondary Unit,Total Secondary Units,Notes,Created At,Completed At',
+      '"Severance",show,completed,"","",9,1,2,9,9,"Office horror","2026-01-01T00:00:00.000Z","2026-04-10T00:00:00.000Z"',
+      '"Dune",book,in_progress,"","",,1,1,120,600,"","2026-02-01T00:00:00.000Z",',
+    ].join('\n');
+
+    const items = parseImportFile('zedarchive-export-2026-09-18.csv', csv);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Severance',
+      category: 'show',
+      status: 'completed',
+      rating: 9,
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 2,
+      secondaryUnitCurrent: 9,
+      secondaryUnitTotal: 9,
+      notes: 'Office horror',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Dune',
+      category: 'book',
+      status: 'in_progress',
+      secondaryUnitCurrent: 120,
+      secondaryUnitTotal: 600,
+    });
+  });
+
   it('throws on an empty CSV', () => {
     expect(() => parseImportFile('empty.csv', 'Book Id,Title\n')).toThrow('CSV file is empty');
   });
@@ -312,5 +341,12 @@ describe('parseImportFile', () => {
       status: 'planning',
       primaryUnitCurrent: 1,
     });
+  });
+});
+
+describe('decompressGzip', () => {
+  it('rejects decompressed payloads that exceed the size cap', async () => {
+    const gzippedBuffer = await compressToGzip('x'.repeat(64));
+    await expect(decompressGzip(gzippedBuffer, 16)).rejects.toThrow('too large');
   });
 });

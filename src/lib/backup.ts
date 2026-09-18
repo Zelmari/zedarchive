@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { MediaCycle } from '@/types/media';
+import { MAX_GUNZIP_BYTES, MAX_IMPORT_FILE_BYTES } from '@/lib/constants';
 
 export interface ImportDraft {
   title: string;
@@ -144,7 +145,86 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
 
 function looksLikeGoodreadsHeader(header: string): boolean {
   const h = header.toLowerCase();
-  return h.includes('book id') || h.includes('title');
+  return (
+    h.includes('book id') ||
+    h.includes('exclusive shelf') ||
+    h.includes('isbn') ||
+    h.includes('my rating')
+  );
+}
+
+function looksLikeZedArchiveCsvHeader(header: string): boolean {
+  const h = header.toLowerCase();
+  return (
+    h.includes('title') &&
+    h.includes('category') &&
+    h.includes('status') &&
+    (h.includes('current primary unit') || h.includes('current secondary unit'))
+  );
+}
+
+function headerIndex(headers: string[], name: string): number {
+  return headers.indexOf(name.toLowerCase());
+}
+
+function csvCell(cols: string[], index: number): string {
+  return index >= 0 ? (cols[index] ?? '').replace(/^"|"$/g, '').trim() : '';
+}
+
+function parseOptionalNumber(value: string): number | null {
+  if (!value) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseZedArchiveCsv(text: string): ImportDraft[] {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length <= 1) return [];
+
+  const headerLine = lines[0] ?? '';
+  if (!looksLikeZedArchiveCsvHeader(headerLine)) return [];
+
+  const headers = parseCsvCells(headerLine).map((header) => header.toLowerCase());
+  const titleIdx = headerIndex(headers, 'title');
+  if (titleIdx === -1) return [];
+
+  const categoryIdx = headerIndex(headers, 'category');
+  const statusIdx = headerIndex(headers, 'status');
+  const dropReasonIdx = headerIndex(headers, 'drop reason');
+  const droppedAtIdx = headerIndex(headers, 'dropped at');
+  const ratingIdx = headerIndex(headers, 'rating');
+  const primaryCurrentIdx = headerIndex(headers, 'current primary unit');
+  const primaryTotalIdx = headerIndex(headers, 'total primary units');
+  const secondaryCurrentIdx = headerIndex(headers, 'current secondary unit');
+  const secondaryTotalIdx = headerIndex(headers, 'total secondary units');
+  const notesIdx = headerIndex(headers, 'notes');
+  const createdAtIdx = headerIndex(headers, 'created at');
+  const completedAtIdx = headerIndex(headers, 'completed at');
+
+  const items: ImportDraft[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvCells(lines[i] ?? '');
+    const title = csvCell(cols, titleIdx);
+    if (!title) continue;
+
+    const rating = parseOptionalNumber(csvCell(cols, ratingIdx));
+    items.push({
+      title,
+      category: csvCell(cols, categoryIdx) || 'show',
+      status: csvCell(cols, statusIdx) || 'in_progress',
+      dropReason: csvCell(cols, dropReasonIdx) || null,
+      droppedAt: csvCell(cols, droppedAtIdx) || null,
+      rating: rating && rating > 0 ? Math.min(10, Math.max(1, Math.round(rating))) : null,
+      primaryUnitCurrent: parseOptionalNumber(csvCell(cols, primaryCurrentIdx)) ?? undefined,
+      primaryUnitTotal: parseOptionalNumber(csvCell(cols, primaryTotalIdx)),
+      secondaryUnitCurrent: parseOptionalNumber(csvCell(cols, secondaryCurrentIdx)) ?? undefined,
+      secondaryUnitTotal: parseOptionalNumber(csvCell(cols, secondaryTotalIdx)),
+      notes: csvCell(cols, notesIdx) || null,
+      createdAt: csvCell(cols, createdAtIdx) || null,
+      completedAt: csvCell(cols, completedAtIdx) || null,
+    });
+  }
+  return items;
 }
 
 function parseGoodreadsCsv(text: string): ImportDraft[] {
@@ -372,11 +452,16 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
       }
     }
   } else if (fileName.endsWith('.csv')) {
-    const letterboxdItems = parseLetterboxdCsv(text, fileName);
-    if (letterboxdItems.length > 0) {
-      items = letterboxdItems;
+    const zedArchiveItems = parseZedArchiveCsv(text);
+    if (zedArchiveItems.length > 0) {
+      items = zedArchiveItems;
     } else {
-      items = parseGoodreadsCsv(text);
+      const letterboxdItems = parseLetterboxdCsv(text, fileName);
+      if (letterboxdItems.length > 0) {
+        items = letterboxdItems;
+      } else {
+        items = parseGoodreadsCsv(text);
+      }
     }
   } else if (
     fileName.endsWith('.xml') ||
@@ -403,7 +488,10 @@ export function isGzip(buffer: ArrayBuffer | Uint8Array): boolean {
 /**
  * Decompress a gzip ArrayBuffer or Uint8Array using web-standard DecompressionStream.
  */
-export async function decompressGzip(buffer: ArrayBuffer | Uint8Array): Promise<string> {
+export async function decompressGzip(
+  buffer: ArrayBuffer | Uint8Array,
+  maxBytes = MAX_GUNZIP_BYTES,
+): Promise<string> {
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
@@ -411,8 +499,28 @@ export async function decompressGzip(buffer: ArrayBuffer | Uint8Array): Promise<
     },
   });
   const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
-  const response = new Response(decompressedStream);
-  return await response.text();
+  const reader = decompressedStream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error('Decompressed file is too large');
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8').decode(merged);
 }
 
 /**
@@ -422,6 +530,9 @@ export async function parseImportBuffer(
   fileName: string,
   buffer: ArrayBuffer,
 ): Promise<ImportDraft[]> {
+  if (buffer.byteLength > MAX_IMPORT_FILE_BYTES) {
+    throw new Error('Import file is too large');
+  }
   if (fileName.endsWith('.gz') || isGzip(buffer)) {
     const decompressed = await decompressGzip(buffer);
     const resolvedName = fileName.replace(/\.gz$/i, '');
