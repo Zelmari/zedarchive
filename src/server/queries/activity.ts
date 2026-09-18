@@ -40,7 +40,7 @@ export async function getYearlyActivityHeatmapForUser(
 
   // Phase 3: when the viewer is not the owner, join against media_entries and
   // filter out logs that originate from private or group entries.
-  const isPublicView = viewerUserId !== userId;
+  const isPublicView = viewerUserId !== undefined && viewerUserId !== userId;
 
   let rows: Array<{ day: unknown; count: unknown }>;
 

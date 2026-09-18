@@ -20,5 +20,5 @@ export async function getUserStreak(): Promise<{ streak: number }> {
 
 export async function getActivityHeatmap(): Promise<Record<string, number>> {
   const user = await getAuthUser();
-  return getYearlyActivityHeatmapForUser(user.id);
+  return getYearlyActivityHeatmapForUser(user.id, user.id);
 }
