@@ -99,11 +99,36 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
 }
 
 export function extractEntryYear(entry: MediaEntry): number | null {
-  const dateStr = entry.completedAt || entry.updatedAt || entry.createdAt;
+  const dateStr = entry.completedAt;
   if (!dateStr) return null;
   const d = new Date(dateStr);
   const y = d.getFullYear();
   return isNaN(y) ? null : y;
+}
+
+function yearsForEntry(entry: MediaEntry): Set<number> {
+  const years = new Set<number>();
+  const add = (value: string | null | undefined) => {
+    if (!value) return;
+    const y = new Date(value).getFullYear();
+    if (!isNaN(y) && y >= 2000) years.add(y);
+  };
+  add(entry.completedAt);
+  for (const cycle of entry.cycles ?? []) {
+    add(cycle.completedAt);
+  }
+  return years;
+}
+
+function completionDateInYear(entry: MediaEntry, year: number): string | null {
+  const dates = [
+    entry.completedAt,
+    ...(entry.cycles ?? []).map((cycle) => cycle.completedAt),
+  ].filter((value): value is string => Boolean(value));
+  for (const dateStr of dates) {
+    if (new Date(dateStr).getFullYear() === year) return dateStr;
+  }
+  return null;
 }
 
 export function getAvailableYears(entries: MediaEntry[]): number[] {
@@ -112,9 +137,10 @@ export function getAvailableYears(entries: MediaEntry[]): number[] {
   yearsSet.add(currentYear);
 
   for (const entry of entries) {
-    const y = extractEntryYear(entry);
-    if (y && y >= 2000 && y <= currentYear + 1) {
-      yearsSet.add(y);
+    for (const y of yearsForEntry(entry)) {
+      if (y >= 2000 && y <= currentYear + 1) {
+        yearsSet.add(y);
+      }
     }
   }
 
@@ -125,12 +151,7 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
   const availableYears = getAvailableYears(entries);
 
   // Entries completed in this year
-  const completedInYear = entries.filter((e) => {
-    if (e.status !== 'completed') return false;
-    const dateStr = e.completedAt || e.updatedAt || e.createdAt;
-    if (!dateStr) return false;
-    return new Date(dateStr).getFullYear() === year;
-  });
+  const completedInYear = entries.filter((e) => yearsForEntry(e).has(year));
 
   // Category counts
   let completedShows = 0;
@@ -160,7 +181,7 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
       chaptersRead += entry.secondaryUnitCurrent ?? 0;
     }
 
-    const dateStr = entry.completedAt || entry.updatedAt || entry.createdAt;
+    const dateStr = completionDateInYear(entry, year);
     if (dateStr) {
       const month = new Date(dateStr).getMonth();
       if (month >= 0 && month < 12) {

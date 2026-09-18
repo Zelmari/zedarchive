@@ -122,6 +122,10 @@ export function sanitizeCycles(
     if (list.length > 0) return list;
   }
 
+  if (!fallbackStart && !fallbackEnd) {
+    return [];
+  }
+
   const fallbackSeed = {
     cycleNumber: 1,
     startedAt:
@@ -672,6 +676,9 @@ export async function updateMediaProgressForUser(
     }
 
     if (validatedUpdates.rewatch === true) {
+      if (existing.status !== 'completed') {
+        throw new Error('Rewatch can only be started from a completed title');
+      }
       const existingCycles = sanitizeCycles(
         existing.cycles,
         existing.startedAt,
@@ -703,6 +710,10 @@ export async function updateMediaProgressForUser(
         updateFields.completedAt = null;
         updateFields.primaryUnitCurrent = 1;
         updateFields.secondaryUnitCurrent = 0;
+        const seasonOne = sanitizeStructure(existing.structure).find((item) => item.number === 1);
+        if (seasonOne && seasonOne.total != null) {
+          updateFields.secondaryUnitTotal = seasonOne.total;
+        }
       }
     } else if (updateFields.status === 'completed') {
       const currentCycles =
@@ -1113,8 +1124,31 @@ export async function reorderPriorityQueueForUser(
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) return;
 
   await domainDb().transaction(async (tx) => {
-    for (let i = 0; i < orderedIds.length; i++) {
-      const mediaId = orderedIds[i]!;
+    const queued = await tx
+      .select({ id: mediaEntries.id })
+      .from(mediaEntries)
+      .where(
+        and(
+          eq(mediaEntries.userId, userId),
+          isNotNull(mediaEntries.priorityIndex),
+          isNull(mediaEntries.groupId),
+        ),
+      );
+
+    const queuedIds = new Set(queued.map((row) => row.id));
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const id of orderedIds) {
+      if (!queuedIds.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      ordered.push(id);
+    }
+    for (const row of queued) {
+      if (!seen.has(row.id)) ordered.push(row.id);
+    }
+
+    for (let i = 0; i < ordered.length; i++) {
+      const mediaId = ordered[i]!;
       await tx
         .update(mediaEntries)
         .set({ priorityIndex: i + 1, updatedAt: new Date() })
