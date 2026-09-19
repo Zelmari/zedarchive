@@ -91,7 +91,7 @@ test.describe('mouse-first dashboard navigation & dialogs', () => {
     const calendar = page.getByRole('dialog', { name: /Weekly Airing Schedule/i });
     await expect(calendar).toBeVisible();
     await expect(calendar.locator('.za-modal-close')).toHaveCount(1);
-    await calendar.getByRole('button', { name: 'Close calendar' }).click();
+    await calendar.locator('.za-modal-close').click();
     await expect(calendar).toBeHidden();
 
     await page.getByRole('button', { name: 'Add Media' }).click();
@@ -100,7 +100,7 @@ test.describe('mouse-first dashboard navigation & dialogs', () => {
     });
     await expect(spotlight).toBeVisible();
     await expect(spotlight.locator('.za-modal-close')).toHaveCount(1);
-    await spotlight.getByRole('button', { name: 'Close modal' }).click();
+    await spotlight.locator('.za-modal-close').click();
     await expect(spotlight).toBeHidden();
 
     await page.keyboard.press('ControlOrMeta+k');

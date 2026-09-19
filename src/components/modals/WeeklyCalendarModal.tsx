@@ -275,7 +275,7 @@ export default function WeeklyCalendarModal({
           One-click episode logging
         </span>
         <button type="button" onClick={onClose} className="za-button za-button--secondary text-xs">
-          Close Calendar
+          Done
         </button>
       </div>
     </Modal>
