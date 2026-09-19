@@ -41,9 +41,10 @@ export default function ConfirmModal({
       labelledBy="confirm-modal-title"
       describedBy="confirm-modal-message"
       initialFocusRef={isDanger ? cancelBtnRef : confirmBtnRef}
+      closeLabel="Close confirmation"
       contentClassName="max-w-[28rem] overflow-hidden"
     >
-      <div className="flex gap-[var(--za-space-4)] bg-surface p-[var(--za-space-6)]">
+      <div className="flex gap-[var(--za-space-4)] bg-surface p-[var(--za-space-6)] pr-14">
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-small border ${
             isDanger

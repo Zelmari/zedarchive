@@ -122,6 +122,8 @@ export default function GroupSettingsModal({
       isOpen
       onClose={onClose}
       ariaLabel="Group Settings"
+      hideClose
+      closeLabel="Close group settings"
       contentClassName="max-h-[90vh] max-w-xl overflow-y-auto p-6"
     >
       <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">

@@ -1205,6 +1205,10 @@ select.za-field {
   box-shadow: 0 2px 6px color-mix(in srgb, var(--za-color-accent) 40%, transparent);
 }
 
+.za-ribbon-bookmark--beside-close {
+  inset-inline-end: 3.5rem;
+}
+
 .za-gold-stamp {
   display: inline-flex;
   align-items: center;

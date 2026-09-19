@@ -36,6 +36,7 @@ Designed from the ground up for zero-latency tracking across **television series
 - **Open Web Syndication:** Automatic RSS 2.0 (`/u/[username]/rss.xml`) and Atom 1.0 (`/u/[username]/atom.xml`) feeds with strict privacy leak guarantees.
 - **Custom Color Studio & WCAG 2.1 Validator:** 5 pre-built aesthetic themes plus a live palette editor with mathematical relative luminance contrast verification (`AAA`/`AA`).
 - **Data Sovereignty & Universal Importer:** Full JSON/CSV/Markdown library exports alongside a multi-format importer supporting ZedArchive, AniList, Simkl, Goodreads, Letterboxd, and MyAnimeList (`.xml.gz` streaming decompression).
+- **Discord Companion (`bot/`):** Slash-command library logging, folio editing, airdate radar, and HMAC-linked accounts without a second database.
 
 ---
 
@@ -104,14 +105,14 @@ flowchart TD
 
 ### Hosting & Infrastructure Breakdown
 
-| Component                   | Responsibility                                                                         | Technology / Host                                     | Key Technical Characteristics                                                                   |
-| :-------------------------- | :------------------------------------------------------------------------------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-| **Edge Compute Runtime**    | Next.js 16 App Router, RSC, Server Actions, Route Handlers                             | **Cloudflare Workers** (via `@opennextjs/cloudflare`) | Zero cold starts, execution within V8 isolates across 300+ edge locations worldwide.            |
-| **Relational Database**     | User accounts, credentials, media entries, tags, cycles, quotes, anthologies, comments | **PostgreSQL (Supabase / Self-Hosted Docker)**        | Drizzle ORM query builder, pooled TCP connections, atomic cascade wipe constraints.             |
-| **Offline Engine & Outbox** | Queued mutations, progress updates, review drafts, offline UI shell                    | **IndexedDB (`za_offline_db`) + Service Worker**      | Optimistic UI updates with rollback, exponential backoff sync, and dead-letter safety.          |
-| **Static Assets & Media**   | CSS, JS bundles, branding icons, UI fonts, compressed covers                           | **Cloudflare Workers Asset Binding (`ASSETS`)**       | Global cache-control headers (`s-maxage`, `immutable`) with stale-while-revalidate.             |
-| **Metadata Aggregation**    | Multi-media title search, season structures, streaming badges, filler guides           | **Federated External APIs + Postgres Cache**          | On-demand search with Postgres TTL cache (`external_api_cache`) to prevent API rate exhaustion. |
-| **Transactional Email**     | Password resets, email verification links                                              | **Resend REST API**                                   | Signed HMAC tokens, anti-enumeration security timing, and 1-hour expiration windows.            |
+| Component                   | Responsibility                                                                                        | Technology / Host                                     | Key Technical Characteristics                                                                   |
+| :-------------------------- | :---------------------------------------------------------------------------------------------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+| **Edge Compute Runtime**    | Next.js 16 App Router, RSC, Server Actions, Route Handlers                                            | **Cloudflare Workers** (via `@opennextjs/cloudflare`) | Zero cold starts, execution within V8 isolates across 300+ edge locations worldwide.            |
+| **Relational Database**     | User accounts, credentials, media entries, tags, cycles, quotes, anthologies, comments, Discord links | **PostgreSQL 16 (Supabase / Self-Hosted Docker)**     | Drizzle ORM query builder, pooled TCP connections, atomic cascade wipe constraints.             |
+| **Offline Engine & Outbox** | Queued mutations, progress updates, review drafts, offline UI shell                                   | **IndexedDB (`za_offline_db`) + Service Worker**      | Optimistic UI updates with rollback, exponential backoff sync, and dead-letter safety.          |
+| **Static Assets & Media**   | CSS, JS bundles, branding icons, UI fonts, compressed covers                                          | **Cloudflare Workers Asset Binding (`ASSETS`)**       | Global cache-control headers (`s-maxage`, `immutable`) with stale-while-revalidate.             |
+| **Metadata Aggregation**    | Multi-media title search, season structures, streaming badges, filler guides                          | **Federated External APIs + Postgres Cache**          | On-demand search with Postgres TTL cache (`external_api_cache`) to prevent API rate exhaustion. |
+| **Transactional Email**     | Password resets, email verification links                                                             | **Resend REST API**                                   | Signed HMAC tokens, anti-enumeration security timing, and 1-hour expiration windows.            |
 
 ---
 
@@ -209,9 +210,9 @@ sequenceDiagram
 
 Cover art and user avatars are compressed directly inside the browser using HTML5 Canvas (`src/lib/client/image-utils.ts`) before being uploaded or stored:
 
-- **Dimension Clamping:** Avatars are clamped to 256×256 pixels; media covers are clamped to 400×600 pixels (standard 2:3 book/poster ratio).
-- **Format Fallback:** Images are converted to WebP (`quality: 0.85`), falling back to JPEG if WebP encoding is unsupported by the browser.
-- **Decompression Bomb Protection:** Strict guards verify image dimensions prior to rendering: images exceeding 4096×4096 px or raw files larger than 10MB are rejected immediately to prevent browser memory exhaustion.
+- **Dimension Clamping:** Avatars are clamped to 256×256 pixels; media covers are clamped to 320×480 pixels (standard 2:3 book/poster ratio).
+- **Format Fallback:** Images are converted to WebP (`quality: 0.85` for avatars, `0.7` for covers), falling back to JPEG if WebP encoding is unsupported by the browser.
+- **Decompression Bomb Protection:** The browser rejects source images larger than 4000×4000 px or 10MB before canvas decode. The `/api/assets/upload` Sharp pipeline additionally rejects payloads over 10MB or 4096×4096 px.
 
 ---
 
@@ -268,19 +269,19 @@ ZedArchive features an editorial design system built on CSS design tokens (`--za
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           THEME PALETTES                                │
 ├──────────────────┬──────────────────────────────────────────────────────┤
-│ 📜 Parchment     │ Warm linen canvas (#f7f5f0), high-contrast obsidian  │
-│ (Default)        │ ink (#242321), and tactile paper surfaces.           │
+│ 📜 Parchment     │ Warm linen canvas (#f7f4ee), high-contrast ink        │
+│ (Default)        │ (#201e1b), burgundy ribbon, and gold leaf.            │
 ├──────────────────┼──────────────────────────────────────────────────────┤
-│ 🌑 Midnight      │ Deep graphite canvas (#121316), obsidian cards, and  │
-│                  │ crisp neutral-white typography.                      │
+│ 🌑 Midnight      │ Deep graphite canvas (#121316), slate cards, and      │
+│                  │ warm gold leaf with quiet contrast.                   │
 ├──────────────────┼──────────────────────────────────────────────────────┤
-│ 📖 Sepia         │ Aged parchment (#f4ebd9), warm terracotta ink, and   │
-│                  │ classic literary binding tones.                      │
+│ 📖 Vintage Sepia │ Aged book paper (#f2e8d6), terracotta ribbon, and     │
+│                  │ botanical ink (#3a2a1a).                              │
 ├──────────────────┼──────────────────────────────────────────────────────┤
 │ ⬛ E-Ink         │ High-contrast monochrome (#ffffff / #000000) styled  │
 │                  │ after physical electronic ink readers.               │
 ├──────────────────┼──────────────────────────────────────────────────────┤
-│ 📟 Phosphor      │ Cyber-retro terminal (#090e09) with luminous green   │
+│ 📟 Phosphor Cyber│ Retro terminal (#090e09) with luminous green          │
 │                  │ phosphor accents (#22c55e).                          │
 ├──────────────────┼──────────────────────────────────────────────────────┤
 │ 🎨 Custom Studio │ User-authored hex palette with real-time WCAG 2.1    │
@@ -297,6 +298,7 @@ ZedArchive features an editorial design system built on CSS design tokens (`--za
 - **Command Palette (`Cmd+K` / `Ctrl+K`):** Global fuzzy-search modal to jump to any title, switch themes, open stats, or launch the weekly schedule drawer.
 - **Spotlight Search-First Add Flow:** Search TV shows (TVMaze), Movies (TMDB), Anime/Manga (AniList), and Books (Google Books/OpenLibrary) with automatic season structures and cover artwork.
 - **Granular Progress Steppers:** Season-aware episode advancing, volume/chapter steppers, and movie minute logging with 1-click completion triggers.
+- **Row & Poster Archive Layouts:** Compact cover-on-the-left rows or classic poster cards, persisted per browser.
 - **DNF / Drop Reason Tracking:** Record specific drop reasons (e.g., _"Pacing fell off after season 2"_) and last-read milestones without skewing library completion metrics.
 - **Multi-Cycle Rewatches & Rereads:** Track repeated viewings with individual start/completion dates, per-cycle ratings, and notes.
 - **Favorite Quotes Repository:** Collect memorable dialogue and excerpts with speaker attribution, chapter/timecode citations, and 1-click formatted clipboard export.
@@ -310,6 +312,7 @@ ZedArchive features an editorial design system built on CSS design tokens (`--za
 - **Ephemeral Guestbook:** 7-day auto-expiring guestbook notes on public profiles with an anti-abuse reciprocity requirement (commenters must possess a public handle).
 - **Collaborative Group Workspaces (`/groups`):** Shared group archives, member permission roles (Owner/Member), and 7-day ephemeral group chat.
 - **Mutual Friendship System (`/friends`):** Direct friend discovery, incoming/outgoing request management, and friend-only group invitations.
+- **Discord Companion Bot (`bot/`):** Slash-command logging, folio editing, airdate radar, and HMAC account linking from Discord guilds or DMs.
 
 ### 📊 Analytics, Radar & Syndication
 
@@ -325,7 +328,7 @@ ZedArchive features an editorial design system built on CSS design tokens (`--za
 
 ## 🗄️ Database Schema Reference
 
-The database consists of 18 relational tables managed via Drizzle ORM:
+The database consists of 20 relational tables managed via Drizzle ORM:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -354,6 +357,8 @@ The database consists of 18 relational tables managed via Drizzle ORM:
 │ groups               │ Collaborative group workspaces and shared archives  │
 │ group_members        │ Group membership and role assignments (owner/member) │
 │ group_messages       │ 7-day TTL group chat messages with markdown/spoilers │
+│ discord_links        │ One-to-one Discord user ↔ ZedArchive account links   │
+│ discord_link_codes   │ Single-use HMAC linking codes (10-minute expiry)     │
 └──────────────────────┴──────────────────────────────────────────────────────┘
 ```
 
@@ -363,20 +368,20 @@ The database consists of 18 relational tables managed via Drizzle ORM:
 
 ZedArchive exposes clean, cache-optimized Route Handlers for external integrations:
 
-| Endpoint                 | Method        | Cache Control      | Purpose                                                |
-| :----------------------- | :------------ | :----------------- | :----------------------------------------------------- |
-| `/api/auth/[...all]`     | `GET`, `POST` | Dynamic            | Better Auth authentication catch-all endpoint.         |
-| `/api/search/shows`      | `GET`         | `s-maxage=86400`   | TV series search via TVMaze.                           |
-| `/api/search/movies`     | `GET`         | `s-maxage=3600`    | Movie search via TMDB API.                             |
-| `/api/search/anime`      | `GET`         | `s-maxage=86400`   | Anime and manga search via AniList GraphQL.            |
-| `/api/search/books`      | `GET`         | `s-maxage=86400`   | Book and volume search via OpenLibrary / Google Books. |
-| `/api/search/users`      | `GET`         | `s-maxage=10`      | Fast username/handle autocomplete for public archives. |
-| `/api/shows/airdate`     | `GET`         | `max-age=21600`    | Batch airdate lookup for in-progress series.           |
-| `/api/anime/filler`      | `GET`         | `s-maxage=2592000` | Episode-by-episode filler/canon breakdown via Jikan.   |
-| `/api/media/providers`   | `GET`         | `s-maxage=86400`   | Country-aware streaming provider availability badges.  |
-| `/api/assets/upload`     | `POST`        | Private            | Sanitized image upload and WebP transcoding endpoint.  |
-| `/u/[username]/rss.xml`  | `GET`         | `s-maxage=3600`    | Public archive RSS 2.0 XML feed.                       |
-| `/u/[username]/atom.xml` | `GET`         | `s-maxage=3600`    | Public archive Atom 1.0 XML feed.                      |
+| Endpoint                 | Method        | Cache Control       | Purpose                                                    |
+| :----------------------- | :------------ | :------------------ | :--------------------------------------------------------- |
+| `/api/auth/[...all]`     | `GET`, `POST` | Dynamic             | Better Auth authentication catch-all endpoint.             |
+| `/api/search/shows`      | `GET`         | `s-maxage=3600`     | TV series search via TVMaze.                               |
+| `/api/search/movies`     | `GET`         | `s-maxage=3600`     | Movie search via TMDB API.                                 |
+| `/api/search/anime`      | `GET`         | `s-maxage=3600`     | Anime and manga search via AniList GraphQL.                |
+| `/api/search/books`      | `GET`         | `s-maxage=3600`     | Book and volume search via OpenLibrary / Google Books.     |
+| `/api/search/users`      | `GET`         | `s-maxage=10`       | Fast username/handle autocomplete for **public** archives. |
+| `/api/shows/airdate`     | `GET`         | `private, no-store` | Authenticated batch airdate lookup for in-progress series. |
+| `/api/anime/filler`      | `GET`         | `s-maxage=2592000`  | Episode-by-episode filler/canon breakdown via Jikan.       |
+| `/api/media/providers`   | `GET`         | `s-maxage=86400`    | Country-aware streaming provider availability badges.      |
+| `/api/assets/upload`     | `POST`        | Private             | Sanitized image upload and WebP transcoding endpoint.      |
+| `/u/[username]/rss.xml`  | `GET`         | `s-maxage=3600`     | Public archive RSS 2.0 XML feed.                           |
+| `/u/[username]/atom.xml` | `GET`         | `s-maxage=3600`     | Public archive Atom 1.0 XML feed.                          |
 
 ---
 
@@ -386,42 +391,61 @@ The codebase maintains automated test coverage across unit, integration, and end
 
 ```
 tests/
-├── unit/                       # 17 Unit Test Suites (Vitest)
-│   ├── airdate.test.ts         # Broadcast date computation & timezone parsing
-│   ├── backup.test.ts          # Multi-platform JSON/CSV/XML parser roundtrips
-│   ├── calendar.test.ts        # Weekly schedule drawer date windowing
-│   ├── color.test.ts           # WCAG 2.1 mathematical luminance & contrast ratio validation
-│   ├── email.test.ts           # Transactional HTML email template generation
-│   ├── filler-guide.test.ts    # Jikan/MAL filler episode map resolvers
-│   ├── format.test.ts          # Text formatting, initials, and date formatters
-│   ├── handles.test.ts         # Username handle sanitization & regex rules
-│   ├── heatmap.test.ts         # 52-week activity cell bucketing algorithms
-│   ├── markdown.test.tsx       # CommonMark parser and HTML sanitizer
-│   ├── quotes.test.ts          # Quote attribution and clipboard string formatting
-│   ├── season.test.ts          # Non-linear season progress stepping math
-│   ├── serialize.test.ts       # Database-to-client DTO serialization
-│   ├── spoilers.test.tsx       # Accessible click-to-reveal spoiler blackout components
-│   ├── stats.test.ts           # Reading pace calculation and archive stats math
-│   ├── sw-assets.test.ts       # Service worker precache manifest integrity
-│   ├── taste-match.test.ts     # Taste comparison set intersection algorithms
-│   └── tmdb.test.ts            # TMDB ID resolution and JustWatch provider extraction
-├── integration/                # 10 Integration Test Suites (Vitest)
-│   ├── account-deletion.test.ts# Atomic multi-table cascade deletion integrity
-│   ├── airdate-route.test.ts   # Airdate batch lookup route handler
-│   ├── comments.test.ts        # Ephemeral comments & reciprocity gate verification
-│   ├── email-verification.ts   # Better Auth email verification token flow
-│   ├── image-upload.test.ts    # Sharp/Canvas image transcoding & size limits
-│   ├── media-actions.test.ts   # Server Actions (CRUD, steppers, rewatches)
-│   ├── movie-search.test.ts    # TMDB search integration with fallback handling
-│   ├── password-reset.test.ts  # Secure password reset token lifecycle
-│   ├── profile.test.ts         # User profile and custom theme update actions
-│   └── user-search.test.ts     # Public profile search DAL query verification
-└── e2e/                        # 5 End-to-End Test Suites (Playwright)
-    ├── auth.spec.ts            # User registration, email verification, sign-in & sign-out
-    ├── backup-roundtrip.spec.ts# Exporting archive and restoring via importer
-    ├── dashboard-shortcuts.spec# Command palette (Cmd+K) and keyboard navigation
-    ├── media-lifecycle.spec.ts # End-to-end title addition, progress stepping, and completion
-    └── public-profile.spec.ts  # Public archive discovery, guestbook, and taste matching
+├── unit/                          # 32 Unit Test Suites (Vitest)
+│   ├── anime-search.test.ts       # AniList GraphQL search parsing
+│   ├── backup.test.ts             # Multi-platform JSON/CSV/XML parser roundtrips
+│   ├── bot-catalog-draft.test.ts  # Discord /add catalog draft inspector
+│   ├── bot-cover-attachment.test.ts # Discord folio cover attachments
+│   ├── bot-drafts.test.ts         # In-memory Discord draft store
+│   ├── bot-folio.test.ts          # Discord folio embed builders
+│   ├── bot-labels.test.ts         # Discord component labels
+│   ├── bot-mutation-ids.test.ts   # Compact customId collision guards
+│   ├── bot-progress-format.test.ts# Discord progress copy formatting
+│   ├── bot-rate-limiter.test.ts   # Discord command rate limiter
+│   ├── bot-search-cache.test.ts   # Discord search cache TTLs
+│   ├── calendar.test.ts           # Weekly schedule drawer date windowing
+│   ├── card-layout.test.ts        # Row vs poster archive layout persistence
+│   ├── color.test.ts              # WCAG 2.1 luminance & contrast ratio validation
+│   ├── email.test.ts              # Transactional HTML email template generation
+│   ├── filler-guide.test.ts       # Jikan/MAL filler episode map resolvers
+│   ├── format.test.ts             # Text formatting, initials, and date formatters
+│   ├── handles.test.ts            # Username handle sanitization & reserved names
+│   ├── ilike.test.ts              # ILIKE wildcard escaping for profile/library search
+│   ├── markdown.test.tsx          # CommonMark parser and HTML sanitizer
+│   ├── media-unit-fields.test.ts  # Season/volume/movie/book unit field mapping
+│   ├── offline-mutation.test.ts   # Offline outbox conflict & network failure handling
+│   ├── season.test.ts             # Non-linear season progress stepping math
+│   ├── serialize.test.ts          # Database-to-client DTO serialization
+│   ├── social-preview.test.ts     # Open Graph / social link preview payloads
+│   ├── spoilers.test.tsx          # Accessible click-to-reveal spoiler blackout
+│   ├── stats.test.ts              # Wrapped year attribution and archive stats math
+│   ├── sw-assets.test.ts          # Service worker precache manifest integrity
+│   ├── sync-engine.test.ts        # IndexedDB outbox replay and dead-letter queue
+│   ├── taste-match.test.ts        # Taste comparison set intersection algorithms
+│   ├── tmdb.test.ts               # TMDB ID resolution and JustWatch provider extraction
+│   └── use-media-filters.test.ts  # Dashboard search, sort, and shelf filter hook
+├── integration/                   # 13 Integration Test Suites (Vitest)
+│   ├── account-deletion.test.ts   # Atomic cascade deletion and password verification
+│   ├── airdate-route.test.ts      # Authenticated airdate batch lookup route
+│   ├── bot-resolve-title.test.ts  # Discord title resolution against the library
+│   ├── comments.test.ts           # Ephemeral comments & reciprocity gate
+│   ├── discord-link.test.ts       # HMAC Discord account linking codes
+│   ├── email-verification.test.ts # Better Auth email verification token flow
+│   ├── image-upload.test.ts       # Sharp image transcoding & size limits
+│   ├── media-actions.test.ts      # Server Actions (CRUD, steppers, rewatches)
+│   ├── movie-search.test.ts       # TMDB search integration with fallback handling
+│   ├── password-reset.test.ts     # Secure password reset token lifecycle
+│   ├── profile.test.ts            # User profile, handles, and custom theme updates
+│   ├── stacks.test.ts             # Editorial stack CRUD and public isolation
+│   └── user-search.test.ts        # Public-only profile search DAL queries
+└── e2e/                           # 7 End-to-End Test Suites (Playwright)
+    ├── auth.spec.ts               # Registration, email verification, sign-in & sign-out
+    ├── backup-roundtrip.spec.ts   # Exporting archive and restoring via importer
+    ├── dashboard-shortcuts.spec.ts# Mouse navigation, dialogs, and single close controls
+    ├── media-lifecycle.spec.ts    # Title addition, progress stepping, and completion
+    ├── navigation-headers.spec.ts # Unified site header across Friends/Groups/Stacks
+    ├── public-profile.spec.ts     # Public archive discovery, guestbook, and taste matching
+    └── title-layout.spec.ts       # Title wrapping beside actions and rating badges
 ```
 
 ---
@@ -434,12 +458,19 @@ ZedArchive features an official Discord bot companion allowing collectors to log
 - **Isolated Architecture:** Kept strictly separate from the edge Cloudflare Worker bundle (`discord.js` is isolated in `bot/package.json`).
 - **Private by Default:** All guild-facing library responses are ephemeral. Account linking uses single-use, 10-minute HMAC-peppercorn codes generated from the web dashboard (`/settings`). Guild/user-install `/link` is ephemeral; a confirmation DM is sent when you are not already in a bot DM.
 - **Folio Hub & In-Memory Drafts:** Interactive `/edit` folios with modals for live progress and notes updates, plus multi-step `/add` search inspection before saving to the database.
+- **Slash Commands:** `/add`, `/title`, `/edit`, `/next`, `/complete`, `/status`, `/drop`, `/rate`, `/now`, `/library`, `/stats`, `/streak`, `/airing`, `/link`, `/whoami`, `/unlink`.
 
 ### Bot Quickstart
 
 ```bash
 # Configure bot environment
 cp bot/.env.example bot/.env.local
+# Required: DATABASE_URL, DISCORD_TOKEN, DISCORD_APPLICATION_ID,
+# DISCORD_PUBLIC_KEY, DISCORD_LINK_PEPPER, APP_URL
+# Optional: DISCORD_DEV_GUILD_ID, DISCORD_BOT_PUBLIC_NAME
+
+# Install bot dependencies (separate package)
+npm ci --prefix bot
 
 # Run bot in development (with live reload)
 npm run bot:dev
@@ -464,7 +495,7 @@ npm run bot:start
 ### 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/zelmari/zedarchive.git
+git clone https://github.com/Zelmari/zedarchive.git
 cd zedarchive
 npm install
 ```
@@ -477,15 +508,21 @@ Copy the example environment file and configure local values:
 cp .env.example .env.local
 ```
 
-| Variable              | Required | Description / Default                                                                 |
-| :-------------------- | :------: | :------------------------------------------------------------------------------------ |
-| `DATABASE_URL`        | **Yes**  | Postgres connection string (`postgres://postgres:postgres@localhost:5432/zedarchive`) |
-| `BETTER_AUTH_SECRET`  | **Yes**  | 32+ character random secret for signing session cookies                               |
-| `BETTER_AUTH_URL`     | **Yes**  | Canonical app URL (Default: `http://localhost:3000`)                                  |
-| `NEXT_PUBLIC_APP_URL` | **Yes**  | Public frontend URL (Default: `http://localhost:3000`)                                |
-| `TMDB_API_READ_TOKEN` | Optional | TMDB v4 Bearer Token for movie search and streaming badges                            |
-| `RESEND_API_KEY`      | Optional | Resend API key for transactional email dispatch                                       |
-| `EMAIL_FROM`          | Optional | Email sender string (Default: `ZedArchive <noreply@zedarchive.com>`)                  |
+| Variable                      | Required | Description / Default                                                                         |
+| :---------------------------- | :------: | :-------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                | **Yes**  | Postgres connection string (`postgres://postgres:postgrespassword@localhost:5432/zedarchive`) |
+| `BETTER_AUTH_SECRET`          | **Yes**  | 32+ character random secret for signing session cookies                                       |
+| `BETTER_AUTH_URL`             | **Yes**  | Canonical app URL (Default: `http://localhost:3000`)                                          |
+| `NEXT_PUBLIC_APP_URL`         | **Yes**  | Public frontend URL (Default: `http://localhost:3000`)                                        |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Optional | Comma-separated extra origins trusted by Better Auth                                          |
+| `TMDB_API_READ_TOKEN`         | Optional | TMDB v4 Bearer Token for movie search and streaming badges                                    |
+| `TMDB_API_KEY`                | Optional | Legacy TMDB v3 API key (used if the v4 token is unset)                                        |
+| `RESEND_API_KEY`              | Optional | Resend API key for transactional email dispatch                                               |
+| `EMAIL_FROM`                  | Optional | Email sender string (Default: `ZedArchive <noreply@zedarchive.com>`)                          |
+| `DISCORD_LINK_PEPPER`         | Optional | HMAC pepper for Discord account-linking codes (required to use the bot)                       |
+| `DISCORD_BOT_PUBLIC_NAME`     | Optional | Display name shown in Settings (Default: `ZedArchive`)                                        |
+| `DISCORD_BOT_INVITE_URL`      | Optional | Bot invite URL shown in Settings                                                              |
+| `E2E_PORT` / `E2E_BASE_URL`   | Optional | Playwright base URL overrides (Default: `http://localhost:3000`)                              |
 
 ### 3. Start Database & Seed Sample Data
 
@@ -520,8 +557,8 @@ You can sign in immediately using the pre-seeded demo user:
 # Run unit & integration test suites
 npm test
 
-# Run tests in watch mode
-npm run test:watch
+# Run unit tests in watch mode
+npx vitest
 
 # Run Playwright end-to-end test suite
 npm run test:e2e

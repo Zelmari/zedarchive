@@ -68,6 +68,8 @@ export default function WeeklyCalendarModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="weekly-calendar-modal-title"
+      hideClose
+      closeLabel="Close calendar"
       contentClassName="flex max-w-[72rem] flex-col overflow-hidden rounded-small p-0"
     >
       <header className="flex items-start gap-3 border-b border-decorative bg-canvas px-4 py-5 sm:px-6">

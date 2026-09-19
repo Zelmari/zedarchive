@@ -22,6 +22,11 @@ interface ModalProps {
   contentStyle?: React.CSSProperties;
   closeLabel?: string;
   layer?: 'modal' | 'nested';
+  /**
+   * Hide the frame close control. Use when the children already render a
+   * `.za-modal-close` button so the fallback/header X does not stack on top.
+   */
+  hideClose?: boolean;
   children: ReactNode;
 }
 
@@ -47,6 +52,7 @@ export default function Modal({
   contentStyle,
   closeLabel = 'Close modal',
   layer = 'modal',
+  hideClose = false,
   children,
 }: ModalProps) {
   const modalRef = useFocusTrap(isOpen, onClose, { initialFocusRef });
@@ -93,17 +99,19 @@ export default function Modal({
                 </h2>
               </div>
             )}
-            <button
-              type="button"
-              aria-label={closeLabel}
-              onClick={onClose}
-              className="za-modal-close shrink-0"
-            >
-              <X size={18} strokeWidth={2} />
-            </button>
+            {!hideClose && (
+              <button
+                type="button"
+                aria-label={closeLabel}
+                onClick={onClose}
+                className="za-modal-close shrink-0"
+              >
+                <X size={18} strokeWidth={2} />
+              </button>
+            )}
           </div>
         )}
-        {!showHeader && (
+        {!showHeader && !hideClose && (
           <button
             type="button"
             aria-label={closeLabel}

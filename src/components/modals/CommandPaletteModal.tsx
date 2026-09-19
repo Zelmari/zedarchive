@@ -251,6 +251,8 @@ export default function CommandPaletteModal({
       placement="top"
       ariaLabel="Command palette"
       initialFocusRef={inputRef}
+      hideClose
+      closeLabel="Close command palette"
       contentClassName="max-w-[40rem] overflow-hidden rounded-small text-ink shadow-layered"
     >
       <div className="border-b border-decorative bg-canvas px-4 py-4 sm:px-6">

@@ -1024,6 +1024,7 @@ export default function MediaDetailModal({
         onClose={handleClose}
         labelledBy="media-detail-title"
         ariaLabel="Media detail folio"
+        hideClose
         contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
       >
         <div className="relative">

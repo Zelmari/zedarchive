@@ -49,10 +49,11 @@ export default function DropReasonModal({
       labelledBy="drop-reason-modal-title"
       initialFocusRef={inputRef}
       layer="nested"
+      closeLabel="Close drop reason"
       contentClassName="max-w-[36rem] overflow-hidden"
     >
-      <div className="za-bookplate relative rounded-none border-0 p-[var(--za-space-6)] shadow-none">
-        <span className="za-ribbon-bookmark" aria-hidden="true" />
+      <div className="za-bookplate relative rounded-none border-0 p-[var(--za-space-6)] pr-14 shadow-none">
+        <span className="za-ribbon-bookmark za-ribbon-bookmark--beside-close" aria-hidden="true" />
         <div className="flex items-start gap-[var(--za-space-4)]">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-small border border-danger/30 bg-danger-surface text-danger">
             <BookmarkX size={20} strokeWidth={2} />

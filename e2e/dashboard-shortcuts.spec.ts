@@ -84,6 +84,33 @@ test.describe('mouse-first dashboard navigation & dialogs', () => {
     await expect(page.getByRole('heading', { name: /Backup & Data Sovereignty/i })).toBeHidden();
   });
 
+  test('calendar, spotlight, and command palette each have a single close control', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: 'Calendar' }).click();
+    const calendar = page.getByRole('dialog', { name: /Weekly Airing Schedule/i });
+    await expect(calendar).toBeVisible();
+    await expect(calendar.locator('.za-modal-close')).toHaveCount(1);
+    await calendar.getByRole('button', { name: 'Close calendar' }).click();
+    await expect(calendar).toBeHidden();
+
+    await page.getByRole('button', { name: 'Add Media' }).click();
+    const spotlight = page.getByRole('dialog', {
+      name: /Search for media to add to your archive/i,
+    });
+    await expect(spotlight).toBeVisible();
+    await expect(spotlight.locator('.za-modal-close')).toHaveCount(1);
+    await spotlight.getByRole('button', { name: 'Close modal' }).click();
+    await expect(spotlight).toBeHidden();
+
+    await page.keyboard.press('ControlOrMeta+k');
+    const palette = page.getByRole('dialog', { name: /Command palette/i });
+    await expect(palette).toBeVisible();
+    await expect(palette.locator('.za-modal-close')).toHaveCount(1);
+    await palette.getByRole('button', { name: 'Close command palette' }).click();
+    await expect(palette).toBeHidden();
+  });
+
   test('single-key shortcuts are inactive and do not hijack navigation', async ({ page }) => {
     // Pressing '2' does not switch to Shows tab
     await page.keyboard.press('2');

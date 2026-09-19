@@ -36,6 +36,7 @@ test.describe('media lifecycle', () => {
     // Search hit creates the row and opens the folio inspector.
     const folio = page.getByRole('dialog', { name: /Frieren/i });
     await expect(folio).toBeVisible({ timeout: 30_000 });
+    await expect(folio.locator('.za-modal-close')).toHaveCount(1);
 
     // Close the folio (Done button) so the dashboard card is interactable.
     await page.getByRole('button', { name: 'Done' }).click();

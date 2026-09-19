@@ -208,6 +208,7 @@ export default function SpotlightSearchModal({
       placement="top"
       ariaLabel="Search for media to add to your archive"
       initialFocusRef={searchInputRef}
+      hideClose
       contentClassName="flex max-w-[44rem] flex-col overflow-hidden"
     >
       {/* Header with Category Chips and Close */}
