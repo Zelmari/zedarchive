@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-export const revalidate = 86400;
 
 import { parseSearchQuery } from '@/lib/search';
 import { searchTmdbMovies } from '@/lib/services/tmdb';

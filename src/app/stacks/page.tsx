@@ -1,6 +1,7 @@
 import { getMyStacks } from '@/server/stacks';
 import { getMediaEntries } from '@/server/media';
 import { requireSession } from '@/server/internal';
+import { getUserProfileById } from '@/server/queries/user';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import PageIntro from '@/components/ui/PageIntro';
 import StacksClient from './StacksClient';
@@ -12,12 +13,13 @@ export const metadata = {
 
 export default async function StacksPage() {
   const session = await requireSession();
+  const profile = await getUserProfileById(session.id);
 
   const [initialStacks, initialMediaEntries] = await Promise.all([
     getMyStacks(),
     getMediaEntries(),
   ]);
-  const username = session.username;
+  const username = profile?.username || session.username;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">

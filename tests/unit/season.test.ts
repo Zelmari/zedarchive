@@ -36,6 +36,7 @@ describe('getNextSeason', () => {
   it('steps linearly within a bounded total when no structure exists', () => {
     expect(getNextSeason(1, [], 3)).toBe(2);
     expect(getNextSeason(3, [], 3)).toBeNull();
+    expect(getNextSeason(2, [], null)).toBe(3);
   });
 
   it('jumps to the next real season in a non-contiguous structure', () => {

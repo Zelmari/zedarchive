@@ -57,8 +57,9 @@ export default function DangerSection({ email }: DangerSectionProps) {
 
         <p className="mb-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
           Permanently delete your ZedArchive account and all your tracked media entries, progress,
-          comments, and public profile data. This operation is immediately destructive and cannot be
-          undone.
+          comments, and public profile data. If you own a group archive, transfer or delete it first
+          — otherwise every member would lose the shared library. This operation is immediately
+          destructive and cannot be undone.
         </p>
 
         <button

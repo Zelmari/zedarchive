@@ -175,7 +175,7 @@ export default function AddMediaModal({
       {(createError || isSubmitting) && (
         <div
           role={createError ? 'alert' : 'status'}
-          className={`za-notice fixed top-4 left-1/2 z-[70] max-w-md -translate-x-1/2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] shadow-layered ${
+          className={`za-notice fixed top-4 left-1/2 z-[var(--za-layer-toast)] max-w-md -translate-x-1/2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] shadow-layered ${
             createError ? 'za-notice--error' : 'za-notice--info'
           }`}
         >

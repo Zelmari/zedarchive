@@ -11,10 +11,10 @@ export default function ArchiveUnavailable({
   ctaClassName = '',
 }: ArchiveUnavailableProps) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas text-ink">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4 text-ink">
       <div
         aria-labelledby="archive-unavailable-title"
-        className="za-bookplate relative col-span-full flex w-full max-w-[28rem] flex-col items-center justify-center px-[var(--za-space-6)] py-[var(--za-space-12)] text-center"
+        className="za-bookplate relative flex w-full max-w-[28rem] flex-col items-center justify-center px-[var(--za-space-6)] py-[var(--za-space-12)] text-center"
       >
         <span className="za-ribbon-bookmark" aria-hidden="true" />
         <ShieldAlert

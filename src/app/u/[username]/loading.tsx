@@ -1,6 +1,11 @@
 export default function PublicProfileLoading() {
   return (
-    <div className="min-h-screen bg-canvas text-ink" aria-busy="true" aria-label="Loading profile">
+    <div
+      className="min-h-screen bg-canvas text-ink"
+      role="status"
+      aria-busy="true"
+      aria-label="Loading profile"
+    >
       {/* Header skeleton */}
       <header className="za-site-header">
         <div className="za-container za-container--wide za-site-header__inner">

@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { user as userTable, mediaEntries } from '@/db/schema';
 import { serializeEntry } from '@/lib/serialize';
 import { getSessionUser } from '@/server/internal';
+import { ilikeContainsPattern } from '@/lib/ilike';
 import type { MediaEntry } from '@/types/media';
 import type { UserProfile, PublicUserSearchResult, ReadingGoalConfig } from '@/types/user';
 
@@ -125,7 +126,12 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
     .orderBy(desc(mediaEntries.updatedAt));
 
   return {
-    user: foundUser,
+    user: {
+      ...foundUser,
+      readingGoals: Object.fromEntries(
+        Object.entries(foundUser.readingGoals || {}).filter(([, goal]) => goal?.isPublic),
+      ),
+    },
     entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
   };
 }
@@ -168,7 +174,10 @@ export async function searchPublicProfiles(
         eq(userTable.isPublic, true),
         isNotNull(userTable.username),
         ne(userTable.username, ''),
-        or(ilike(userTable.username, `%${clean}%`), ilike(userTable.name, `%${clean}%`)),
+        or(
+          ilike(userTable.username, ilikeContainsPattern(clean)),
+          ilike(userTable.name, ilikeContainsPattern(clean)),
+        ),
       ),
     )
     .groupBy(

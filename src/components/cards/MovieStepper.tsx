@@ -67,7 +67,7 @@ export default function MovieStepper({
   }
 
   // If in progress or planning, show minutes stepper if runtime is known and user has progress, or 1-tap "Mark Watched"
-  if (runtime && runtime > 0 && onStepMinutes && progressMinutes > 0) {
+  if (runtime && runtime > 0 && onStepMinutes) {
     return (
       <div
         className="flex flex-wrap items-center gap-[var(--za-space-2)]"

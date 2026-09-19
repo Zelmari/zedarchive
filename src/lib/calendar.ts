@@ -50,6 +50,12 @@ export function buildWeeklySchedule(
   };
 
   const todayStr = now.toDateString();
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  const mondayOffset = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - mondayOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
 
   for (const entry of entries) {
     if (!entry.sourceId) continue;
@@ -60,6 +66,7 @@ export function buildWeeklySchedule(
     const hasAirstamp = Boolean(airInfo.airstamp);
     const dateObj = new Date(airInfo.airstamp || `${airInfo.airdate}T00:00:00Z`);
     if (isNaN(dateObj.getTime())) continue;
+    if (dateObj < weekStart || dateObj >= weekEnd) continue;
 
     const dayName = hasAirstamp
       ? JS_DAY_INDEX_TO_NAME[dateObj.getDay()]

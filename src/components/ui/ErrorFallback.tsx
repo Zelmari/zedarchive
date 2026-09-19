@@ -28,6 +28,7 @@ export default function ErrorFallback({
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas p-4 text-ink">
       <section
+        role="alert"
         aria-labelledby="error-fallback-title"
         className="za-bookplate relative max-w-md p-8 text-center"
       >
@@ -46,6 +47,11 @@ export default function ErrorFallback({
         </h1>
         <p className="mb-6 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           {message}
+          {error.digest ? (
+            <span className="mt-2 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+              Reference {error.digest}
+            </span>
+          ) : null}
         </p>
         <div className={`flex flex-wrap justify-center ${buttonGapClass}`}>
           <button type="button" className="za-button za-button--primary" onClick={() => reset()}>

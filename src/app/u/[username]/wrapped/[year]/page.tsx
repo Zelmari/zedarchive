@@ -1,5 +1,7 @@
 import { getPublicUserProfile } from '@/server/queries/user';
 import { calculateYearlyStats } from '@/lib/stats';
+import { parseWrappedYear } from '@/lib/wrapped-year';
+import { notFound } from 'next/navigation';
 import ArchiveUnavailable from '@/components/ui/ArchiveUnavailable';
 import WrappedClient from '@/app/wrapped/WrappedClient';
 
@@ -29,7 +31,8 @@ export default async function PublicWrappedPage({ params }: PageParams) {
     return <ArchiveUnavailable ctaLabel="Return Home" />;
   }
 
-  const targetYear = parseInt(year, 10) || new Date().getFullYear();
+  const targetYear = parseWrappedYear(year);
+  if (targetYear == null) notFound();
   const stats = calculateYearlyStats(data.entries, targetYear);
 
   return (

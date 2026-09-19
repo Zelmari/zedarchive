@@ -30,5 +30,11 @@ export function checkMutationRateLimit(discordUserId: string): {
   }
 
   bucket.timestamps.push(now);
+  if (userMutationMap.size > 5000) {
+    for (const [id, existing] of userMutationMap) {
+      existing.timestamps = existing.timestamps.filter((ts) => now - ts < WINDOW_MS);
+      if (existing.timestamps.length === 0) userMutationMap.delete(id);
+    }
+  }
   return { allowed: true };
 }

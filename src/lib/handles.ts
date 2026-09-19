@@ -1,4 +1,9 @@
-import { HANDLE_SANITIZE_PATTERN, MAX_USERNAME_LENGTH, RESERVED_HANDLES } from './constants';
+import {
+  HANDLE_PATTERN,
+  HANDLE_SANITIZE_PATTERN,
+  MAX_USERNAME_LENGTH,
+  RESERVED_HANDLES,
+} from './constants';
 
 /**
  * Normalize free text into a valid profile handle: lowercase, restricted to
@@ -18,4 +23,8 @@ export function normalizeHandle(raw: unknown): string {
 export function isReservedHandle(handle: string): boolean {
   const normalized = normalizeHandle(handle);
   return (RESERVED_HANDLES as readonly string[]).includes(normalized);
+}
+
+export function isValidHandle(handle: string): boolean {
+  return HANDLE_PATTERN.test(handle);
 }

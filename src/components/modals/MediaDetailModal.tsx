@@ -781,7 +781,7 @@ export default function MediaDetailModal({
     };
 
     if (targetFamily === 'movie') {
-      patch.primaryUnitCurrent = item.rewatchCount ?? 0;
+      patch.primaryUnitCurrent = (item.rewatchCount ?? 0) + (item.status === 'completed' ? 1 : 0);
       if (item.secondaryUnitTotal != null) {
         // If old secondary is episode-scale, keep secondaryTotal as runtime only if it looks like minutes;
         // otherwise leave as-is if already a runtime. If secondaryUnitTotal missing, do not invent one.
@@ -1018,773 +1018,781 @@ export default function MediaDetailModal({
     'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink';
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      labelledBy="media-detail-title"
-      ariaLabel="Media detail folio"
-      contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
-    >
-      <div className="relative">
-        <div className="sticky top-0 z-20 flex justify-end border-b border-decorative bg-canvas/95 px-[var(--za-space-4)] py-[var(--za-space-2)] backdrop-blur-sm">
-          <button
-            type="button"
-            aria-label="Close modal"
-            onClick={handleClose}
-            className="za-modal-close"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <div className="za-folio-spread">
-          {/* Left Column */}
-          <aside className="min-w-0 bg-canvas p-[var(--za-space-6)] md:border-r md:border-decorative">
-            <FolioCover
-              coverImage={item.coverImage}
-              title={item.title}
-              sourceId={item.sourceId}
-              isCompressing={coverUpload.isCompressing}
-              isUpdating={isUpdating}
-              error={coverUpload.error}
-              onOpenFilePicker={coverUpload.openFilePicker}
-              onRemoveCover={coverUpload.handleImageRemove}
-              fileInputProps={coverUpload.fileInputProps}
-            />
-
-            {/* Gold-foil rating selector */}
-            <div
-              className="mt-[var(--za-space-4)] rounded-small border border-decorative bg-surface p-2.5 shadow-raised"
-              aria-label="Personal rating"
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        labelledBy="media-detail-title"
+        ariaLabel="Media detail folio"
+        contentClassName="relative max-w-[68rem] overflow-y-auto p-0"
+      >
+        <div className="relative">
+          <div className="sticky top-0 z-20 flex justify-end border-b border-decorative bg-canvas/95 px-[var(--za-space-4)] py-[var(--za-space-2)] backdrop-blur-sm">
+            <button
+              type="button"
+              aria-label="Close modal"
+              onClick={handleClose}
+              className="za-modal-close"
             >
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted">
-                  Rating
-                </span>
-                <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-gold-dark">
-                  {rating != null ? `${rating}/10★` : 'Unrated'}
-                </span>
-              </div>
-              <div
-                className="flex flex-wrap gap-[var(--za-space-1)]"
-                role="radiogroup"
-                aria-label="Rating from 1 to 10"
-              >
-                {Array.from({ length: 10 }, (_, index) => {
-                  const score = index + 1;
-                  const isRated = rating != null && score <= rating;
-                  return (
-                    <button
-                      key={score}
-                      type="button"
-                      role="radio"
-                      aria-checked={rating === score}
-                      aria-label={`Rate ${score} out of 10`}
-                      title={`Rate ${score} out of 10`}
-                      onClick={() => handleRatingChange(score)}
-                      disabled={isUpdating}
-                      className={`za-icon-hit cursor-pointer rounded-small border text-gold transition-[all] duration-[var(--za-motion-fast)] hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed ${
-                        isRated ? 'border-gold/50 bg-gold/10' : 'border-transparent'
-                      }`}
-                    >
-                      <Star size={14} fill={isRated ? 'currentColor' : 'none'} strokeWidth={1.75} />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
 
-            {/* Status and priority */}
-            <div className="mt-[var(--za-space-4)]">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <label
-                  htmlFor="detail-status"
-                  className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted"
-                >
-                  Catalogue status
-                </label>
-                <StatusBadge status={status} label={getStatusLabel(status, category)} />
-              </div>
-              <select
-                id="detail-status"
-                value={status}
-                onChange={(event) => handleStatusChange(event.target.value)}
-                disabled={isUpdating}
-                className="za-field"
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-[var(--za-space-3)]">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const updated = await togglePriorityQueue(item.id);
-                    await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
-                  } catch (err) {
-                    console.error('Failed to toggle priority queue:', err);
-                  }
-                }}
-                className={`za-button w-full text-xs ${
-                  item.priorityIndex != null ? 'za-button--selected' : 'za-button--secondary'
-                }`}
-                title={
-                  item.priorityIndex != null
-                    ? `Rank #${item.priorityIndex} in Up Next (Click to remove)`
-                    : 'Pin to Up Next Queue'
-                }
-              >
-                <Pin size={14} strokeWidth={2} />
-                {item.priorityIndex != null ? `Up Next #${item.priorityIndex}` : 'Add to Up Next'}
-              </button>
-            </div>
-
-            <ProviderAvailability
-              isBookLike={isBookLike}
-              providersCountry={providersCountry}
-              providersLoading={providersLoading}
-              watchProviders={watchProviders}
-            />
-
-            {/* Tags / Shelves */}
-            <div className="mt-[var(--za-space-4)]">
-              <div className={sectionLabel}>
-                <Tag size={12} /> Tags & Shelves
-              </div>
-              <div className="mb-[0.4rem] flex flex-wrap gap-[0.3rem]">
-                {tags.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-[3px] rounded-small border border-decorative bg-surface-subtle px-[0.4rem] py-[0.1rem] text-xs"
-                  >
-                    #{t}
-                    <button
-                      type="button"
-                      className="cursor-pointer border-none bg-transparent p-0 text-ink-muted"
-                      onClick={() => handleRemoveTag(t)}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <form onSubmit={handleAddTag} className="flex gap-[0.3rem]">
-                <input
-                  type="text"
-                  placeholder="Add tag (e.g. favorites)..."
-                  value={newTagInput}
-                  onChange={(e) => setNewTagInput(e.target.value)}
-                  className="za-field flex-1 text-xs"
-                />
-                <button
-                  type="submit"
-                  className="za-button za-button--secondary min-h-0 px-[0.5rem] py-[0.2rem] text-xs"
-                >
-                  +
-                </button>
-              </form>
-            </div>
-
-            {/* Privacy Plate (personal archives only) */}
-            {!isGroup && (
-              <div className="mt-[var(--za-space-4)] rounded-control border border-decorative bg-surface p-3">
-                <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
-                  <span>Private Title (Hide from public profile & RSS)</span>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(item.isPrivate)}
-                    disabled={isUpdating}
-                    onChange={(e) => void runUpdate({ isPrivate: e.target.checked })}
-                    className="h-4 w-4 rounded accent-accent"
-                  />
-                </label>
-                <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
-                  When checked, this entry is only visible to you on your private dashboard and
-                  excluded from public showcases.
-                </p>
-              </div>
-            )}
-          </aside>
-
-          {/* Right Column */}
-          <section className="min-w-0 p-[var(--za-space-6)] md:p-[var(--za-space-8)]">
-            <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)]">
-              <div
-                className="mb-2 flex flex-wrap gap-1.5"
-                role="radiogroup"
-                aria-label="Media Category"
-              >
-                {CATEGORY_CHIPS.map(({ id, label, Icon }) => {
-                  const active = category === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      disabled={isUpdating}
-                      onClick={() => void handleCategoryChange(id)}
-                      className={pillClass(active)}
-                    >
-                      <Icon size={12} strokeWidth={2} />
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {isEditingTitle ? (
-                <input
-                  id="media-detail-title"
-                  type="text"
-                  autoFocus
-                  aria-label="Title"
-                  value={titleDraft}
-                  maxLength={MAX_TITLE_LENGTH}
-                  placeholder="e.g. Frieren: Beyond Journey's End"
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  onBlur={() => {
-                    handleTitleBlur();
-                    setIsEditingTitle(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    } else if (e.key === 'Escape') {
-                      setTitleDraft(item.title);
-                      setTitleError('');
-                      setIsEditingTitle(false);
-                    }
-                  }}
-                  className="w-full rounded-small border border-accent bg-surface px-1.5 py-0.5 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink outline-none"
-                />
-              ) : (
-                <h2
-                  id="media-detail-title"
-                  tabIndex={0}
-                  role="button"
-                  onClick={() => setIsEditingTitle(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setIsEditingTitle(true);
-                    }
-                  }}
-                  title="Click to edit title"
-                  className="min-w-0 cursor-pointer break-words rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
-                >
-                  {titleDraft.trim() || item.title}
-                </h2>
-              )}
-              {titleError && (
-                <div
-                  className="mt-1 text-xs font-[var(--za-weight-emphasis)] text-danger"
-                  role="alert"
-                >
-                  {titleError}
-                </div>
-              )}
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--za-text-fine)] text-ink-muted">
-                {genres.length > 0 && <span>{genres.join(' · ')}</span>}
-                <span>Added {formatDisplayDate(item.createdAt)}</span>
-              </div>
-            </div>
-
-            {status === 'dropped' && (
-              <div className="za-notice za-notice--error mb-[var(--za-space-5)]">
-                <div className="flex flex-col gap-[var(--za-space-3)] sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <BookmarkX size={16} className="mt-0.5 shrink-0 text-danger" />
-                    <div>
-                      <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger">
-                        Dropped
-                        {item.droppedAt ? ` on ${formatDisplayDate(item.droppedAt)}` : ''}
-                        {(() => {
-                          const pri = item.droppedProgressPrimary ?? primaryCurrent;
-                          const sec = item.droppedProgressSecondary ?? secondaryCurrent;
-                          if (category === 'movie') return '';
-                          if (isBookLike) {
-                            return sec != null && sec > 0
-                              ? ` at Vol ${pri}, Ch ${sec}`
-                              : ` at Vol ${pri}`;
-                          }
-                          return sec != null && sec > 0
-                            ? ` at Season ${pri}, Ep ${sec}`
-                            : ` at Season ${pri}`;
-                        })()}
-                      </div>
-                      {item.dropReason && (
-                        <p className="mt-1 text-[length:var(--za-text-fine)] text-ink italic">
-                          Reason: &ldquo;{item.dropReason}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
-                    <button
-                      type="button"
-                      onClick={openDropReason}
-                      className="za-button za-button--secondary text-xs"
-                    >
-                      Edit Reason
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void runUpdate({ status: 'in_progress' })}
-                      className="za-button za-button--primary text-xs"
-                    >
-                      Resume
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {item.synopsis && (
-              <div className="mb-[var(--za-space-5)]">
-                <div className={sectionLabel}>SYNOPSIS</div>
-                <MarkdownNotes
-                  content={item.synopsis}
-                  className="text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink"
-                />
-              </div>
-            )}
-
-            {/* Progress Checklist */}
-            <div>
-              <div className={`${sectionLabel} mb-[var(--za-space-2)]`}>
-                {isBookLike
-                  ? 'READING PROGRESS & QUICK JUMP'
-                  : isMovie
-                    ? 'WATCH PROGRESS'
-                    : 'EPISODE MATRIX'}
-              </div>
-
-              <FolioUnitTotals
-                category={category}
-                primaryUnitTotal={item.primaryUnitTotal ?? null}
-                primaryUnitCurrent={primaryCurrent}
-                secondaryUnitTotal={secondaryTotal}
-                secondaryUnitCurrent={secondaryCurrent}
-                structure={structure}
-                activeSeason={activeSeason}
+          <div className="za-folio-spread">
+            {/* Left Column */}
+            <aside className="min-w-0 bg-canvas p-[var(--za-space-6)] md:border-r md:border-decorative">
+              <FolioCover
+                coverImage={item.coverImage}
+                title={item.title}
+                sourceId={item.sourceId}
+                isCompressing={coverUpload.isCompressing}
                 isUpdating={isUpdating}
-                onCommit={runUpdate}
+                error={coverUpload.error}
+                onOpenFilePicker={coverUpload.openFilePicker}
+                onRemoveCover={coverUpload.handleImageRemove}
+                fileInputProps={coverUpload.fileInputProps}
               />
 
-              {isMovie && (
-                <div className="mb-3 rounded-small border border-decorative bg-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-[var(--za-weight-emphasis)] text-ink">
-                      Runtime watched
+              {/* Gold-foil rating selector */}
+              <div
+                className="mt-[var(--za-space-4)] rounded-small border border-decorative bg-surface p-2.5 shadow-raised"
+                aria-label="Personal rating"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted">
+                    Rating
+                  </span>
+                  <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-gold-dark">
+                    {rating != null ? `${rating}/10★` : 'Unrated'}
+                  </span>
+                </div>
+                <div
+                  className="flex flex-wrap gap-[var(--za-space-1)]"
+                  role="radiogroup"
+                  aria-label="Rating from 1 to 10"
+                >
+                  {Array.from({ length: 10 }, (_, index) => {
+                    const score = index + 1;
+                    const isRated = rating != null && score <= rating;
+                    return (
+                      <button
+                        key={score}
+                        type="button"
+                        role="radio"
+                        aria-checked={rating === score}
+                        aria-label={`Rate ${score} out of 10`}
+                        title={`Rate ${score} out of 10`}
+                        onClick={() => handleRatingChange(score)}
+                        disabled={isUpdating}
+                        className={`za-icon-hit cursor-pointer rounded-small border text-gold transition-[all] duration-[var(--za-motion-fast)] hover:border-gold hover:bg-gold/10 disabled:cursor-not-allowed ${
+                          isRated ? 'border-gold/50 bg-gold/10' : 'border-transparent'
+                        }`}
+                      >
+                        <Star
+                          size={14}
+                          fill={isRated ? 'currentColor' : 'none'}
+                          strokeWidth={1.75}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Status and priority */}
+              <div className="mt-[var(--za-space-4)]">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label
+                    htmlFor="detail-status"
+                    className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted"
+                  >
+                    Catalogue status
+                  </label>
+                  <StatusBadge status={status} label={getStatusLabel(status, category)} />
+                </div>
+                <select
+                  id="detail-status"
+                  value={status}
+                  onChange={(event) => handleStatusChange(event.target.value)}
+                  disabled={isUpdating}
+                  className="za-field"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-[var(--za-space-3)]">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const updated = await togglePriorityQueue(item.id);
+                      await onUpdate(item.id, { priorityIndex: updated.priorityIndex });
+                    } catch (err) {
+                      console.error('Failed to toggle priority queue:', err);
+                    }
+                  }}
+                  className={`za-button w-full text-xs ${
+                    item.priorityIndex != null ? 'za-button--selected' : 'za-button--secondary'
+                  }`}
+                  title={
+                    item.priorityIndex != null
+                      ? `Rank #${item.priorityIndex} in Up Next (Click to remove)`
+                      : 'Pin to Up Next Queue'
+                  }
+                >
+                  <Pin size={14} strokeWidth={2} />
+                  {item.priorityIndex != null ? `Up Next #${item.priorityIndex}` : 'Add to Up Next'}
+                </button>
+              </div>
+
+              <ProviderAvailability
+                isBookLike={isBookLike}
+                providersCountry={providersCountry}
+                providersLoading={providersLoading}
+                watchProviders={watchProviders}
+              />
+
+              {/* Tags / Shelves */}
+              <div className="mt-[var(--za-space-4)]">
+                <div className={sectionLabel}>
+                  <Tag size={12} /> Tags & Shelves
+                </div>
+                <div className="mb-[0.4rem] flex flex-wrap gap-[0.3rem]">
+                  {tags.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-[3px] rounded-small border border-decorative bg-surface-subtle px-[0.4rem] py-[0.1rem] text-xs"
+                    >
+                      #{t}
+                      <button
+                        type="button"
+                        className="cursor-pointer border-none bg-transparent p-0 text-ink-muted"
+                        onClick={() => handleRemoveTag(t)}
+                      >
+                        ×
+                      </button>
                     </span>
-                    <span className="font-[var(--za-weight-emphasis)] text-accent">
-                      {secondaryTotal != null
-                        ? `${secondaryCurrent} of ${secondaryTotal} min`
-                        : `${secondaryCurrent} min`}
-                    </span>
+                  ))}
+                </div>
+                <form onSubmit={handleAddTag} className="flex gap-[0.3rem]">
+                  <input
+                    type="text"
+                    placeholder="Add tag (e.g. favorites)..."
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    className="za-field flex-1 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="za-button za-button--secondary min-h-0 px-[0.5rem] py-[0.2rem] text-xs"
+                  >
+                    +
+                  </button>
+                </form>
+              </div>
+
+              {/* Privacy Plate (personal archives only) */}
+              {!isGroup && (
+                <div className="mt-[var(--za-space-4)] rounded-control border border-decorative bg-surface p-3">
+                  <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+                    <span>Private Title (Hide from public profile & RSS)</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item.isPrivate)}
+                      disabled={isUpdating}
+                      onChange={(e) => void runUpdate({ isPrivate: e.target.checked })}
+                      className="h-4 w-4 rounded accent-accent"
+                    />
+                  </label>
+                  <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                    When checked, this entry is only visible to you on your private dashboard and
+                    excluded from public showcases.
+                  </p>
+                </div>
+              )}
+            </aside>
+
+            {/* Right Column */}
+            <section className="min-w-0 p-[var(--za-space-6)] md:p-[var(--za-space-8)]">
+              <div className="mb-[var(--za-space-6)] border-b border-decorative pb-[var(--za-space-4)]">
+                <div
+                  className="mb-2 flex flex-wrap gap-1.5"
+                  role="radiogroup"
+                  aria-label="Media Category"
+                >
+                  {CATEGORY_CHIPS.map(({ id, label, Icon }) => {
+                    const active = category === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        disabled={isUpdating}
+                        onClick={() => void handleCategoryChange(id)}
+                        className={pillClass(active)}
+                      >
+                        <Icon size={12} strokeWidth={2} />
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {isEditingTitle ? (
+                  <input
+                    id="media-detail-title"
+                    type="text"
+                    autoFocus
+                    aria-label="Title"
+                    value={titleDraft}
+                    maxLength={MAX_TITLE_LENGTH}
+                    placeholder="e.g. Frieren: Beyond Journey's End"
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    onBlur={() => {
+                      handleTitleBlur();
+                      setIsEditingTitle(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      } else if (e.key === 'Escape') {
+                        setTitleDraft(item.title);
+                        setTitleError('');
+                        setIsEditingTitle(false);
+                      }
+                    }}
+                    className="w-full rounded-small border border-accent bg-surface px-1.5 py-0.5 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink outline-none"
+                  />
+                ) : (
+                  <h2
+                    id="media-detail-title"
+                    tabIndex={0}
+                    role="button"
+                    onClick={() => setIsEditingTitle(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setIsEditingTitle(true);
+                      }
+                    }}
+                    title="Click to edit title"
+                    className="min-w-0 cursor-pointer break-words rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
+                  >
+                    {titleDraft.trim() || item.title}
+                  </h2>
+                )}
+                {titleError && (
+                  <div
+                    className="mt-1 text-xs font-[var(--za-weight-emphasis)] text-danger"
+                    role="alert"
+                  >
+                    {titleError}
                   </div>
-                  {secondaryTotal != null && secondaryTotal > 0 && (
+                )}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                  {genres.length > 0 && <span>{genres.join(' · ')}</span>}
+                  <span>Added {formatDisplayDate(item.createdAt)}</span>
+                </div>
+              </div>
+
+              {status === 'dropped' && (
+                <div className="za-notice za-notice--error mb-[var(--za-space-5)]">
+                  <div className="flex flex-col gap-[var(--za-space-3)] sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <BookmarkX size={16} className="mt-0.5 shrink-0 text-danger" />
+                      <div>
+                        <div className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-danger">
+                          Dropped
+                          {item.droppedAt ? ` on ${formatDisplayDate(item.droppedAt)}` : ''}
+                          {(() => {
+                            const pri = item.droppedProgressPrimary ?? primaryCurrent;
+                            const sec = item.droppedProgressSecondary ?? secondaryCurrent;
+                            if (category === 'movie') return '';
+                            if (isBookLike) {
+                              return sec != null && sec > 0
+                                ? ` at Vol ${pri}, Ch ${sec}`
+                                : ` at Vol ${pri}`;
+                            }
+                            return sec != null && sec > 0
+                              ? ` at Season ${pri}, Ep ${sec}`
+                              : ` at Season ${pri}`;
+                          })()}
+                        </div>
+                        {item.dropReason && (
+                          <p className="mt-1 text-[length:var(--za-text-fine)] text-ink italic">
+                            Reason: &ldquo;{item.dropReason}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
+                      <button
+                        type="button"
+                        onClick={openDropReason}
+                        className="za-button za-button--secondary text-xs"
+                      >
+                        Edit Reason
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runUpdate({ status: 'in_progress' })}
+                        className="za-button za-button--primary text-xs"
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {item.synopsis && (
+                <div className="mb-[var(--za-space-5)]">
+                  <div className={sectionLabel}>SYNOPSIS</div>
+                  <MarkdownNotes
+                    content={item.synopsis}
+                    className="text-[length:var(--za-text-fine)] leading-[var(--za-leading-body)] text-ink"
+                  />
+                </div>
+              )}
+
+              {/* Progress Checklist */}
+              <div>
+                <div className={`${sectionLabel} mb-[var(--za-space-2)]`}>
+                  {isBookLike
+                    ? 'READING PROGRESS & QUICK JUMP'
+                    : isMovie
+                      ? 'WATCH PROGRESS'
+                      : 'EPISODE MATRIX'}
+                </div>
+
+                <FolioUnitTotals
+                  category={category}
+                  primaryUnitTotal={item.primaryUnitTotal ?? null}
+                  primaryUnitCurrent={primaryCurrent}
+                  secondaryUnitTotal={secondaryTotal}
+                  secondaryUnitCurrent={secondaryCurrent}
+                  structure={structure}
+                  activeSeason={activeSeason}
+                  isUpdating={isUpdating}
+                  onCommit={runUpdate}
+                />
+
+                {isMovie && (
+                  <div className="mb-3 rounded-small border border-decorative bg-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-[var(--za-weight-emphasis)] text-ink">
+                        Runtime watched
+                      </span>
+                      <span className="font-[var(--za-weight-emphasis)] text-accent">
+                        {secondaryTotal != null
+                          ? `${secondaryCurrent} of ${secondaryTotal} min`
+                          : `${secondaryCurrent} min`}
+                      </span>
+                    </div>
+                    {secondaryTotal != null && secondaryTotal > 0 && (
+                      <input
+                        type="range"
+                        min={0}
+                        max={secondaryTotal}
+                        value={secondaryCurrent}
+                        disabled={isUpdating}
+                        aria-label="Minutes watched"
+                        onChange={(event) => {
+                          const minutes = parseInt(event.target.value, 10) || 0;
+                          void runUpdate({ secondaryUnitCurrent: minutes });
+                        }}
+                        className="mt-2 w-full cursor-pointer accent-accent"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Book / Manga percentage and slider controls */}
+                {isBookLike && secondaryTotal !== null && secondaryTotal > 0 && (
+                  <div className="mb-3 rounded-control border border-decorative bg-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-[var(--za-weight-emphasis)] text-ink">
+                        Page {secondaryCurrent} of {secondaryTotal}
+                      </span>
+                      <span className="font-[var(--za-weight-emphasis)] text-accent">
+                        {pageToPercent(secondaryCurrent, secondaryTotal)}%
+                      </span>
+                    </div>
                     <input
                       type="range"
                       min={0}
                       max={secondaryTotal}
                       value={secondaryCurrent}
                       disabled={isUpdating}
-                      aria-label="Minutes watched"
-                      onChange={(event) => {
-                        const minutes = parseInt(event.target.value, 10) || 0;
-                        void runUpdate({ secondaryUnitCurrent: minutes });
+                      onChange={(e) => {
+                        const newPg = parseInt(e.target.value, 10) || 0;
+                        void runUpdate({ secondaryUnitCurrent: newPg });
                       }}
-                      className="mt-2 w-full cursor-pointer accent-accent"
+                      className="mt-2 w-full accent-accent cursor-pointer"
                     />
-                  )}
-                </div>
-              )}
-
-              {/* Book / Manga percentage and slider controls */}
-              {isBookLike && secondaryTotal !== null && secondaryTotal > 0 && (
-                <div className="mb-3 rounded-control border border-decorative bg-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-[var(--za-weight-emphasis)] text-ink">
-                      Page {secondaryCurrent} of {secondaryTotal}
-                    </span>
-                    <span className="font-[var(--za-weight-emphasis)] text-accent">
-                      {pageToPercent(secondaryCurrent, secondaryTotal)}%
-                    </span>
+                    <div className="mt-1 flex justify-between text-[10px] text-ink-muted">
+                      <span>0%</span>
+                      <span>25%</span>
+                      <span>50%</span>
+                      <span>75%</span>
+                      <span>100%</span>
+                    </div>
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={secondaryTotal}
-                    value={secondaryCurrent}
-                    disabled={isUpdating}
-                    onChange={(e) => {
-                      const newPg = parseInt(e.target.value, 10) || 0;
-                      void runUpdate({ secondaryUnitCurrent: newPg });
-                    }}
-                    className="mt-2 w-full accent-accent cursor-pointer"
-                  />
-                  <div className="mt-1 flex justify-between text-[10px] text-ink-muted">
-                    <span>0%</span>
-                    <span>25%</span>
-                    <span>50%</span>
-                    <span>75%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* Anime Filler / Canon Filter Bar */}
-              {category === 'anime' && fillerMap && (
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle p-2.5 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
-                      EPISODE GUIDE:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setFillerFilter('all')}
-                      className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
-                        fillerFilter === 'all'
-                          ? 'border border-required bg-surface text-ink'
-                          : 'border border-transparent text-ink-muted hover:text-ink'
-                      }`}
-                    >
-                      All ({totalUnitsInSeason})
-                    </button>
-                    {hasFillerOrRecap && (
+                {/* Anime Filler / Canon Filter Bar */}
+                {category === 'anime' && fillerMap && (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-control border border-decorative bg-surface-subtle p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-[var(--za-weight-emphasis)] text-ink-muted">
+                        EPISODE GUIDE:
+                      </span>
                       <button
                         type="button"
-                        onClick={() => setFillerFilter('canon_only')}
+                        onClick={() => setFillerFilter('all')}
                         className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
-                          fillerFilter === 'canon_only'
-                            ? 'border border-accent bg-accent/15 text-accent'
+                          fillerFilter === 'all'
+                            ? 'border border-required bg-surface text-ink'
                             : 'border border-transparent text-ink-muted hover:text-ink'
                         }`}
                       >
-                        Canon Only
+                        All ({totalUnitsInSeason})
+                      </button>
+                      {hasFillerOrRecap && (
+                        <button
+                          type="button"
+                          onClick={() => setFillerFilter('canon_only')}
+                          className={`rounded-small px-2 py-0.5 text-xs font-[var(--za-weight-emphasis)] transition-[all] ${
+                            fillerFilter === 'canon_only'
+                              ? 'border border-accent bg-accent/15 text-accent'
+                              : 'border border-transparent text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          Canon Only
+                        </button>
+                      )}
+                    </div>
+                    {hasFillerOrRecap && (
+                      <span className="text-[length:var(--za-text-fine)] text-ink-muted">
+                        {fillerCount} filler/recap episodes detected
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {!isMovie && structure.length > 1 && (
+                  <div className="mb-2 flex gap-[0.3rem] overflow-x-auto pb-[0.4rem]">
+                    {structure.map((s) => (
+                      <button
+                        key={s.number}
+                        type="button"
+                        className={pillClass(activeSeason === s.number)}
+                        onClick={() => setActiveSeason(s.number)}
+                      >
+                        {s.name || `Season ${s.number}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!isMovie && (
+                  <div className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-[0.35rem] overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2">
+                    {Array.from({ length: Math.min(100, Math.max(1, totalUnitsInSeason)) }).map(
+                      (_, i) => {
+                        const unitNum = i + 1;
+                        const epInfo =
+                          category === 'anime' && fillerMap ? fillerMap.episodes[unitNum] : null;
+                        const isFiller = epInfo?.type === 'filler';
+                        const isRecap = epInfo?.type === 'recap';
+
+                        if (
+                          category === 'anime' &&
+                          fillerFilter === 'canon_only' &&
+                          (isFiller || isRecap)
+                        ) {
+                          return null;
+                        }
+
+                        const isDone =
+                          activeSeason < primaryCurrent ||
+                          (activeSeason === primaryCurrent && unitNum <= secondaryCurrent);
+                        const isCurrent =
+                          activeSeason === primaryCurrent && unitNum === secondaryCurrent;
+
+                        return (
+                          <button
+                            key={unitNum}
+                            type="button"
+                            onClick={() => handleSetEpisode(unitNum, activeSeason)}
+                            disabled={isUpdating}
+                            title={
+                              epInfo
+                                ? `Episode ${unitNum}${epInfo.title ? `: ${epInfo.title}` : ''} (${isFiller ? 'Filler' : isRecap ? 'Recap' : 'Canon'})`
+                                : undefined
+                            }
+                            style={{
+                              background: isCurrent
+                                ? 'var(--za-color-accent)'
+                                : isDone
+                                  ? 'var(--za-color-success-surface)'
+                                  : isFiller
+                                    ? 'var(--za-color-warning-surface)'
+                                    : 'var(--za-color-surface)',
+                              color: isCurrent
+                                ? 'var(--za-color-on-accent)'
+                                : isDone
+                                  ? 'var(--za-color-success)'
+                                  : isFiller
+                                    ? 'var(--za-color-warning)'
+                                    : 'var(--za-color-text)',
+                              borderColor: isCurrent
+                                ? 'var(--za-color-accent)'
+                                : isDone
+                                  ? 'var(--za-color-success)'
+                                  : isFiller
+                                    ? 'var(--za-color-warning)'
+                                    : 'var(--za-color-border-decorative)',
+                              borderStyle: isFiller ? 'dashed' : 'solid',
+                              fontWeight: isCurrent ? 'bold' : 'normal',
+                            }}
+                            className="relative inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
+                          >
+                            {unitNum}
+                            {isFiller && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-warning text-[8px] font-bold text-on-accent"
+                              >
+                                F
+                              </span>
+                            )}
+                            {isRecap && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-ink-muted text-[8px] font-bold text-surface"
+                              >
+                                R
+                              </span>
+                            )}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <CycleLedger
+                cycles={cycles}
+                isBookLike={isBookLike}
+                editingCycleId={editingCycleId}
+                cycleForm={cycleForm}
+                isUpdating={isUpdating}
+                onCycleFormChange={setCycleForm}
+                onOpenAddCycle={handleOpenAddCycle}
+                onOpenEditCycle={handleOpenEditCycle}
+                onSaveCycle={handleSaveCycle}
+                onCancelCycle={() => setEditingCycleId(null)}
+                onDeleteCycle={handleDeleteCycle}
+                onStartNewCycle={handleStartRewatch}
+              />
+
+              {/* Personal Notes */}
+              <FolioNotes
+                notesDraft={notesDraft}
+                onNotesChange={handleNotesChange}
+                onNotesBlur={handleNotesBlur}
+                sectionLabelClass={sectionLabel}
+                disabled={isUpdating}
+              />
+
+              {/* Quotes & Excerpts */}
+              <div className="mt-[var(--za-space-4)]">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className={sectionLabel}>
+                    <Quote size={12} /> QUOTES & EXCERPTS ({(item.quotes || []).length})
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {copiedQuoteId && (
+                      <span
+                        className="font-[var(--za-font-mono)] text-[10px] text-success"
+                        role="status"
+                      >
+                        Copied
+                      </span>
+                    )}
+                    {!editingQuoteId && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddQuote}
+                        className="za-button za-button--tertiary min-h-0 px-0 py-0 text-xs"
+                      >
+                        + Add Quote
                       </button>
                     )}
                   </div>
-                  {hasFillerOrRecap && (
-                    <span className="text-[length:var(--za-text-fine)] text-ink-muted">
-                      {fillerCount} filler/recap episodes detected
-                    </span>
-                  )}
                 </div>
-              )}
 
-              {!isMovie && structure.length > 1 && (
-                <div className="mb-2 flex gap-[0.3rem] overflow-x-auto pb-[0.4rem]">
-                  {structure.map((s) => (
-                    <button
-                      key={s.number}
-                      type="button"
-                      className={pillClass(activeSeason === s.number)}
-                      onClick={() => setActiveSeason(s.number)}
-                    >
-                      {s.name || `Season ${s.number}`}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!isMovie && (
-                <div className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-[0.35rem] overflow-y-auto rounded-small border border-decorative bg-surface-subtle p-2">
-                  {Array.from({ length: Math.min(100, Math.max(1, totalUnitsInSeason)) }).map(
-                    (_, i) => {
-                      const unitNum = i + 1;
-                      const epInfo =
-                        category === 'anime' && fillerMap ? fillerMap.episodes[unitNum] : null;
-                      const isFiller = epInfo?.type === 'filler';
-                      const isRecap = epInfo?.type === 'recap';
-
-                      if (
-                        category === 'anime' &&
-                        fillerFilter === 'canon_only' &&
-                        (isFiller || isRecap)
-                      ) {
-                        return null;
-                      }
-
-                      const isDone =
-                        activeSeason < primaryCurrent ||
-                        (activeSeason === primaryCurrent && unitNum <= secondaryCurrent);
-                      const isCurrent =
-                        activeSeason === primaryCurrent && unitNum === secondaryCurrent;
-
-                      return (
-                        <button
-                          key={unitNum}
-                          type="button"
-                          onClick={() => handleSetEpisode(unitNum, activeSeason)}
-                          disabled={isUpdating}
-                          title={
-                            epInfo
-                              ? `Episode ${unitNum}${epInfo.title ? `: ${epInfo.title}` : ''} (${isFiller ? 'Filler' : isRecap ? 'Recap' : 'Canon'})`
-                              : undefined
-                          }
-                          style={{
-                            background: isCurrent
-                              ? 'var(--za-color-accent)'
-                              : isDone
-                                ? 'var(--za-color-success-surface)'
-                                : isFiller
-                                  ? 'var(--za-color-warning-surface)'
-                                  : 'var(--za-color-surface)',
-                            color: isCurrent
-                              ? 'var(--za-color-on-accent)'
-                              : isDone
-                                ? 'var(--za-color-success)'
-                                : isFiller
-                                  ? 'var(--za-color-warning)'
-                                  : 'var(--za-color-text)',
-                            borderColor: isCurrent
-                              ? 'var(--za-color-accent)'
-                              : isDone
-                                ? 'var(--za-color-success)'
-                                : isFiller
-                                  ? 'var(--za-color-warning)'
-                                  : 'var(--za-color-border-decorative)',
-                            borderStyle: isFiller ? 'dashed' : 'solid',
-                            fontWeight: isCurrent ? 'bold' : 'normal',
-                          }}
-                          className="relative inline-flex h-[2.2rem] cursor-pointer items-center justify-center rounded-small border text-[length:var(--za-text-fine)]"
-                        >
-                          {unitNum}
-                          {isFiller && (
-                            <span
-                              aria-hidden="true"
-                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-warning text-[8px] font-bold text-on-accent"
-                            >
-                              F
-                            </span>
-                          )}
-                          {isRecap && (
-                            <span
-                              aria-hidden="true"
-                              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-small bg-ink-muted text-[8px] font-bold text-surface"
-                            >
-                              R
-                            </span>
-                          )}
-                        </button>
-                      );
-                    },
-                  )}
-                </div>
-              )}
-            </div>
-
-            <CycleLedger
-              cycles={cycles}
-              isBookLike={isBookLike}
-              editingCycleId={editingCycleId}
-              cycleForm={cycleForm}
-              isUpdating={isUpdating}
-              onCycleFormChange={setCycleForm}
-              onOpenAddCycle={handleOpenAddCycle}
-              onOpenEditCycle={handleOpenEditCycle}
-              onSaveCycle={handleSaveCycle}
-              onCancelCycle={() => setEditingCycleId(null)}
-              onDeleteCycle={handleDeleteCycle}
-              onStartNewCycle={handleStartRewatch}
-            />
-
-            {/* Personal Notes */}
-            <FolioNotes
-              notesDraft={notesDraft}
-              onNotesChange={handleNotesChange}
-              onNotesBlur={handleNotesBlur}
-              sectionLabelClass={sectionLabel}
-              disabled={isUpdating}
-            />
-
-            {/* Quotes & Excerpts */}
-            <div className="mt-[var(--za-space-4)]">
-              <div className="mb-1.5 flex items-center justify-between">
-                <div className={sectionLabel}>
-                  <Quote size={12} /> QUOTES & EXCERPTS ({(item.quotes || []).length})
-                </div>
-                <div className="flex items-center gap-2">
-                  {copiedQuoteId && (
-                    <span
-                      className="font-[var(--za-font-mono)] text-[10px] text-success"
-                      role="status"
-                    >
-                      Copied
-                    </span>
-                  )}
-                  {!editingQuoteId && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAddQuote}
-                      className="za-button za-button--tertiary min-h-0 px-0 py-0 text-xs"
-                    >
-                      + Add Quote
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Inline Quote Add/Edit Form */}
-              {editingQuoteId && (
-                <div className="mb-3 rounded-control border border-required bg-surface p-3 text-xs">
-                  <div className="mb-2 font-[var(--za-weight-emphasis)] text-ink">
-                    {editingQuoteId === 'new' ? 'Add Memorable Quote' : 'Edit Quote'}
+                {/* Inline Quote Add/Edit Form */}
+                {editingQuoteId && (
+                  <div className="mb-3 rounded-control border border-required bg-surface p-3 text-xs">
+                    <div className="mb-2 font-[var(--za-weight-emphasis)] text-ink">
+                      {editingQuoteId === 'new' ? 'Add Memorable Quote' : 'Edit Quote'}
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="mb-0.5 block text-[10px] text-ink-muted">
+                          Quote Text *
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="“Fear is the mind-killer...”"
+                          className="za-field min-h-[4rem] text-xs"
+                          value={quoteForm.text}
+                          onChange={(e) => setQuoteForm((p) => ({ ...p, text: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="mb-0.5 block text-[10px] text-ink-muted">
+                            Speaker / Character (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Paul Atreides"
+                            className="za-field text-xs"
+                            value={quoteForm.speaker}
+                            onChange={(e) =>
+                              setQuoteForm((p) => ({ ...p, speaker: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-0.5 block text-[10px] text-ink-muted">
+                            Citation / Page / Timestamp (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Chapter 1, p. 8"
+                            className="za-field text-xs"
+                            value={quoteForm.citation}
+                            onChange={(e) =>
+                              setQuoteForm((p) => ({ ...p, citation: e.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted">
+                          <input
+                            type="checkbox"
+                            checked={quoteForm.isFavorite}
+                            onChange={(e) =>
+                              setQuoteForm((p) => ({ ...p, isFavorite: e.target.checked }))
+                            }
+                            className="h-3.5 w-3.5 rounded border-decorative"
+                          />
+                          <span>Favorite Quote</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingQuoteId(null)}
+                            className="za-button za-button--secondary px-2.5 py-1 text-xs"
+                            disabled={isUpdating}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveQuote}
+                            className="za-button za-button--primary px-2.5 py-1 text-xs"
+                            disabled={isUpdating || !quoteForm.text.trim()}
+                          >
+                            Save Quote
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                {/* Quotes List */}
+                {(item.quotes || []).length > 0 ? (
                   <div className="space-y-2">
-                    <div>
-                      <label className="mb-0.5 block text-[10px] text-ink-muted">
-                        Quote Text *
-                      </label>
-                      <textarea
-                        rows={2}
-                        placeholder="“Fear is the mind-killer...”"
-                        className="za-field min-h-[4rem] text-xs"
-                        value={quoteForm.text}
-                        onChange={(e) => setQuoteForm((p) => ({ ...p, text: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-ink-muted">
-                          Speaker / Character (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Paul Atreides"
-                          className="za-field text-xs"
-                          value={quoteForm.speaker}
-                          onChange={(e) => setQuoteForm((p) => ({ ...p, speaker: e.target.value }))}
-                        />
+                    {(item.quotes || []).map((q) => (
+                      <div
+                        key={q.id}
+                        className="group relative rounded-control border border-decorative bg-surface-subtle p-3 text-xs transition-colors hover:border-required"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 flex-1 break-words italic leading-relaxed text-ink">
+                            &ldquo;{q.text}&rdquo;
+                          </p>
+                          <div className="flex shrink-0 items-center gap-1 opacity-80 group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyQuote(q)}
+                              title="Copy formatted quote"
+                              className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
+                            >
+                              {copiedQuoteId === q.id ? (
+                                <Check size={11} className="text-success" />
+                              ) : (
+                                <Copy size={11} />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditQuote(q)}
+                              title="Edit quote"
+                              className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteQuote(q.id)}
+                              title="Delete quote"
+                              className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-danger hover:text-danger"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+                        {(q.speaker || q.citation) && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[length:var(--za-text-fine)] text-ink-muted">
+                            {q.isFavorite && <Star size={10} className="fill-accent text-accent" />}
+                            <span>— {q.speaker || 'Unknown'}</span>
+                            {q.citation && <span>· {q.citation}</span>}
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-ink-muted">
-                          Citation / Page / Timestamp (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Chapter 1, p. 8"
-                          className="za-field text-xs"
-                          value={quoteForm.citation}
-                          onChange={(e) =>
-                            setQuoteForm((p) => ({ ...p, citation: e.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted">
-                        <input
-                          type="checkbox"
-                          checked={quoteForm.isFavorite}
-                          onChange={(e) =>
-                            setQuoteForm((p) => ({ ...p, isFavorite: e.target.checked }))
-                          }
-                          className="h-3.5 w-3.5 rounded border-decorative"
-                        />
-                        <span>Favorite Quote</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditingQuoteId(null)}
-                          className="za-button za-button--secondary px-2.5 py-1 text-xs"
-                          disabled={isUpdating}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveQuote}
-                          className="za-button za-button--primary px-2.5 py-1 text-xs"
-                          disabled={isUpdating || !quoteForm.text.trim()}
-                        >
-                          Save Quote
-                        </button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                </div>
-              )}
+                ) : !editingQuoteId ? (
+                  <div className="rounded-control border border-dashed border-decorative p-3 text-center text-xs text-ink-muted">
+                    No quotes saved yet. Click &ldquo;+ Add Quote&rdquo; to save memorable lines.
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
 
-              {/* Quotes List */}
-              {(item.quotes || []).length > 0 ? (
-                <div className="space-y-2">
-                  {(item.quotes || []).map((q) => (
-                    <div
-                      key={q.id}
-                      className="group relative rounded-control border border-decorative bg-surface-subtle p-3 text-xs transition-colors hover:border-required"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 break-words italic leading-relaxed text-ink">
-                          &ldquo;{q.text}&rdquo;
-                        </p>
-                        <div className="flex shrink-0 items-center gap-1 opacity-80 group-hover:opacity-100">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyQuote(q)}
-                            title="Copy formatted quote"
-                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
-                          >
-                            {copiedQuoteId === q.id ? (
-                              <Check size={11} className="text-success" />
-                            ) : (
-                              <Copy size={11} />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditQuote(q)}
-                            title="Edit quote"
-                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-required hover:text-ink"
-                          >
-                            <Pencil size={11} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteQuote(q.id)}
-                            title="Delete quote"
-                            className="rounded-small border border-decorative bg-surface p-1 text-ink-muted hover:border-danger hover:text-danger"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
-                      </div>
-                      {(q.speaker || q.citation) && (
-                        <div className="mt-1.5 flex items-center gap-1.5 text-[length:var(--za-text-fine)] text-ink-muted">
-                          {q.isFavorite && <Star size={10} className="fill-accent text-accent" />}
-                          <span>— {q.speaker || 'Unknown'}</span>
-                          {q.citation && <span>· {q.citation}</span>}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : !editingQuoteId ? (
-                <div className="rounded-control border border-dashed border-decorative p-3 text-center text-xs text-ink-muted">
-                  No quotes saved yet. Click &ldquo;+ Add Quote&rdquo; to save memorable lines.
-                </div>
-              ) : null}
-            </div>
-          </section>
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
+            <button type="button" className="za-button za-button--primary" onClick={handleClose}>
+              Done
+            </button>
+          </div>
         </div>
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-[var(--za-space-3)] border-t border-decorative bg-surface-subtle px-[var(--za-space-6)] py-[var(--za-space-4)]">
-          <button type="button" className="za-button za-button--primary" onClick={handleClose}>
-            Done
-          </button>
-        </div>
-      </div>
+      </Modal>
 
       <DropReasonModal
         isOpen={isDropReasonOpen}
@@ -1803,6 +1811,6 @@ export default function MediaDetailModal({
           setIsDropReasonOpen(false);
         }}
       />
-    </Modal>
+    </>
   );
 }

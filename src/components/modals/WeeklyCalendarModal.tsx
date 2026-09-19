@@ -249,6 +249,7 @@ export default function WeeklyCalendarModal({
                               type="button"
                               disabled={updatingId === media.id}
                               onClick={(e) => handleQuickLog(media, e)}
+                              onKeyDown={(e) => e.stopPropagation()}
                               className="za-button za-button--primary mt-2 flex w-full gap-1 px-2 text-[0.65rem] disabled:opacity-50"
                               title="Mark watched / +1 episode"
                             >

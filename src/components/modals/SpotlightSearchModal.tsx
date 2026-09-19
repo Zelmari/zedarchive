@@ -249,7 +249,7 @@ export default function SpotlightSearchModal({
           ref={searchInputRef}
           type="text"
           aria-label="Search for movies, shows, books, or anime"
-          className="za-field min-w-0 flex-1 border-0 bg-transparent px-0 py-0 shadow-none focus:border-0 focus:shadow-none"
+          className="za-field min-w-0 flex-1 border-0 bg-transparent px-0 py-0 shadow-none"
           placeholder={PLACEHOLDERS[category]}
           value={searchQuery}
           onChange={(e) => {

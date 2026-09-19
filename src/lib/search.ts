@@ -1,5 +1,6 @@
 import { MAX_QUERY_LENGTH } from '@/lib/constants';
 import type { MediaCategory } from '@/types/media';
+import { checkRateLimit, clientKeyFromRequest } from '@/lib/rate-limit';
 
 export interface ParsedSearchQuery {
   query: string;
@@ -11,6 +12,12 @@ export function jsonSearchError(message: string, status: number): Response {
 }
 
 export function parseSearchQuery(request: Request): ParsedSearchQuery | Response {
+  if (process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test') {
+    if (!checkRateLimit('search', clientKeyFromRequest(request), 60, 60_000)) {
+      return jsonSearchError('Too many searches. Please wait a moment.', 429);
+    }
+  }
+
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get('q') || searchParams.get('query') || '').trim();
 

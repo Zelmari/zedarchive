@@ -34,10 +34,7 @@ test.describe('media lifecycle', () => {
     await firstResult.click();
 
     // Search hit creates the row and opens the folio inspector.
-    const folio = page
-      .getByRole('dialog', { name: /Frieren/i })
-      .or(page.getByRole('heading', { name: /Frieren/i }))
-      .first();
+    const folio = page.getByRole('dialog', { name: /Frieren/i });
     await expect(folio).toBeVisible({ timeout: 30_000 });
 
     // Close the folio (Done button) so the dashboard card is interactable.

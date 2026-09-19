@@ -98,6 +98,19 @@ describe('updateUserProfile display name', () => {
     expect(updated?.username).toBeNull();
   });
 
+  it('rejects handles that would be silently mutated or are too short', async () => {
+    await expect(updateUserProfile({ username: 'a b c' })).rejects.toThrow(
+      'Handle must be 3–30 characters',
+    );
+    await expect(updateUserProfile({ username: 'ab' })).rejects.toThrow(
+      'Handle must be 3–30 characters',
+    );
+    await expect(updateUserProfile({ username: '!!!' })).rejects.toThrow(
+      'Handle must be 3–30 characters',
+    );
+    expect(dbState.rows[0]?.username).toBe('zelmari');
+  });
+
   it('stores a valid data-URL avatar', async () => {
     const updated = await updateUserProfile({ image: 'data:image/png;base64,AAAA' });
     expect(updated?.image).toBe('data:image/png;base64,AAAA');

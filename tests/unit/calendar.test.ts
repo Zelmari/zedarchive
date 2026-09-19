@@ -117,4 +117,21 @@ describe('buildWeeklySchedule', () => {
     expect(schedule.Monday[0]?.airInfo.number).toBe(4);
     expect(schedule.Monday[0]?.airInfo.sequelTitle).toBe('You and I Are Polar Opposites Season 2');
   });
+
+  it('ignores episodes outside the current Monday–Sunday window', () => {
+    const entries: MediaEntry[] = [baseEntry('1', 'Severance', 'show', 'tvmaze-100')];
+    const airMap: NextAirMap = {
+      'tvmaze-100': {
+        season: 1,
+        number: 1,
+        airdate: '2025-01-06',
+        airstamp: '2025-01-06T20:00:00Z',
+        status: 'Running',
+      },
+    };
+    const schedule = buildWeeklySchedule(entries, airMap, new Date('2026-08-28T00:00:00Z'));
+    for (const day of ORDERED_DAYS) {
+      expect(schedule[day]).toHaveLength(0);
+    }
+  });
 });

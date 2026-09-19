@@ -93,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${cinzel.variable} ${playfairDisplay.variable} ${newsreader.variable} ${jetBrainsMono.variable}`}
     >
       <head>
+        <meta name="theme-color" content="#f7f4ee" />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
       </head>

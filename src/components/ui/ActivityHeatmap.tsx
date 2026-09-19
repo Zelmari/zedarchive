@@ -94,9 +94,9 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
     // We want Mon = 0 ... Sun = 6
     const todayDayOfWeek = (today.getDay() + 6) % 7;
 
-    // Start date is 52 weeks before the start of current week
+    // Start date is 52 weeks + current weekday before today (~365 days).
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() - (51 * 7 + todayDayOfWeek));
+    startDate.setDate(today.getDate() - (52 * 7 + todayDayOfWeek));
 
     const weeksList: Array<Array<{ date: Date; dateKey: string; count: number }>> = [];
     const months: Array<{ monthName: string; colIndex: number }> = [];
@@ -109,8 +109,15 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
     const cursor = new Date(startDate);
     let col = 0;
 
+    const localDateKey = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     while (cursor <= today || currentWeek.length > 0) {
-      const dateKey = cursor.toISOString().slice(0, 10);
+      const dateKey = localDateKey(cursor);
       const count = activityMap[dateKey] || 0;
       total += count;
       if (count > max) max = count;
@@ -172,7 +179,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
                 key={i}
                 style={{
                   position: 'absolute',
-                  left: `${m.colIndex * 15 + 32}px`,
+                  left: `${m.colIndex * 15 + 27}px`,
                 }}
               >
                 {m.monthName}
@@ -191,7 +198,11 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
             </div>
 
             {/* Weeks columns */}
-            <div className="flex gap-[3px]">
+            <div
+              className="flex gap-[3px]"
+              role="img"
+              aria-label={`Activity over past year: ${totalLogs} ${totalLogs === 1 ? 'log' : 'logs'}`}
+            >
               {weeks.map((week, weekIdx) => (
                 <div key={weekIdx} className="flex flex-col gap-[3px]">
                   {week.map((day) => {
@@ -203,7 +214,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
                       <div
                         key={day.dateKey}
                         title={tooltip}
-                        aria-label={tooltip}
+                        aria-hidden="true"
                         className="size-3 rounded-[2px] border transition-transform hover:z-10 hover:scale-125"
                         style={getCellStyle(level, useThemeRamp)}
                       />

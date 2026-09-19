@@ -63,10 +63,7 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
     .filter((e) => e.category === 'book' || e.category === 'manga')
     .reduce((sum, e) => sum + (e.secondaryUnitCurrent || 0), 0);
 
-  const totalMovieMinutes = movieEntries.reduce(
-    (sum, e) => sum + (e.secondaryUnitCurrent || e.secondaryUnitTotal || 0),
-    0,
-  );
+  const totalMovieMinutes = movieEntries.reduce((sum, e) => sum + (e.secondaryUnitCurrent ?? 0), 0);
 
   const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
   const avgRating =
@@ -102,11 +99,36 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
 }
 
 export function extractEntryYear(entry: MediaEntry): number | null {
-  const dateStr = entry.completedAt || entry.updatedAt || entry.createdAt;
+  const dateStr = entry.completedAt;
   if (!dateStr) return null;
   const d = new Date(dateStr);
   const y = d.getFullYear();
   return isNaN(y) ? null : y;
+}
+
+function yearsForEntry(entry: MediaEntry): Set<number> {
+  const years = new Set<number>();
+  const add = (value: string | null | undefined) => {
+    if (!value) return;
+    const y = new Date(value).getFullYear();
+    if (!isNaN(y) && y >= 2000) years.add(y);
+  };
+  add(entry.completedAt);
+  for (const cycle of entry.cycles ?? []) {
+    add(cycle.completedAt);
+  }
+  return years;
+}
+
+function completionDateInYear(entry: MediaEntry, year: number): string | null {
+  const dates = [
+    entry.completedAt,
+    ...(entry.cycles ?? []).map((cycle) => cycle.completedAt),
+  ].filter((value): value is string => Boolean(value));
+  for (const dateStr of dates) {
+    if (new Date(dateStr).getFullYear() === year) return dateStr;
+  }
+  return null;
 }
 
 export function getAvailableYears(entries: MediaEntry[]): number[] {
@@ -115,9 +137,10 @@ export function getAvailableYears(entries: MediaEntry[]): number[] {
   yearsSet.add(currentYear);
 
   for (const entry of entries) {
-    const y = extractEntryYear(entry);
-    if (y && y >= 2000 && y <= currentYear + 1) {
-      yearsSet.add(y);
+    for (const y of yearsForEntry(entry)) {
+      if (y >= 2000 && y <= currentYear + 1) {
+        yearsSet.add(y);
+      }
     }
   }
 
@@ -128,12 +151,7 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
   const availableYears = getAvailableYears(entries);
 
   // Entries completed in this year
-  const completedInYear = entries.filter((e) => {
-    if (e.status !== 'completed') return false;
-    const dateStr = e.completedAt || e.updatedAt || e.createdAt;
-    if (!dateStr) return false;
-    return new Date(dateStr).getFullYear() === year;
-  });
+  const completedInYear = entries.filter((e) => yearsForEntry(e).has(year));
 
   // Category counts
   let completedShows = 0;
@@ -152,18 +170,18 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     if (entry.category === 'show') completedShows++;
     else if (entry.category === 'movie') {
       completedMovies++;
-      movieMinutesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      movieMinutesWatched += entry.secondaryUnitCurrent ?? 0;
     } else if (entry.category === 'anime') completedAnime++;
     else if (entry.category === 'book') completedBooks++;
     else if (entry.category === 'manga') completedManga++;
 
     if (entry.category === 'show' || entry.category === 'anime') {
-      episodesWatched += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      episodesWatched += entry.secondaryUnitCurrent ?? 0;
     } else if (entry.category === 'book' || entry.category === 'manga') {
-      chaptersRead += entry.secondaryUnitCurrent || entry.secondaryUnitTotal || 0;
+      chaptersRead += entry.secondaryUnitCurrent ?? 0;
     }
 
-    const dateStr = entry.completedAt || entry.updatedAt || entry.createdAt;
+    const dateStr = completionDateInYear(entry, year);
     if (dateStr) {
       const month = new Date(dateStr).getMonth();
       if (month >= 0 && month < 12) {
@@ -236,8 +254,8 @@ export function calculateReadingGoalProgress(
 ): ReadingGoalProgress {
   const currentYear = goalConfig.year;
   const startOfYear = new Date(currentYear, 0, 1).getTime();
-  const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59).getTime();
-  const nowTime = Math.min(endOfYear, Math.max(startOfYear, referenceDate.getTime()));
+  const startOfNextYear = new Date(currentYear + 1, 0, 1).getTime();
+  const nowTime = Math.min(startOfNextYear - 1, Math.max(startOfYear, referenceDate.getTime()));
 
   // Completed books/manga in target year
   const completedBooks = entries.filter((e) => {
@@ -250,15 +268,16 @@ export function calculateReadingGoalProgress(
 
   const completedCount = completedBooks.length;
   const target = Math.max(1, goalConfig.annualTarget);
-  const percentage = Math.min(100, Math.round((completedCount / target) * 100));
+  const percentage = Math.round((completedCount / target) * 100);
 
-  const yearFraction = (nowTime - startOfYear) / (endOfYear - startOfYear);
+  const yearLength = startOfNextYear - startOfYear;
+  const yearFraction = (nowTime - startOfYear) / yearLength;
   const expectedCount = Math.round(yearFraction * target * 10) / 10;
   const paceDiff = Math.round((completedCount - expectedCount) * 10) / 10;
 
   const status: 'ahead' | 'on_track' | 'behind' =
     paceDiff >= 1 ? 'ahead' : paceDiff <= -1 ? 'behind' : 'on_track';
-  const totalDaysInYear = (endOfYear - startOfYear) / (1000 * 60 * 60 * 24);
+  const totalDaysInYear = yearLength / (1000 * 60 * 60 * 24);
   const daysPassed = (nowTime - startOfYear) / (1000 * 60 * 60 * 24);
   const daysRemainingInYear = Math.max(0, Math.ceil(totalDaysInYear - daysPassed));
   const projectedFinishCount =

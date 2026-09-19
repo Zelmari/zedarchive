@@ -48,6 +48,7 @@ export default function DropReasonModal({
       onClose={onCancel}
       labelledBy="drop-reason-modal-title"
       initialFocusRef={inputRef}
+      layer="nested"
       contentClassName="max-w-[36rem] overflow-hidden"
     >
       <div className="za-bookplate relative rounded-none border-0 p-[var(--za-space-6)] shadow-none">
@@ -79,7 +80,6 @@ export default function DropReasonModal({
           value={reason}
           onChange={(value) => {
             setReason(value);
-            inputRef.current?.focus();
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

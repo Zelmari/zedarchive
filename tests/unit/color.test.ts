@@ -6,8 +6,13 @@ describe('Color & Contrast Validator', () => {
   it('parses valid 3-digit and 6-digit hex colors', () => {
     expect(hexToRgb('#fff')).toEqual([255, 255, 255]);
     expect(hexToRgb('#000000')).toEqual([0, 0, 0]);
+    expect(hexToRgb('#11223344')).toEqual([17, 34, 51]);
     expect(hexToRgb('1e2320')).toEqual([30, 35, 32]);
     expect(hexToRgb('invalid')).toBeNull();
+  });
+
+  it('returns NaN contrast for invalid colors instead of 1', () => {
+    expect(Number.isNaN(getContrastRatio('not-a-color', '#ffffff'))).toBe(true);
   });
 
   it('calculates accurate contrast ratios', () => {

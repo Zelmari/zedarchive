@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeHandle, isReservedHandle } from '@/lib/handles';
+import { normalizeHandle, isReservedHandle, isValidHandle } from '@/lib/handles';
 
 describe('normalizeHandle', () => {
   it('lowercases and strips invalid characters', () => {
@@ -31,5 +31,14 @@ describe('isReservedHandle', () => {
   it('allows normal handles', () => {
     expect(isReservedHandle('zelmari')).toBe(false);
     expect(isReservedHandle('alex_reads')).toBe(false);
+  });
+});
+
+describe('isValidHandle', () => {
+  it('requires 3–30 lowercase letters, numbers, hyphens, or underscores', () => {
+    expect(isValidHandle('zel')).toBe(true);
+    expect(isValidHandle('ab')).toBe(false);
+    expect(isValidHandle('a b')).toBe(false);
+    expect(isValidHandle('!!!')).toBe(false);
   });
 });

@@ -3,19 +3,25 @@
 import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { user as userTable, mediaEntries } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { user as userTable } from '@/db/schema';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import {
-  MAX_BIO_LENGTH,
-  MAX_NAME_LENGTH,
-  MAX_COVER_IMAGE_LENGTH,
-  VALID_THEMES,
-} from '@/lib/constants';
-import type { MediaEntry } from '@/types/media';
 import { normalizeHandle } from '@/lib/handles';
-import { serializeEntry } from '@/lib/serialize';
 import { getAuthUser } from './internal';
+import {
+  updateProfileSchema,
+  updateThemeSchema,
+  parseCustomThemePalette,
+} from '@/lib/validations/profile';
+import type { CustomThemePalette } from '@/types/user';
+import { checkRateLimit } from '@/lib/rate-limit';
+import {
+  getUserProfileById,
+  getPublicUserProfile,
+  searchPublicProfiles,
+  type PublicProfileResult,
+  type PublicUserSearchResult,
+} from './queries/user';
 
 export async function resendVerificationEmailAction(): Promise<{ ok: boolean; error?: string }> {
   const user = await getAuthUser();
@@ -32,6 +38,10 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
     return { ok: true };
   }
 
+  if (!checkRateLimit('resend-verification', user.id, 1, 60_000)) {
+    return { ok: false, error: 'Please wait a minute before requesting another email.' };
+  }
+
   try {
     await auth.api.sendVerificationEmail({
       body: { email: user.email, callbackURL: '/verified' },
@@ -44,13 +54,13 @@ export async function resendVerificationEmailAction(): Promise<{ ok: boolean; er
   }
 }
 
-import { updateProfileSchema, updateThemeSchema } from '@/lib/validations/profile';
-import type { CustomThemePalette } from '@/types/user';
-
 export async function updateUserTheme(theme: unknown): Promise<{ theme: string }> {
   const user = await getAuthUser();
   const parsed = updateThemeSchema.safeParse({ theme });
-  const safeTheme = parsed.success ? parsed.data.theme : 'parchment';
+  if (!parsed.success) {
+    throw new Error('Invalid theme');
+  }
+  const safeTheme = parsed.data.theme;
 
   await db
     .update(userTable)
@@ -64,12 +74,13 @@ export async function saveCustomThemeAction(
   palette: CustomThemePalette,
 ): Promise<{ success: boolean; theme: string }> {
   const user = await getAuthUser();
+  const validated = parseCustomThemePalette(palette);
 
   await db
     .update(userTable)
     .set({
       theme: 'custom',
-      customTheme: palette,
+      customTheme: validated,
       updatedAt: new Date(),
     })
     .where(eq(userTable.id, user.id));
@@ -78,8 +89,6 @@ export async function saveCustomThemeAction(
   revalidatePath('/settings');
   return { success: true, theme: 'custom' };
 }
-
-import { getUserProfileById } from './queries/user';
 
 export async function getUserProfile() {
   const user = await getAuthUser();
@@ -112,8 +121,23 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
     updateData.name = validated.name;
   }
 
+  const [existing] = await db
+    .select({ username: userTable.username, isPublic: userTable.isPublic })
+    .from(userTable)
+    .where(eq(userTable.id, user.id));
+
   if (updates.username !== undefined) {
     const raw = normalizeHandle(validated.username);
+    if (raw) {
+      const [taken] = await db
+        .select({ id: userTable.id })
+        .from(userTable)
+        .where(and(sql`lower(${userTable.username}) = ${raw}`, ne(userTable.id, user.id)))
+        .limit(1);
+      if (taken) {
+        throw new Error('This handle is already taken');
+      }
+    }
     updateData.username = raw || null;
   }
 
@@ -136,10 +160,6 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   // Public-archive invariant: a public archive must have a resolvable
   // handle, otherwise comment author links would point at /u/null.
   if (updateData.isPublic !== undefined || updateData.username !== undefined) {
-    const [existing] = await db
-      .select({ username: userTable.username, isPublic: userTable.isPublic })
-      .from(userTable)
-      .where(eq(userTable.id, user.id));
     const effectiveUsername =
       updateData.username !== undefined ? updateData.username : (existing?.username ?? null);
     const effectiveIsPublic =
@@ -149,23 +169,36 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
     }
   }
 
-  const [updated] = await db
-    .update(userTable)
-    .set(updateData)
-    .where(eq(userTable.id, user.id))
-    .returning({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      isPublic: userTable.isPublic,
-      bio: userTable.bio,
-      theme: userTable.theme,
-      image: userTable.image,
-      countryCode: userTable.countryCode,
-    });
+  let updated;
+  try {
+    [updated] = await db
+      .update(userTable)
+      .set(updateData)
+      .where(eq(userTable.id, user.id))
+      .returning({
+        id: userTable.id,
+        name: userTable.name,
+        username: userTable.username,
+        isPublic: userTable.isPublic,
+        bio: userTable.bio,
+        theme: userTable.theme,
+        image: userTable.image,
+        countryCode: userTable.countryCode,
+      });
+  } catch (err: unknown) {
+    const code = typeof err === 'object' && err && 'code' in err ? String(err.code) : '';
+    if (code === '23505') {
+      throw new Error('This handle is already taken');
+    }
+    throw err;
+  }
 
   revalidatePath('/dashboard');
   revalidatePath('/settings');
+  if (existing?.username && existing.username !== updated?.username) {
+    revalidatePath(`/u/${existing.username}`);
+    revalidatePath(`/u/${existing.username}/stacks`);
+  }
   if (updated?.username) {
     revalidatePath(`/u/${updated.username}`);
   }
@@ -219,11 +252,5 @@ export async function deleteReadingGoal(year: number): Promise<{ ok: boolean; er
   return { ok: true };
 }
 
-import {
-  getPublicUserProfile,
-  searchPublicProfiles,
-  type PublicProfileResult,
-  type PublicUserSearchResult,
-} from './queries/user';
 export { getPublicUserProfile, searchPublicProfiles };
 export type { PublicProfileResult, PublicUserSearchResult };

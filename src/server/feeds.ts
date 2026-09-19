@@ -1,5 +1,6 @@
 import { getPublicUserProfile, type PublicProfileResult } from '@/server/queries/user';
 import type { MediaEntry } from '@/types/media';
+import { getCanonicalProfileUrl } from '@/lib/site-url';
 
 export interface PublicFeedItem {
   id: string;
@@ -36,19 +37,14 @@ export function escapeXml(value: string): string {
   });
 }
 
-export async function loadPublicFeed(
-  username: string,
-  request: Request,
-): Promise<PublicFeedData | null> {
+export async function loadPublicFeed(username: string): Promise<PublicFeedData | null> {
   const data = await getPublicUserProfile(username);
 
-  if (!data?.user || !data.user.isPublic) {
+  if (!data?.user || !data.user.isPublic || !data.user.username) {
     return null;
   }
 
-  const url = new URL(request.url);
-  const siteUrl = `${url.protocol}//${url.host}`;
-  const profileUrl = `${siteUrl}/u/${data.user.username}`;
+  const profileUrl = getCanonicalProfileUrl(data.user.username);
   const recentEntries = data.entries.slice(0, 50).map((entry) => ({
     id: entry.id,
     title: entry.title,

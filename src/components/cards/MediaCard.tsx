@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Pencil, FileText, Calendar, Bookmark, Lock, Eye } from 'lucide-react';
+import { Trash2, FileText, Calendar, Bookmark, Lock, Eye } from 'lucide-react';
 import { formatAirdate } from '@/lib/format';
 import { getNextSeason, getPrevSeason, seasonTotal, sortedSeasonStructure } from '@/lib/season';
 import { MarkdownNotes } from '@/lib/markdown';
@@ -87,7 +87,8 @@ export default function MediaCard({
   const tags = Array.isArray(item.tags) ? item.tags : [];
 
   const primaryUnitCurrent = item.primaryUnitCurrent ?? 1;
-  const primaryUnitTotal = item.primaryUnitTotal ?? 1;
+  const primaryUnitTotalRaw = item.primaryUnitTotal ?? null;
+  const primaryUnitTotal = primaryUnitTotalRaw ?? 1;
   const secondaryUnitCurrent = item.secondaryUnitCurrent ?? 0;
   const secondaryUnitTotal = item.secondaryUnitTotal ?? null;
   const structure = Array.isArray(item.structure) ? item.structure : [];
@@ -95,8 +96,10 @@ export default function MediaCard({
   // Season/volume navigation helpers: structure-aware when the entry ships
   // a non-contiguous breakdown, linear fallback otherwise.
   const sortedStructure = sortedSeasonStructure(structure);
-  const nextSeason = (current: number) => getNextSeason(current, sortedStructure, primaryUnitTotal);
-  const prevSeason = (current: number) => getPrevSeason(current, sortedStructure, primaryUnitTotal);
+  const nextSeason = (current: number) =>
+    getNextSeason(current, sortedStructure, primaryUnitTotalRaw);
+  const prevSeason = (current: number) =>
+    getPrevSeason(current, sortedStructure, primaryUnitTotalRaw);
   // Stepper label total: reflect the highest real season number so a
   // non-contiguous structure never renders "Season 3 of 2".
   const seasonDisplayTotal =
@@ -121,19 +124,30 @@ export default function MediaCard({
 
   const handleEpisodeStep = (delta: number) => {
     if (delta < 0) {
-      if (secondaryUnitCurrent > 0)
+      if (secondaryUnitCurrent > 0) {
         void runUpdate({ secondaryUnitCurrent: secondaryUnitCurrent - 1 });
+        return;
+      }
+      const prev = prevSeason(primaryUnitCurrent);
+      if (prev !== null) {
+        const prevTotal = seasonTotal(sortedStructure, prev);
+        void runUpdate({
+          primaryUnitCurrent: prev,
+          secondaryUnitCurrent: prevTotal && prevTotal > 0 ? prevTotal : 1,
+          secondaryUnitTotal: prevTotal,
+        });
+      }
       return;
     }
 
     const totalKnown = secondaryUnitTotal !== null;
-    if (!totalKnown || secondaryUnitCurrent >= (secondaryUnitTotal as number)) {
+    if (totalKnown && secondaryUnitCurrent >= (secondaryUnitTotal as number)) {
       const next = nextSeason(primaryUnitCurrent);
       if (next !== null) {
         void runUpdate({
           primaryUnitCurrent: next,
           secondaryUnitCurrent: 1,
-          secondaryUnitTotal: seasonTotal(structure, next),
+          secondaryUnitTotal: seasonTotal(sortedStructure, next),
         });
       }
       return;
@@ -145,10 +159,11 @@ export default function MediaCard({
   const handleSeasonChange = (delta: number) => {
     const next = delta > 0 ? nextSeason(primaryUnitCurrent) : prevSeason(primaryUnitCurrent);
     if (next === null) return;
+    const nextTotal = seasonTotal(sortedStructure, next);
     void runUpdate({
       primaryUnitCurrent: next,
-      secondaryUnitCurrent: 1,
-      secondaryUnitTotal: seasonTotal(structure, next),
+      secondaryUnitCurrent: delta > 0 ? 1 : nextTotal && nextTotal > 0 ? nextTotal : 1,
+      secondaryUnitTotal: nextTotal,
     });
   };
 
@@ -164,10 +179,14 @@ export default function MediaCard({
   };
 
   const handleVolumeChange = (delta: number) => {
-    const nextVol = Math.max(1, Math.min(primaryUnitTotal, primaryUnitCurrent + delta));
-    if (nextVol !== primaryUnitCurrent) {
-      void runUpdate({ primaryUnitCurrent: nextVol, secondaryUnitCurrent: 0 });
-    }
+    const nextVol = delta > 0 ? nextSeason(primaryUnitCurrent) : prevSeason(primaryUnitCurrent);
+    if (nextVol === null) return;
+    const nextTotal = seasonTotal(sortedStructure, nextVol);
+    void runUpdate({
+      primaryUnitCurrent: nextVol,
+      secondaryUnitCurrent: 1,
+      secondaryUnitTotal: nextTotal,
+    });
   };
 
   const progressPercentage = secondaryUnitTotal
@@ -193,7 +212,7 @@ export default function MediaCard({
 
   const isRow = layout === 'row';
   const miniActionBtn =
-    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-75 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100';
+    'za-icon-hit inline-flex h-[var(--za-control-min-block-size)] w-[var(--za-control-min-block-size)] shrink-0 cursor-pointer items-center justify-center rounded-small border border-decorative bg-surface opacity-100 transition-[all] duration-[var(--za-motion-fast)] hover:opacity-100 focus-visible:opacity-100';
 
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-[var(--za-space-2)]">
@@ -243,17 +262,6 @@ export default function MediaCard({
           <Eye size={13} strokeWidth={1.75} />
         </button>
       )}
-      {onOpenDetail && (
-        <button
-          type="button"
-          className={`${miniActionBtn} text-ink-muted hover:border-[var(--za-color-border-focus)] hover:bg-surface-hover hover:text-ink`}
-          onClick={() => onOpenDetail(item)}
-          title={`Edit ${item.title}`}
-          aria-label={`Edit ${item.title}`}
-        >
-          <Pencil size={13} strokeWidth={1.75} />
-        </button>
-      )}
       {onDelete && (
         <button
           type="button"
@@ -279,7 +287,6 @@ export default function MediaCard({
           onOpenDetail && 'cursor-pointer',
         )}
         title={item.title}
-        {...openDetailProps}
       >
         {item.title}
       </h3>
@@ -307,7 +314,7 @@ export default function MediaCard({
       rating={rating}
       category={rawCategory}
       primaryUnitCurrent={primaryUnitCurrent}
-      primaryUnitTotal={primaryUnitTotal}
+      primaryUnitTotal={seasonDisplayTotal ?? primaryUnitTotal}
       tags={tags}
       dropReason={item.dropReason}
       droppedProgressPrimary={item.droppedProgressPrimary}
@@ -321,28 +328,33 @@ export default function MediaCard({
 
   const unitSteppers = (
     <>
-      {!bookish && rawCategory !== 'movie' && primaryUnitTotal > 1 && (
-        <UnitStepperRow
-          unitLabel="Season"
-          current={primaryUnitCurrent}
-          total={seasonDisplayTotal}
-          canPrev={hasPrevSeason}
-          canNext={hasNextSeason}
-          disabled={isUpdating}
-          onChange={handleSeasonChange}
-          compact={isRow}
-        />
-      )}
-      {bookish && primaryUnitTotal > 1 && (
-        <UnitStepperRow
-          unitLabel="Volume"
-          current={primaryUnitCurrent}
-          total={primaryUnitTotal}
-          disabled={isUpdating}
-          onChange={handleVolumeChange}
-          compact={isRow}
-        />
-      )}
+      {!bookish &&
+        rawCategory !== 'movie' &&
+        (sortedStructure.length > 1 ||
+          (primaryUnitTotalRaw != null && primaryUnitTotalRaw > 1)) && (
+          <UnitStepperRow
+            unitLabel="Season"
+            current={primaryUnitCurrent}
+            total={seasonDisplayTotal}
+            canPrev={hasPrevSeason}
+            canNext={hasNextSeason}
+            disabled={isUpdating}
+            onChange={handleSeasonChange}
+            compact={isRow}
+          />
+        )}
+      {bookish &&
+        (sortedStructure.length > 1 ||
+          (primaryUnitTotalRaw != null && primaryUnitTotalRaw > 1)) && (
+          <UnitStepperRow
+            unitLabel="Volume"
+            current={primaryUnitCurrent}
+            total={primaryUnitTotal}
+            disabled={isUpdating}
+            onChange={handleVolumeChange}
+            compact={isRow}
+          />
+        )}
     </>
   );
 
@@ -404,7 +416,7 @@ export default function MediaCard({
             runUpdate({
               status: 'completed',
               primaryUnitCurrent: Math.max(1, primaryUnitCurrent),
-              secondaryUnitCurrent: secondaryUnitTotal || 1,
+              ...(secondaryUnitTotal != null ? { secondaryUnitCurrent: secondaryUnitTotal } : {}),
               completedAt: new Date().toISOString(),
             })
           }
@@ -417,10 +429,8 @@ export default function MediaCard({
             })
           }
           onStepMinutes={(delta) => {
-            const nextMins = Math.max(
-              0,
-              Math.min(secondaryUnitTotal || 9999, secondaryUnitCurrent + delta),
-            );
+            const cap = secondaryUnitTotal ?? Number.POSITIVE_INFINITY;
+            const nextMins = Math.max(0, Math.min(cap, secondaryUnitCurrent + delta));
             const shouldComplete = secondaryUnitTotal !== null && nextMins >= secondaryUnitTotal;
             runUpdate({
               secondaryUnitCurrent: nextMins,
@@ -445,6 +455,7 @@ export default function MediaCard({
           current={secondaryUnitCurrent}
           total={secondaryUnitTotal}
           hasNextUnit={hasNextSeason}
+          hasPrevUnit={hasPrevSeason}
           disabled={isUpdating}
           onStep={handleEpisodeStep}
         />
@@ -452,7 +463,14 @@ export default function MediaCard({
 
       {secondaryUnitTotal ? (
         <div className="flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle">
+          <div
+            className="h-1 flex-1 overflow-hidden rounded-sm bg-surface-subtle"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercentage}
+            aria-label={`${item.title} progress`}
+          >
             <div
               className="h-full rounded-sm bg-accent transition-[width] duration-[var(--za-motion-fast)]"
               style={{ width: `${progressPercentage}%` }}

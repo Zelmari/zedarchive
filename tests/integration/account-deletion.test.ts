@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMockDb } from '../helpers/db-mock';
 
-const { getAuthUserMock, signInEmailMock } = vi.hoisted(() => ({
+const { getAuthUserMock, verifyPasswordMock } = vi.hoisted(() => ({
   getAuthUserMock: vi.fn(),
-  signInEmailMock: vi.fn(),
+  verifyPasswordMock: vi.fn(),
 }));
 
 vi.mock('@/server/internal', () => ({
@@ -12,21 +12,14 @@ vi.mock('@/server/internal', () => ({
   logActivity: vi.fn(),
 }));
 
-vi.mock('next/headers', () => ({
-  headers: vi.fn().mockResolvedValue(new Headers()),
-}));
-
-vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      signInEmail: signInEmailMock,
-    },
-  },
+vi.mock('better-auth/crypto', () => ({
+  verifyPassword: verifyPasswordMock,
 }));
 
 const dbState = vi.hoisted(() => ({
   accounts: [] as Array<Record<string, unknown>>,
   deletedTables: [] as string[],
+  ownedGroups: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -40,12 +33,13 @@ describe('account self-deletion', () => {
     vi.clearAllMocks();
     dbState.accounts = [];
     dbState.deletedTables = [];
+    dbState.ownedGroups = [];
     getAuthUserMock.mockResolvedValue({ id: 'user-1', email: 'test@example.com' });
   });
 
   it('rejects credential account deletion when password is omitted or invalid', async () => {
     dbState.accounts = [{ providerId: 'credential', password: 'hashed_password' }];
-    signInEmailMock.mockRejectedValue(new Error('Invalid password'));
+    verifyPasswordMock.mockResolvedValue(false);
 
     const resNoPass = await deleteAccount({});
     expect(resNoPass.success).toBe(false);
@@ -59,7 +53,7 @@ describe('account self-deletion', () => {
 
   it('atomically cascades deletion across all tables when password is correct', async () => {
     dbState.accounts = [{ providerId: 'credential', password: 'hashed_password' }];
-    signInEmailMock.mockResolvedValue({ user: { id: 'user-1' } });
+    verifyPasswordMock.mockResolvedValue(true);
 
     const res = await deleteAccount({ password: 'correctpassword' });
     expect(res.success).toBe(true);
@@ -72,5 +66,16 @@ describe('account self-deletion', () => {
     expect(dbState.deletedTables).toContain('session');
     expect(dbState.deletedTables).toContain('verification');
     expect(dbState.deletedTables).toContain('user');
+  });
+
+  it('blocks deletion while the user still owns a group', async () => {
+    dbState.accounts = [{ providerId: 'credential', password: 'hashed_password' }];
+    dbState.ownedGroups = [{ id: 'g1', name: 'Book Club' }];
+    verifyPasswordMock.mockResolvedValue(true);
+
+    const res = await deleteAccount({ password: 'correctpassword' });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/Book Club/);
+    expect(dbState.deletedTables).toHaveLength(0);
   });
 });

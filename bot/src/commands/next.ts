@@ -9,6 +9,7 @@ import { formatProgressString } from '../format/progress';
 
 export type NextStepResult =
   | { kind: 'already_completed'; title: string }
+  | { kind: 'already_at_latest'; title: string }
   | { kind: 'movie_completed'; title: string }
   | { kind: 'season_advanced'; title: string; season: number; progress: string }
   | { kind: 'incremented'; title: string; progress: string };
@@ -24,6 +25,10 @@ export async function runNextStep(
 
     const updated = (await completeMediaEntryForUser(userId, entry.id)) as unknown as MediaRow;
     return { result: { kind: 'movie_completed', title: updated.title }, updated };
+  }
+
+  if (entry.status === 'completed') {
+    return { result: { kind: 'already_completed', title: entry.title }, updated: entry };
   }
 
   const structure = sortedSeasonStructure(entry.structure);
@@ -56,6 +61,8 @@ export async function runNextStep(
         updated,
       };
     }
+
+    return { result: { kind: 'already_at_latest', title: entry.title }, updated: entry };
   }
 
   const updated = (await updateMediaProgressForUser(userId, entry.id, {
@@ -76,6 +83,8 @@ export function formatNextStepMessage(result: NextStepResult): string {
   switch (result.kind) {
     case 'already_completed':
       return `**${result.title}** is already completed. Use \`/rate\` to score it.`;
+    case 'already_at_latest':
+      return `**${result.title}** is already at the latest episode.`;
     case 'movie_completed':
       return `Marked **${result.title}** as completed.`;
     case 'season_advanced':

@@ -41,6 +41,7 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
       fresh[item.id] = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
     });
     setSessionTimestamps(fresh);
+    // Capture entries from the tab-switch render without resetting on every edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -60,8 +61,6 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
     });
   }, [entries]);
 
-  const allTags = Array.from(new Set(entries.flatMap((e) => e.tags || []))).filter(Boolean);
-
   const showEntries = entries.filter((e) => e.category === 'show' || e.category === 'anime');
   const movieEntries = entries.filter((e) => e.category === 'movie');
   const bookEntries = entries.filter((e) => e.category === 'book' || e.category === 'manga');
@@ -74,6 +73,10 @@ export function useMediaFilters(entries: MediaEntry[], activeTab: DashboardTab) 
         : activeTab === 'books'
           ? bookEntries
           : entries;
+
+  const allTags = Array.from(new Set(tabScopedEntries.flatMap((e) => e.tags || []))).filter(
+    Boolean,
+  );
 
   const counts = {
     all: tabScopedEntries.length,

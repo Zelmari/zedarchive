@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { stacks, stackItems, mediaEntries, user as userTable } from '@/db/schema';
-import { eq, and, asc, desc, inArray } from 'drizzle-orm';
+import { eq, and, asc, desc, inArray, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getAuthUser, type DbClient, type SessionUser } from './internal';
 import { serializeEntry } from '@/lib/serialize';
@@ -120,7 +120,11 @@ async function loadStackItems(
     })
     .from(stackItems)
     .leftJoin(mediaEntries, eq(stackItems.mediaId, mediaEntries.id))
-    .where(hidePrivate ? and(stackFilter, eq(mediaEntries.isPrivate, false)) : stackFilter)
+    .where(
+      hidePrivate
+        ? and(stackFilter, eq(mediaEntries.isPrivate, false), isNull(mediaEntries.groupId))
+        : stackFilter,
+    )
     .orderBy(asc(stackItems.orderIndex));
 
   const itemsByStackId = new Map<string, StackItems>();
@@ -184,7 +188,8 @@ export async function getPublicStack(
   const [foundStack] = await db
     .select()
     .from(stacks)
-    .where(and(eq(stacks.userId, foundUser.id), eq(stacks.slug, slug), eq(stacks.isPublic, true)));
+    .where(and(eq(stacks.userId, foundUser.id), eq(stacks.slug, slug), eq(stacks.isPublic, true)))
+    .limit(1);
 
   if (!foundStack) return null;
 
@@ -216,7 +221,7 @@ export async function createStackAction(params: {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'stack';
-  const slug = `${baseSlug}-${Date.now().toString(36)}`;
+  const slug = `${baseSlug}-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 6)}`;
 
   const id = crypto.randomUUID();
 
@@ -263,9 +268,15 @@ export async function addStackItemAction(params: {
   const stack = await getOwnedStack(params.stackId, user.id);
 
   const [media] = await db
-    .select({ id: mediaEntries.id })
+    .select({ id: mediaEntries.id, groupId: mediaEntries.groupId })
     .from(mediaEntries)
-    .where(and(eq(mediaEntries.id, params.mediaId), eq(mediaEntries.userId, user.id)))
+    .where(
+      and(
+        eq(mediaEntries.id, params.mediaId),
+        eq(mediaEntries.userId, user.id),
+        isNull(mediaEntries.groupId),
+      ),
+    )
     .limit(1);
 
   if (!media) throw new Error('Media entry not found');

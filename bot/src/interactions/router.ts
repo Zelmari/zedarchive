@@ -38,7 +38,7 @@ import { resolvePersonalTitle } from '../resolve/title';
 import { getDraft, updateDraft, deleteDraft, createDraft, type MediaDraft } from '../drafts';
 import { buildDraftInspector } from '../commands/add';
 import { catalogDraftFieldsFromHit } from '../format/catalog-draft';
-import { getSearchHits } from '../search-cache';
+import { getSearchHits, getCustomTitle } from '../search-cache';
 import type { MediaCategory } from '@/types/media';
 import { handleAddCommand } from '../commands/add';
 import { botEnv } from '../env';
@@ -282,9 +282,24 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
 
     // Manual custom title button from search
     if (actionOrId === 'custom') {
-      const encodedQuery = parts[3] || '';
-      const category = parts[4] || 'show';
-      const query = decodeURIComponent(encodedQuery);
+      const stashId = parts[3] || '';
+      const stashed = getCustomTitle(stashId);
+      if (!stashed) {
+        await interaction.reply({
+          content: 'That custom title expired. Run `/add` again.',
+          ephemeral: true,
+        });
+        return;
+      }
+      if (stashed.discordUserId !== interaction.user.id) {
+        await interaction.reply({
+          content: 'That custom title belongs to another user.',
+          ephemeral: true,
+        });
+        return;
+      }
+      const query = stashed.query;
+      const category = stashed.category;
 
       const user = await requireLinkedUser(interaction);
       if (!user) return;
@@ -318,6 +333,13 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
     if (!draft) {
       await interaction.reply({
         content: 'That add draft expired. Run `/add` again.',
+        ephemeral: true,
+      });
+      return;
+    }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
         ephemeral: true,
       });
       return;
@@ -459,6 +481,13 @@ async function handleSelectMenuInteraction(
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
       return;
     }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
+      return;
+    }
 
     const newStatus = interaction.values[0] || 'in_progress';
     if (newStatus === 'dropped') {
@@ -479,6 +508,13 @@ async function handleSelectMenuInteraction(
     const draft = getDraft(draftId || '');
     if (!draft) {
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
+      return;
+    }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -655,6 +691,13 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
       return;
     }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
+      return;
+    }
 
     await interaction.deferUpdate();
 
@@ -681,6 +724,13 @@ async function handleModalSubmitInteraction(interaction: ModalSubmitInteraction)
     const draft = getDraft(draftId || '');
     if (!draft) {
       await interaction.reply({ content: 'Draft expired.', ephemeral: true });
+      return;
+    }
+    if (draft.discordUserId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'That add draft belongs to someone else.',
+        ephemeral: true,
+      });
       return;
     }
 

@@ -1,8 +1,11 @@
 import { escapeXml, loadPublicFeed } from '@/server/feeds';
 
-export async function GET(request: Request, { params }: { params: Promise<{ username: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ username: string }> },
+) {
   const { username } = await params;
-  const data = await loadPublicFeed(username, request);
+  const data = await loadPublicFeed(username);
 
   if (!data) {
     return new Response('User not found or archive is private', { status: 404 });
@@ -22,8 +25,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
       return `
     <item>
       <title>${entryTitle}</title>
-      <link>${profileUrl}</link>
-      <guid isPermaLink="false">${entry.id}</guid>
+      <link>${escapeXml(profileUrl)}</link>
+      <guid isPermaLink="false">${escapeXml(entry.id)}</guid>
       <pubDate>${pubDate}</pubDate>
       <description><![CDATA[${safeCdata}]]></description>
     </item>`;
@@ -34,11 +37,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${escapeXml(user.name)} (@${escapeXml(user.username || '')}) - ZedArchive</title>
-    <link>${profileUrl}</link>
+    <link>${escapeXml(profileUrl)}</link>
     <description>${escapeXml(user.bio || `Public media archive for @${user.username}`)}</description>
     <language>en-us</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <atom:link href="${profileUrl}/rss.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="${escapeXml(profileUrl)}/rss.xml" rel="self" type="application/rss+xml" />
     ${itemsXml}
   </channel>
 </rss>`;

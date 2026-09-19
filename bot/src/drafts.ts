@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import type { MediaCategory, StructureItem } from '@/types/media';
+import { allocCompactId } from './compact-id';
 
 const DRAFT_TTL_MS = 14 * 60 * 1000; // 14 minutes (Discord tokens expire at 15m)
 
@@ -43,7 +43,7 @@ cleanupInterval.unref?.();
 export function createDraft(
   data: Omit<MediaDraft, 'draftId' | 'createdAt' | 'expiresAt'>,
 ): MediaDraft {
-  const draftId = crypto.randomUUID().slice(0, 8); // compact 8-char ID for custom_id constraints
+  const draftId = allocCompactId(draftStore);
   const now = Date.now();
   const draft: MediaDraft = {
     ...data,

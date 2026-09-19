@@ -2,6 +2,7 @@ export default function DashboardLoading() {
   return (
     <div
       className="min-h-screen bg-canvas text-ink"
+      role="status"
       aria-busy="true"
       aria-label="Loading dashboard"
     >

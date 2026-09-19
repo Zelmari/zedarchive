@@ -9,7 +9,7 @@ export function hexToRgb(hex: string): [number, number, number] | null {
     const b = parseInt((sanitized[2] ?? '') + (sanitized[2] ?? ''), 16);
     return isNaN(r) || isNaN(g) || isNaN(b) ? null : [r, g, b];
   }
-  if (sanitized.length === 6) {
+  if (sanitized.length === 6 || sanitized.length === 8) {
     const r = parseInt(sanitized.slice(0, 2), 16);
     const g = parseInt(sanitized.slice(2, 4), 16);
     const b = parseInt(sanitized.slice(4, 6), 16);
@@ -35,7 +35,7 @@ export function getRelativeLuminance(rgb: [number, number, number]): number {
 export function getContrastRatio(fgHex: string, bgHex: string): number {
   const fgRgb = hexToRgb(fgHex);
   const bgRgb = hexToRgb(bgHex);
-  if (!fgRgb || !bgRgb) return 1;
+  if (!fgRgb || !bgRgb) return Number.NaN;
 
   const l1 = getRelativeLuminance(fgRgb);
   const l2 = getRelativeLuminance(bgRgb);

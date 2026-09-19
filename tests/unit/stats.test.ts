@@ -130,6 +130,46 @@ describe('calculateArchiveStats', () => {
     expect(stats.topRated).toHaveLength(4);
   });
 
+  it('does not count unwatched runtimes or episode totals as consumed', () => {
+    const stats = calculateArchiveStats([
+      makeEntry({
+        id: 'plan-show',
+        title: 'Queued Show',
+        category: 'show',
+        status: 'planning',
+        secondaryUnitCurrent: 0,
+        secondaryUnitTotal: 12,
+      }),
+      makeEntry({
+        id: 'plan-movie',
+        title: 'Queued Movie',
+        category: 'movie',
+        status: 'planning',
+        secondaryUnitCurrent: 0,
+        secondaryUnitTotal: 148,
+      }),
+    ]);
+
+    expect(stats.totalEpisodes).toBe(0);
+    expect(stats.totalMovieMinutes).toBe(0);
+
+    const yearly = calculateYearlyStats(
+      [
+        makeEntry({
+          id: 'done-show',
+          title: 'Finished Show',
+          category: 'show',
+          status: 'completed',
+          secondaryUnitCurrent: 0,
+          secondaryUnitTotal: 12,
+          completedAt: '2026-03-01T00:00:00.000Z',
+        }),
+      ],
+      2026,
+    );
+    expect(yearly.episodesWatched).toBe(0);
+  });
+
   it('preserves progress units from dropped titles in cumulative consumption counts', () => {
     const withDropped: MediaEntry[] = [
       ...sampleEntries,

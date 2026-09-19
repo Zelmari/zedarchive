@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { MediaCycle } from '@/types/media';
+import { MAX_GUNZIP_BYTES, MAX_IMPORT_FILE_BYTES } from '@/lib/constants';
 
 export interface ImportDraft {
   title: string;
@@ -58,15 +59,13 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
   const parsed = parser.parse(xmlText) as {
     myanimelist?: {
       anime?: Record<string, unknown> | Array<Record<string, unknown>>;
+      manga?: Record<string, unknown> | Array<Record<string, unknown>>;
     };
   };
 
-  const rawAnime = parsed?.myanimelist?.anime;
-  if (!rawAnime) return [];
-
-  const animeList = Array.isArray(rawAnime) ? rawAnime : [rawAnime];
   const items: ImportDraft[] = [];
-
+  const rawAnime = parsed?.myanimelist?.anime;
+  const animeList = rawAnime ? (Array.isArray(rawAnime) ? rawAnime : [rawAnime]) : [];
   for (const a of animeList) {
     if (!a || typeof a !== 'object') continue;
     const title = String(a.series_title ?? a.title ?? '').trim();
@@ -89,6 +88,35 @@ export function parseMalXml(xmlText: string): ImportDraft[] {
       rating,
       notes: comments || null,
       sourceId: a.series_animedb_id ? `mal-${a.series_animedb_id}` : null,
+    });
+  }
+
+  const rawManga = parsed?.myanimelist?.manga;
+  const mangaList = rawManga ? (Array.isArray(rawManga) ? rawManga : [rawManga]) : [];
+  for (const m of mangaList) {
+    if (!m || typeof m !== 'object') continue;
+    const title = String(m.manga_title ?? m.series_title ?? m.title ?? '').trim();
+    if (!title) continue;
+
+    const totalCh = Number(m.series_chapters) || null;
+    const readCh = Number(m.my_read_chapters) || 0;
+    const totalVol = Number(m.series_volumes) || null;
+    const readVol = Number(m.my_read_volumes) || 0;
+    const score = Number(m.my_score);
+    const rating = !isNaN(score) && score > 0 ? Math.min(10, Math.max(1, Math.round(score))) : null;
+    const comments = m.my_comments ? String(m.my_comments).trim() : null;
+
+    items.push({
+      title,
+      category: 'manga',
+      status: mapListStatus(m.my_status),
+      secondaryUnitCurrent: readCh,
+      secondaryUnitTotal: totalCh && totalCh > 0 ? totalCh : null,
+      primaryUnitCurrent: readVol > 0 ? readVol : 1,
+      primaryUnitTotal: totalVol && totalVol > 0 ? totalVol : 1,
+      rating,
+      notes: comments || null,
+      sourceId: m.manga_mangadb_id ? `mal-manga-${m.manga_mangadb_id}` : null,
     });
   }
 
@@ -134,7 +162,7 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
         secondaryUnitTotal: item.media?.episodes ?? item.media?.chapters ?? null,
         coverImage: item.media?.coverImage?.large || null,
         notes: item.notes || null,
-        rating: item.score ? Math.round(item.score / 10) : null,
+        rating: item.score ? Math.max(1, Math.round(item.score / 10)) : null,
         sourceId: item.media?.id ? `anilist-${item.media.id}` : null,
       });
     });
@@ -144,35 +172,133 @@ function parseAniListList(json: AniListNode): ImportDraft[] | null {
 
 function looksLikeGoodreadsHeader(header: string): boolean {
   const h = header.toLowerCase();
-  return h.includes('book id') || h.includes('title');
+  return (
+    h.includes('book id') ||
+    h.includes('exclusive shelf') ||
+    h.includes('isbn') ||
+    h.includes('my rating')
+  );
 }
 
-function parseGoodreadsCsv(text: string): ImportDraft[] {
+function looksLikeZedArchiveCsvHeader(header: string): boolean {
+  const h = header.toLowerCase();
+  return (
+    h.includes('title') &&
+    h.includes('category') &&
+    h.includes('status') &&
+    (h.includes('current primary unit') || h.includes('current secondary unit'))
+  );
+}
+
+function headerIndex(headers: string[], name: string): number {
+  return headers.indexOf(name.toLowerCase());
+}
+
+function csvCell(cols: string[], index: number): string {
+  return index >= 0 ? (cols[index] ?? '').replace(/^"|"$/g, '').trim() : '';
+}
+
+function parseOptionalNumber(value: string): number | null {
+  if (!value) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseZedArchiveCsv(text: string): ImportDraft[] {
   const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length <= 1) throw new Error('CSV file is empty');
+  if (lines.length <= 1) return [];
 
   const headerLine = lines[0] ?? '';
-  if (!looksLikeGoodreadsHeader(headerLine)) return [];
+  if (!looksLikeZedArchiveCsvHeader(headerLine)) return [];
 
   const headers = parseCsvCells(headerLine).map((header) => header.toLowerCase());
-  const titleIdx = headers.indexOf('title');
+  const titleIdx = headerIndex(headers, 'title');
   if (titleIdx === -1) return [];
+
+  const categoryIdx = headerIndex(headers, 'category');
+  const statusIdx = headerIndex(headers, 'status');
+  const dropReasonIdx = headerIndex(headers, 'drop reason');
+  const droppedAtIdx = headerIndex(headers, 'dropped at');
+  const ratingIdx = headerIndex(headers, 'rating');
+  const primaryCurrentIdx = headerIndex(headers, 'current primary unit');
+  const primaryTotalIdx = headerIndex(headers, 'total primary units');
+  const secondaryCurrentIdx = headerIndex(headers, 'current secondary unit');
+  const secondaryTotalIdx = headerIndex(headers, 'total secondary units');
+  const notesIdx = headerIndex(headers, 'notes');
+  const createdAtIdx = headerIndex(headers, 'created at');
+  const completedAtIdx = headerIndex(headers, 'completed at');
 
   const items: ImportDraft[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvCells(lines[i] ?? '');
-    const cleanTitle = cols[titleIdx]?.trim();
-    if (cleanTitle) {
-      items.push({
-        title: cleanTitle,
-        category: 'book',
-        status: 'in_progress',
-        primaryUnitCurrent: 1,
-        primaryUnitTotal: 1,
-        secondaryUnitCurrent: 0,
-        secondaryUnitTotal: null,
-      });
-    }
+    const title = csvCell(cols, titleIdx);
+    if (!title) continue;
+
+    const rating = parseOptionalNumber(csvCell(cols, ratingIdx));
+    items.push({
+      title,
+      category: csvCell(cols, categoryIdx) || 'show',
+      status: csvCell(cols, statusIdx) || 'in_progress',
+      dropReason: csvCell(cols, dropReasonIdx) || null,
+      droppedAt: csvCell(cols, droppedAtIdx) || null,
+      rating: rating && rating > 0 ? Math.min(10, Math.max(1, Math.round(rating))) : null,
+      primaryUnitCurrent: parseOptionalNumber(csvCell(cols, primaryCurrentIdx)) ?? undefined,
+      primaryUnitTotal: parseOptionalNumber(csvCell(cols, primaryTotalIdx)),
+      secondaryUnitCurrent: parseOptionalNumber(csvCell(cols, secondaryCurrentIdx)) ?? undefined,
+      secondaryUnitTotal: parseOptionalNumber(csvCell(cols, secondaryTotalIdx)),
+      notes: csvCell(cols, notesIdx) || null,
+      createdAt: csvCell(cols, createdAtIdx) || null,
+      completedAt: csvCell(cols, completedAtIdx) || null,
+    });
+  }
+  return items;
+}
+
+function mapGoodreadsShelf(shelf: string): string {
+  const s = shelf.toLowerCase().trim();
+  if (s === 'read') return 'completed';
+  if (s === 'currently-reading' || s === 'currently reading') return 'in_progress';
+  if (s === 'to-read' || s === 'to read') return 'planning';
+  return mapListStatus(s);
+}
+
+function parseGoodreadsCsv(text: string): ImportDraft[] {
+  const rows = parseCsvRows(text);
+  if (rows.length <= 1) throw new Error('CSV file is empty');
+
+  const headerLine = (rows[0] ?? []).join(',');
+  if (!looksLikeGoodreadsHeader(headerLine)) return [];
+
+  const headers = (rows[0] ?? []).map((header) => header.toLowerCase());
+  const titleIdx = headers.indexOf('title');
+  if (titleIdx === -1) return [];
+  const authorIdx = headers.findIndex((h) => h === 'author' || h === 'author l-f');
+  const ratingIdx = headers.indexOf('my rating');
+  const shelfIdx = headers.indexOf('exclusive shelf');
+
+  const items: ImportDraft[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i] ?? [];
+    const cleanTitle = cols[titleIdx]?.replace(/^"|"$/g, '').trim();
+    if (!cleanTitle) continue;
+    const author = authorIdx >= 0 ? cols[authorIdx]?.replace(/^"|"$/g, '').trim() : '';
+    const rawRating = ratingIdx >= 0 ? parseFloat(cols[ratingIdx] ?? '') : NaN;
+    const rating =
+      !isNaN(rawRating) && rawRating > 0
+        ? Math.min(10, Math.max(1, Math.round(rawRating <= 5 ? rawRating * 2 : rawRating)))
+        : null;
+    const shelf = shelfIdx >= 0 ? (cols[shelfIdx] ?? '') : '';
+    items.push({
+      title: cleanTitle,
+      category: 'book',
+      status: mapGoodreadsShelf(shelf),
+      rating,
+      notes: author ? `Author: ${author}` : null,
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 1,
+      secondaryUnitCurrent: 0,
+      secondaryUnitTotal: null,
+    });
   }
   return items;
 }
@@ -190,28 +316,42 @@ export function looksLikeLetterboxdHeader(header: string): boolean {
   );
 }
 
-function parseCsvCells(line: string): string[] {
-  const cells: string[] = [];
+function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = '';
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && text[i + 1] === '"') {
         cur += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (ch === ',' && !inQuotes) {
-      cells.push(cur.trim());
+      row.push(cur.trim());
+      cur = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur.trim());
+      if (row.some((cell) => cell.length > 0)) rows.push(row);
+      row = [];
       cur = '';
     } else {
       cur += ch;
     }
   }
-  cells.push(cur.trim());
-  return cells;
+  if (cur.length > 0 || row.length > 0) {
+    row.push(cur.trim());
+    if (row.some((cell) => cell.length > 0)) rows.push(row);
+  }
+  return rows;
+}
+
+function parseCsvCells(line: string): string[] {
+  return parseCsvRows(line)[0] ?? [];
 }
 
 export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft[] {
@@ -273,6 +413,7 @@ export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft
       primaryUnitTotal: 1,
       secondaryUnitCurrent: 0,
       secondaryUnitTotal: null,
+      rewatchCount: isRewatch ? 1 : 0,
       rating,
       notes: review || null,
       tags: tags.length > 0 ? tags : undefined,
@@ -341,13 +482,14 @@ export function parseSimklJson(json: unknown): ImportDraft[] | null {
     }
   }
 
-  return items.length > 0 ? items : null;
+  return items;
 }
 
 export function parseImportFile(fileName: string, text: string): ImportDraft[] {
   let items: ImportDraft[] = [];
+  const lowerName = fileName.toLowerCase();
 
-  if (fileName.endsWith('.json')) {
+  if (lowerName.endsWith('.json')) {
     const json = JSON.parse(text) as unknown;
     if (Array.isArray(json)) {
       items = (json as unknown[]).filter((item): item is ImportDraft =>
@@ -371,15 +513,20 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
         );
       }
     }
-  } else if (fileName.endsWith('.csv')) {
-    const letterboxdItems = parseLetterboxdCsv(text, fileName);
-    if (letterboxdItems.length > 0) {
-      items = letterboxdItems;
+  } else if (lowerName.endsWith('.csv')) {
+    const zedArchiveItems = parseZedArchiveCsv(text);
+    if (zedArchiveItems.length > 0) {
+      items = zedArchiveItems;
     } else {
-      items = parseGoodreadsCsv(text);
+      const letterboxdItems = parseLetterboxdCsv(text, fileName);
+      if (letterboxdItems.length > 0) {
+        items = letterboxdItems;
+      } else {
+        items = parseGoodreadsCsv(text);
+      }
     }
   } else if (
-    fileName.endsWith('.xml') ||
+    lowerName.endsWith('.xml') ||
     text.trim().startsWith('<?xml') ||
     text.trim().startsWith('<myanimelist>')
   ) {
@@ -403,7 +550,10 @@ export function isGzip(buffer: ArrayBuffer | Uint8Array): boolean {
 /**
  * Decompress a gzip ArrayBuffer or Uint8Array using web-standard DecompressionStream.
  */
-export async function decompressGzip(buffer: ArrayBuffer | Uint8Array): Promise<string> {
+export async function decompressGzip(
+  buffer: ArrayBuffer | Uint8Array,
+  maxBytes = MAX_GUNZIP_BYTES,
+): Promise<string> {
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
@@ -411,8 +561,28 @@ export async function decompressGzip(buffer: ArrayBuffer | Uint8Array): Promise<
     },
   });
   const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
-  const response = new Response(decompressedStream);
-  return await response.text();
+  const reader = decompressedStream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error('Decompressed file is too large');
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8').decode(merged);
 }
 
 /**
@@ -422,6 +592,9 @@ export async function parseImportBuffer(
   fileName: string,
   buffer: ArrayBuffer,
 ): Promise<ImportDraft[]> {
+  if (buffer.byteLength > MAX_IMPORT_FILE_BYTES) {
+    throw new Error('Import file is too large');
+  }
   if (fileName.endsWith('.gz') || isGzip(buffer)) {
     const decompressed = await decompressGzip(buffer);
     const resolvedName = fileName.replace(/\.gz$/i, '');

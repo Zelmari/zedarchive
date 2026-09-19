@@ -96,12 +96,71 @@ describe('parseImportFile', () => {
     );
   });
 
+  it('reports no entries for a recognized but empty Simkl export', () => {
+    expect(() => parseImportFile('simkl.JSON', '{"shows":[],"movies":[],"anime":[]}')).toThrow(
+      'No valid entries could be parsed from the file.',
+    );
+  });
+
+  it('maps Goodreads exclusive shelves, ratings, and authors', () => {
+    const csv = [
+      'Book Id,Title,Author,ISBN,My Rating,Exclusive Shelf',
+      '1,Atomic Habits,James Clear,123,4,read',
+      '2,Dune,Frank Herbert,456,0,to-read',
+      '3,Tomorrow and Tomorrow,Gabrielle Zevin,789,5,currently-reading',
+    ].join('\n');
+    const items = parseImportFile('goodreads.csv', csv);
+    expect(items).toEqual([
+      expect.objectContaining({
+        title: 'Atomic Habits',
+        status: 'completed',
+        rating: 8,
+        notes: 'Author: James Clear',
+      }),
+      expect.objectContaining({ title: 'Dune', status: 'planning', rating: null }),
+      expect.objectContaining({
+        title: 'Tomorrow and Tomorrow',
+        status: 'in_progress',
+        rating: 10,
+      }),
+    ]);
+  });
+
   it('parses Goodreads-style CSV rows', () => {
     const csv = 'Book Id,Title,Author\n1,"Bell Hooks, All About Love",someone\n2,Atomic Habits,x\n';
     const items = parseImportFile('books.csv', csv);
     expect(items).toHaveLength(2);
     expect(items[0]?.title).toBe('Bell Hooks, All About Love');
     expect(items[0]?.category).toBe('book');
+  });
+
+  it('re-imports a ZedArchive CSV export without treating it as Goodreads', () => {
+    const csv = [
+      'Title,Category,Status,Drop Reason,Dropped At,Rating,Current Primary Unit,Total Primary Units,Current Secondary Unit,Total Secondary Units,Notes,Created At,Completed At',
+      '"Severance",show,completed,"","",9,1,2,9,9,"Office horror","2026-01-01T00:00:00.000Z","2026-04-10T00:00:00.000Z"',
+      '"Dune",book,in_progress,"","",,1,1,120,600,"","2026-02-01T00:00:00.000Z",',
+    ].join('\n');
+
+    const items = parseImportFile('zedarchive-export-2026-09-18.csv', csv);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title: 'Severance',
+      category: 'show',
+      status: 'completed',
+      rating: 9,
+      primaryUnitCurrent: 1,
+      primaryUnitTotal: 2,
+      secondaryUnitCurrent: 9,
+      secondaryUnitTotal: 9,
+      notes: 'Office horror',
+    });
+    expect(items[1]).toMatchObject({
+      title: 'Dune',
+      category: 'book',
+      status: 'in_progress',
+      secondaryUnitCurrent: 120,
+      secondaryUnitTotal: 600,
+    });
   });
 
   it('throws on an empty CSV', () => {
@@ -162,6 +221,36 @@ describe('parseImportFile', () => {
       secondaryUnitTotal: 64,
       rating: 9,
       sourceId: 'mal-5114',
+    });
+  });
+
+  it('parses MyAnimeList manga exports with chapter and volume progress', () => {
+    const malXml = `<?xml version="1.0" encoding="UTF-8" ?>
+      <myanimelist>
+        <manga>
+          <manga_mangadb_id>2</manga_mangadb_id>
+          <manga_title>Berserk</manga_title>
+          <series_chapters>364</series_chapters>
+          <series_volumes>41</series_volumes>
+          <my_read_chapters>120</my_read_chapters>
+          <my_read_volumes>12</my_read_volumes>
+          <my_score>10</my_score>
+          <my_status>1</my_status>
+        </manga>
+      </myanimelist>`;
+
+    const items = parseImportFile('mangalist.xml', malXml);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Berserk',
+      category: 'manga',
+      status: 'in_progress',
+      secondaryUnitCurrent: 120,
+      secondaryUnitTotal: 364,
+      primaryUnitCurrent: 12,
+      primaryUnitTotal: 41,
+      rating: 10,
+      sourceId: 'mal-manga-2',
     });
   });
 
@@ -286,6 +375,7 @@ describe('parseImportFile', () => {
       status: 'completed',
       primaryUnitCurrent: 2, // Rewatch
       primaryUnitTotal: 1,
+      rewatchCount: 1,
       rating: 9, // 4.5 * 2 = 9
       tags: ['sci-fi', 'thriller'],
     });
@@ -312,5 +402,12 @@ describe('parseImportFile', () => {
       status: 'planning',
       primaryUnitCurrent: 1,
     });
+  });
+});
+
+describe('decompressGzip', () => {
+  it('rejects decompressed payloads that exceed the size cap', async () => {
+    const gzippedBuffer = await compressToGzip('x'.repeat(64));
+    await expect(decompressGzip(gzippedBuffer, 16)).rejects.toThrow('too large');
   });
 });

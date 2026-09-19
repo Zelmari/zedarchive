@@ -67,6 +67,7 @@ export default function DashboardHeader({
               className={`za-button ${activeTab === id ? 'za-button--selected za-current-page' : 'za-button--tertiary'}`}
               onClick={() => onTabChange(id)}
               title={title}
+              aria-label={`${label} (${counts[id]})`}
               aria-pressed={activeTab === id}
             >
               <Icon size={16} strokeWidth={1.75} />

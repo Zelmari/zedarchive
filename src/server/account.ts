@@ -1,8 +1,7 @@
 'use server';
 
-import { headers } from 'next/headers';
-import { eq, or } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
+import { eq, or, and } from 'drizzle-orm';
+import { verifyPassword } from 'better-auth/crypto';
 import { db } from '@/lib/db';
 import {
   user as userTable,
@@ -14,6 +13,7 @@ import {
   profileComments,
   discordLinks,
   discordLinkCodes,
+  groups,
 } from '@/db/schema';
 import { getAuthUser } from './internal';
 import { deleteAccountSchema } from '@/lib/validations/auth';
@@ -26,7 +26,6 @@ export async function deleteAccount(
   input: DeleteAccountInput,
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getAuthUser();
-  const reqHeaders = await headers();
 
   const parsed = deleteAccountSchema.safeParse(input);
   if (!parsed.success || !parsed.data.password) {
@@ -34,21 +33,40 @@ export async function deleteAccount(
   }
   const { password } = parsed.data;
 
-  // Verify credential via better-auth signInEmail endpoint
-  try {
-    const signInRes = await auth.api.signInEmail({
-      body: {
-        email: user.email || '',
-        password,
-      },
-      headers: reqHeaders,
-    });
+  const [credential] = await db
+    .select({ password: accountTable.password })
+    .from(accountTable)
+    .where(and(eq(accountTable.userId, user.id), eq(accountTable.providerId, 'credential')))
+    .limit(1);
 
-    if (!signInRes?.user) {
-      return { success: false, error: 'Incorrect password. Account deletion aborted.' };
-    }
+  if (!credential?.password) {
+    return { success: false, error: 'Password is required to delete your account.' };
+  }
+
+  let passwordMatches = false;
+  try {
+    passwordMatches = await verifyPassword({ hash: credential.password, password });
   } catch {
+    passwordMatches = false;
+  }
+  if (!passwordMatches) {
     return { success: false, error: 'Incorrect password. Account deletion aborted.' };
+  }
+
+  const ownedGroups = await db
+    .select({ id: groups.id, name: groups.name })
+    .from(groups)
+    .where(eq(groups.ownerId, user.id));
+  if (ownedGroups.length > 0) {
+    const names = ownedGroups
+      .map((g) => g.name)
+      .slice(0, 3)
+      .join(', ');
+    const extra = ownedGroups.length > 3 ? ` and ${ownedGroups.length - 3} more` : '';
+    return {
+      success: false,
+      error: `Transfer or delete your group${ownedGroups.length === 1 ? '' : 's'} (${names}${extra}) before deleting your account. Shared archives would otherwise be destroyed for every member.`,
+    };
   }
 
   // Atomic database wipe across all related tables

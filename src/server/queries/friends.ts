@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { friendships, user as userTable } from '@/db/schema';
 import { eq, and, or, ilike, desc, isNotNull, ne } from 'drizzle-orm';
 import type { FriendUserSummary, FriendshipItem } from '@/types/friends';
+import { ilikeContainsPattern } from '@/lib/ilike';
 
 function toIso(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString();
@@ -150,9 +151,13 @@ export async function searchUsersForFriendDiscovery(
     .where(
       and(
         ne(userTable.id, currentUserId),
+        eq(userTable.isPublic, true),
         isNotNull(userTable.username),
         ne(userTable.username, ''),
-        or(ilike(userTable.username, `%${clean}%`), ilike(userTable.name, `%${clean}%`)),
+        or(
+          ilike(userTable.username, ilikeContainsPattern(clean)),
+          ilike(userTable.name, ilikeContainsPattern(clean)),
+        ),
       ),
     )
     .orderBy(userTable.username)

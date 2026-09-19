@@ -457,7 +457,7 @@ export default function DashboardClient({
       )}
 
       <main
-        id={isGroup ? undefined : 'main-content'}
+        id="main-content"
         className={isGroup ? 'flex-1' : 'flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]'}
       >
         <div className={isGroup ? undefined : 'za-container'}>

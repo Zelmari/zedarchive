@@ -23,6 +23,10 @@ export const MAX_DROP_REASON_LENGTH = 500;
 export const MAX_SYNOPSIS_LENGTH = 5000;
 export const MAX_SOURCE_ID_LENGTH = 200;
 export const MAX_COVER_IMAGE_LENGTH = 2_000_000;
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const MAX_UPLOAD_PIXELS = 4096 * 4096;
+export const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
+export const MAX_GUNZIP_BYTES = 10 * 1024 * 1024;
 export const MAX_STRUCTURE_LENGTH = 500;
 export const MAX_RATING = 10;
 export const MAX_QUERY_LENGTH = 100;
@@ -36,7 +40,9 @@ export const PRESET_DROP_REASONS = [
   'Will revisit in the future',
 ] as const;
 
+export const MIN_USERNAME_LENGTH = 3;
 export const MAX_USERNAME_LENGTH = 30;
+export const HANDLE_PATTERN = /^[a-z0-9_-]{3,30}$/;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_BIO_LENGTH = 500;
 
@@ -71,6 +77,13 @@ export const RESERVED_HANDLES = [
   'reset-password',
   'friends',
   'groups',
+  'stacks',
+  'compare',
+  'rss',
+  'atom',
+  'me',
+  'null',
+  'undefined',
 ] as const;
 
 export interface ThemeDefinition {

@@ -7,6 +7,9 @@ export interface QueuedMutation {
   timestamp: number;
   retryCount: number;
   originalUpdatedAt?: string;
+  lastAttemptAt?: number;
+  lastError?: string;
+  deadLettered?: boolean;
 }
 
 const DB_NAME = 'za_offline_db';
@@ -47,7 +50,8 @@ async function withStore<T>(
     } finally {
       db.close();
     }
-  } catch {
+  } catch (err) {
+    console.error('[OfflineOutbox] IndexedDB error', err);
     return null;
   }
 }
@@ -85,6 +89,13 @@ function deleteMutation(store: IDBObjectStore, id: string): Promise<void> {
   });
 }
 
+function newMutationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `za-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /**
  * Enqueue a mutation to be replayed when connection is re-established.
  */
@@ -93,7 +104,7 @@ export async function enqueueMutation(
 ): Promise<QueuedMutation> {
   const item: QueuedMutation = {
     ...mutation,
-    id: crypto.randomUUID(),
+    id: newMutationId(),
     timestamp: Date.now(),
     retryCount: 0,
   };
@@ -129,6 +140,16 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
   const seen = new Set(idbItems.map((m) => m.id));
   const merged = [...idbItems, ...lsItems.filter((m) => !seen.has(m.id))];
   return merged.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function getReplayableMutations(): Promise<QueuedMutation[]> {
+  const pending = await getPendingMutations();
+  return pending.filter((mutation) => !mutation.deadLettered);
+}
+
+export async function getDeadLetteredMutations(): Promise<QueuedMutation[]> {
+  const pending = await getPendingMutations();
+  return pending.filter((mutation) => Boolean(mutation.deadLettered));
 }
 
 /**

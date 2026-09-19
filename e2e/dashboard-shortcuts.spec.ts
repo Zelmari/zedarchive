@@ -42,11 +42,9 @@ test.describe('mouse-first dashboard navigation & dialogs', () => {
     await spotlight.fill('Manual Folio Title');
     await page.getByRole('button', { name: /Create manually instead/i }).click();
 
-    // Opens folio inspector
-    const folio = page
-      .getByRole('dialog', { name: /Manual Folio Title/i })
-      .or(page.getByRole('heading', { name: /Manual Folio Title/i }))
-      .first();
+    // Opens folio inspector — match the dialog only so the dashboard card
+    // heading of the same title does not keep the locator visible after close.
+    const folio = page.getByRole('dialog', { name: /Manual Folio Title/i });
     await expect(folio).toBeVisible({ timeout: 15_000 });
 
     // Escape closes the folio

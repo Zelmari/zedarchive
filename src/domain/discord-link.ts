@@ -31,6 +31,11 @@ function checkRateLimit(
     return false;
   }
   bucket.count++;
+  if (map.size > 500) {
+    for (const [k, v] of map) {
+      if (now >= v.resetAt) map.delete(k);
+    }
+  }
   return true;
 }
 
