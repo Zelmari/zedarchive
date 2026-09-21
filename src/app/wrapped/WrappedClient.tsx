@@ -137,7 +137,7 @@ export default function WrappedClient({
           )}
 
           {/* Illuminated annual masthead */}
-          <section className="za-bookplate relative mb-8 overflow-hidden p-6 text-center sm:p-10">
+          <section className="za-bookplate za-ribbon-clip relative mb-8 p-6 text-center sm:p-10">
             <span className="za-ribbon-bookmark" aria-hidden="true" />
             <div
               aria-hidden="true"

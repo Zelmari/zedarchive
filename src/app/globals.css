@@ -1195,7 +1195,8 @@ select.za-field {
 
 .za-ribbon-bookmark {
   position: absolute;
-  inset-block-start: 0;
+  /* Offsets are from the padding edge, inside the bookplate border. */
+  inset-block-start: calc(-1 * var(--za-border-width));
   inset-inline-end: var(--za-space-4);
   z-index: 5;
   inline-size: 14px;
@@ -1207,6 +1208,19 @@ select.za-field {
 
 .za-ribbon-bookmark--beside-close {
   inset-inline-end: 3.5rem;
+  /* This bookplate has no border; the modal frame border is 2px. */
+  inset-block-start: -2px;
+}
+
+/* overflow: clip otherwise cuts the ribbon off at the padding edge. */
+.za-ribbon-clip {
+  overflow: clip;
+  overflow-clip-margin: var(--za-border-width);
+}
+
+.za-ribbon-clip--frame {
+  overflow: clip;
+  overflow-clip-margin: 2px;
 }
 
 .za-gold-stamp {

@@ -50,7 +50,7 @@ export default function DropReasonModal({
       initialFocusRef={inputRef}
       layer="nested"
       closeLabel="Close drop reason"
-      contentClassName="max-w-[36rem] overflow-hidden"
+      contentClassName="za-ribbon-clip--frame max-w-[36rem]"
     >
       <div className="za-bookplate relative rounded-none border-0 p-[var(--za-space-6)] pr-14 shadow-none">
         <span className="za-ribbon-bookmark za-ribbon-bookmark--beside-close" aria-hidden="true" />
