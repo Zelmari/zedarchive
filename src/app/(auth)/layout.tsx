@@ -5,6 +5,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <SubPageHeader
+        backLink={{ href: '/', label: 'Home' }}
         actions={
           <Link href="/search" className="za-button za-button--tertiary">
             Discover

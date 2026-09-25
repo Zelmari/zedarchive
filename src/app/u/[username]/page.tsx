@@ -158,6 +158,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
       style={customStyles}
     >
       <SubPageHeader
+        backLink={
+          viewer.isLoggedIn
+            ? { href: '/dashboard', label: 'Dashboard' }
+            : { href: '/search', label: 'Discover' }
+        }
         navItems={
           viewer.isLoggedIn
             ? [{ label: 'Dashboard', href: '/dashboard', icon: Layers, variant: 'secondary' }]

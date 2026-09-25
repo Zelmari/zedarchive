@@ -22,6 +22,7 @@ export default async function GroupsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <SubPageHeader
+        backLink={{ href: '/dashboard', label: 'Dashboard' }}
         navItems={[
           { label: 'Dashboard', href: '/dashboard', icon: Layers },
           { label: 'Friends', href: '/friends', icon: Users },

@@ -28,6 +28,7 @@ export default async function FriendsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <SubPageHeader
+        backLink={{ href: '/dashboard', label: 'Dashboard' }}
         navItems={[
           { label: 'Dashboard', href: '/dashboard', icon: Layers },
           { label: 'Groups', href: '/groups', icon: MessageSquare },
