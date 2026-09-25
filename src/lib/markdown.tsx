@@ -84,14 +84,14 @@ export function renderInlineMarkdown(text: string): React.ReactNode[] {
     } else if (boldItalic1 || boldItalic2) {
       const biText = boldItalic1 ?? boldItalic2 ?? '';
       parts.push(
-        <strong key={key} className="font-[var(--za-weight-emphasis)] italic">
+        <strong key={key} className="font-bold italic">
           {renderInlineMarkdown(biText)}
         </strong>,
       );
     } else if (bold1 || bold2) {
       const boldText = bold1 ?? bold2 ?? '';
       parts.push(
-        <strong key={key} className="font-[var(--za-weight-emphasis)]">
+        <strong key={key} className="font-bold">
           {renderInlineMarkdown(boldText)}
         </strong>,
       );

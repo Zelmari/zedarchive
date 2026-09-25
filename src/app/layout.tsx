@@ -19,7 +19,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 const newsreader = Newsreader({
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
   subsets: ['latin'],
   display: 'swap',
@@ -27,7 +27,7 @@ const newsreader = Newsreader({
 });
 
 const jetBrainsMono = JetBrains_Mono({
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-jetbrains-mono',
