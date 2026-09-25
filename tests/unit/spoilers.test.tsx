@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { createElement, Fragment, type ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { parseSpoilers } from '@/lib/spoilers';
 import { renderInlineMarkdown } from '@/lib/markdown';
+
+const toHtml = (nodes: ReactNode) => renderToStaticMarkup(createElement(Fragment, null, nodes));
 
 describe('parseSpoilers', () => {
   it('parses Discord/Telegram-style ||spoiler|| syntax', () => {
@@ -27,8 +31,17 @@ describe('renderInlineMarkdown with spoilers', () => {
 });
 
 describe('SpoilerSpan Theme Contrast', () => {
-  it('uses bg-current and text-transparent when hidden', () => {
-    const nodes = renderInlineMarkdown('||Secret||');
-    expect(nodes.length).toBe(1);
+  it('renders an opaque ink bar over transparent text when hidden', () => {
+    const html = toHtml(renderInlineMarkdown('||Secret||'));
+    expect(html).toContain('bg-ink ');
+    expect(html).toContain('text-transparent');
+    // bg-current would resolve to the transparent text colour and hide the bar too.
+    expect(html).not.toContain('bg-current');
+  });
+
+  it('renders the same visible bar for profile comment spoilers', () => {
+    const html = toHtml(parseSpoilers('Ending: ||Secret||'));
+    expect(html).toContain('bg-ink ');
+    expect(html).toContain('aria-expanded="false"');
   });
 });

@@ -32,10 +32,11 @@ export function SpoilerSpan({ children, className = '' }: SpoilerSpanProps) {
           setRevealed((prev) => !prev);
         }
       }}
-      className={`inline cursor-pointer rounded-xs px-1 py-0.5 transition-[background-color,opacity] duration-[var(--za-motion-fast)] ${
+      title={revealed ? undefined : 'Spoiler: click to reveal'}
+      className={`inline cursor-pointer rounded-xs px-1 py-0.5 box-decoration-clone transition-[background-color,opacity] duration-[var(--za-motion-fast)] ${
         revealed
-          ? 'bg-current/15 text-inherit'
-          : 'bg-current text-transparent select-none hover:opacity-90'
+          ? 'bg-ink/10 text-inherit'
+          : 'bg-ink text-transparent select-none hover:opacity-80'
       } ${className}`}
     >
       {children}
