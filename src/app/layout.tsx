@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
-import { getSessionTheme } from '@/server/queries/user';
+import { getSessionChrome } from '@/server/queries/user';
+import MobileTabBar from '@/components/navigation/MobileTabBar';
 import NavigationHistory from '@/components/navigation/NavigationHistory';
 
 const cinzel = Cinzel({
@@ -85,7 +86,7 @@ const SW_REGISTER_SCRIPT =
   "if('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const theme = await getSessionTheme();
+  const { theme, signedIn } = await getSessionChrome();
 
   return (
     <html
@@ -103,6 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to main content
         </a>
         {children}
+        {signedIn && <MobileTabBar />}
         <NavigationHistory />
       </body>
     </html>
