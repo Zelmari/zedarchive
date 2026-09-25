@@ -3,13 +3,18 @@ import { mediaActivityLogs, mediaEntries } from '@/db/schema';
 import { eq, desc, sql, and, gte, isNull, type SQL } from 'drizzle-orm';
 import type { ActivityLog } from '@/types/activity';
 
-export async function getActivityLogsByUserId(userId: string, limit = 40): Promise<ActivityLog[]> {
+export async function getActivityLogsByUserId(
+  userId: string,
+  limit = 40,
+  offset = 0,
+): Promise<ActivityLog[]> {
   const logs = await db
     .select()
     .from(mediaActivityLogs)
     .where(eq(mediaActivityLogs.userId, userId))
-    .orderBy(desc(mediaActivityLogs.createdAt))
-    .limit(limit);
+    .orderBy(desc(mediaActivityLogs.createdAt), desc(mediaActivityLogs.id))
+    .limit(limit)
+    .offset(offset);
 
   return logs.map((log) => ({
     ...log,

@@ -19,6 +19,8 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
   const [streak, setStreak] = useState(0);
   const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,6 +33,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
       ])
         .then(([logData, streakData, heatmap]) => {
           setLogs(logData || []);
+          setHasMore((logData?.length ?? 0) === ACTIVITY_LOG_FETCH_LIMIT);
           setStreak(streakData?.streak ?? 0);
           setHeatmapData(heatmap || {});
         })
@@ -40,6 +43,22 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await getActivityLogs(ACTIVITY_LOG_FETCH_LIMIT, logs.length);
+      setLogs((current) => {
+        const seen = new Set(current.map((log) => log.id));
+        return [...current, ...page.filter((log) => !seen.has(log.id))];
+      });
+      setHasMore(page.length === ACTIVITY_LOG_FETCH_LIMIT);
+    } catch (e) {
+      console.error('Failed to load more activity:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Streak is computed server-side from the full history (see getUserStreak),
   // not from the truncated activity window fetched above.
@@ -216,6 +235,16 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
                   </div>
                 </div>
               ))}
+              {hasMore && (
+                <button
+                  type="button"
+                  className="za-button za-button--secondary self-center"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Load older entries'}
+                </button>
+              )}
             </div>
           )}
 
