@@ -141,7 +141,7 @@ export default function WrappedClient({
             <span className="za-ribbon-bookmark" aria-hidden="true" />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -right-3 -top-8 font-[var(--za-font-display)] text-[clamp(8rem,24vw,15rem)] font-bold leading-none text-gold/10"
+              className="pointer-events-none absolute bottom-3 right-4 select-none font-[family-name:var(--za-font-display)] text-[clamp(4.5rem,16vw,10rem)] font-bold leading-none text-gold/10"
             >
               {stats.year}
             </div>
