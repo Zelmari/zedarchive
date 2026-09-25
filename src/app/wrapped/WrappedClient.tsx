@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles,
@@ -13,12 +14,15 @@ import {
   Calendar,
   Flame,
   Award,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { YearlyStats } from '@/lib/stats';
 import { RatingBadge } from '@/components/ui/Badge';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import SegmentButton from '@/components/ui/SegmentButton';
 import EmptyLedger from '@/components/ui/EmptyLedger';
+import { adjacentWrappedYears } from '@/lib/wrapped-year';
 
 interface WrappedClientProps {
   stats: YearlyStats;
@@ -53,6 +57,7 @@ export default function WrappedClient({
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
+  const { older, newer } = adjacentWrappedYears(stats.availableYears, stats.year);
   const maxMonthCompletions = Math.max(1, ...stats.completionsByMonth);
   const categoryBreakdown = [
     { label: 'Shows', count: stats.completedShows, Icon: Tv, tone: 'bg-success' },
@@ -119,8 +124,23 @@ export default function WrappedClient({
       <main id="main-content" className="pb-16 pt-[var(--za-space-8)]">
         <div className="za-container max-w-5xl">
           {/* Year selector tabs */}
-          {stats.availableYears.length > 1 && (
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-2 border-b border-decorative pb-4">
+          <nav
+            aria-label="Wrapped editions"
+            className="mb-6 flex items-center justify-between gap-2 border-b border-decorative pb-4"
+          >
+            {older !== null ? (
+              <Link
+                href={`${basePath}/${older}`}
+                className="za-button za-button--secondary shrink-0 gap-1 px-2.5"
+                aria-label={`Previous edition, ${older}`}
+              >
+                <ChevronLeft size={14} aria-hidden="true" />
+                <span>{older}</span>
+              </Link>
+            ) : (
+              <span aria-hidden="true" className="w-[4.5rem] shrink-0" />
+            )}
+            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
               <span className="mr-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint">
                 Editions
               </span>
@@ -134,7 +154,19 @@ export default function WrappedClient({
                 </SegmentButton>
               ))}
             </div>
-          )}
+            {newer !== null ? (
+              <Link
+                href={`${basePath}/${newer}`}
+                className="za-button za-button--secondary shrink-0 gap-1 px-2.5"
+                aria-label={`Next edition, ${newer}`}
+              >
+                <span>{newer}</span>
+                <ChevronRight size={14} aria-hidden="true" />
+              </Link>
+            ) : (
+              <span aria-hidden="true" className="w-[4.5rem] shrink-0" />
+            )}
+          </nav>
 
           {/* Illuminated annual masthead */}
           <section className="za-bookplate za-ribbon-clip relative mb-8 p-6 text-center sm:p-10">
