@@ -756,7 +756,11 @@ export default function DashboardClient({
         }}
       />
 
-      <ActivityTimelineModal isOpen={modals.isOpen('activity')} onClose={modals.close} />
+      <ActivityTimelineModal
+        isOpen={modals.isOpen('activity')}
+        onClose={modals.close}
+        isGroup={isGroup}
+      />
 
       <ShareProfileModal
         isOpen={modals.isOpen('share')}

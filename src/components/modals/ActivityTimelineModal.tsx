@@ -12,9 +12,14 @@ import { cn } from '@/lib/cn';
 interface ActivityTimelineModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isGroup?: boolean;
 }
 
-export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimelineModalProps) {
+export default function ActivityTimelineModal({
+  isOpen,
+  onClose,
+  isGroup = false,
+}: ActivityTimelineModalProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [streak, setStreak] = useState(0);
   const [heatmapData, setHeatmapData] = useState<Record<string, number>>({});
@@ -140,6 +145,11 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
           <p className="mt-1 max-w-[var(--za-measure-readable)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
             A year of activity logging, arranged as a quiet record of your archive practice.
           </p>
+          {isGroup && (
+            <p className="za-notice za-notice--info mt-[var(--za-space-3)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)]">
+              This is your personal activity across every archive, not just this group.
+            </p>
+          )}
         </div>
 
         <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
