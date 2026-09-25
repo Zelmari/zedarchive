@@ -16,19 +16,19 @@ export async function isAuthenticated(): Promise<boolean> {
   }
 }
 
-export async function getSessionTheme(): Promise<string> {
+export async function getSessionChrome(): Promise<{ theme: string; signedIn: boolean }> {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser?.id) {
-      return 'parchment';
+      return { theme: 'parchment', signedIn: false };
     }
     const [row] = await db
       .select({ theme: userTable.theme })
       .from(userTable)
       .where(eq(userTable.id, sessionUser.id));
-    return row?.theme || 'parchment';
+    return { theme: row?.theme || 'parchment', signedIn: true };
   } catch {
-    return 'parchment';
+    return { theme: 'parchment', signedIn: false };
   }
 }
 

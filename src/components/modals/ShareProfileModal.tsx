@@ -101,13 +101,13 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
       <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
         {/* Search & Discover Other Profiles */}
         <div className="mb-[var(--za-space-5)] rounded-small border border-decorative bg-surface-subtle p-4">
-          <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+          <div className="mb-1 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
             Discover
           </div>
-          <label className="mb-1 block font-[var(--za-font-display)] text-[length:var(--za-text-heading-sm)] font-bold uppercase tracking-[0.04em] text-ink">
+          <label className="mb-1 block font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-sm)] font-bold uppercase tracking-[0.04em] text-ink">
             Find Public Archives
           </label>
-          <p className="mb-3 font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+          <p className="mb-3 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
             Search usernames to explore other members&rsquo; public collections and guestbooks.
           </p>
           <UserSearchCombobox
@@ -125,7 +125,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
 
         <div className="relative my-[var(--za-space-5)] flex items-center">
           <div className="flex-grow border-t border-decorative" />
-          <span className="mx-3 flex-shrink font-[var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.14em] text-ink-faint">
+          <span className="mx-3 flex-shrink font-[family-name:var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.14em] text-ink-faint">
             Your Archive Link
           </span>
           <div className="flex-grow border-t border-decorative" />
@@ -138,7 +138,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
             </div>
           )}
 
-          <p className="mb-[var(--za-space-4)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+          <p className="mb-[var(--za-space-4)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
             Share a read-only showcase of your collection, ratings, and media stats with friends.
           </p>
 
@@ -151,10 +151,10 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
                 <Lock size={18} className="text-ink-muted" aria-hidden="true" />
               )}
               <div>
-                <div className="font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
+                <div className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
                   {profile.isPublic ? 'Public Profile Enabled' : 'Private Profile'}
                 </div>
-                <div className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+                <div className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
                   {profile.isPublic
                     ? 'Anyone with the link can view your archive'
                     : 'Your archive is private and only visible to you'}
@@ -176,12 +176,12 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
           <div className="mb-[var(--za-space-3)]">
             <label
               htmlFor="profile-username"
-              className="mb-[0.3rem] block font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted"
+              className="mb-[0.3rem] block font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted"
             >
               Custom Handle / URL
             </label>
             <div className="flex items-center gap-[0.3rem]">
-              <span className="shrink-0 font-[var(--za-font-mono)] text-[0.68rem] text-ink-muted">
+              <span className="shrink-0 font-[family-name:var(--za-font-mono)] text-[0.68rem] text-ink-muted">
                 zedarchive.com/u/
               </span>
               <input
@@ -196,7 +196,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
                 className="za-field min-w-0 flex-1 py-1 text-[length:var(--za-text-fine)]"
               />
             </div>
-            <p className="mt-1 flex items-center gap-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+            <p className="mt-1 flex items-center gap-1 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
               <ExternalLink size={11} aria-hidden="true" /> Lowercase letters, numbers, dashes only.
             </p>
           </div>
@@ -225,7 +225,7 @@ export default function ShareProfileModal({ isOpen, onClose, onToast }: SharePro
           {/* Link preview + copy */}
           {publicUrl ? (
             <div className="mb-[var(--za-space-4)] flex flex-col gap-2 rounded-small border border-required bg-surface px-[var(--za-space-3)] py-2 shadow-raised sm:flex-row sm:items-center sm:justify-between">
-              <span className="min-w-0 [overflow-wrap:anywhere] font-[var(--za-font-mono)] text-[0.68rem] text-ink">
+              <span className="min-w-0 [overflow-wrap:anywhere] font-[family-name:var(--za-font-mono)] text-[0.68rem] text-ink">
                 {publicUrl}
               </span>
               <button

@@ -61,13 +61,13 @@ export default function ConfirmModal({
         <div>
           <h2
             id="confirm-modal-title"
-            className="mb-[var(--za-space-1)] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+            className="mb-[var(--za-space-1)] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
           >
             {title}
           </h2>
           <p
             id="confirm-modal-message"
-            className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
+            className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted"
           >
             {message}
           </p>

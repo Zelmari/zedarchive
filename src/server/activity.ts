@@ -8,9 +8,13 @@ import {
 } from './queries/activity';
 import type { ActivityLog } from '@/types/activity';
 
-export async function getActivityLogs(limit = 40): Promise<ActivityLog[]> {
+const MAX_ACTIVITY_PAGE = 100;
+
+export async function getActivityLogs(limit = 40, offset = 0): Promise<ActivityLog[]> {
   const user = await getAuthUser();
-  return getActivityLogsByUserId(user.id, limit);
+  const safeLimit = Math.min(MAX_ACTIVITY_PAGE, Math.max(1, Math.trunc(Number(limit)) || 40));
+  const safeOffset = Math.max(0, Math.trunc(Number(offset)) || 0);
+  return getActivityLogsByUserId(user.id, safeLimit, safeOffset);
 }
 
 export async function getUserStreak(): Promise<{ streak: number }> {

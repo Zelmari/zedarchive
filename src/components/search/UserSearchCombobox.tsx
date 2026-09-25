@@ -187,7 +187,7 @@ export default function UserSearchCombobox({
           aria-haspopup="listbox"
           aria-autocomplete="list"
           aria-label="Search public user profiles"
-          className="za-field za-field--icon-start za-field--icon-end min-w-0 w-full py-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
+          className="za-field za-field--icon-start za-field--icon-end min-w-0 w-full py-2 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
         />
         <div className="absolute right-2.5 flex items-center gap-1">
           {isLoading && <Loader2 size={15} className="za-spin text-ink-muted" />}
@@ -213,7 +213,7 @@ export default function UserSearchCombobox({
         >
           {results.length > 0 ? (
             <div>
-              <div className="border-b border-decorative bg-surface-sunken px-3 py-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
+              <div className="border-b border-decorative bg-surface-sunken px-3 py-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
                 Archivist plates
               </div>
               <ul className="m-0 list-none p-0">
@@ -242,7 +242,7 @@ export default function UserSearchCombobox({
                           />
                         ) : (
                           <span
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-xs font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[family-name:var(--za-font-display)] text-xs font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)]"
                             aria-hidden="true"
                           >
                             {getInitials(item.name)}
@@ -250,15 +250,15 @@ export default function UserSearchCombobox({
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-baseline gap-1.5">
-                            <span className="min-w-0 truncate font-[var(--za-font-editorial)] text-base text-ink">
+                            <span className="min-w-0 truncate font-[family-name:var(--za-font-editorial)] text-base text-ink">
                               {item.name}
                             </span>
-                            <span className="min-w-0 truncate font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                            <span className="min-w-0 truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                               @{item.username}
                             </span>
                           </div>
                           {item.bio && (
-                            <p className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted">
+                            <p className="truncate font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted">
                               {item.bio}
                             </p>
                           )}
@@ -266,7 +266,7 @@ export default function UserSearchCombobox({
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="rounded-small border border-decorative bg-surface-subtle px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                        <span className="rounded-small border border-decorative bg-surface-subtle px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                           {item.totalEntries} {item.totalEntries === 1 ? 'title' : 'titles'}
                         </span>
                         <ArrowRight size={13} className="text-ink-muted opacity-60" />
@@ -282,7 +282,7 @@ export default function UserSearchCombobox({
                 aria-selected={highlightedIndex === results.length}
                 onClick={() => handleFullSearch(query)}
                 onMouseEnter={() => setHighlightedIndex(results.length)}
-                className={`flex cursor-pointer items-center justify-between gap-2 border-t border-decorative bg-surface-subtle px-3 py-2 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-accent transition-colors ${
+                className={`flex cursor-pointer items-center justify-between gap-2 border-t border-decorative bg-surface-subtle px-3 py-2 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-accent transition-colors ${
                   highlightedIndex === results.length ? 'bg-surface underline' : 'hover:underline'
                 }`}
               >
@@ -296,7 +296,7 @@ export default function UserSearchCombobox({
             </div>
           ) : hasSearched && !isLoading ? (
             <div className="p-4 text-center">
-              <p className="break-words font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+              <p className="break-words font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
                 No public archives found matching &ldquo;{query.trim()}&rdquo;
               </p>
               <button

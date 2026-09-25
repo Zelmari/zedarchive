@@ -111,7 +111,7 @@ export default function ToastContainer({ toasts = [], onDismiss }: ToastContaine
   // otherwise screen readers can miss the announcement.
   return (
     <div
-      className="pointer-events-none fixed bottom-[var(--za-space-6)] right-[var(--za-space-6)] z-[var(--za-layer-toast)] flex w-[calc(100%-3rem)] max-w-[360px] flex-col gap-[var(--za-space-2)]"
+      className="pointer-events-none fixed bottom-[var(--za-space-6)] right-[var(--za-space-6)] max-sm:bottom-[calc(var(--za-tab-bar-height)+var(--za-space-4)+env(safe-area-inset-bottom))] z-[var(--za-layer-toast)] flex w-[calc(100%-3rem)] max-w-[360px] flex-col gap-[var(--za-space-2)]"
       role="status"
       aria-live="polite"
     >

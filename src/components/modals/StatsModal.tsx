@@ -14,16 +14,16 @@ interface StatsModalProps {
 }
 
 const sectionTitle =
-  'mb-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent';
+  'mb-2 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent';
 
 const statCard =
   'za-bookplate flex flex-col items-center rounded-small bg-surface-subtle px-2 py-3 text-center';
 
 const statValue =
-  'font-[var(--za-font-display)] text-[1.45rem] font-bold leading-[1.2] tracking-[0.02em] text-ink';
+  'font-[family-name:var(--za-font-display)] text-[1.45rem] font-bold leading-[1.2] tracking-[0.02em] text-ink';
 
 const statLabel =
-  'mt-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase leading-[1.3] tracking-[0.03em] text-ink-muted';
+  'mt-1 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase leading-[1.3] tracking-[0.03em] text-ink-muted';
 
 export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModalProps) {
   const stats = calculateArchiveStats(entries);
@@ -110,7 +110,7 @@ export default function StatsModal({ isOpen, onClose, entries = [] }: StatsModal
                   key={item.id}
                   className="flex items-center justify-between rounded-small border border-decorative bg-surface-subtle px-[0.65rem] py-[0.45rem]"
                 >
-                  <span className="overflow-hidden text-ellipsis whitespace-nowrap font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)]">
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] font-[var(--za-weight-emphasis)]">
                     {item.title}
                   </span>
                   <RatingBadge rating={item.rating ?? 0} />

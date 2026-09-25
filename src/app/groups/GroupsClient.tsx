@@ -65,7 +65,7 @@ export default function GroupsClient({
 
       {msg && (
         <div
-          className={`za-notice font-[var(--za-font-serif-body)] text-sm ${
+          className={`za-notice font-[family-name:var(--za-font-serif-body)] text-sm ${
             msg && /fail|required|error/i.test(msg) ? 'za-notice--error' : 'za-notice--success'
           }`}
         >
@@ -98,10 +98,10 @@ export default function GroupsClient({
               <span className="za-ribbon-bookmark" aria-hidden="true" />
               <div>
                 <div className="mb-4 flex items-start justify-between gap-3">
-                  <span className="font-[var(--za-font-mono)] text-xs tracking-[0.12em] text-ink-faint">
+                  <span className="font-[family-name:var(--za-font-mono)] text-xs tracking-[0.12em] text-ink-faint">
                     VOL. {String(index + 1).padStart(2, '0')}
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                  <span className="inline-flex items-center gap-1 rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink-muted">
                     <Users size={12} /> {g.role}
                   </span>
                 </div>
@@ -114,17 +114,17 @@ export default function GroupsClient({
                       <Users size={18} />
                     )}
                   </span>
-                  <h3 className="min-w-0 break-words font-[var(--za-font-editorial)] text-xl leading-tight text-ink">
+                  <h3 className="min-w-0 break-words font-[family-name:var(--za-font-editorial)] text-xl leading-tight text-ink">
                     {g.name}
                   </h3>
                 </div>
               </div>
               {g.description && (
-                <p className="mt-4 line-clamp-3 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                <p className="mt-4 line-clamp-3 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                   {g.description}
                 </p>
               )}
-              <div className="mt-5 flex justify-between border-t border-decorative pt-3 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
+              <div className="mt-5 flex justify-between border-t border-decorative pt-3 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
                 <span>{g.memberCount} members</span>
                 <span>{new Date(g.updatedAt).toLocaleDateString()}</span>
               </div>
@@ -143,7 +143,7 @@ export default function GroupsClient({
         >
           <div className="space-y-4 p-6">
             <div>
-              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+              <label className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Group Name *
               </label>
               <input
@@ -151,11 +151,11 @@ export default function GroupsClient({
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
                 placeholder="Roshar Reading Society"
-                className="za-field mt-1 font-[var(--za-font-serif-body)]"
+                className="za-field mt-1 font-[family-name:var(--za-font-serif-body)]"
               />
             </div>
             <div>
-              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+              <label className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Description (optional)
               </label>
               <textarea
@@ -164,16 +164,16 @@ export default function GroupsClient({
                 maxLength={500}
                 rows={3}
                 placeholder="What is this group about?"
-                className="za-field mt-1 min-h-24 resize-y font-[var(--za-font-serif-body)]"
+                className="za-field mt-1 min-h-24 resize-y font-[family-name:var(--za-font-serif-body)]"
               />
             </div>
 
             <div>
-              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+              <label className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Invite Friends (owner&apos;s friends only)
               </label>
               {friends.length === 0 ? (
-                <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   You have no friends to invite yet. Add friends first.
                 </p>
               ) : (
@@ -193,9 +193,9 @@ export default function GroupsClient({
                         onChange={() => toggleSelect(f.id)}
                         className="accent-accent"
                       />
-                      <span className="min-w-0 truncate font-[var(--za-font-serif-body)] text-sm">
+                      <span className="min-w-0 truncate font-[family-name:var(--za-font-serif-body)] text-sm">
                         {f.name}{' '}
-                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                        <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
                           @{f.username}
                         </span>
                       </span>

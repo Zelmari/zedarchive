@@ -50,12 +50,12 @@ export default function DangerSection({ email }: DangerSectionProps) {
         <span className="za-ribbon-bookmark" aria-hidden="true" />
         <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
           <Trash2 size={18} className="text-danger" />
-          <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-danger">
+          <h2 className="font-[family-name:var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-danger">
             Danger Zone
           </h2>
         </div>
 
-        <p className="mb-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="mb-4 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
           Permanently delete your ZedArchive account and all your tracked media entries, progress,
           comments, and public profile data. If you own a group archive, transfer or delete it first
           — otherwise every member would lose the shared library. This operation is immediately

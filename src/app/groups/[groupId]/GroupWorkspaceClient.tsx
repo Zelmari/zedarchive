@@ -88,25 +88,25 @@ export default function GroupWorkspaceClient({
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="mb-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.14em] text-accent">
+            <p className="mb-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.14em] text-accent">
               Collective volume
             </p>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h1 className="min-w-0 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.03em] text-ink">
+              <h1 className="min-w-0 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.03em] text-ink">
                 {group.name}
               </h1>
               {group.isOwner && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-accent">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-accent">
                   <Crown size={10} /> Owner
                 </span>
               )}
             </div>
             {group.description && (
-              <p className="mt-2 max-w-2xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+              <p className="mt-2 max-w-2xl font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                 {group.description}
               </p>
             )}
-            <div className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
+            <div className="mt-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
               {group.memberCount} members · Created {new Date(group.createdAt).toLocaleDateString()}
             </div>
           </div>
@@ -153,10 +153,10 @@ export default function GroupWorkspaceClient({
       {tab === 'members' && (
         <div className="za-bookplate space-y-4 p-5">
           <div className="border-b border-decorative pb-3">
-            <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
+            <p className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
               The reading room
             </p>
-            <h3 className="mt-1 font-[var(--za-font-editorial)] text-xl text-ink">Members</h3>
+            <h3 className="mt-1 font-[family-name:var(--za-font-editorial)] text-xl text-ink">Members</h3>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {group.members.map((m) => (
@@ -172,15 +172,15 @@ export default function GroupWorkspaceClient({
                     className="h-9 w-9 rounded-small border border-required object-cover"
                   />
                 ) : (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-small border border-required bg-surface font-[family-name:var(--za-font-display)] text-xs uppercase text-ink">
                     {m.name.slice(0, 1)}
                   </span>
                 )}
                 <div className="min-w-0">
-                  <div className="truncate font-[var(--za-font-editorial)] text-base text-ink">
+                  <div className="truncate font-[family-name:var(--za-font-editorial)] text-base text-ink">
                     {m.name}
                   </div>
-                  <div className="truncate font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
+                  <div className="truncate font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
                     @{m.username} · {m.role}
                   </div>
                 </div>

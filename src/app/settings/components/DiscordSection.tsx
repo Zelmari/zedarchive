@@ -112,7 +112,7 @@ export default function DiscordSection() {
       <div className="mb-5 flex items-center justify-between border-b border-decorative pb-3">
         <div className="flex items-center gap-2">
           <MessageSquare size={18} className="text-accent" />
-          <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
+          <h2 className="font-[family-name:var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
             Discord Companion
           </h2>
         </div>

@@ -1,5 +1,6 @@
 import { WifiOff } from 'lucide-react';
 import Link from 'next/link';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 export const metadata = {
   title: 'Offline',
@@ -28,17 +29,18 @@ export default function OfflinePage() {
           <header className="grid gap-2">
             <h1
               id="offline-title"
-              className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] leading-[var(--za-leading-compact)]"
+              className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] leading-[var(--za-leading-compact)]"
             >
               You’re currently offline
             </h1>
-            <p className="mx-auto max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mx-auto max-w-[var(--za-measure-readable)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               ZedArchive requires an active internet connection to load and sync your collection.
               Check your network connection and reload the page.
             </p>
           </header>
 
-          <div className="flex w-full justify-center">
+          <div className="flex w-full flex-wrap justify-center gap-2">
+            <GoBackButton fallbackHref="/dashboard" />
             <Link href="/dashboard" className="za-button za-button--primary">
               Retry connection
             </Link>

@@ -67,7 +67,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   if (!data?.user) {
     return (
-      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" ctaClassName="mt-[var(--za-space-3)]" />
+      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />
     );
   }
 
@@ -158,6 +158,11 @@ export default async function PublicProfilePage({ params }: PageParams) {
       style={customStyles}
     >
       <SubPageHeader
+        backLink={
+          viewer.isLoggedIn
+            ? { href: '/dashboard', label: 'Dashboard' }
+            : { href: '/search', label: 'Discover' }
+        }
         navItems={
           viewer.isLoggedIn
             ? [{ label: 'Dashboard', href: '/dashboard', icon: Layers, variant: 'secondary' }]
@@ -178,7 +183,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
           {/* Profile Header Masthead */}
           <div className="za-bookplate relative mb-8 p-6 sm:p-8">
             <span className="za-ribbon-bookmark" aria-hidden="true" />
-            <p className="mb-5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
+            <p className="mb-5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
               Published monograph · public collection
             </p>
             {/* Hero Identity Zone */}
@@ -192,7 +197,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 />
               ) : (
                 <span
-                  className="flex h-24 w-24 flex-none items-center justify-center rounded-small border-2 border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-2xl font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)] shadow-raised"
+                  className="flex h-24 w-24 flex-none items-center justify-center rounded-small border-2 border-required bg-[var(--za-color-title-tile)] font-[family-name:var(--za-font-display)] text-2xl font-[var(--za-weight-heading)] text-[var(--za-color-title-tile-text)] shadow-raised"
                   aria-hidden="true"
                 >
                   {getInitials(user.name)}
@@ -200,34 +205,34 @@ export default async function PublicProfilePage({ params }: PageParams) {
               )}
 
               <div className="min-w-0 flex-1 basis-64">
-                <h1 className="min-w-0 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.03em] text-ink">
+                <h1 className="min-w-0 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.03em] text-ink">
                   {user.name}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-supporting)] text-ink-muted">
+                  <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-supporting)] text-ink-muted">
                     @{user.username}
                   </span>
-                  <span className="inline-flex items-center rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-success">
+                  <span className="inline-flex items-center rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-success">
                     Public Archive
                   </span>
                   {user.theme && (
-                    <span className="inline-flex items-center rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
+                    <span className="inline-flex items-center rounded-small border border-decorative bg-surface-subtle px-2 py-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-muted">
                       {(user.theme && (THEME_LABELS as Record<string, string>)[user.theme]) ??
                         user.theme}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
+                <p className="mt-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
                   Archiving since {formatMonthYear(user.createdAt)}
                 </p>
                 {user.bio && (
-                  <p className="mt-4 max-w-2xl border-l-2 border-accent pl-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                  <p className="mt-4 max-w-2xl border-l-2 border-accent pl-4 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                     {user.bio}
                   </p>
                 )}
                 {publicGoalProgress && (
-                  <div className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-decorative py-2 font-[var(--za-font-serif-body)] text-sm text-ink">
-                    <span className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.06em] text-accent">
+                  <div className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-decorative py-2 font-[family-name:var(--za-font-serif-body)] text-sm text-ink">
+                    <span className="font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.06em] text-accent">
                       Reading goal
                     </span>
                     <span className="font-[var(--za-weight-emphasis)]">
@@ -302,44 +307,44 @@ export default async function PublicProfilePage({ params }: PageParams) {
             {/* Enriched Stats & Highlights Bar */}
             <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-5">
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
-                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
+                <div className="font-[family-name:var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalEntries}
                 </div>
-                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Total Cataloged
                 </div>
               </div>
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
-                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-success">
+                <div className="font-[family-name:var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-success">
                   {stats.completedCount}
                   <span className="text-xs text-ink-muted"> · {stats.completionRate}%</span>
                 </div>
-                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Completed
                 </div>
               </div>
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
-                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
+                <div className="font-[family-name:var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalEpisodes}
                 </div>
-                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Episodes Watched
                 </div>
               </div>
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
-                <div className="font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
+                <div className="font-[family-name:var(--za-font-mono)] text-[1.35rem] leading-[1.2] text-ink">
                   {stats.totalChapters}
                 </div>
-                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Chapters Read
                 </div>
               </div>
               <div className="flex flex-col items-center bg-surface-subtle px-2 py-4 text-center">
-                <div className="za-gold-stamp inline-flex items-center gap-1 font-[var(--za-font-mono)] text-[1.35rem] leading-[1.2]">
+                <div className="za-gold-stamp inline-flex items-center gap-1 font-[family-name:var(--za-font-mono)] text-[1.35rem] leading-[1.2]">
                   <Star size={16} fill="currentColor" />
                   {stats.avgRating}
                 </div>
-                <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Avg Rating
                 </div>
               </div>
@@ -355,10 +360,10 @@ export default async function PublicProfilePage({ params }: PageParams) {
           <section aria-labelledby="cataloged-titles-heading" className="mt-8">
             <h2
               id="cataloged-titles-heading"
-              className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-decorative pb-3 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+              className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-decorative pb-3 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
             >
               <span>Cataloged Titles</span>
-              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-normal tracking-normal text-ink-faint">
+              <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-normal tracking-normal text-ink-faint">
                 {entries.length} records
               </span>
             </h2>
@@ -366,7 +371,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
             {entries.length === 0 ? (
               <div className="za-bookplate relative p-10 text-center">
                 <span className="za-ribbon-bookmark" aria-hidden="true" />
-                <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+                <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
                   No titles cataloged yet.
                 </p>
               </div>
@@ -391,7 +396,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                       key={item.id}
                       className="za-bookplate relative flex min-w-0 max-w-full flex-col p-4"
                     >
-                      <div className="mb-3 flex items-center justify-between border-b border-decorative pb-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-ink-faint">
+                      <div className="mb-3 flex items-center justify-between border-b border-decorative pb-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.08em] text-ink-faint">
                         <span>Ex libris · {item.category}</span>
                         <span>No. {String(index + 1).padStart(2, '0')}</span>
                       </div>
@@ -417,7 +422,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
                         <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
                           <h3
-                            className="min-w-0 break-words font-[var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
+                            className="min-w-0 break-words font-[family-name:var(--za-font-editorial)] text-xl leading-[var(--za-leading-compact)] text-ink"
                             title={item.title}
                           >
                             {item.title}
@@ -452,19 +457,19 @@ export default async function PublicProfilePage({ params }: PageParams) {
                           </div>
 
                           {item.notes && (
-                            <div className="mt-3 max-h-32 overflow-y-auto pr-1 font-[var(--za-font-serif-body)] text-sm text-ink-muted">
+                            <div className="mt-3 max-h-32 overflow-y-auto pr-1 font-[family-name:var(--za-font-serif-body)] text-sm text-ink-muted">
                               <MarkdownNotes content={item.notes} />
                             </div>
                           )}
 
                           {item.quotes && item.quotes.length > 0 && (
-                            <div className="mt-3 border-l-2 border-gold bg-gold/10 p-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                            <div className="mt-3 border-l-2 border-gold bg-gold/10 p-2 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                               &ldquo;
                               {item.quotes.find((q) => q.isFavorite)?.text || item.quotes[0]?.text}
                               &rdquo;
                               {(item.quotes.find((q) => q.isFavorite)?.speaker ||
                                 item.quotes[0]?.speaker) && (
-                                <span className="mt-1 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] not-italic uppercase tracking-[0.04em] text-ink-faint">
+                                <span className="mt-1 block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] not-italic uppercase tracking-[0.04em] text-ink-faint">
                                   —{' '}
                                   {item.quotes.find((q) => q.isFavorite)?.speaker ||
                                     item.quotes[0]?.speaker}

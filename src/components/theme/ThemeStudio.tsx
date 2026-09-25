@@ -137,7 +137,7 @@ export default function ThemeStudio({
             }
           }}
           className={cn(
-            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
             tab === 'presets'
               ? 'border-accent text-ink'
               : 'border-transparent text-ink-muted hover:text-ink',
@@ -154,7 +154,7 @@ export default function ThemeStudio({
             previewCustomPalette(customPalette);
           }}
           className={cn(
-            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+            'flex cursor-pointer items-center gap-1.5 rounded-small border-b-2 px-3 py-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
             tab === 'builder'
               ? 'border-accent text-accent'
               : 'border-transparent text-ink-muted hover:text-ink',
@@ -167,10 +167,10 @@ export default function ThemeStudio({
       {tab === 'presets' ? (
         <div>
           <div className="mb-[var(--za-space-4)]">
-            <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+            <div className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
               Curated Palettes
             </div>
-            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               Choose a visual style. Your theme is saved to your account and syncs across all your
               devices.
             </p>
@@ -203,10 +203,10 @@ export default function ThemeStudio({
                       Aa
                     </div>
                     <div className="min-w-0">
-                      <div className="font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
+                      <div className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.04em] text-ink">
                         {theme.name}
                       </div>
-                      <div className="mt-[0.1rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      <div className="mt-[0.1rem] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
                         {theme.description}
                       </div>
                     </div>
@@ -220,14 +220,14 @@ export default function ThemeStudio({
       ) : (
         <div>
           <div className="mb-5">
-            <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+            <div className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
               Palette Workshop
             </div>
-            <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               Tune the archive surfaces and ribbon accent while keeping the saved palette schema
               compact.
             </p>
-            <label className="mt-4 mb-1.5 block font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
+            <label className="mt-4 mb-1.5 block font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.1em] text-ink-muted">
               Starter Presets
             </label>
             <div className="flex flex-wrap gap-2">
@@ -236,7 +236,7 @@ export default function ThemeStudio({
                   key={preset.name}
                   type="button"
                   onClick={() => handleLoadStarterPreset(preset)}
-                  className="flex min-h-[var(--za-control-min-block-size)] cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] text-ink hover:border-accent"
+                  className="flex min-h-[var(--za-control-min-block-size)] cursor-pointer items-center gap-1.5 rounded-small border border-decorative bg-surface px-2.5 py-1 font-[family-name:var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] text-ink hover:border-accent"
                 >
                   <span
                     className="h-3 w-3 rounded-full border border-decorative"
@@ -251,7 +251,7 @@ export default function ThemeStudio({
           <div className="mb-5 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
             {PALETTE_FIELDS.map(({ key, label }) => (
               <div key={key}>
-                <label className="mb-1 block font-[var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.06em] text-ink-muted">
+                <label className="mb-1 block font-[family-name:var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.06em] text-ink-muted">
                   {label}
                 </label>
                 <div className="flex items-center gap-2">
@@ -267,7 +267,7 @@ export default function ThemeStudio({
                     value={customPalette[key]}
                     onChange={(event) => handlePaletteFieldChange(key, event.target.value)}
                     aria-label={`${label} hex value`}
-                    className="za-field w-full min-w-0 py-1 font-[var(--za-font-mono)] text-xs"
+                    className="za-field w-full min-w-0 py-1 font-[family-name:var(--za-font-mono)] text-xs"
                   />
                 </div>
               </div>
@@ -276,10 +276,10 @@ export default function ThemeStudio({
 
           <div className="mb-5 rounded-small border border-required bg-surface-sunken p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <span className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.07em] text-ink">
+              <span className="font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.07em] text-ink">
                 WCAG 2.1 Contrast Engine
               </span>
-              <span className="font-[var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.08em] text-ink-muted">
+              <span className="font-[family-name:var(--za-font-mono)] text-[0.62rem] uppercase tracking-[0.08em] text-ink-muted">
                 Relative luminance
               </span>
             </div>
@@ -290,20 +290,20 @@ export default function ThemeStudio({
                   className="flex flex-wrap items-center justify-between gap-2 rounded-small border border-decorative bg-surface px-3 py-2"
                 >
                   <div>
-                    <div className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                    <div className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
                       {check.label}
                     </div>
-                    <div className="font-[var(--za-font-mono)] text-[0.6rem] text-ink-faint">
+                    <div className="font-[family-name:var(--za-font-mono)] text-[0.6rem] text-ink-faint">
                       {customPalette[check.foreground]} on {customPalette[check.background]}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-[var(--za-font-display)] text-sm font-bold text-ink">
+                    <div className="font-[family-name:var(--za-font-display)] text-sm font-bold text-ink">
                       {check.ratio.toFixed(2)} : 1
                     </div>
                     <div
                       className={cn(
-                        'font-[var(--za-font-mono)] text-[0.6rem] uppercase tracking-[0.06em]',
+                        'font-[family-name:var(--za-font-mono)] text-[0.6rem] uppercase tracking-[0.06em]',
                         check.wcag.pass ? 'text-success' : 'text-danger',
                       )}
                     >
@@ -318,7 +318,7 @@ export default function ThemeStudio({
                 </div>
               ))}
             </div>
-            <p className="mt-3 font-[var(--za-font-serif-body)] text-[0.7rem] leading-[1.4] text-ink-muted">
+            <p className="mt-3 font-[family-name:var(--za-font-serif-body)] text-[0.7rem] leading-[1.4] text-ink-muted">
               These checks cover text/canvas, text/surface, and accent/onAccent. Gold remains a
               decorative stamp and is not a save requirement.
             </p>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 export default function NotFound() {
   return (
@@ -19,23 +20,25 @@ export default function NotFound() {
           size={36}
           strokeWidth={1.5}
         />
-        <p className="mb-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.16em] text-accent">
+        <p className="mb-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.16em] text-accent">
           Catalogue notice · 404
         </p>
         <h1
           id="not-found-title"
-          className="mb-3 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+          className="mb-3 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
         >
           Catalogue entry missing
         </h1>
-        <p className="mb-6 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="mb-6 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           The page or archive entry you requested has not been entered in this catalogue, or has
           been moved.
         </p>
-        <Link href="/" className="za-button za-button--primary">
-          <ArrowLeft size={16} strokeWidth={2} />
-          Return to the archive
-        </Link>
+        <div className="flex flex-wrap justify-center gap-2">
+          <GoBackButton />
+          <Link href="/" className="za-button za-button--primary">
+            Return to the archive
+          </Link>
+        </div>
       </section>
     </main>
   );

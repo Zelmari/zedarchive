@@ -39,7 +39,7 @@ export default function ThemeSection({
       <span className="za-ribbon-bookmark" aria-hidden="true" />
       <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
         <Sparkles size={18} className="text-accent" />
-        <h2 className="font-[var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
+        <h2 className="font-[family-name:var(--za-font-display)] text-sm font-[var(--za-weight-heading)] uppercase tracking-[0.06em] text-ink">
           Interface Theme
         </h2>
       </div>

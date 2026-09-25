@@ -19,7 +19,7 @@ interface BadgeProps {
 export function Badge({ children, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] text-ink-muted ${className}`.trim()}
+      className={`inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] text-ink-muted ${className}`.trim()}
     >
       {children}
     </span>
@@ -37,7 +37,7 @@ export function StatusBadge({ status, label, title }: StatusBadgeProps) {
   return (
     <span
       title={title}
-      className={`inline-block rounded-small border px-[0.45rem] py-[0.15rem] font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] ${STATUS_BADGE_CLASSES[status]}`}
+      className={`inline-block rounded-small border px-[0.45rem] py-[0.15rem] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] ${STATUS_BADGE_CLASSES[status]}`}
     >
       {label}
     </span>
@@ -52,7 +52,7 @@ interface RatingBadgeProps {
 export function RatingBadge({ rating }: RatingBadgeProps) {
   return (
     <span
-      className="za-gold-stamp inline-flex items-center gap-[0.2rem] rounded-small border border-gold/40 bg-gold/10 px-[0.45rem] py-[0.12rem] font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-gold-dark"
+      className="za-gold-stamp inline-flex items-center gap-[0.2rem] rounded-small border border-gold/40 bg-gold/10 px-[0.45rem] py-[0.12rem] font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-gold-dark"
       title={`Rated ${rating}/10`}
     >
       <Star size={11} className="text-gold" fill="currentColor" />

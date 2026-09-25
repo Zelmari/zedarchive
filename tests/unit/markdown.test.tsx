@@ -31,6 +31,15 @@ describe('renderInlineMarkdown', () => {
     expect(node.props.className).toContain('italic');
   });
 
+  it('renders **bold** at a full bold weight, not the 500 emphasis weight', () => {
+    const nodes = renderInlineMarkdown('**bold**');
+    expect(nodes.length).toBe(1);
+    const node = nodes[0] as React.ReactElement<{ className?: string }>;
+    expect(node.type).toBe('strong');
+    expect(node.props.className).toContain('font-bold');
+    expect(node.props.className).not.toContain('za-weight-emphasis');
+  });
+
   it('does not format snake_case identifiers as italics', () => {
     const nodes = renderInlineMarkdown('const my_cool_variable = 123;');
     const textContent = nodes.map((n) => (typeof n === 'string' ? n : '')).join('');

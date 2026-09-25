@@ -111,7 +111,7 @@ export default function FriendButton({
 
   if (message) {
     return (
-      <div className="za-notice za-notice--error font-[var(--za-font-serif-body)] text-sm">
+      <div className="za-notice za-notice--error font-[family-name:var(--za-font-serif-body)] text-sm">
         {message}
       </div>
     );
@@ -165,7 +165,7 @@ export default function FriendButton({
   if (status === 'accepted') {
     return (
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-success">
+        <span className="inline-flex items-center gap-1 rounded-small border border-success/40 bg-success-surface px-2 py-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-success">
           <UserCheck size={13} /> Friends
         </span>
         <button

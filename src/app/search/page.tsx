@@ -26,6 +26,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-ink">
       <SubPageHeader
+        backLink={
+          loggedIn ? { href: '/dashboard', label: 'Dashboard' } : { href: '/', label: 'Home' }
+        }
         actions={
           loggedIn ? (
             <Link href="/dashboard" className="za-button za-button--secondary">

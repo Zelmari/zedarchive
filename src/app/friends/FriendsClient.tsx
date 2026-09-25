@@ -22,9 +22,9 @@ const personRowClass =
   'za-bookplate relative flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between';
 const personIdentityClass = 'flex min-w-0 flex-1 items-center gap-3';
 const personNameClass =
-  'break-words font-[var(--za-font-editorial)] text-lg leading-tight text-ink';
+  'break-words font-[family-name:var(--za-font-editorial)] text-lg leading-tight text-ink';
 const personHandleClass =
-  'break-words font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted';
+  'break-words font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted';
 const personActionsClass = 'flex flex-wrap items-center gap-2 sm:shrink-0';
 
 interface Props {
@@ -142,7 +142,7 @@ export default function FriendsClient({
     <div className="space-y-4">
       {message && (
         <div
-          className={`za-notice font-[var(--za-font-serif-body)] text-sm ${
+          className={`za-notice font-[family-name:var(--za-font-serif-body)] text-sm ${
             /fail|error/i.test(message) ? 'za-notice--error' : 'za-notice--success'
           }`}
         >
@@ -191,7 +191,7 @@ export default function FriendsClient({
                       className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[family-name:var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
@@ -199,7 +199,7 @@ export default function FriendsClient({
                     <div className={personNameClass}>{item.friend.name}</div>
                     <div className={personHandleClass}>@{item.friend.username || 'unknown'} </div>
                     {item.friend.bio && (
-                      <p className="mt-1 max-w-xl break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                      <p className="mt-1 max-w-xl break-words font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                         {item.friend.bio.slice(0, 100)}
                       </p>
                     )}
@@ -256,7 +256,7 @@ export default function FriendsClient({
                       className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[family-name:var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
@@ -308,7 +308,7 @@ export default function FriendsClient({
                       className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[family-name:var(--za-font-display)] text-sm font-bold uppercase text-ink">
                       {item.friend.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
@@ -349,7 +349,7 @@ export default function FriendsClient({
           </div>
 
           {searchQuery.trim().length < 2 ? (
-            <p className="py-8 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+            <p className="py-8 text-center font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               Type at least two characters to search the register.
             </p>
           ) : searchResults.length === 0 && !searchLoading ? (
@@ -370,7 +370,7 @@ export default function FriendsClient({
                         className="h-11 w-11 shrink-0 rounded-small border border-required object-cover"
                       />
                     ) : (
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[var(--za-font-display)] text-sm font-bold uppercase text-ink">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-small border border-required bg-surface-subtle font-[family-name:var(--za-font-display)] text-sm font-bold uppercase text-ink">
                         {u.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
@@ -378,7 +378,7 @@ export default function FriendsClient({
                       <div className={personNameClass}>{u.name}</div>
                       <div className={personHandleClass}>@{u.username || 'unknown'}</div>
                       {u.bio && (
-                        <p className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                        <p className="mt-1 break-words font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                           {u.bio.slice(0, 100)}
                         </p>
                       )}

@@ -178,6 +178,7 @@
   --za-space-2: 0.5rem; /* 8px */
   --za-space-3: 0.75rem; /* 12px */
   --za-space-4: 1rem; /* 16px */
+  --za-space-5: 1.25rem; /* 20px */
   --za-space-6: 1.5rem; /* 24px */
   --za-space-8: 2rem; /* 32px */
   --za-space-12: 3rem; /* 48px */
@@ -198,6 +199,7 @@
   --za-radius-layered: 10px; /* Modals, dialogs, elevated containers */
   --za-border-width: 1px;
   --za-control-min-block-size: 2.5rem; /* 40px - Strict touch/click target min-height */
+  --za-tab-bar-height: 3.5rem; /* 56px - Mobile section tab bar */
 
   --za-focus-width: 3px;
   --za-focus-offset: 3px;
@@ -211,6 +213,7 @@
      Layering (Z-Index Scale)
      ========================================================================== */
   --za-layer-skip-link: 200;
+  --za-layer-tab-bar: 80;
   --za-layer-dropdown: 90;
   --za-layer-modal: 100;
   --za-layer-nested-modal: 110;
@@ -778,6 +781,53 @@ html[data-theme='cyber'] body {
     justify-content: flex-end;
     overflow: visible;
     margin-inline-start: auto;
+  }
+}
+
+/* Mobile section tab bar (signed-in pages below the sm breakpoint) */
+.za-tab-bar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--za-layer-tab-bar);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-block-start: var(--za-border-width) solid var(--za-color-border-decorative);
+  background: color-mix(in srgb, var(--za-color-surface) 94%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding-block-end: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 16px rgba(32, 30, 27, 0.06);
+}
+
+.za-tab-bar-spacer {
+  block-size: calc(var(--za-tab-bar-height) + env(safe-area-inset-bottom));
+}
+
+.za-tab-bar__item {
+  display: flex;
+  min-block-size: var(--za-tab-bar-height);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--za-color-text-muted);
+  font-family: var(--za-font-display);
+  font-size: 0.625rem;
+  font-weight: var(--za-weight-heading);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.za-tab-bar__item--active {
+  color: var(--za-color-accent);
+  box-shadow: inset 0 2px 0 var(--za-color-accent);
+}
+
+@media (min-width: 40rem) {
+  .za-tab-bar,
+  .za-tab-bar-spacer {
+    display: none;
   }
 }
 

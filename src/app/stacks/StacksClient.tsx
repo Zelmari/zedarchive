@@ -327,7 +327,7 @@ export default function StacksClient({
         >
           <div className="mb-5 border-b border-decorative pb-4">
             <span className="za-kicker">New folio</span>
-            <h2 className="mt-1 font-[var(--za-font-display)] text-lg font-semibold uppercase tracking-[0.05em] text-ink">
+            <h2 className="mt-1 font-[family-name:var(--za-font-display)] text-lg font-semibold uppercase tracking-[0.05em] text-ink">
               New Anthology Stack
             </h2>
           </div>
@@ -421,7 +421,7 @@ export default function StacksClient({
                     <span className="za-kicker">
                       Anthology · {stack.items.length.toString().padStart(2, '0')} titles
                     </span>
-                    <h2 className="mt-2 break-words font-[var(--za-font-display)] text-xl font-semibold leading-tight tracking-[0.03em] text-ink sm:text-2xl">
+                    <h2 className="mt-2 break-words font-[family-name:var(--za-font-display)] text-xl font-semibold leading-tight tracking-[0.03em] text-ink sm:text-2xl">
                       {stack.title}
                     </h2>
                   </div>
@@ -437,7 +437,7 @@ export default function StacksClient({
                   </span>
                 </div>
                 {stack.description && (
-                  <div className="mt-5 max-w-3xl border-l-2 border-required pl-4 font-[var(--za-font-editorial)] text-base italic leading-relaxed text-ink sm:text-lg">
+                  <div className="mt-5 max-w-3xl border-l-2 border-required pl-4 font-[family-name:var(--za-font-editorial)] text-base italic leading-relaxed text-ink sm:text-lg">
                     “{stack.description}”
                   </div>
                 )}
@@ -448,7 +448,7 @@ export default function StacksClient({
                   <div className="min-w-0 flex-1">
                     <label
                       htmlFor={`stack-library-${stack.id}`}
-                      className="mb-1 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
+                      className="mb-1 block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
                     >
                       Add from your library
                     </label>
@@ -522,7 +522,7 @@ export default function StacksClient({
                         key={item.id}
                         className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3 border-b border-dashed border-decorative pb-6 last:border-b-0 last:pb-0 sm:grid-cols-[3rem_7rem_minmax(0,1fr)] sm:gap-6"
                       >
-                        <div className="font-[var(--za-font-display)] text-2xl font-semibold leading-none text-[var(--za-color-border-required)] sm:text-3xl">
+                        <div className="font-[family-name:var(--za-font-display)] text-2xl font-semibold leading-none text-[var(--za-color-border-required)] sm:text-3xl">
                           {String(index + 1).padStart(2, '0')}
                         </div>
                         <div className="col-start-2 row-start-1 w-28 sm:col-start-2">
@@ -535,10 +535,10 @@ export default function StacksClient({
                         <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">
                           <div className="flex min-w-0 flex-col gap-2">
                             <div className="min-w-0">
-                              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
+                              <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted">
                                 {getMediaMeta(item.media)}
                               </span>
-                              <h3 className="mt-1 break-words font-[var(--za-font-display)] text-base font-semibold leading-tight text-ink sm:text-lg">
+                              <h3 className="mt-1 break-words font-[family-name:var(--za-font-display)] text-base font-semibold leading-tight text-ink sm:text-lg">
                                 {mediaTitle}
                               </h3>
                             </div>
@@ -584,7 +584,7 @@ export default function StacksClient({
                           </div>
                           <label
                             htmlFor={`annotation-${item.id}`}
-                            className="mt-4 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
+                            className="mt-4 block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-muted"
                           >
                             Curator&apos;s note · saves on blur
                           </label>

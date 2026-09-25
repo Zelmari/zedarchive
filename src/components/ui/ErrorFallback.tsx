@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 interface ErrorFallbackProps {
   title: string;
@@ -41,14 +42,14 @@ export default function ErrorFallback({
         />
         <h1
           id="error-fallback-title"
-          className="mb-2 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+          className="mb-2 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
         >
           {title}
         </h1>
-        <p className="mb-6 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="mb-6 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           {message}
           {error.digest ? (
-            <span className="mt-2 block font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+            <span className="mt-2 block font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
               Reference {error.digest}
             </span>
           ) : null}
@@ -57,6 +58,7 @@ export default function ErrorFallback({
           <button type="button" className="za-button za-button--primary" onClick={() => reset()}>
             Try Again
           </button>
+          <GoBackButton />
           <Link href="/" className="za-button za-button--secondary">
             {homeLabel}
           </Link>

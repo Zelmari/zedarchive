@@ -17,11 +17,11 @@ export function AuthCard({ title, subtitle, footer, children }: AuthCardProps) {
       <header className="grid gap-2">
         <h1
           id="auth-card-title"
-          className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink"
+          className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink"
         >
           {title}
         </h1>
-        <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
           {subtitle}
         </p>
       </header>
@@ -29,7 +29,7 @@ export function AuthCard({ title, subtitle, footer, children }: AuthCardProps) {
       {children}
 
       {footer && (
-        <div className="border-t border-decorative pt-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+        <div className="border-t border-decorative pt-4 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
           {footer}
         </div>
       )}

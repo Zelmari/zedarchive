@@ -364,7 +364,7 @@ export default function SpotlightSearchModal({
                   <div className="truncate text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
                     {item.title}
                   </div>
-                  <div className="mt-[0.15rem] truncate font-[var(--za-font-mono)] text-xs text-ink-muted">
+                  <div className="mt-[0.15rem] truncate font-[family-name:var(--za-font-mono)] text-xs text-ink-muted">
                     {item.year ? String(item.year) : 'Year unknown'}
                     {metaParts.length > 0 ? ` • ${metaParts.join(' • ')}` : ''}
                   </div>
