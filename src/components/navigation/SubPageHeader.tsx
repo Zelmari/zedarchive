@@ -90,7 +90,7 @@ export default function SubPageHeader({
                     </Link>
                   ) : (
                     <span
-                      className="truncate font-[var(--za-font-display)] text-xs font-semibold uppercase tracking-[0.06em] text-ink"
+                      className="truncate font-[family-name:var(--za-font-display)] text-xs font-semibold uppercase tracking-[0.06em] text-ink"
                       aria-current="page"
                     >
                       {item.label}

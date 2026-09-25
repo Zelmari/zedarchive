@@ -61,7 +61,7 @@ export default function DropReasonModal({
           <div className="min-w-0 flex-1">
             <h2
               id="drop-reason-modal-title"
-              className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
+              className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] text-ink"
             >
               Drop {itemTitle ? `"${itemTitle}"` : 'Media'}
             </h2>

@@ -32,14 +32,14 @@ export default async function VerifiedPage({ searchParams }: PageProps) {
       </div>
 
       <header className="grid gap-2">
-        <h1 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em]">
+        <h1 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em]">
           {isError
             ? isExpired
               ? 'Verification Link Expired'
               : 'Verification Failed'
             : 'Email Verified'}
         </h1>
-        <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
           {isError
             ? isExpired
               ? 'This email verification link has expired. Please sign in to request a new link.'

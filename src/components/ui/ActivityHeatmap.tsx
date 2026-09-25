@@ -161,10 +161,10 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
   return (
     <div className={`za-bookplate rounded-small p-[var(--za-space-4)] ${className}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
+        <div className="font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           Activity Over Past Year
         </div>
-        <div className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+        <div className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
           {totalLogs} {totalLogs === 1 ? 'log' : 'logs'} · Max {maxInOneDay} in one day
         </div>
       </div>
@@ -173,7 +173,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
       <div className="overflow-x-auto pb-1">
         <div className="inline-block min-w-full">
           {/* Months header */}
-          <div className="relative mb-1 flex h-3.5 pl-8 font-[var(--za-font-mono)] text-[0.6rem] text-ink-muted">
+          <div className="relative mb-1 flex h-3.5 pl-8 font-[family-name:var(--za-font-mono)] text-[0.6rem] text-ink-muted">
             {monthHeaders.map((m, i) => (
               <span
                 key={i}
@@ -189,7 +189,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
 
           <div className="flex gap-[3px]">
             {/* Day of week labels */}
-            <div className="flex w-6 shrink-0 flex-col gap-[3px] pt-0.5 font-[var(--za-font-mono)] text-[0.58rem] leading-3 text-ink-muted">
+            <div className="flex w-6 shrink-0 flex-col gap-[3px] pt-0.5 font-[family-name:var(--za-font-mono)] text-[0.58rem] leading-3 text-ink-muted">
               {DAY_LABELS.map((label, idx) => (
                 <div key={idx} className="flex h-3 items-center">
                   {label}
@@ -228,7 +228,7 @@ export default function ActivityHeatmap({ activityMap, className = '' }: Activit
       </div>
 
       {/* Legend footer */}
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-decorative pt-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-decorative pt-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
         <span>52-week habit timeline</span>
         <div className="flex items-center gap-1.5">
           <span>Less</span>

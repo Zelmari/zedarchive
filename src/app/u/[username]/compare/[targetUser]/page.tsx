@@ -61,61 +61,61 @@ export default async function CompareUsersPage({ params }: PageProps) {
           {/* Header diptych */}
           <div className="za-bookplate relative mb-8 p-6 text-center sm:p-8">
             <span className="za-ribbon-bookmark" aria-hidden="true" />
-            <p className="mb-5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
+            <p className="mb-5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.18em] text-accent">
               Affinity report · two private catalogs
             </p>
             <div className="grid items-center gap-3 text-center sm:grid-cols-[1fr_auto_1fr]">
               <div className="min-w-0">
-                <div className="break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                <div className="break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
                   @{dataA.user.username}
                 </div>
-                <div className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <div className="mt-1 break-words font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   {dataA.user.name}
                 </div>
               </div>
-              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-small border border-gold bg-gold/10 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-gold-dark">
+              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-small border border-gold bg-gold/10 font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-gold-dark">
                 VS
               </span>
               <div className="min-w-0">
-                <div className="break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
+                <div className="break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-bold uppercase tracking-[0.06em] text-ink">
                   @{dataB.user.username}
                 </div>
-                <div className="mt-1 break-words font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <div className="mt-1 break-words font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   {dataB.user.name}
                 </div>
               </div>
             </div>
 
-            <h1 className="mt-7 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+            <h1 className="mt-7 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
               Archive Comparison
             </h1>
-            <p className="mx-auto mt-2 max-w-2xl font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mx-auto mt-2 max-w-2xl font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
               A quiet measure of shared titles, shared enthusiasms, and the places your ratings
               diverge.
             </p>
 
             <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-3">
               <div>
-                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-mono)] text-2xl text-ink">
+                <div className="bg-surface-subtle px-3 py-4 font-[family-name:var(--za-font-mono)] text-2xl text-ink">
                   {match.sharedCount}
                 </div>
-                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                <div className="bg-surface-subtle pb-4 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
                   Shared Titles
                 </div>
               </div>
               <div>
-                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-display)] text-2xl text-accent">
+                <div className="bg-surface-subtle px-3 py-4 font-[family-name:var(--za-font-display)] text-2xl text-accent">
                   {match.sharedPercentage}%
                 </div>
-                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                <div className="bg-surface-subtle pb-4 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
                   Catalog Overlap
                 </div>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <div className="bg-surface-subtle px-3 py-4 font-[var(--za-font-display)] text-2xl text-gold-dark">
+                <div className="bg-surface-subtle px-3 py-4 font-[family-name:var(--za-font-display)] text-2xl text-gold-dark">
                   {match.ratingSimilarity !== null ? `${match.ratingSimilarity}%` : 'N/A'}
                 </div>
-                <div className="bg-surface-subtle pb-4 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
+                <div className="bg-surface-subtle pb-4 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.05em] text-ink-muted">
                   Rating Agreement
                 </div>
               </div>
@@ -126,11 +126,11 @@ export default async function CompareUsersPage({ params }: PageProps) {
           {match.sharedMasterworks.length > 0 && (
             <section className="mb-8">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-gold/40 pb-3">
-                <h2 className="flex items-center gap-2 font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                <h2 className="flex items-center gap-2 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
                   <Sparkles size={16} className="text-gold" />
                   Shared Masterworks
                 </h2>
-                <span className="font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <span className="font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   both rated 9–10★
                 </span>
               </div>
@@ -148,10 +148,10 @@ export default async function CompareUsersPage({ params }: PageProps) {
                     />
                     <div className="flex min-w-0 flex-1 flex-col justify-center">
                       <Badge>{item.category}</Badge>
-                      <h3 className="mt-2 min-w-0 break-words font-[var(--za-font-editorial)] text-lg text-ink">
+                      <h3 className="mt-2 min-w-0 break-words font-[family-name:var(--za-font-editorial)] text-lg text-ink">
                         {item.title}
                       </h3>
-                      <div className="mt-2 grid gap-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                      <div className="mt-2 grid gap-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                         <span>
                           @{dataA.user.username}:{' '}
                           <span className="text-gold-dark">{item.ratingA}★</span>
@@ -171,13 +171,13 @@ export default async function CompareUsersPage({ params }: PageProps) {
           {match.topSharedGenres.length > 0 && (
             <section className="mb-8 border-y border-decorative py-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                <span className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.08em] text-ink-muted">
                   Shared motifs
                 </span>
                 {match.topSharedGenres.map(({ genre, count }) => (
                   <span
                     key={genre}
-                    className="rounded-small border border-decorative bg-surface-subtle px-3 py-1 font-[var(--za-font-serif-body)] text-sm italic text-ink"
+                    className="rounded-small border border-decorative bg-surface-subtle px-3 py-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink"
                   >
                     {genre} · {count}
                   </span>
@@ -189,14 +189,14 @@ export default async function CompareUsersPage({ params }: PageProps) {
           {/* All Shared Titles */}
           <section className="mb-8">
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-decorative pb-3">
-              <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+              <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
                 All Shared Titles
               </h2>
-              <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+              <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
                 {match.sharedTitles.length} records
               </span>
             </div>
-            <p className="mb-4 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+            <p className="mb-4 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
               The complete overlap, with each archive&apos;s rating preserved side by side.
             </p>
             {match.sharedTitles.length === 0 ? (
@@ -213,7 +213,7 @@ export default async function CompareUsersPage({ params }: PageProps) {
                       {dataB.user.username}
                     </caption>
                     <thead>
-                      <tr className="border-b border-decorative bg-surface-sunken font-[var(--za-font-display)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-muted">
+                      <tr className="border-b border-decorative bg-surface-sunken font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] uppercase tracking-[0.06em] text-ink-muted">
                         <th className="p-3 font-bold">Title</th>
                         <th className="p-3 font-bold">Category</th>
                         <th className="p-3 font-bold">@{dataA.user.username}</th>
@@ -223,20 +223,20 @@ export default async function CompareUsersPage({ params }: PageProps) {
                     <tbody className="divide-y divide-decorative/40">
                       {match.sharedTitles.map((item, i) => (
                         <tr key={i} className="transition-colors hover:bg-surface-subtle/60">
-                          <td className="p-3 font-[var(--za-font-editorial)] text-base text-ink">
+                          <td className="p-3 font-[family-name:var(--za-font-editorial)] text-base text-ink">
                             {item.title}
                           </td>
                           <td className="p-3">
                             <Badge>{item.category}</Badge>
                           </td>
-                          <td className="p-3 font-[var(--za-font-mono)]">
+                          <td className="p-3 font-[family-name:var(--za-font-mono)]">
                             {item.ratingA ? (
                               <span className="text-gold-dark">{item.ratingA}★</span>
                             ) : (
                               <span className="text-ink-faint">—</span>
                             )}
                           </td>
-                          <td className="p-3 font-[var(--za-font-mono)]">
+                          <td className="p-3 font-[family-name:var(--za-font-mono)]">
                             {item.ratingB ? (
                               <span className="text-gold-dark">{item.ratingB}★</span>
                             ) : (

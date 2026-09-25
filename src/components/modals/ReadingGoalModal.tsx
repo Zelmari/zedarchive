@@ -90,7 +90,7 @@ export default function ReadingGoalModal({
     >
       <form onSubmit={handleSave}>
         <div className="p-[var(--za-space-6)]">
-          <p className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+          <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
             Set an annual book and manga target to track your pace throughout {year}.
           </p>
 
@@ -107,7 +107,7 @@ export default function ReadingGoalModal({
           <div className="mt-[var(--za-space-5)] rounded-small border border-required bg-surface-sunken p-4">
             <label
               htmlFor="goal-target-input"
-              className="mb-2 block font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-accent"
+              className="mb-2 block font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.12em] text-accent"
             >
               Annual Target (Books & Manga)
             </label>
@@ -121,9 +121,9 @@ export default function ReadingGoalModal({
                 required
                 value={targetInput}
                 onChange={(e) => setTargetInput(e.target.value)}
-                className="za-field w-32 text-center font-[var(--za-font-display)] text-lg font-bold"
+                className="za-field w-32 text-center font-[family-name:var(--za-font-display)] text-lg font-bold"
               />
-              <span className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+              <span className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
                 works in {year}
               </span>
             </div>
@@ -131,7 +131,7 @@ export default function ReadingGoalModal({
 
           {/* Preset chips */}
           <div className="mt-3">
-            <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
+            <span className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
               Quick Presets
             </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
@@ -140,7 +140,7 @@ export default function ReadingGoalModal({
                   key={t}
                   type="button"
                   onClick={() => setTargetInput(String(t))}
-                  className={`min-h-[var(--za-control-min-block-size)] cursor-pointer rounded-small border px-2.5 py-1 font-[var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] transition-[all] ${
+                  className={`min-h-[var(--za-control-min-block-size)] cursor-pointer rounded-small border px-2.5 py-1 font-[family-name:var(--za-font-display)] text-[0.68rem] font-bold uppercase tracking-[0.04em] transition-[all] ${
                     targetInput === String(t)
                       ? 'border-accent bg-accent text-on-accent'
                       : 'border-decorative bg-surface text-ink-muted hover:border-required hover:text-ink'
@@ -163,7 +163,7 @@ export default function ReadingGoalModal({
             />
             <label
               htmlFor="goal-public-toggle"
-              className="cursor-pointer font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink"
+              className="cursor-pointer font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink"
             >
               Showcase this reading challenge on my public profile
             </label>

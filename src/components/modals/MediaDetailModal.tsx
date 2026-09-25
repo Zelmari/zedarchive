@@ -57,7 +57,7 @@ function ProviderChips({ label, providers, link, titlePrefix }: ProviderChipsPro
 
   return (
     <div className="mt-2">
-      <div className="mb-1 font-[var(--za-font-mono)] text-[10px] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-ink-muted">
+      <div className="mb-1 font-[family-name:var(--za-font-mono)] text-[10px] font-[var(--za-weight-emphasis)] uppercase tracking-[0.08em] text-ink-muted">
         {label}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -106,10 +106,10 @@ function ProviderAvailability({
 
   return (
     <div className="mt-[var(--za-space-5)] border-t border-dashed border-decorative pt-[var(--za-space-4)]">
-      <div className="mb-2 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
+      <div className="mb-2 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
         Where to watch
         {providersCountry ? (
-          <span className="ml-1 font-[var(--za-font-mono)] text-ink-muted">
+          <span className="ml-1 font-[family-name:var(--za-font-mono)] text-ink-muted">
             · {providersCountry}
           </span>
         ) : null}
@@ -206,11 +206,11 @@ function CycleLedger({
   return (
     <div className="border-t border-dashed border-decorative pt-[var(--za-space-4)]">
       <div className="mb-[var(--za-space-2)] flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
+        <div className="flex items-center gap-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink">
           <RotateCcw size={12} />
           {isBookLike ? 'Reread cycles' : 'Rewatch cycles'}
         </div>
-        <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-ink-muted">
+        <span className="font-[family-name:var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-ink-muted">
           {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'}
         </span>
       </div>
@@ -232,7 +232,7 @@ function CycleLedger({
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
                   {cycle.rating != null && (
-                    <span className="font-[var(--za-font-mono)] text-[10px] font-bold text-gold-dark">
+                    <span className="font-[family-name:var(--za-font-mono)] text-[10px] font-bold text-gold-dark">
                       ★ {cycle.rating}
                     </span>
                   )}
@@ -1015,7 +1015,7 @@ export default function MediaDetailModal({
   const hasFillerOrRecap = fillerCount > 0;
 
   const sectionLabel =
-    'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink';
+    'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink';
 
   return (
     <>
@@ -1060,10 +1060,10 @@ export default function MediaDetailModal({
                 aria-label="Personal rating"
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted">
+                  <span className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted">
                     Rating
                   </span>
-                  <span className="font-[var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-gold-dark">
+                  <span className="font-[family-name:var(--za-font-mono)] text-xs font-[var(--za-weight-emphasis)] text-gold-dark">
                     {rating != null ? `${rating}/10★` : 'Unrated'}
                   </span>
                 </div>
@@ -1105,7 +1105,7 @@ export default function MediaDetailModal({
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <label
                     htmlFor="detail-status"
-                    className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted"
+                    className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.08em] text-ink-muted"
                   >
                     Catalogue status
                   </label>
@@ -1268,7 +1268,7 @@ export default function MediaDetailModal({
                         setIsEditingTitle(false);
                       }
                     }}
-                    className="w-full rounded-small border border-accent bg-surface px-1.5 py-0.5 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink outline-none"
+                    className="w-full rounded-small border border-accent bg-surface px-1.5 py-0.5 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink outline-none"
                   />
                 ) : (
                   <h2
@@ -1283,7 +1283,7 @@ export default function MediaDetailModal({
                       }
                     }}
                     title="Click to edit title"
-                    className="min-w-0 cursor-pointer break-words rounded-small font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
+                    className="min-w-0 cursor-pointer break-words rounded-small font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] leading-[var(--za-leading-compact)] text-ink transition-colors hover:bg-surface-subtle"
                   >
                     {titleDraft.trim() || item.title}
                   </h2>
@@ -1622,7 +1622,7 @@ export default function MediaDetailModal({
                   <div className="flex items-center gap-2">
                     {copiedQuoteId && (
                       <span
-                        className="font-[var(--za-font-mono)] text-[10px] text-success"
+                        className="font-[family-name:var(--za-font-mono)] text-[10px] text-success"
                         role="status"
                       >
                         Copied

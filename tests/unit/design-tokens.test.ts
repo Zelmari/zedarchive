@@ -35,4 +35,12 @@ describe('design tokens', () => {
 
     expect(missing, 'undefined tokens resolve to nothing and silently drop styles').toEqual([]);
   });
+
+  it('sets font families with family-name: so Tailwind does not emit font-weight', () => {
+    const offenders = files
+      .filter(({ text }) => /font-\[var\(--za-font-/.test(text))
+      .map(({ path }) => path);
+
+    expect(offenders, 'use font-[family-name:var(--za-font-*)] instead').toEqual([]);
+  });
 });

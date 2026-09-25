@@ -17,7 +17,7 @@ export default function FolioNotes({
   notesDraft,
   onNotesChange,
   onNotesBlur,
-  sectionLabelClass = 'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink',
+  sectionLabelClass = 'mb-2 flex items-center gap-1 border-b border-decorative pb-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase tracking-[0.1em] text-ink',
   disabled = false,
 }: FolioNotesProps) {
   const [notesTab, setNotesTab] = useState<'write' | 'preview'>('write');

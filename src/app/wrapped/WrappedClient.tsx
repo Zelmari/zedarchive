@@ -109,7 +109,7 @@ export default function WrappedClient({
           </button>
         }
       >
-        <div className="flex min-w-0 items-center gap-1.5 font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
+        <div className="flex min-w-0 items-center gap-1.5 font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em] text-ink">
           <Sparkles size={16} className="shrink-0 text-gold" />
           <span className="min-w-0 break-words">ZedArchive Wrapped</span>
         </div>
@@ -121,7 +121,7 @@ export default function WrappedClient({
           {/* Year selector tabs */}
           {stats.availableYears.length > 1 && (
             <div className="mb-6 flex flex-wrap items-center justify-center gap-2 border-b border-decorative pb-4">
-              <span className="mr-1 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint">
+              <span className="mr-1 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-ink-faint">
                 Editions
               </span>
               {stats.availableYears.map((yr) => (
@@ -151,11 +151,11 @@ export default function WrappedClient({
             <div className="relative mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-small border border-gold bg-gold/10 text-gold">
               <Sparkles size={22} />
             </div>
-            <h1 className="relative font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink sm:text-[length:var(--za-text-heading-xl)]">
+            <h1 className="relative font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink sm:text-[length:var(--za-text-heading-xl)]">
               The {stats.year} Archive Report
             </h1>
             {stats.totalCompleted > 0 && (
-              <p className="relative mx-auto mt-3 max-w-[36rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
+              <p className="relative mx-auto mt-3 max-w-[36rem] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
                 You completed {stats.totalCompleted} titles across shows, anime, and reading lists
                 in {stats.year}.
               </p>
@@ -173,38 +173,38 @@ export default function WrappedClient({
               {/* Highlights Grid */}
               <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden border border-decorative bg-decorative sm:grid-cols-4">
                 <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                  <div className="font-[family-name:var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
                     {stats.totalCompleted}
                   </div>
-                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                     Titles Finished
                   </div>
                 </div>
 
                 <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                  <div className="font-[family-name:var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
                     {stats.episodesWatched}
                   </div>
-                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                     Episodes Watched
                   </div>
                 </div>
 
                 <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-                  <div className="font-[var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
+                  <div className="font-[family-name:var(--za-font-mono)] text-2xl text-ink sm:text-3xl">
                     {stats.chaptersRead}
                   </div>
-                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                     Chapters / Pages
                   </div>
                 </div>
 
                 <div className="flex flex-col items-center bg-surface-subtle p-4 text-center">
-                  <div className="za-gold-stamp flex items-center gap-1 font-[var(--za-font-mono)] text-2xl sm:text-3xl">
+                  <div className="za-gold-stamp flex items-center gap-1 font-[family-name:var(--za-font-mono)] text-2xl sm:text-3xl">
                     <Star size={20} fill="currentColor" />
                     <span>{stats.avgRating}</span>
                   </div>
-                  <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                  <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.04em] text-ink-muted">
                     Avg Rating ({stats.ratedCount})
                   </div>
                 </div>
@@ -213,11 +213,11 @@ export default function WrappedClient({
               {/* Category Breakdown */}
               <section className="za-bookplate mb-8 p-6 sm:p-7">
                 <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-decorative pb-3">
-                  <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                  <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
                     Category Breakdown
                   </h2>
                   {stats.favoriteCategory && (
-                    <div className="flex items-center gap-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                    <div className="flex items-center gap-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                       <Flame size={13} className="text-accent" aria-hidden="true" />
                       <span>Top focus: {stats.favoriteCategory}</span>
                     </div>
@@ -230,11 +230,11 @@ export default function WrappedClient({
                     return (
                       <div key={label}>
                         <div className="mb-1.5 flex items-center justify-between gap-3">
-                          <span className="flex items-center gap-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+                          <span className="flex items-center gap-2 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
                             <Icon size={14} className="text-ink-muted" aria-hidden="true" />
                             {label}
                           </span>
-                          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                             {count}
                           </span>
                         </div>
@@ -254,7 +254,7 @@ export default function WrappedClient({
               <section className="za-bookplate mb-8 p-6 sm:p-7">
                 <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
                   <Calendar size={16} className="text-accent" aria-hidden="true" />
-                  <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                  <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
                     Completions by Month ({stats.year})
                   </h2>
                 </div>
@@ -265,7 +265,7 @@ export default function WrappedClient({
                       maxMonthCompletions > 0 ? Math.round((count / maxMonthCompletions) * 100) : 0;
                     return (
                       <div key={idx} className="flex flex-1 flex-col items-center gap-2">
-                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                        <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                           {count > 0 ? count : ''}
                         </span>
                         <div className="h-24 w-full rounded-xs bg-surface-sunken">
@@ -276,7 +276,7 @@ export default function WrappedClient({
                             style={{ height: `${Math.max(count > 0 ? 15 : 0, heightPct)}%` }}
                           />
                         </div>
-                        <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
+                        <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
                           {MONTH_NAMES[idx]}
                         </span>
                       </div>
@@ -291,11 +291,11 @@ export default function WrappedClient({
                   <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-gold/40 pb-3">
                     <div className="flex items-center gap-2">
                       <Award size={16} className="text-gold" aria-hidden="true" />
-                      <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+                      <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
                         Hall of Fame
                       </h2>
                     </div>
-                    <span className="font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                    <span className="font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                       Highest rated of {stats.year}
                     </span>
                   </div>
@@ -305,14 +305,14 @@ export default function WrappedClient({
                         key={item.id}
                         className="relative flex min-w-0 items-start gap-3 border border-gold/40 bg-gold/10 px-3 py-3"
                       >
-                        <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-small border border-gold bg-surface font-[var(--za-font-mono)] text-[length:var(--za-text-fine)]">
+                        <span className="za-gold-stamp absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-small border border-gold bg-surface font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)]">
                           {i + 1}
                         </span>
                         <div className="min-w-0 flex-1 pl-2">
-                          <div className="break-words font-[var(--za-font-editorial)] text-lg text-ink">
+                          <div className="break-words font-[family-name:var(--za-font-editorial)] text-lg text-ink">
                             {item.title}
                           </div>
-                          <div className="mt-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
+                          <div className="mt-0.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.05em] text-ink-muted">
                             {item.category}
                           </div>
                         </div>

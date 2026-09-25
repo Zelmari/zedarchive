@@ -112,13 +112,13 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
     >
       <div className="flex-1 overflow-y-auto">
         <div className="border-b border-decorative bg-canvas px-[var(--za-space-6)] py-[var(--za-space-5)]">
-          <div className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
+          <div className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
             52-Week Archival Heatmap
           </div>
-          <div className="mt-1 font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <div className="mt-1 font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Reading &amp; Watching Velocity
           </div>
-          <p className="mt-1 max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+          <p className="mt-1 max-w-[var(--za-measure-readable)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
             A year of activity logging, arranged as a quiet record of your archive practice.
           </p>
         </div>
@@ -144,13 +144,13 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
               <div>
                 <div
                   className={cn(
-                    'font-[var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.05em]',
+                    'font-[family-name:var(--za-font-display)] text-[length:var(--za-text-supporting)] font-bold uppercase tracking-[0.05em]',
                     streak > 0 ? 'text-warning' : 'text-ink',
                   )}
                 >
                   {streak > 0 ? `${streak} Day Active Streak` : 'No active streak'}
                 </div>
-                <div className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
+                <div className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink-muted">
                   {streak > 0
                     ? 'Keep logging daily to build your habit.'
                     : 'Log an episode or chapter today to start a streak.'}
@@ -159,7 +159,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
             </div>
             <div
               className={cn(
-                'font-[var(--za-font-display)] text-[1.6rem] font-bold',
+                'font-[family-name:var(--za-font-display)] text-[1.6rem] font-bold',
                 streak > 0 ? 'text-warning' : 'text-ink-muted',
               )}
             >
@@ -168,18 +168,18 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
           </div>
 
           {/* Activity Stream */}
-          <div className="mb-[var(--za-space-2)] font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.1em] text-ink">
+          <div className="mb-[var(--za-space-2)] font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.1em] text-ink">
             Recent Entries
           </div>
           {loading ? (
             <div
-              className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted"
+              className="px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted"
               role="status"
             >
               Loading activity timeline...
             </div>
           ) : logs.length === 0 ? (
-            <div className="rounded-small border border-dashed border-decorative bg-surface-subtle px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+            <div className="rounded-small border border-dashed border-decorative bg-surface-subtle px-[var(--za-space-8)] py-[var(--za-space-8)] text-center font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
               No logged activities yet. Increment an episode or chapter on any card to see your
               history here.
             </div>
@@ -187,7 +187,7 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
             <div className="flex flex-col gap-[var(--za-space-4)]">
               {Object.entries(groupedLogs).map(([dateLabel, groupItems]) => (
                 <div key={dateLabel}>
-                  <div className="mb-[var(--za-space-2)] font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+                  <div className="mb-[var(--za-space-2)] font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
                     {dateLabel}
                   </div>
                   <div className="flex flex-col gap-2">
@@ -199,13 +199,13 @@ export default function ActivityTimelineModal({ isOpen, onClose }: ActivityTimel
                         <div className="flex min-w-0 items-center gap-2.5">
                           {getActionIcon(item.actionType)}
                           <span
-                            className="truncate font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink"
+                            className="truncate font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink"
                             title={formatActionMessage(item)}
                           >
                             {formatActionMessage(item)}
                           </span>
                         </div>
-                        <span className="ml-2 shrink-0 font-[var(--za-font-mono)] text-[0.62rem] text-ink-muted">
+                        <span className="ml-2 shrink-0 font-[family-name:var(--za-font-mono)] text-[0.62rem] text-ink-muted">
                           {new Date(item.createdAt).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',

@@ -28,7 +28,7 @@ function MentionText({
   const parts = String(body || '').split(MENTION_SPLIT);
 
   return (
-    <div className="m-0 break-words font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
+    <div className="m-0 break-words font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink">
       {parts.map((part, index) => {
         const match = part.match(/^@([a-z0-9_-]{1,30})$/i);
         if (!match) {
@@ -171,21 +171,21 @@ export default function ProfileComments({
       <header className="flex flex-wrap items-end justify-between gap-2 border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
         <div className="flex items-center gap-2">
           <MessageCircle size={16} aria-hidden="true" />
-          <h2 className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Guestbook
           </h2>
-          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
             {comments.length}
           </span>
         </div>
-        <span className="font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted">
+        <span className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted">
           notes disappear after 7 days
         </span>
       </header>
 
       {error && (
         <div
-          className="za-notice za-notice--error mx-4 mt-4 font-[var(--za-font-serif-body)] text-sm"
+          className="za-notice za-notice--error mx-4 mt-4 font-[family-name:var(--za-font-serif-body)] text-sm"
           role="alert"
         >
           {error}
@@ -214,12 +214,12 @@ export default function ProfileComments({
                   <img
                     src={comment.authorImage}
                     alt=""
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-xs font-bold uppercase text-[var(--za-color-title-tile-text)]"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[family-name:var(--za-font-display)] text-xs font-bold uppercase text-[var(--za-color-title-tile-text)]"
                     loading="lazy"
                   />
                 ) : (
                   <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[var(--za-font-display)] text-xs font-bold uppercase text-[var(--za-color-title-tile-text)]"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-[var(--za-color-title-tile)] font-[family-name:var(--za-font-display)] text-xs font-bold uppercase text-[var(--za-color-title-tile-text)]"
                     aria-hidden="true"
                   >
                     {initials}
@@ -230,23 +230,23 @@ export default function ProfileComments({
                     {comment.authorUsername ? (
                       <Link
                         href={`/u/${comment.authorUsername}`}
-                        className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.04em] text-ink hover:underline"
+                        className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.04em] text-ink hover:underline"
                       >
                         @{comment.authorUsername}
                       </Link>
                     ) : (
-                      <span className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.04em] text-ink">
+                      <span className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] uppercase tracking-[0.04em] text-ink">
                         {comment.authorName || 'Anonymous'}
                       </span>
                     )}
                     <span
-                      className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted"
+                      className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted"
                       title={new Date(comment.createdAt).toLocaleString()}
                     >
                       {relativeTime(comment.createdAt)}
                     </span>
                     <span
-                      className={`font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint opacity-80${comment._pending ? ` italic` : ''}`}
+                      className={`font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint opacity-80${comment._pending ? ` italic` : ''}`}
                       title={new Date(comment.expiresAt).toLocaleString()}
                     >
                       · {expiryLabel(comment.expiresAt)}
@@ -274,24 +274,24 @@ export default function ProfileComments({
           })}
         </ol>
       ) : (
-        <p className="px-[var(--za-space-6)] py-[var(--za-space-6)] text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+        <p className="px-[var(--za-space-6)] py-[var(--za-space-6)] text-center font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
           No comments yet. Break the silence.
         </p>
       )}
 
       <footer className="border-t border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
-        <p className="mb-3 font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="mb-3 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic leading-[var(--za-leading-body)] text-ink-muted">
           Public archivists may leave a note; every note is reciprocal and expires after seven days.
         </p>
         {!viewer?.isLoggedIn ? (
-          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
             <Link href="/login" className="za-link">
               Log in
             </Link>{' '}
             to join the conversation.
           </p>
         ) : !viewer.isPublic ? (
-          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
             <Lock size={13} aria-hidden="true" className="-mb-0.5 mr-1 inline-block" />
             Make your own archive{' '}
             <Link href="/dashboard" className="za-link">
@@ -300,7 +300,7 @@ export default function ProfileComments({
             to comment here.
           </p>
         ) : !viewer.username ? (
-          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+          <p className="rounded-small border border-decorative bg-surface-subtle px-[var(--za-space-3)] py-2 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
             Choose a username handle in settings before leaving a note.
           </p>
         ) : (
@@ -309,7 +309,7 @@ export default function ProfileComments({
               <button
                 type="button"
                 onClick={() => setDraft((d) => `${d}${d ? ' ' : ''}||spoiler||`)}
-                className="cursor-pointer font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted transition-colors hover:text-ink"
+                className="cursor-pointer font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] italic text-ink-muted transition-colors hover:text-ink"
               >
                 <EyeOff size={12} className="-mb-0.5 mr-1 inline-block" aria-hidden="true" />
                 Add spoiler{' '}
@@ -319,7 +319,7 @@ export default function ProfileComments({
               </button>
             </div>
             <textarea
-              className="za-field min-h-20 resize-y font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
+              className="za-field min-h-20 resize-y font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)]"
               rows={2}
               maxLength={MAX_COMMENT_LENGTH}
               placeholder={`Leave a note for @${profileUser.username}… use @name to mention someone or ||spoiler||`}

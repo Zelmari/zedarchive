@@ -20,10 +20,10 @@ export default async function GroupWorkspacePage({
       <div className="flex min-h-screen items-center justify-center bg-canvas text-ink">
         <div className="za-bookplate relative w-full max-w-md p-8 text-center">
           <span className="za-ribbon-bookmark" aria-hidden="true" />
-          <p className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <p className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Group not found
           </p>
-          <p className="mt-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+          <p className="mt-2 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
             This collective volume may have been withdrawn.
           </p>
           <Link href="/groups" className="za-button za-button--primary mt-4">
@@ -39,10 +39,10 @@ export default async function GroupWorkspacePage({
       <div className="flex min-h-screen items-center justify-center bg-canvas text-ink">
         <div className="za-bookplate relative w-full max-w-md p-8 text-center">
           <span className="za-ribbon-bookmark" aria-hidden="true" />
-          <p className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <p className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Members only
           </p>
-          <p className="mt-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+          <p className="mt-2 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
             You are not a member of this collective volume.
           </p>
           <Link href="/groups" className="za-button za-button--primary mt-4">

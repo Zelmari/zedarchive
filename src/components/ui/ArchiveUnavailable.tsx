@@ -25,11 +25,11 @@ export default function ArchiveUnavailable({
         />
         <h1
           id="archive-unavailable-title"
-          className="mb-[var(--za-space-1)] font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+          className="mb-[var(--za-space-1)] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
         >
           Archive Unavailable
         </h1>
-        <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+        <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           This archive is private, missing from the catalogue, or no longer available.
         </p>
         <Link href="/" className={`za-button za-button--primary ${ctaClassName}`.trim()}>

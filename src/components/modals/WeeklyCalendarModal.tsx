@@ -79,16 +79,16 @@ export default function WeeklyCalendarModal({
               <Calendar size={19} strokeWidth={1.75} aria-hidden="true" />
             </div>
             <div>
-              <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
+              <div className="mb-1 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-accent">
                 Broadcast Radar &amp; Schedule
               </div>
               <h2
                 id="weekly-calendar-modal-title"
-                className="font-[var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+                className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-lg)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
               >
                 Weekly Airing Schedule
               </h2>
-              <p className="mt-1 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
+              <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink-muted">
                 {totalAiring} ongoing {totalAiring === 1 ? 'title' : 'titles'} airing in your
                 watchlist
               </p>
@@ -106,7 +106,7 @@ export default function WeeklyCalendarModal({
               aria-selected={filter === 'all'}
               onClick={() => setFilter('all')}
               className={cn(
-                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
                 filter === 'all'
                   ? 'border-accent text-ink'
                   : 'border-transparent text-ink-muted hover:text-ink',
@@ -120,7 +120,7 @@ export default function WeeklyCalendarModal({
               aria-selected={filter === 'show'}
               onClick={() => setFilter('show')}
               className={cn(
-                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
                 filter === 'show'
                   ? 'border-accent text-ink'
                   : 'border-transparent text-ink-muted hover:text-ink',
@@ -134,7 +134,7 @@ export default function WeeklyCalendarModal({
               aria-selected={filter === 'anime'}
               onClick={() => setFilter('anime')}
               className={cn(
-                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
+                'min-h-[var(--za-control-min-block-size)] border-b-2 px-3 py-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.07em] transition-colors',
                 filter === 'anime'
                   ? 'border-accent text-ink'
                   : 'border-transparent text-ink-muted hover:text-ink',
@@ -171,14 +171,14 @@ export default function WeeklyCalendarModal({
                 <div className="mb-3 flex items-center justify-between border-b border-decorative pb-2">
                   <span
                     className={cn(
-                      'font-[var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em]',
+                      'font-[family-name:var(--za-font-display)] text-xs font-bold uppercase tracking-[0.08em]',
                       isToday ? 'text-accent' : 'text-ink',
                     )}
                   >
                     {day.slice(0, 3)}
                   </span>
                   {isToday && (
-                    <span className="rounded-small bg-accent px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.58rem] font-bold uppercase tracking-[0.06em] text-on-accent">
+                    <span className="rounded-small bg-accent px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[0.58rem] font-bold uppercase tracking-[0.06em] text-on-accent">
                       TODAY
                     </span>
                   )}
@@ -187,7 +187,7 @@ export default function WeeklyCalendarModal({
                 {items.length === 0 ? (
                   <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center text-ink-muted/60">
                     <Clock3 size={15} aria-hidden="true" />
-                    <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.06em]">
+                    <span className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.06em]">
                       No releases
                     </span>
                   </div>
@@ -233,12 +233,12 @@ export default function WeeklyCalendarModal({
                             )}
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="break-words font-[var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
+                                className="break-words font-[family-name:var(--za-font-serif-body)] text-sm font-[var(--za-weight-emphasis)] text-ink group-hover:text-accent"
                                 title={media.title}
                               >
                                 {media.title}
                               </h4>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 font-[var(--za-font-mono)] text-[0.62rem] text-ink-muted">
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 font-[family-name:var(--za-font-mono)] text-[0.62rem] text-ink-muted">
                                 <span className="font-semibold text-accent">{epLabel}</span>
                                 {timeString !== 'TBA' && <span>· {timeString}</span>}
                               </div>
@@ -271,7 +271,7 @@ export default function WeeklyCalendarModal({
       </div>
 
       <div className="flex items-center justify-between border-t border-decorative bg-canvas px-4 py-3 sm:px-6">
-        <span className="font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
+        <span className="font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted">
           One-click episode logging
         </span>
         <button type="button" onClick={onClose} className="za-button za-button--secondary text-xs">

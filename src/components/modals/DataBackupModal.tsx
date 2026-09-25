@@ -26,7 +26,7 @@ interface DataBackupModalProps {
 type ImportState = 'idle' | 'loading' | 'success' | 'error';
 
 const tabButton = (active: boolean) =>
-  `flex-1 cursor-pointer border-b-2 px-[var(--za-space-3)] py-[var(--za-space-3)] font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.08em] transition-colors ${
+  `flex-1 cursor-pointer border-b-2 px-[var(--za-space-3)] py-[var(--za-space-3)] font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.08em] transition-colors ${
     active
       ? 'border-b-accent bg-surface text-ink'
       : 'border-b-transparent bg-surface-subtle text-ink-muted hover:text-ink'
@@ -176,10 +176,10 @@ export default function DataBackupModal({
       <div className="px-[var(--za-space-6)] py-[var(--za-space-4)]">
         {activeTab === 'export' ? (
           <div>
-            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+            <div className="mb-1 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
               Data Sovereignty &amp; Portability
             </div>
-            <p className="mb-[var(--za-space-4)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mb-[var(--za-space-4)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               You own 100% of your data. Download your complete media entries, progress, cover art
               references, and notes at any time.
             </p>
@@ -192,10 +192,10 @@ export default function DataBackupModal({
               >
                 <FileJson size={18} className="shrink-0 text-accent" aria-hidden="true" />
                 <div className="text-left">
-                  <div className="font-[var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
+                  <div className="font-[family-name:var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
                     Export as JSON Backup
                   </div>
-                  <div className="mt-0.5 font-[var(--za-font-serif-body)] text-xs text-ink-muted">
+                  <div className="mt-0.5 font-[family-name:var(--za-font-serif-body)] text-xs text-ink-muted">
                     Full complete archive structure for 1-click restore
                   </div>
                 </div>
@@ -208,10 +208,10 @@ export default function DataBackupModal({
               >
                 <FileSpreadsheet size={18} className="shrink-0 text-accent" aria-hidden="true" />
                 <div className="text-left">
-                  <div className="font-[var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
+                  <div className="font-[family-name:var(--za-font-display)] text-[0.75rem] font-bold uppercase tracking-[0.04em] text-ink">
                     Export as CSV Spreadsheet
                   </div>
-                  <div className="mt-0.5 font-[var(--za-font-serif-body)] text-xs text-ink-muted">
+                  <div className="mt-0.5 font-[family-name:var(--za-font-serif-body)] text-xs text-ink-muted">
                     Compatible with Excel, Google Sheets, and Notion
                   </div>
                 </div>
@@ -220,21 +220,21 @@ export default function DataBackupModal({
           </div>
         ) : (
           <div>
-            <div className="mb-1 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
+            <div className="mb-1 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.14em] text-accent">
               Multi-Platform Importer
             </div>
-            <p className="mb-[var(--za-space-3)] font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+            <p className="mb-[var(--za-space-3)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
               Import from ZedArchive JSON, AniList, MyAnimeList (.xml, .xml.gz), Simkl (.json),
               Letterboxd (.csv), or Goodreads (.csv).
             </p>
 
             {/* Conflict handling options */}
             <div className="mb-[var(--za-space-3)] rounded-small border border-decorative bg-surface-subtle p-[var(--za-space-3)]">
-              <div className="mb-2 font-[var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.05em] text-ink">
+              <div className="mb-2 font-[family-name:var(--za-font-display)] text-[0.7rem] font-bold uppercase tracking-[0.05em] text-ink">
                 If an entry already exists in your archive:
               </div>
               <div className="flex gap-[var(--za-space-4)]">
-                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
+                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
                   <input
                     type="radio"
                     name="conflictStrategy"
@@ -244,7 +244,7 @@ export default function DataBackupModal({
                   />
                   Skip duplicate
                 </label>
-                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
+                <label className="flex cursor-pointer items-center gap-[0.35rem] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-fine)] text-ink">
                   <input
                     type="radio"
                     name="conflictStrategy"
@@ -260,7 +260,7 @@ export default function DataBackupModal({
             {/* Upload Input */}
             <div className="rounded-small border-2 border-dashed border-required bg-surface-sunken p-5 text-center">
               <Upload size={25} className="mx-auto mb-2 text-accent" aria-hidden="true" />
-              <div className="mb-2 font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
+              <div className="mb-2 font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] text-ink">
                 Select a <strong>.json</strong>, <strong>.xml</strong>, <strong>.xml.gz</strong>, or{' '}
                 <strong>.csv</strong> file
               </div>

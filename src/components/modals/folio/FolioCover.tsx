@@ -31,7 +31,7 @@ export default function FolioCover({
       <div className="group relative aspect-[2/3] overflow-hidden border border-decorative bg-surface-subtle">
         {isCompressing ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-surface p-4 text-center">
-            <span className="font-[var(--za-font-mono)] text-xs text-ink-muted">Compressing…</span>
+            <span className="font-[family-name:var(--za-font-mono)] text-xs text-ink-muted">Compressing…</span>
           </div>
         ) : coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
@@ -80,7 +80,7 @@ export default function FolioCover({
       )}
 
       {sourceId && (
-        <div className="mt-2 text-center font-[var(--za-font-mono)] text-[10px] text-ink-muted">
+        <div className="mt-2 text-center font-[family-name:var(--za-font-mono)] text-[10px] text-ink-muted">
           Linked · {sourceId}
         </div>
       )}

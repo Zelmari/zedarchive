@@ -256,10 +256,10 @@ export default function CommandPaletteModal({
       contentClassName="max-w-[40rem] overflow-hidden rounded-small text-ink shadow-layered"
     >
       <div className="border-b border-decorative bg-canvas px-4 py-4 sm:px-6">
-        <div className="mb-2 flex items-center justify-between gap-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-ink-faint">
+        <div className="mb-2 flex items-center justify-between gap-2 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.16em] text-ink-faint">
           <span>Commands &amp; Navigation</span>
           <div className="flex items-center gap-2">
-            <kbd className="hidden rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] tracking-normal text-ink-muted sm:inline-block">
+            <kbd className="hidden rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[0.65rem] tracking-normal text-ink-muted sm:inline-block">
               ⌘K
             </kbd>
             <button
@@ -284,9 +284,9 @@ export default function CommandPaletteModal({
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="min-w-0 flex-1 bg-transparent font-[var(--za-font-display)] text-[1.05rem] tracking-[0.02em] text-ink outline-none placeholder:text-ink-muted"
+            className="min-w-0 flex-1 bg-transparent font-[family-name:var(--za-font-display)] text-[1.05rem] tracking-[0.02em] text-ink outline-none placeholder:text-ink-muted"
           />
-          <kbd className="shrink-0 rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[var(--za-font-mono)] text-[0.65rem] text-ink-muted">
+          <kbd className="shrink-0 rounded-small border border-decorative bg-surface px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[0.65rem] text-ink-muted">
             ESC
           </kbd>
         </div>
@@ -300,10 +300,10 @@ export default function CommandPaletteModal({
       >
         {filteredItems.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <div className="font-[var(--za-font-display)] text-sm uppercase tracking-[0.08em] text-ink">
+            <div className="font-[family-name:var(--za-font-display)] text-sm uppercase tracking-[0.08em] text-ink">
               No results found
             </div>
-            <div className="mt-1 font-[var(--za-font-mono)] text-[0.7rem] text-ink-muted">
+            <div className="mt-1 font-[family-name:var(--za-font-mono)] text-[0.7rem] text-ink-muted">
               No matching titles or actions for “{query.trim()}”.
             </div>
           </div>
@@ -323,7 +323,7 @@ export default function CommandPaletteModal({
             return (
               <div key={item.id}>
                 {showSection && (
-                  <div className="px-3 pb-1 pt-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.15em] text-ink-faint first:pt-0">
+                  <div className="px-3 pb-1 pt-2 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.15em] text-ink-faint first:pt-0">
                     {sectionLabel}
                   </div>
                 )}
@@ -389,7 +389,7 @@ export default function CommandPaletteModal({
                     </span>
                   </span>
                   {isSelected && (
-                    <span className="ml-3 shrink-0 font-[var(--za-font-mono)] text-[0.65rem] text-on-accent/80">
+                    <span className="ml-3 shrink-0 font-[family-name:var(--za-font-mono)] text-[0.65rem] text-on-accent/80">
                       ↵ select
                     </span>
                   )}
@@ -400,7 +400,7 @@ export default function CommandPaletteModal({
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-4 py-2 font-[var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted sm:px-6">
+      <div className="flex items-center justify-between border-t border-decorative bg-surface-subtle px-4 py-2 font-[family-name:var(--za-font-mono)] text-[0.65rem] uppercase tracking-[0.08em] text-ink-muted sm:px-6">
         <span>Navigate with ↑ ↓</span>
         <span>Open with ↵</span>
       </div>

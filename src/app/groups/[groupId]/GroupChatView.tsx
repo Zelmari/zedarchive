@@ -76,14 +76,14 @@ export default function GroupChatView({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="za-notice za-notice--error font-[var(--za-font-serif-body)] text-sm">
+        <div className="za-notice za-notice--error font-[family-name:var(--za-font-serif-body)] text-sm">
           {error}
         </div>
       )}
 
       <div className="za-bookplate min-h-[300px] max-h-[500px] space-y-4 overflow-y-auto p-5 sm:p-6">
         {messages.length === 0 ? (
-          <div className="py-12 text-center font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
+          <div className="py-12 text-center font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic text-ink-muted">
             No messages yet. Start the conversation.
           </div>
         ) : (
@@ -108,19 +108,19 @@ export default function GroupChatView({
                       className="h-6 w-6 rounded-small border border-required object-cover"
                     />
                   ) : null}
-                  <span className="font-[var(--za-font-display)] font-bold uppercase tracking-[0.05em] text-ink">
+                  <span className="font-[family-name:var(--za-font-display)] font-bold uppercase tracking-[0.05em] text-ink">
                     @{msg.senderUsername || msg.senderName}
                   </span>
                   <time
                     dateTime={msg.createdAt}
-                    className="font-[var(--za-font-mono)] uppercase tracking-[0.04em]"
+                    className="font-[family-name:var(--za-font-mono)] uppercase tracking-[0.04em]"
                   >
                     {new Date(msg.createdAt).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
                   </time>
-                  <span className="inline-flex items-center gap-1 font-[var(--za-font-mono)] uppercase tracking-[0.02em] text-ink-faint">
+                  <span className="inline-flex items-center gap-1 font-[family-name:var(--za-font-mono)] uppercase tracking-[0.02em] text-ink-faint">
                     <Clock size={10} /> {timeLeft(msg.expiresAt)}
                   </span>
                   {(msg.isOwn || isOwner) && (
@@ -134,7 +134,7 @@ export default function GroupChatView({
                     </button>
                   )}
                 </div>
-                <div className="break-words font-[var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)]">
+                <div className="break-words font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)]">
                   {/* Render markdown with spoiler support via shared markdown renderer */}
                   <span>{renderInlineMarkdown(msg.body)}</span>
                 </div>
@@ -156,7 +156,7 @@ export default function GroupChatView({
           }}
           maxLength={2000}
           placeholder="Write a message… use ||spoiler|| for spoilers, **bold**, *italic*"
-          className="za-field flex-1 font-[var(--za-font-serif-body)]"
+          className="za-field flex-1 font-[family-name:var(--za-font-serif-body)]"
           disabled={pending}
         />
         <button
@@ -167,7 +167,7 @@ export default function GroupChatView({
           <Send size={14} /> Send
         </button>
       </div>
-      <div className="flex flex-wrap justify-between gap-2 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
+      <div className="flex flex-wrap justify-between gap-2 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.04em] text-ink-faint">
         <span>Messages auto-purge after 7 days.</span>
         <span>{body.length}/2000</span>
       </div>

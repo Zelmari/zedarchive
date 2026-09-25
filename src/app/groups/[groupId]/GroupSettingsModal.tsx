@@ -128,10 +128,10 @@ export default function GroupSettingsModal({
     >
       <div className="mb-5 flex items-start justify-between gap-4 border-b border-decorative pb-4">
         <div className="min-w-0 flex-1">
-          <p className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
+          <p className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
             Volume administration
           </p>
-          <h2 className="mt-1 break-words font-[var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
+          <h2 className="mt-1 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
             Group Settings
           </h2>
         </div>
@@ -147,7 +147,7 @@ export default function GroupSettingsModal({
 
       {msg && (
         <div
-          className={`za-notice mb-4 font-[var(--za-font-serif-body)] text-sm ${
+          className={`za-notice mb-4 font-[family-name:var(--za-font-serif-body)] text-sm ${
             /fail|error/i.test(msg) ? 'za-notice--error' : 'za-notice--success'
           }`}
         >
@@ -159,22 +159,22 @@ export default function GroupSettingsModal({
         {isOwner && (
           <>
             <div className="space-y-2">
-              <label className="font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+              <label className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Group Name
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="za-field font-[var(--za-font-serif-body)]"
+                className="za-field font-[family-name:var(--za-font-serif-body)]"
               />
-              <label className="mt-3 block font-[var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
+              <label className="mt-3 block font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
                 Description
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="za-field min-h-24 resize-y font-[var(--za-font-serif-body)]"
+                className="za-field min-h-24 resize-y font-[family-name:var(--za-font-serif-body)]"
               />
               <button
                 onClick={handleUpdate}
@@ -186,11 +186,11 @@ export default function GroupSettingsModal({
             </div>
 
             <div>
-              <h3 className="flex items-center gap-1.5 font-[var(--za-font-editorial)] text-xl text-ink">
+              <h3 className="flex items-center gap-1.5 font-[family-name:var(--za-font-editorial)] text-xl text-ink">
                 <UserPlus size={14} /> Add Members (friends only)
               </h3>
               {eligibleFriends.length === 0 ? (
-                <p className="mt-1 font-[var(--za-font-serif-body)] text-sm italic text-ink-muted">
+                <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
                   No eligible friends to invite.
                 </p>
               ) : (
@@ -215,9 +215,9 @@ export default function GroupSettingsModal({
                           }}
                           className="accent-accent"
                         />
-                        <span className="font-[var(--za-font-serif-body)] text-sm">
+                        <span className="font-[family-name:var(--za-font-serif-body)] text-sm">
                           {f.name}{' '}
-                          <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
+                          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
                             @{f.username}
                           </span>
                         </span>
@@ -238,7 +238,7 @@ export default function GroupSettingsModal({
         )}
 
         <div>
-          <h3 className="font-[var(--za-font-editorial)] text-xl text-ink">
+          <h3 className="font-[family-name:var(--za-font-editorial)] text-xl text-ink">
             Members ({group.members.length})
           </h3>
           <div className="mt-2 space-y-2">
@@ -256,18 +256,18 @@ export default function GroupSettingsModal({
                       className="h-8 w-8 shrink-0 rounded-small border border-required object-cover"
                     />
                   ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-surface font-[var(--za-font-display)] text-xs uppercase text-ink">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-small border border-required bg-surface font-[family-name:var(--za-font-display)] text-xs uppercase text-ink">
                       {m.name.slice(0, 1)}
                     </span>
                   )}
-                  <span className="min-w-0 break-words font-[var(--za-font-serif-body)] text-sm text-ink">
+                  <span className="min-w-0 break-words font-[family-name:var(--za-font-serif-body)] text-sm text-ink">
                     {m.name}{' '}
-                    <span className="font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
+                    <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
                       @{m.username}
                     </span>
                   </span>
                   {m.role === 'owner' && (
-                    <span className="inline-flex items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase text-accent">
+                    <span className="inline-flex items-center gap-1 rounded-small border border-accent bg-accent-soft px-1.5 py-0.5 font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] font-bold uppercase text-accent">
                       <Crown size={10} /> Owner
                     </span>
                   )}
