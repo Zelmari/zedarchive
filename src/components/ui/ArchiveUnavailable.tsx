@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 interface ArchiveUnavailableProps {
   ctaLabel: string;
@@ -32,9 +33,12 @@ export default function ArchiveUnavailable({
         <p className="mb-[var(--za-space-6)] max-w-[var(--za-measure-readable)] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
           This archive is private, missing from the catalogue, or no longer available.
         </p>
-        <Link href="/" className={`za-button za-button--primary ${ctaClassName}`.trim()}>
-          {ctaLabel}
-        </Link>
+        <div className="flex flex-wrap justify-center gap-2">
+          <GoBackButton />
+          <Link href="/" className={`za-button za-button--primary ${ctaClassName}`.trim()}>
+            {ctaLabel}
+          </Link>
+        </div>
       </div>
     </div>
   );

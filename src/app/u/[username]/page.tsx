@@ -67,7 +67,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
 
   if (!data?.user) {
     return (
-      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" ctaClassName="mt-[var(--za-space-3)]" />
+      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />
     );
   }
 

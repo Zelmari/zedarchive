@@ -1,5 +1,6 @@
 import { WifiOff } from 'lucide-react';
 import Link from 'next/link';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 export const metadata = {
   title: 'Offline',
@@ -38,7 +39,8 @@ export default function OfflinePage() {
             </p>
           </header>
 
-          <div className="flex w-full justify-center">
+          <div className="flex w-full flex-wrap justify-center gap-2">
+            <GoBackButton fallbackHref="/dashboard" />
             <Link href="/dashboard" className="za-button za-button--primary">
               Retry connection
             </Link>

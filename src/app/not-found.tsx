@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 export default function NotFound() {
   return (
@@ -32,10 +33,12 @@ export default function NotFound() {
           The page or archive entry you requested has not been entered in this catalogue, or has
           been moved.
         </p>
-        <Link href="/" className="za-button za-button--primary">
-          <ArrowLeft size={16} strokeWidth={2} />
-          Return to the archive
-        </Link>
+        <div className="flex flex-wrap justify-center gap-2">
+          <GoBackButton />
+          <Link href="/" className="za-button za-button--primary">
+            Return to the archive
+          </Link>
+        </div>
       </section>
     </main>
   );

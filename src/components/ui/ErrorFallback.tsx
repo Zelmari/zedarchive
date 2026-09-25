@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import GoBackButton from '@/components/navigation/GoBackButton';
 
 interface ErrorFallbackProps {
   title: string;
@@ -57,6 +58,7 @@ export default function ErrorFallback({
           <button type="button" className="za-button za-button--primary" onClick={() => reset()}>
             Try Again
           </button>
+          <GoBackButton />
           <Link href="/" className="za-button za-button--secondary">
             {homeLabel}
           </Link>
