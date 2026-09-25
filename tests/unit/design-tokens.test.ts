@@ -41,6 +41,6 @@ describe('design tokens', () => {
       .filter(({ text }) => /font-\[var\(--za-font-/.test(text))
       .map(({ path }) => path);
 
-    expect(offenders, 'use font-[family-name:var(--za-font-*)] instead').toEqual([]);
+    expect(offenders, 'prefix the arbitrary value with the family-name: type hint').toEqual([]);
   });
 });
