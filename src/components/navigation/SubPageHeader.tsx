@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import BackButton from './BackButton';
 import BrandWordmark from './BrandWordmark';
 
 export interface BreadcrumbItem {
@@ -61,7 +62,6 @@ export default function SubPageHeader({
   const headerClass = isSticky ? 'za-site-header za-site-header--sticky' : 'za-site-header';
   const innerClass = `${getContainerClass()} za-site-header__inner`;
   const leadingClass = 'flex min-w-0 flex-1 flex-wrap items-center gap-3';
-  const backClass = 'za-button za-button--secondary shrink-0 p-2';
   const breadcrumbClass =
     'flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-ink-muted';
   const navigationClass = 'za-site-header__nav';
@@ -72,12 +72,7 @@ export default function SubPageHeader({
         <div className={leadingClass}>
           <BrandWordmark href={brandHref} className={isSticky ? 'max-sm:hidden' : ''} />
 
-          {backLink && (
-            <Link href={backLink.href} className={backClass} title={backLink.label}>
-              <ArrowLeft size={14} className="sm:mr-1" />
-              <span className="hidden sm:inline">{backLink.label}</span>
-            </Link>
-          )}
+          {backLink && <BackButton href={backLink.href} label={backLink.label} />}
 
           {breadcrumbs && breadcrumbs.length > 0 && (
             <nav aria-label="Breadcrumb" className={breadcrumbClass}>

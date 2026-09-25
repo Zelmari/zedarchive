@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
 import { getSessionTheme } from '@/server/queries/user';
+import NavigationHistory from '@/components/navigation/NavigationHistory';
 
 const cinzel = Cinzel({
   weight: ['600', '700'],
@@ -102,6 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to main content
         </a>
         {children}
+        <NavigationHistory />
       </body>
     </html>
   );
