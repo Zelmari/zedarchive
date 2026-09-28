@@ -1,5 +1,15 @@
 import type { MediaEntry } from '@/types/media';
 import type { ReadingGoalConfig } from '@/types/user';
+import {
+  describeWrappedRange,
+  getWrappedPeriodOption,
+  isWithinWrappedRange,
+  resolveWrappedRange,
+  tallyWrappedBuckets,
+  type WrappedBuckets,
+  type WrappedPeriod,
+  type WrappedRange,
+} from '@/lib/wrapped-period';
 
 export interface ArchiveStats {
   totalEntries: number;
@@ -41,6 +51,48 @@ export interface YearlyStats {
   favoriteCategory: string | null;
 }
 
+export interface WrappedStats {
+  period: WrappedPeriod;
+  year: number;
+  periodLabel: string;
+  rangeLabel: string;
+  rangeStart: string;
+  rangeEnd: string;
+  totalCompleted: number;
+  completedShows: number;
+  completedMovies: number;
+  completedAnime: number;
+  completedBooks: number;
+  completedManga: number;
+  episodesWatched: number;
+  chaptersRead: number;
+  movieMinutesWatched: number;
+  avgRating: string;
+  ratedCount: number;
+  topRated: MediaEntry[];
+  buckets: WrappedBuckets;
+  availableYears: number[];
+  favoriteCategory: string | null;
+}
+
+interface RatingSummary {
+  avgRating: string;
+  ratedCount: number;
+  topRated: MediaEntry[];
+}
+
+function ratingSummary(entries: MediaEntry[]): RatingSummary {
+  const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
+  const avgRating =
+    ratedEntries.length > 0
+      ? (ratedEntries.reduce((sum, e) => sum + (e.rating ?? 0), 0) / ratedEntries.length).toFixed(1)
+      : '—';
+
+  const topRated = [...ratedEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 5);
+
+  return { avgRating, ratedCount: ratedEntries.length, topRated };
+}
+
 export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
   const totalEntries = entries.length;
   const showEntries = entries.filter((e) => e.category === 'show');
@@ -65,16 +117,10 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
 
   const totalMovieMinutes = movieEntries.reduce((sum, e) => sum + (e.secondaryUnitCurrent ?? 0), 0);
 
-  const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
-  const avgRating =
-    ratedEntries.length > 0
-      ? (ratedEntries.reduce((sum, e) => sum + (e.rating ?? 0), 0) / ratedEntries.length).toFixed(1)
-      : '—';
+  const { avgRating, ratedCount, topRated } = ratingSummary(entries);
 
   const completionRate =
     totalEntries > 0 ? Math.round((completedEntries.length / totalEntries) * 100) : 0;
-
-  const topRated = [...ratedEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 5);
 
   return {
     totalEntries,
@@ -93,7 +139,7 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
     totalMovieMinutes,
     avgRating,
     completionRate,
-    ratedCount: ratedEntries.length,
+    ratedCount,
     topRated,
   };
 }
@@ -120,13 +166,14 @@ function yearsForEntry(entry: MediaEntry): Set<number> {
   return years;
 }
 
-function completionDateInYear(entry: MediaEntry, year: number): string | null {
-  const dates = [
-    entry.completedAt,
-    ...(entry.cycles ?? []).map((cycle) => cycle.completedAt),
-  ].filter((value): value is string => Boolean(value));
+// The first completion inside `range` speaks for the entry, so a rewatched entry counts once.
+function inRangeCompletionDate(entry: MediaEntry, range: WrappedRange): string | null {
+  const dates = [entry.completedAt, ...(entry.cycles ?? []).map((cycle) => cycle.completedAt)];
   for (const dateStr of dates) {
-    if (new Date(dateStr).getFullYear() === year) return dateStr;
+    if (!dateStr) continue;
+    const date = new Date(dateStr);
+    if (date.getFullYear() < 2000) continue;
+    if (isWithinWrappedRange(date, range)) return dateStr;
   }
   return null;
 }
@@ -147,13 +194,22 @@ export function getAvailableYears(entries: MediaEntry[]): number[] {
   return Array.from(yearsSet).sort((a, b) => b - a);
 }
 
-export function calculateYearlyStats(entries: MediaEntry[], year: number): YearlyStats {
-  const availableYears = getAvailableYears(entries);
+type RangeAggregate = Omit<
+  WrappedStats,
+  'year' | 'period' | 'periodLabel' | 'rangeLabel' | 'rangeStart' | 'rangeEnd' | 'buckets'
+> & {
+  /** One representative completion date per in-scope entry, in entry order. */
+  completionDates: string[];
+};
 
-  // Entries completed in this year
-  const completedInYear = entries.filter((e) => yearsForEntry(e).has(year));
+function aggregate(
+  entries: MediaEntry[],
+  range: WrappedRange,
+  availableYears: number[],
+): RangeAggregate {
+  const completionDates: string[] = [];
+  const completedInRange: MediaEntry[] = [];
 
-  // Category counts
   let completedShows = 0;
   let completedMovies = 0;
   let completedAnime = 0;
@@ -164,9 +220,13 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
   let chaptersRead = 0;
   let movieMinutesWatched = 0;
 
-  const completionsByMonth = new Array<number>(12).fill(0);
+  for (const entry of entries) {
+    const dateStr = inRangeCompletionDate(entry, range);
+    if (!dateStr) continue;
 
-  for (const entry of completedInYear) {
+    completedInRange.push(entry);
+    completionDates.push(dateStr);
+
     if (entry.category === 'show') completedShows++;
     else if (entry.category === 'movie') {
       completedMovies++;
@@ -180,23 +240,9 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     } else if (entry.category === 'book' || entry.category === 'manga') {
       chaptersRead += entry.secondaryUnitCurrent ?? 0;
     }
-
-    const dateStr = completionDateInYear(entry, year);
-    if (dateStr) {
-      const month = new Date(dateStr).getMonth();
-      if (month >= 0 && month < 12) {
-        completionsByMonth[month] = (completionsByMonth[month] ?? 0) + 1;
-      }
-    }
   }
 
-  const ratedInYear = completedInYear.filter((e) => e.rating != null && e.rating > 0);
-  const avgRating =
-    ratedInYear.length > 0
-      ? (ratedInYear.reduce((sum, e) => sum + (e.rating ?? 0), 0) / ratedInYear.length).toFixed(1)
-      : '—';
-
-  const topRated = [...ratedInYear].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 5);
+  const { avgRating, ratedCount, topRated } = ratingSummary(completedInRange);
 
   const categoryTotals: Record<string, number> = {
     Shows: completedShows,
@@ -216,8 +262,7 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
   }
 
   return {
-    year,
-    totalCompleted: completedInYear.length,
+    totalCompleted: completedInRange.length,
     completedShows,
     completedMovies,
     completedAnime,
@@ -227,11 +272,65 @@ export function calculateYearlyStats(entries: MediaEntry[], year: number): Yearl
     chaptersRead,
     movieMinutesWatched,
     avgRating,
-    ratedCount: ratedInYear.length,
+    ratedCount,
     topRated,
-    completionsByMonth,
+    completionDates,
     availableYears,
     favoriteCategory: maxCategory,
+  };
+}
+
+function calendarYearRange(year: number): WrappedRange {
+  return {
+    start: new Date(year, 0, 1, 0, 0, 0, 0),
+    end: new Date(year, 11, 31, 23, 59, 59, 999),
+  };
+}
+
+export function calculateYearlyStats(entries: MediaEntry[], year: number): YearlyStats {
+  const availableYears = getAvailableYears(entries);
+  const { completionDates, ...totals } = aggregate(
+    entries,
+    calendarYearRange(year),
+    availableYears,
+  );
+
+  // Not `tallyWrappedBuckets`: that axis trails the range start month, while this
+  // shape is pinned to calendar months.
+  const completionsByMonth = new Array<number>(12).fill(0);
+  for (const dateStr of completionDates) {
+    const month = new Date(dateStr).getMonth();
+    if (month >= 0 && month < 12) {
+      completionsByMonth[month] = (completionsByMonth[month] ?? 0) + 1;
+    }
+  }
+
+  return {
+    year,
+    ...totals,
+    completionsByMonth,
+  };
+}
+
+export function calculateWrappedStats(
+  entries: MediaEntry[],
+  year: number,
+  period: WrappedPeriod,
+  now?: Date,
+): WrappedStats {
+  const availableYears = getAvailableYears(entries);
+  const range = resolveWrappedRange(period, year, now);
+  const { completionDates, ...totals } = aggregate(entries, range, availableYears);
+
+  return {
+    ...totals,
+    year,
+    period,
+    periodLabel: getWrappedPeriodOption(period).label,
+    rangeLabel: describeWrappedRange(range),
+    rangeStart: range.start.toISOString(),
+    rangeEnd: range.end.toISOString(),
+    buckets: tallyWrappedBuckets(completionDates, range, period),
   };
 }
 
