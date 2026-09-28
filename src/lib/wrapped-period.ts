@@ -111,15 +111,41 @@ function startOfWeekMonday(date: Date): Date {
 }
 
 /**
- * Resolve the trailing window a period covers. Every period is relative to the
- * edition's anchor, so the current year's default view is a true trailing twelve
- * months while a past edition resolves to a closed calendar window.
+ * The final whole calendar unit of `year`, so a past edition reads as a clean
+ * calendar period rather than a trailing window that clips a unit mid-stream.
+ * A week is excluded: it is always a trailing seven days, so that a single week
+ * means the same thing across every edition.
+ */
+function lastCalendarUnit(period: WrappedPeriod, year: number): WrappedRange | null {
+  const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+  switch (period) {
+    case 'quarter':
+      return { start: new Date(year, 9, 1), end: yearEnd };
+    case 'month':
+      return { start: new Date(year, 11, 1), end: yearEnd };
+    case 'week':
+      return null;
+    case 'year':
+    default:
+      return { start: new Date(year, 0, 1), end: yearEnd };
+  }
+}
+
+/**
+ * Resolve the window a period covers. The running edition trails from now, so
+ * its default view is a true trailing twelve months; a past edition resolves to
+ * the last whole calendar unit it contains.
  */
 export function resolveWrappedRange(
   period: WrappedPeriod,
   year: number,
   now = new Date(),
 ): WrappedRange {
+  if (year < now.getFullYear()) {
+    const calendar = lastCalendarUnit(period, year);
+    if (calendar) return calendar;
+  }
+
   const end = wrappedPeriodAnchor(year, now);
   switch (period) {
     case 'quarter':
@@ -127,7 +153,8 @@ export function resolveWrappedRange(
     case 'month':
       return { start: addMonths(end, -1), end };
     case 'week':
-      return { start: addDays(end, -7), end };
+      // Bounds are inclusive, so stepping back six days yields a seven-day window.
+      return { start: addDays(end, -6), end };
     case 'year':
     default:
       return { start: addMonths(end, -12), end };
@@ -139,7 +166,7 @@ export function isWithinWrappedRange(date: Date, range: WrappedRange): boolean {
   return time >= range.start.getTime() && time <= range.end.getTime();
 }
 
-/** Human summary of a window, e.g. "28 Sep 2025 – 27 Sep 2026". */
+/** Human summary of a window, e.g. "28 Sep 2025 – 28 Sep 2026". */
 export function describeWrappedRange(range: WrappedRange): string {
   const format = (date: Date) =>
     `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
@@ -152,32 +179,45 @@ function monthBuckets(range: WrappedRange): BucketAxis {
   const labels: string[] = [];
   const values: number[] = [];
   const cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
-  for (let i = 0; i < 12; i++) {
+  // A trailing twelve-month window straddles thirteen calendar months, so the
+  // axis grows to cover the range rather than being fixed at twelve.
+  while (cursor.getTime() <= range.end.getTime()) {
     labels.push(MONTH_NAMES[cursor.getMonth()] ?? '');
     values.push(0);
     cursor.setMonth(cursor.getMonth() + 1);
   }
-  const index = (date: Date) =>
-    (date.getFullYear() - range.start.getFullYear()) * 12 +
-    (date.getMonth() - range.start.getMonth());
+  const index = (date: Date) => {
+    const offset =
+      (date.getFullYear() - range.start.getFullYear()) * 12 +
+      (date.getMonth() - range.start.getMonth());
+    return offset >= 0 && offset < values.length ? offset : null;
+  };
   return { labels, values, labelStep: 1, chartTitle: 'Completions by Month', index };
+}
+
+/**
+ * Days elapsed between two dates, ignoring clock time. Reconstructing the
+ * calendar fields as UTC keeps the count stable across daylight-saving
+ * transitions, where a fixed millisecond divisor drifts by an hour.
+ */
+function calendarDayDiff(from: Date, to: Date): number {
+  const dayNumber = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((dayNumber(to) - dayNumber(from)) / MS_PER_DAY);
 }
 
 function weekBuckets(range: WrappedRange): BucketAxis {
   const labels: string[] = [];
   const values: number[] = [];
-  const starts: number[] = [];
-  let cursor = startOfWeekMonday(range.start);
+  const firstWeek = startOfWeekMonday(range.start);
+  let cursor = new Date(firstWeek.getTime());
   while (cursor.getTime() <= range.end.getTime()) {
-    starts.push(cursor.getTime());
     labels.push(`${cursor.getDate()} ${MONTH_NAMES[cursor.getMonth()] ?? ''}`.trim());
     values.push(0);
     cursor = addDays(cursor, 7);
   }
   const index = (date: Date) => {
-    const offset = Math.floor((startOfDay(date).getTime() - (starts[0] ?? 0)) / (MS_PER_DAY * 7));
-    if (offset < 0) return null;
-    return offset < starts.length ? offset : null;
+    const offset = Math.floor(calendarDayDiff(firstWeek, startOfDay(date)) / 7);
+    return offset >= 0 && offset < values.length ? offset : null;
   };
   return { labels, values, labelStep: 2, chartTitle: 'Completions by Week', index };
 }
@@ -185,8 +225,9 @@ function weekBuckets(range: WrappedRange): BucketAxis {
 function dayBuckets(range: WrappedRange, labelByWeekday: boolean): BucketAxis {
   const labels: string[] = [];
   const values: number[] = [];
-  let cursor = startOfDay(range.start);
+  const firstDay = startOfDay(range.start);
   const finalDay = startOfDay(range.end);
+  let cursor = new Date(firstDay.getTime());
   while (cursor.getTime() <= finalDay.getTime()) {
     labels.push(
       labelByWeekday ? (DAY_NAMES[(cursor.getDay() + 6) % 7] ?? '') : String(cursor.getDate()),
@@ -195,9 +236,7 @@ function dayBuckets(range: WrappedRange, labelByWeekday: boolean): BucketAxis {
     cursor = addDays(cursor, 1);
   }
   const index = (date: Date) => {
-    const offset = Math.round(
-      (startOfDay(date).getTime() - startOfDay(range.start).getTime()) / MS_PER_DAY,
-    );
+    const offset = calendarDayDiff(firstDay, startOfDay(date));
     return offset >= 0 && offset < values.length ? offset : null;
   };
   return {
