@@ -14,7 +14,6 @@ import {
   Film,
   BookOpen,
   Library,
-  MessageSquare,
   X,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
@@ -132,18 +131,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           router.push('/settings');
-        },
-      },
-      {
-        id: 'cmd-groups',
-        type: 'action',
-        section: 'commands',
-        title: 'Groups & Group Chats',
-        subtitle: 'Collaborate in shared archives and 7-day chats',
-        Icon: MessageSquare,
-        onSelect: () => {
-          onClose();
-          router.push('/groups');
         },
       },
     ],

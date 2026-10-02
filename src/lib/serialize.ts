@@ -23,10 +23,6 @@ function toIso(value: Date | string | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : (value ?? null);
 }
 
-function toGroupId(value: unknown): string | null {
-  return typeof value === 'string' && value ? value : null;
-}
-
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value) ?? String(value);
@@ -169,7 +165,6 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
         })
       : [],
     priorityIndex: entry.priorityIndex != null ? Number(entry.priorityIndex) : null,
-    groupId: toGroupId((entry as Record<string, unknown>).groupId),
     createdAt: toIso(entry.createdAt) ?? '',
     updatedAt: toIso(entry.updatedAt) ?? '',
   };

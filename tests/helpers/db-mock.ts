@@ -20,9 +20,6 @@ export function createMockDb(state: {
   inserted?: MockRow[];
   deletedTables?: string[];
   accounts?: MockRow[];
-  memberships?: MockRow[];
-  ownedGroups?: MockRow[];
-  joinConditions?: unknown[];
   updates?: Array<{ table: string; fields: MockRow }>;
 }) {
   const getRows = () => state.rows ?? [];
@@ -36,11 +33,8 @@ export function createMockDb(state: {
 
   const makeTx = () => ({
     select: () => ({
-      from: (table?: unknown) => {
-        const rows =
-          getTableNameSafe(table) === 'group_members' && state.memberships
-            ? state.memberships
-            : getRows();
+      from: (_table?: unknown) => {
+        const rows = getRows();
         const p = createAwaitable(rows.length ? [rows[0]] : []);
         p.where = () => p;
         p.orderBy = () => p;
@@ -87,24 +81,13 @@ export function createMockDb(state: {
 
   return {
     select: () => ({
-      from: (table?: unknown) => {
+      from: (_table?: unknown) => {
         const result =
-          getTableNameSafe(table) === 'group_members' && state.memberships
-            ? state.memberships
-            : getTableNameSafe(table) === 'groups' && state.ownedGroups
-              ? state.ownedGroups
-              : (state.accounts ??
-                (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows()));
+          state.accounts ?? (state.selectQueue ? (state.selectQueue.shift() ?? []) : getRows());
         const p = createAwaitable(result);
         p.where = () => p;
         p.orderBy = () => p;
         p.limit = () => p;
-        if (state.joinConditions) {
-          p.leftJoin = (_table: unknown, condition: unknown) => {
-            state.joinConditions?.push(condition);
-            return p;
-          };
-        }
         return p;
       },
     }),

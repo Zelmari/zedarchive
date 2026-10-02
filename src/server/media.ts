@@ -29,24 +29,20 @@ export async function getMediaEntries(): Promise<MediaEntry[]> {
   return getMediaEntriesByUserId(user.id);
 }
 
-export async function createMediaEntry(
-  data: Record<string, unknown> & { groupId?: string | null },
-): Promise<MediaEntry> {
+export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await createMediaEntryForUser(user.id, data);
   revalidatePath('/dashboard');
-  if (entry.groupId) revalidatePath(`/groups/${entry.groupId}`);
   return entry;
 }
 
 export async function updateMediaProgress(
   id: string,
-  updates: Record<string, unknown> & { groupId?: string | null },
+  updates: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await updateMediaProgressForUser(user.id, id, updates);
   revalidatePath('/dashboard');
-  if (entry.groupId) revalidatePath(`/groups/${entry.groupId}`);
   return entry;
 }
 
@@ -100,9 +96,8 @@ export async function reorderPriorityQueue(orderedIds: string[]): Promise<void> 
 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
   const user = await getAuthUser();
-  const result = await deleteMediaEntryForUser(user.id, id);
+  await deleteMediaEntryForUser(user.id, id);
   revalidatePath('/dashboard');
-  if (result.groupId) revalidatePath(`/groups/${result.groupId}`);
   return { success: true };
 }
 
@@ -113,7 +108,6 @@ export async function addMediaQuote(
   const user = await getAuthUser();
   const entry = await addMediaQuoteForUser(user.id, mediaId, quote);
   revalidatePath('/dashboard');
-  if (entry.groupId) revalidatePath(`/groups/${entry.groupId}`);
   return entry;
 }
 
@@ -125,7 +119,6 @@ export async function updateMediaQuote(
   const user = await getAuthUser();
   const entry = await updateMediaQuoteForUser(user.id, mediaId, quoteId, updates);
   revalidatePath('/dashboard');
-  if (entry.groupId) revalidatePath(`/groups/${entry.groupId}`);
   return entry;
 }
 
@@ -133,6 +126,5 @@ export async function deleteMediaQuote(mediaId: string, quoteId: string): Promis
   const user = await getAuthUser();
   const entry = await deleteMediaQuoteForUser(user.id, mediaId, quoteId);
   revalidatePath('/dashboard');
-  if (entry.groupId) revalidatePath(`/groups/${entry.groupId}`);
   return entry;
 }

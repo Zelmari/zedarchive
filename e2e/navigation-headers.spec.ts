@@ -18,13 +18,6 @@ test.describe('unified site header navigation', () => {
 
   const navigationCases = [
     {
-      name: 'groups',
-      path: '/groups',
-      heading: 'Groups',
-      headingMatch: 'exact',
-      dashboardLink: true,
-    },
-    {
       name: 'settings',
       path: '/settings',
       heading: 'Settings & Account',

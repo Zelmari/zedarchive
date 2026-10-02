@@ -1,5 +1,5 @@
-import { groupMembers, mediaEntries } from '@/db/schema';
-import { eq, and, desc, isNotNull, ne, asc, isNull, ilike, sql } from 'drizzle-orm';
+import { mediaEntries } from '@/db/schema';
+import { eq, and, desc, isNotNull, ne, asc, ilike, sql } from 'drizzle-orm';
 import {
   VALID_CATEGORIES,
   VALID_STATUSES,
@@ -28,7 +28,7 @@ import { escapeIlikePattern, ilikeContainsPattern } from '@/lib/ilike';
 export type MediaRow = typeof mediaEntries.$inferSelect;
 export type MediaPayload = Omit<
   typeof mediaEntries.$inferInsert,
-  'id' | 'userId' | 'createdAt' | 'groupId' | 'isPrivate'
+  'id' | 'userId' | 'createdAt' | 'isPrivate'
 >;
 
 export function toInt(value: unknown, fallback: number): number;
@@ -184,24 +184,7 @@ export async function assertCanWriteMedia(
     .where(eq(mediaEntries.id, mediaId))
     .limit(1);
 
-  if (!entry) {
-    throw new Error('Entry not found');
-  }
-
-  if (!entry.groupId) {
-    if (entry.userId !== userId) {
-      throw new Error('Entry not found');
-    }
-    return entry;
-  }
-
-  const [membership] = await client
-    .select({ id: groupMembers.id })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, entry.groupId), eq(groupMembers.userId, userId)))
-    .limit(1);
-
-  if (!membership) {
+  if (!entry || entry.userId !== userId) {
     throw new Error('Entry not found');
   }
 
@@ -275,16 +258,10 @@ export async function mutateCycles(
     const [existing] = await tx
       .select()
       .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.id, mediaId),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
       .limit(1);
 
-    if (!existing || existing.groupId || existing.userId !== userId) {
+    if (!existing || existing.userId !== userId) {
       throw new Error('Entry not found');
     }
 
@@ -304,13 +281,7 @@ export async function mutateCycles(
     const [row] = await tx
       .update(mediaEntries)
       .set(setFields)
-      .where(
-        and(
-          eq(mediaEntries.id, mediaId),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
       .returning();
 
     if (!row) {
@@ -439,7 +410,7 @@ export function buildMediaPayload(
 
 export async function createMediaEntryForUser(
   userId: string,
-  data: Record<string, unknown> & { groupId?: string | null },
+  data: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const parsed = createMediaSchema.safeParse(data);
   if (!parsed.success) {
@@ -462,19 +433,7 @@ export async function createMediaEntryForUser(
       mode: 'create',
     },
   );
-  const rawIsPrivate = Boolean(zodData.isPrivate);
-
-  const rawGroupId = (data as Record<string, unknown>).groupId;
-  const groupId = typeof rawGroupId === 'string' && rawGroupId.trim() ? rawGroupId.trim() : null;
-  if (groupId) {
-    const [membership] = await domainDb()
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
-  }
-  const isPrivate = groupId ? false : rawIsPrivate;
+  const isPrivate = Boolean(zodData.isPrivate);
 
   const newEntry = await domainDb().transaction(async (tx) => {
     const [inserted] = await tx
@@ -484,7 +443,6 @@ export async function createMediaEntryForUser(
         userId,
         ...payload,
         isPrivate,
-        groupId,
       })
       .returning();
 
@@ -514,7 +472,7 @@ export async function createMediaEntryForUser(
 export async function updateMediaProgressForUser(
   userId: string,
   id: string,
-  updates: Record<string, unknown> & { groupId?: string | null },
+  updates: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const parsed = updateMediaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -639,8 +597,7 @@ export async function updateMediaProgressForUser(
   if (validatedUpdates.notes !== undefined) {
     updateFields.notes = validatedUpdates.notes == null ? null : validatedUpdates.notes.trim();
   }
-  const incomingGroupId = validatedUpdates.groupId;
-  if (validatedUpdates.isPrivate !== undefined && !incomingGroupId) {
+  if (validatedUpdates.isPrivate !== undefined) {
     updateFields.isPrivate = Boolean(validatedUpdates.isPrivate);
   }
 
@@ -653,24 +610,6 @@ export async function updateMediaProgressForUser(
       updateFields.primaryUnitCurrent < 1
     ) {
       updateFields.primaryUnitCurrent = 1;
-    }
-
-    const isGroupEntry = Boolean(existing.groupId);
-    if (
-      isGroupEntry &&
-      (validatedUpdates.rewatch === true || validatedUpdates.cycles !== undefined)
-    ) {
-      throw new Error('Entry not found');
-    }
-    if (isGroupEntry) {
-      updateFields.isPrivate = false;
-      if (incomingGroupId && incomingGroupId !== existing.groupId) {
-        throw new Error('Cannot change groupId of an entry');
-      }
-    } else {
-      if (existing.userId !== userId) throw new Error('Entry not found');
-      if (incomingGroupId) throw new Error('Cannot move personal entry to group via update');
-      if (existing.groupId) throw new Error('Unexpected groupId');
     }
 
     if (updateFields.status === 'completed' && validatedUpdates.priorityIndex === undefined) {
@@ -776,10 +715,11 @@ export async function updateMediaProgressForUser(
       }
     }
 
-    const whereCond = isGroupEntry
-      ? eq(mediaEntries.id, id)
-      : and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId));
-    const [row] = await tx.update(mediaEntries).set(updateFields).where(whereCond).returning();
+    const [row] = await tx
+      .update(mediaEntries)
+      .set(updateFields)
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)))
+      .returning();
 
     if (!row) {
       throw new Error('Entry not found');
@@ -834,17 +774,12 @@ export async function completeMediaEntryForUser(userId: string, id: string): Pro
 export async function deleteMediaEntryForUser(
   userId: string,
   id: string,
-): Promise<{ success: boolean; groupId?: string | null }> {
-  const existing = await assertCanWriteMedia(id, userId);
-  if (existing.groupId) {
-    await domainDb().delete(mediaEntries).where(eq(mediaEntries.id, id));
-    return { success: true, groupId: existing.groupId };
-  } else {
-    await domainDb()
-      .delete(mediaEntries)
-      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)));
-    return { success: true, groupId: null };
-  }
+): Promise<{ success: boolean }> {
+  await assertCanWriteMedia(id, userId);
+  await domainDb()
+    .delete(mediaEntries)
+    .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)));
+  return { success: true };
 }
 
 export interface BulkImportResult {
@@ -868,9 +803,8 @@ export async function bulkImportMediaEntriesForUser(
   const existingRows = await domainDb()
     .select()
     .from(mediaEntries)
-    .where(and(eq(mediaEntries.userId, userId), isNull(mediaEntries.groupId)));
-  const listed = Array.isArray(existingRows) ? existingRows : [];
-  const existing = listed.filter((e) => e && !e.groupId);
+    .where(eq(mediaEntries.userId, userId));
+  const existing = Array.isArray(existingRows) ? existingRows : [];
 
   const existingBySourceOrTitle = new Map<string, Pick<MediaRow, 'id'>>();
   existing.forEach((e) => {
@@ -932,13 +866,7 @@ export async function bulkImportMediaEntriesForUser(
         await domainDb()
           .update(mediaEntries)
           .set({ ...payload, isPrivate })
-          .where(
-            and(
-              eq(mediaEntries.id, match.id),
-              eq(mediaEntries.userId, userId),
-              isNull(mediaEntries.groupId),
-            ),
-          );
+          .where(and(eq(mediaEntries.id, match.id), eq(mediaEntries.userId, userId)));
         if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
         existingBySourceOrTitle.set(titleKey, match);
         updated++;
@@ -1133,13 +1061,7 @@ export async function reorderPriorityQueueForUser(
     const queued = await tx
       .select({ id: mediaEntries.id })
       .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.userId, userId),
-          isNotNull(mediaEntries.priorityIndex),
-          isNull(mediaEntries.groupId),
-        ),
-      );
+      .where(and(eq(mediaEntries.userId, userId), isNotNull(mediaEntries.priorityIndex)));
 
     const queuedIds = new Set(queued.map((row) => row.id));
     const seen = new Set<string>();
@@ -1263,7 +1185,7 @@ export async function listPersonalLibraryLite(
   userId: string,
   opts: ListPersonalLibraryLiteOptions = {},
 ): Promise<MediaLiteEntry[]> {
-  const conditions = [eq(mediaEntries.userId, userId), isNull(mediaEntries.groupId)];
+  const conditions = [eq(mediaEntries.userId, userId)];
 
   if (opts.status && opts.status !== 'any') {
     conditions.push(eq(mediaEntries.status, opts.status));
@@ -1327,13 +1249,7 @@ export async function findPersonalEntryBySourceId(
   const rows = await domainDb()
     .select({ id: mediaEntries.id, title: mediaEntries.title })
     .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
-        eq(mediaEntries.sourceId, sourceId),
-      ),
-    )
+    .where(and(eq(mediaEntries.userId, userId), eq(mediaEntries.sourceId, sourceId)))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -1364,13 +1280,7 @@ export async function resolvePersonalTitle(
     const [entry] = await domainDb()
       .select()
       .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.id, trimmed),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
+      .where(and(eq(mediaEntries.id, trimmed), eq(mediaEntries.userId, userId)))
       .limit(1);
 
     if (entry) {
@@ -1383,11 +1293,7 @@ export async function resolvePersonalTitle(
     .select()
     .from(mediaEntries)
     .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
-        ilike(mediaEntries.title, escapeIlikePattern(trimmed)),
-      ),
+      and(eq(mediaEntries.userId, userId), ilike(mediaEntries.title, escapeIlikePattern(trimmed))),
     )
     .limit(2);
 
@@ -1402,7 +1308,6 @@ export async function resolvePersonalTitle(
     .where(
       and(
         eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
         ilike(mediaEntries.title, ilikeContainsPattern(trimmed)),
       ),
     )

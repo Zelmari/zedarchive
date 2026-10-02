@@ -1,17 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Layers,
-  Tv,
-  Film,
-  BookOpen,
-  LogOut,
-  Palette,
-  Settings,
-  MessageSquare,
-  Sparkles,
-} from 'lucide-react';
+import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings, Sparkles } from 'lucide-react';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -74,15 +64,6 @@ export default function DashboardHeader({
               <span className="sm:hidden">{counts[id]}</span>
             </button>
           ))}
-          <Link
-            href="/groups"
-            className="za-button za-button--tertiary"
-            title="Groups"
-            aria-label="Groups"
-          >
-            <MessageSquare size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Groups</span>
-          </Link>
           <Link
             href="/wrapped"
             className="za-button za-button--tertiary"

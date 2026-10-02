@@ -130,5 +130,4 @@ export const createMediaSchema = mediaFieldsSchema.extend({
 export const updateMediaSchema = mediaFieldsSchema.partial().extend({
   /** Trigger a new rewatch / reread cycle */
   rewatch: z.boolean().optional(),
-  groupId: z.string().nullable().optional(),
 });
