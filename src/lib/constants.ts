@@ -74,7 +74,6 @@ export const RESERVED_HANDLES = [
   'reset-password',
   'groups',
   'stacks',
-  'compare',
   'rss',
   'atom',
   'me',
