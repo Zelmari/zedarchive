@@ -9,7 +9,6 @@ import {
   LogOut,
   Palette,
   Settings,
-  Users,
   MessageSquare,
   Library,
   Sparkles,
@@ -76,15 +75,6 @@ export default function DashboardHeader({
               <span className="sm:hidden">{counts[id]}</span>
             </button>
           ))}
-          <Link
-            href="/friends"
-            className="za-button za-button--tertiary"
-            title="Friends"
-            aria-label="Friends"
-          >
-            <Users size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Friends</span>
-          </Link>
           <Link
             href="/groups"
             className="za-button za-button--tertiary"

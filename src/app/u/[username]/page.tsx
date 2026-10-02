@@ -10,8 +10,6 @@ import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
-import FriendButton from './FriendButton';
-import { getFriendshipStatus } from '@/server/queries/friends';
 
 import { THEME_LABELS } from '@/lib/constants';
 import { getCanonicalProfileUrl } from '@/lib/site-url';
@@ -66,9 +64,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
   const data = await getPublicUserProfile(username);
 
   if (!data?.user) {
-    return (
-      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />
-    );
+    return <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />;
   }
 
   const { user, entries = [] } = data;
@@ -94,24 +90,6 @@ export default async function PublicProfilePage({ params }: PageParams) {
         image: meRow.image,
         isPublic: meRow.isPublic,
       };
-    }
-  }
-
-  // Friendship status for Add Friend button
-  let friendshipStatus: {
-    status: string | null;
-    isSender: boolean | null;
-    friendshipId: string | null;
-  } = {
-    status: null,
-    isSender: null,
-    friendshipId: null,
-  };
-  if (viewer.isLoggedIn && viewer.id && viewer.id !== user.id) {
-    try {
-      friendshipStatus = await getFriendshipStatus(viewer.id, user.id);
-    } catch {
-      // ignore
     }
   }
 
@@ -285,14 +263,6 @@ export default async function PublicProfilePage({ params }: PageParams) {
                 >
                   View Annual Wrapped
                 </Link>
-                {viewer.isLoggedIn && viewer.id && viewer.id !== user.id && (
-                  <FriendButton
-                    targetUserId={user.id}
-                    initialStatus={friendshipStatus.status}
-                    initialIsSender={friendshipStatus.isSender}
-                    initialRequestId={friendshipStatus.friendshipId}
-                  />
-                )}
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"

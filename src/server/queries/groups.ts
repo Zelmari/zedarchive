@@ -2,7 +2,6 @@ import { db } from '@/lib/db';
 import { groups, groupMembers, groupMessages, user as userTable } from '@/db/schema';
 import { eq, and, desc, gt, lte, inArray, count } from 'drizzle-orm';
 import type { GroupDetails, GroupSummary, GroupMessageItem } from '@/types/groups';
-import { getFriendIds } from './friends';
 
 function toIso(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString();
@@ -167,37 +166,4 @@ export async function getGroupMessages(
     expiresAt: toIso(r.expiresAt),
     isOwn: r.senderId === viewerUserId,
   }));
-}
-
-export async function getEligibleFriendsToInvite(
-  groupId: string,
-  ownerId: string,
-): Promise<{ id: string; name: string; username: string | null; image: string | null }[]> {
-  // Owner's accepted friends not yet in group
-  const existingMemberIds = await db
-    .select({ userId: groupMembers.userId })
-    .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId));
-  const excluded = new Set(existingMemberIds.map((r) => r.userId));
-  excluded.add(ownerId);
-
-  const friendIds = await getFriendIds(ownerId);
-  const eligibleIds = friendIds.filter((id) => !excluded.has(id));
-  if (eligibleIds.length === 0) return [];
-
-  const friendRows = await db
-    .select({
-      id: userTable.id,
-      name: userTable.name,
-      username: userTable.username,
-      image: userTable.image,
-    })
-    .from(userTable)
-    .where(inArray(userTable.id, eligibleIds));
-
-  const friendById = new Map(friendRows.map((friend) => [friend.id, friend]));
-  return eligibleIds.flatMap((id) => {
-    const friend = friendById.get(id);
-    return friend ? [friend] : [];
-  });
 }

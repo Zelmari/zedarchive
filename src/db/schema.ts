@@ -80,36 +80,7 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// ─── Friends & Groups ─────────────────────────────────────────────────────────
-
-export const friendshipStatusEnum = pgEnum('friendship_status', [
-  'pending',
-  'accepted',
-  'rejected',
-]);
-
-export const friendships = pgTable(
-  'friendships',
-  {
-    id: text('id').primaryKey(),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    receiverId: text('receiver_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    status: friendshipStatusEnum('status').notNull().default('pending'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('friendships_sender_idx').on(table.senderId),
-    index('friendships_receiver_idx').on(table.receiverId),
-    index('friendships_sender_status_idx').on(table.senderId, table.status),
-    index('friendships_receiver_status_idx').on(table.receiverId, table.status),
-    uniqueIndex('friendships_pair_uidx').on(table.senderId, table.receiverId),
-  ],
-);
+// ─── Groups ──────────────────────────────────────────────────────────────────
 
 export const groupRoleEnum = pgEnum('group_role', ['owner', 'member']);
 

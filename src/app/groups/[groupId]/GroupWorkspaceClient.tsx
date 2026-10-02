@@ -7,7 +7,7 @@ import type { MediaEntry } from '@/types/media';
 import GroupChatView from './GroupChatView';
 import DashboardClient from '@/app/dashboard/DashboardClient';
 import GroupSettingsModal from './GroupSettingsModal';
-import { getGroupMessagesAction, getEligibleFriendsToInviteAction } from '@/server/groups';
+import { getGroupMessagesAction } from '@/server/groups';
 import SegmentButton from '@/components/ui/SegmentButton';
 
 type Tab = 'chat' | 'archive' | 'members';
@@ -41,9 +41,6 @@ export default function GroupWorkspaceClient({
   const [tab, setTab] = useState<Tab>('chat');
   const [messages, setMessages] = useState(initialMessages);
   const [showSettings, setShowSettings] = useState(false);
-  const [eligibleFriends, setEligibleFriends] = useState<
-    { id: string; name: string; username: string | null; image: string | null }[]
-  >([]);
 
   // Polling for messages every 45s via server action + revalidate
   useEffect(() => {
@@ -56,22 +53,6 @@ export default function GroupWorkspaceClient({
     }, 45000);
     return () => clearInterval(id);
   }, [tab, group.id]);
-
-  useEffect(() => {
-    if (showSettings && group.isOwner) {
-      (async () => {
-        try {
-          const friends = await getEligibleFriendsToInviteAction(group.id);
-          setEligibleFriends(friends);
-        } catch {
-          setEligibleFriends([]);
-        }
-      })();
-    }
-  }, [showSettings, group.isOwner, group.id]);
-
-  // Try to fetch via server helper if API route not exists: use direct import? Not possible in client. Keep empty fallback and allow manual refresh.
-  // We will attempt to call a server action that we will add: getEligibleFriendsAction
 
   return (
     <div className="space-y-6">
@@ -156,7 +137,9 @@ export default function GroupWorkspaceClient({
             <p className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase tracking-[0.12em] text-accent">
               The reading room
             </p>
-            <h3 className="mt-1 font-[family-name:var(--za-font-editorial)] text-xl text-ink">Members</h3>
+            <h3 className="mt-1 font-[family-name:var(--za-font-editorial)] text-xl text-ink">
+              Members
+            </h3>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {group.members.map((m) => (
@@ -197,7 +180,6 @@ export default function GroupWorkspaceClient({
         <GroupSettingsModal
           group={group}
           currentUserId={currentUserId}
-          eligibleFriends={eligibleFriends}
           onClose={() => setShowSettings(false)}
         />
       )}

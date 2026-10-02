@@ -11,11 +11,7 @@ import {
   GROUP_MESSAGE_WINDOW_MS,
   MAX_COVER_IMAGE_LENGTH,
 } from '@/lib/constants';
-import {
-  getGroupMessages as getGroupMessagesQuery,
-  getEligibleFriendsToInvite as getEligibleQuery,
-} from './queries/groups';
-import { getFriendIds } from './queries/friends';
+import { getGroupMessages as getGroupMessagesQuery } from './queries/groups';
 import {
   createGroupSchema,
   updateGroupSchema,
@@ -36,15 +32,7 @@ export async function createGroupAction(input: Record<string, unknown>) {
     throw new Error('Image must be https:// or data:image/');
   }
 
-  // Validate memberUserIds are all friends of owner
   const uniqueIds = [...new Set(memberUserIds.filter((id) => id !== me.id))];
-
-  if (uniqueIds.length > 0) {
-    const friendIds = new Set(await getFriendIds(me.id));
-    if (uniqueIds.some((uid) => !friendIds.has(uid))) {
-      throw new Error('One or more selected users cannot be added');
-    }
-  }
 
   const groupId = crypto.randomUUID();
   const now = new Date();
@@ -120,11 +108,6 @@ export async function addGroupMembersAction(input: { groupId: string; userIds: s
 
   const owner = await isGroupOwner(groupId, me.id);
   if (!owner) throw new Error('Only the owner can add members');
-
-  const friendSet = new Set(await getFriendIds(me.id));
-  if (uniqueIds.some((uid) => !friendSet.has(uid))) {
-    throw new Error('One or more selected users cannot be added');
-  }
 
   const existingRows = await db
     .select({ userId: groupMembers.userId })
@@ -348,11 +331,4 @@ export async function deleteGroupMessageAction(input: { messageId: string }) {
 export async function getGroupMessagesAction(groupId: string) {
   const me = await getAuthUser();
   return getGroupMessagesQuery(groupId, me.id);
-}
-
-export async function getEligibleFriendsToInviteAction(groupId: string) {
-  const me = await getAuthUser();
-  const owner = await isGroupOwner(groupId, me.id);
-  if (!owner) throw new Error('Only the owner can invite members');
-  return getEligibleQuery(groupId, me.id);
 }

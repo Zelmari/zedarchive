@@ -15,7 +15,6 @@ import {
   Film,
   BookOpen,
   Library,
-  Users,
   MessageSquare,
   X,
 } from 'lucide-react';
@@ -146,18 +145,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           router.push('/settings');
-        },
-      },
-      {
-        id: 'cmd-friends',
-        type: 'action',
-        section: 'commands',
-        title: 'Friends & Requests',
-        subtitle: 'Manage friendships and requests',
-        Icon: Users,
-        onSelect: () => {
-          onClose();
-          router.push('/friends');
         },
       },
       {

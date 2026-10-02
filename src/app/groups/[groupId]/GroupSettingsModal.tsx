@@ -2,10 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown, UserMinus, LogOut, Trash2, UserPlus, X } from 'lucide-react';
+import { Crown, UserMinus, LogOut, Trash2, X } from 'lucide-react';
 import type { GroupDetails } from '@/types/groups';
 import {
-  addGroupMembersAction,
   kickGroupMemberAction,
   transferGroupOwnershipAction,
   leaveGroupAction,
@@ -17,19 +16,16 @@ import Modal from '@/components/ui/Modal';
 export default function GroupSettingsModal({
   group,
   currentUserId,
-  eligibleFriends,
   onClose,
 }: {
   group: GroupDetails;
   currentUserId: string;
-  eligibleFriends: { id: string; name: string; username: string | null; image: string | null }[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const isOwner = group.isOwner;
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');
-  const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -42,19 +38,6 @@ export default function GroupSettingsModal({
           description: description.trim() || null,
         });
         setMsg('Group updated');
-        setTimeout(() => router.refresh(), 500);
-      } catch (e: any) {
-        setMsg(e.message || 'Failed');
-      }
-    });
-  };
-
-  const handleAddMembers = () => {
-    if (selectedToAdd.length === 0) return;
-    startTransition(async () => {
-      try {
-        await addGroupMembersAction({ groupId: group.id, userIds: selectedToAdd });
-        setMsg('Members added');
         setTimeout(() => router.refresh(), 500);
       } catch (e: any) {
         setMsg(e.message || 'Failed');
@@ -183,56 +166,6 @@ export default function GroupSettingsModal({
               >
                 Save Changes
               </button>
-            </div>
-
-            <div>
-              <h3 className="flex items-center gap-1.5 font-[family-name:var(--za-font-editorial)] text-xl text-ink">
-                <UserPlus size={14} /> Add Members (friends only)
-              </h3>
-              {eligibleFriends.length === 0 ? (
-                <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
-                  No eligible friends to invite.
-                </p>
-              ) : (
-                <>
-                  <div className="mt-3 flex max-h-36 flex-wrap gap-2 overflow-y-auto border-y border-decorative py-3">
-                    {eligibleFriends.map((f) => (
-                      <label
-                        key={f.id}
-                        className={`inline-flex cursor-pointer items-center gap-2 rounded-small border px-2 py-1.5 transition-colors ${
-                          selectedToAdd.includes(f.id)
-                            ? 'border-accent bg-accent-soft text-accent'
-                            : 'border-decorative bg-surface-subtle text-ink-muted hover:border-required hover:text-ink'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedToAdd.includes(f.id)}
-                          onChange={(e) => {
-                            setSelectedToAdd((prev) =>
-                              e.target.checked ? [...prev, f.id] : prev.filter((x) => x !== f.id),
-                            );
-                          }}
-                          className="accent-accent"
-                        />
-                        <span className="font-[family-name:var(--za-font-serif-body)] text-sm">
-                          {f.name}{' '}
-                          <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
-                            @{f.username}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    onClick={handleAddMembers}
-                    disabled={pending || selectedToAdd.length === 0}
-                    className="za-button za-button--primary mt-2 text-xs disabled:opacity-50"
-                  >
-                    Add Selected
-                  </button>
-                </>
-              )}
             </div>
           </>
         )}

@@ -5,30 +5,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Plus } from 'lucide-react';
 import type { GroupSummary } from '@/types/groups';
-import type { FriendUserSummary } from '@/types/friends';
 import { createGroupAction } from '@/server/groups';
 import Modal from '@/components/ui/Modal';
 import EmptyLedger from '@/components/ui/EmptyLedger';
 
-export default function GroupsClient({
-  initialGroups,
-  friends,
-}: {
-  initialGroups: GroupSummary[];
-  friends: FriendUserSummary[];
-}) {
+export default function GroupsClient({ initialGroups }: { initialGroups: GroupSummary[] }) {
   const router = useRouter();
   const [groups] = useState(initialGroups);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
 
   const handleCreate = () => {
     if (!name.trim()) {
@@ -40,7 +28,6 @@ export default function GroupsClient({
         const res = await createGroupAction({
           name: name.trim(),
           description: description.trim() || undefined,
-          memberUserIds: selected,
         });
         setMsg('Group created');
         router.push(`/groups/${res.id}`);
@@ -77,7 +64,7 @@ export default function GroupsClient({
         <EmptyLedger
           icon={<Users size={32} strokeWidth={1.5} />}
           title="No groups yet"
-          description="Create a reading room and invite your friends. Only accepted companions can be added."
+          description="Create a reading room for shared archives and ephemeral group conversations."
           action={
             <button
               onClick={() => setShowCreate(true)}
@@ -166,43 +153,6 @@ export default function GroupsClient({
                 placeholder="What is this group about?"
                 className="za-field mt-1 min-h-24 resize-y font-[family-name:var(--za-font-serif-body)]"
               />
-            </div>
-
-            <div>
-              <label className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-bold uppercase tracking-[0.06em] text-ink">
-                Invite Friends (owner&apos;s friends only)
-              </label>
-              {friends.length === 0 ? (
-                <p className="mt-1 font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
-                  You have no friends to invite yet. Add friends first.
-                </p>
-              ) : (
-                <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto border-y border-decorative py-3">
-                  {friends.map((f) => (
-                    <label
-                      key={f.id}
-                      className={`inline-flex cursor-pointer items-center gap-2 rounded-small border px-2 py-1.5 transition-colors ${
-                        selected.includes(f.id)
-                          ? 'border-accent bg-accent-soft text-accent'
-                          : 'border-decorative bg-surface-subtle text-ink-muted hover:border-required hover:text-ink'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(f.id)}
-                        onChange={() => toggleSelect(f.id)}
-                        className="accent-accent"
-                      />
-                      <span className="min-w-0 truncate font-[family-name:var(--za-font-serif-body)] text-sm">
-                        {f.name}{' '}
-                        <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-faint">
-                          @{f.username}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
             </div>
 
             <button
