@@ -18,27 +18,6 @@ test.describe('unified site header navigation', () => {
 
   const navigationCases = [
     {
-      name: 'friends',
-      path: '/friends',
-      heading: 'Friends',
-      headingMatch: 'exact',
-      dashboardLink: true,
-    },
-    {
-      name: 'groups',
-      path: '/groups',
-      heading: 'Groups',
-      headingMatch: 'exact',
-      dashboardLink: true,
-    },
-    {
-      name: 'stacks',
-      path: '/stacks',
-      heading: 'Curated Stacks',
-      headingMatch: 'contains',
-      dashboardLink: false,
-    },
-    {
       name: 'settings',
       path: '/settings',
       heading: 'Settings & Account',

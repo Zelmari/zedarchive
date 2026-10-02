@@ -19,7 +19,6 @@ vi.mock('better-auth/crypto', () => ({
 const dbState = vi.hoisted(() => ({
   accounts: [] as Array<Record<string, unknown>>,
   deletedTables: [] as string[],
-  ownedGroups: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -33,7 +32,6 @@ describe('account self-deletion', () => {
     vi.clearAllMocks();
     dbState.accounts = [];
     dbState.deletedTables = [];
-    dbState.ownedGroups = [];
     getAuthUserMock.mockResolvedValue({ id: 'user-1', email: 'test@example.com' });
   });
 
@@ -60,22 +58,9 @@ describe('account self-deletion', () => {
     expect(dbState.deletedTables).toContain('profile_comments');
     expect(dbState.deletedTables).toContain('media_activity_logs');
     expect(dbState.deletedTables).toContain('media_entries');
-    expect(dbState.deletedTables).toContain('discord_links');
-    expect(dbState.deletedTables).toContain('discord_link_codes');
     expect(dbState.deletedTables).toContain('account');
     expect(dbState.deletedTables).toContain('session');
     expect(dbState.deletedTables).toContain('verification');
     expect(dbState.deletedTables).toContain('user');
-  });
-
-  it('blocks deletion while the user still owns a group', async () => {
-    dbState.accounts = [{ providerId: 'credential', password: 'hashed_password' }];
-    dbState.ownedGroups = [{ id: 'g1', name: 'Book Club' }];
-    verifyPasswordMock.mockResolvedValue(true);
-
-    const res = await deleteAccount({ password: 'correctpassword' });
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/Book Club/);
-    expect(dbState.deletedTables).toHaveLength(0);
   });
 });

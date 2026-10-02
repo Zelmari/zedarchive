@@ -1,5 +1,5 @@
-import { groupMembers, mediaEntries } from '@/db/schema';
-import { eq, and, desc, isNotNull, ne, asc, isNull, ilike, sql } from 'drizzle-orm';
+import { mediaEntries } from '@/db/schema';
+import { eq, and, desc, isNotNull, ne, asc } from 'drizzle-orm';
 import {
   VALID_CATEGORIES,
   VALID_STATUSES,
@@ -23,13 +23,11 @@ import { serializeEntry, stableMediaChildDate, stableMediaChildId } from '@/lib/
 import { logActivity } from '@/domain/activity-log';
 import { domainDb, type DbClient } from '@/domain/db-context';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
-import { escapeIlikePattern, ilikeContainsPattern } from '@/lib/ilike';
-import { OFFLINE_CONFLICT_MESSAGE } from '@/lib/offline/conflict';
 
 export type MediaRow = typeof mediaEntries.$inferSelect;
 export type MediaPayload = Omit<
   typeof mediaEntries.$inferInsert,
-  'id' | 'userId' | 'createdAt' | 'groupId' | 'isPrivate'
+  'id' | 'userId' | 'createdAt' | 'isPrivate'
 >;
 
 export function toInt(value: unknown, fallback: number): number;
@@ -185,24 +183,7 @@ export async function assertCanWriteMedia(
     .where(eq(mediaEntries.id, mediaId))
     .limit(1);
 
-  if (!entry) {
-    throw new Error('Entry not found');
-  }
-
-  if (!entry.groupId) {
-    if (entry.userId !== userId) {
-      throw new Error('Entry not found');
-    }
-    return entry;
-  }
-
-  const [membership] = await client
-    .select({ id: groupMembers.id })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, entry.groupId), eq(groupMembers.userId, userId)))
-    .limit(1);
-
-  if (!membership) {
+  if (!entry || entry.userId !== userId) {
     throw new Error('Entry not found');
   }
 
@@ -276,16 +257,10 @@ export async function mutateCycles(
     const [existing] = await tx
       .select()
       .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.id, mediaId),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
       .limit(1);
 
-    if (!existing || existing.groupId || existing.userId !== userId) {
+    if (!existing || existing.userId !== userId) {
       throw new Error('Entry not found');
     }
 
@@ -305,13 +280,7 @@ export async function mutateCycles(
     const [row] = await tx
       .update(mediaEntries)
       .set(setFields)
-      .where(
-        and(
-          eq(mediaEntries.id, mediaId),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
+      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
       .returning();
 
     if (!row) {
@@ -440,7 +409,7 @@ export function buildMediaPayload(
 
 export async function createMediaEntryForUser(
   userId: string,
-  data: Record<string, unknown> & { groupId?: string | null },
+  data: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const parsed = createMediaSchema.safeParse(data);
   if (!parsed.success) {
@@ -463,19 +432,7 @@ export async function createMediaEntryForUser(
       mode: 'create',
     },
   );
-  const rawIsPrivate = Boolean(zodData.isPrivate);
-
-  const rawGroupId = (data as Record<string, unknown>).groupId;
-  const groupId = typeof rawGroupId === 'string' && rawGroupId.trim() ? rawGroupId.trim() : null;
-  if (groupId) {
-    const [membership] = await domainDb()
-      .select({ id: groupMembers.id })
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
-      .limit(1);
-    if (!membership) throw new Error('You are not a member of this group');
-  }
-  const isPrivate = groupId ? false : rawIsPrivate;
+  const isPrivate = Boolean(zodData.isPrivate);
 
   const newEntry = await domainDb().transaction(async (tx) => {
     const [inserted] = await tx
@@ -485,7 +442,6 @@ export async function createMediaEntryForUser(
         userId,
         ...payload,
         isPrivate,
-        groupId,
       })
       .returning();
 
@@ -515,7 +471,7 @@ export async function createMediaEntryForUser(
 export async function updateMediaProgressForUser(
   userId: string,
   id: string,
-  updates: Record<string, unknown> & { groupId?: string | null },
+  updates: Record<string, unknown>,
 ): Promise<MediaEntry> {
   const parsed = updateMediaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -640,8 +596,7 @@ export async function updateMediaProgressForUser(
   if (validatedUpdates.notes !== undefined) {
     updateFields.notes = validatedUpdates.notes == null ? null : validatedUpdates.notes.trim();
   }
-  const incomingGroupId = validatedUpdates.groupId;
-  if (validatedUpdates.isPrivate !== undefined && !incomingGroupId) {
+  if (validatedUpdates.isPrivate !== undefined) {
     updateFields.isPrivate = Boolean(validatedUpdates.isPrivate);
   }
 
@@ -654,30 +609,6 @@ export async function updateMediaProgressForUser(
       updateFields.primaryUnitCurrent < 1
     ) {
       updateFields.primaryUnitCurrent = 1;
-    }
-
-    if (validatedUpdates._offlineUpdatedAt) {
-      if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {
-        throw new Error(OFFLINE_CONFLICT_MESSAGE);
-      }
-    }
-
-    const isGroupEntry = Boolean(existing.groupId);
-    if (
-      isGroupEntry &&
-      (validatedUpdates.rewatch === true || validatedUpdates.cycles !== undefined)
-    ) {
-      throw new Error('Entry not found');
-    }
-    if (isGroupEntry) {
-      updateFields.isPrivate = false;
-      if (incomingGroupId && incomingGroupId !== existing.groupId) {
-        throw new Error('Cannot change groupId of an entry');
-      }
-    } else {
-      if (existing.userId !== userId) throw new Error('Entry not found');
-      if (incomingGroupId) throw new Error('Cannot move personal entry to group via update');
-      if (existing.groupId) throw new Error('Unexpected groupId');
     }
 
     if (updateFields.status === 'completed' && validatedUpdates.priorityIndex === undefined) {
@@ -783,10 +714,11 @@ export async function updateMediaProgressForUser(
       }
     }
 
-    const whereCond = isGroupEntry
-      ? eq(mediaEntries.id, id)
-      : and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId));
-    const [row] = await tx.update(mediaEntries).set(updateFields).where(whereCond).returning();
+    const [row] = await tx
+      .update(mediaEntries)
+      .set(updateFields)
+      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)))
+      .returning();
 
     if (!row) {
       throw new Error('Entry not found');
@@ -829,29 +761,15 @@ export async function updateMediaProgressForUser(
   return serializeEntry(updated) as MediaEntry;
 }
 
-/**
- * Status-only completion helper.
- * Changes shelf status to 'completed' without filling in remaining episodes,
- * chapters, or runtime minutes.
- */
-export async function completeMediaEntryForUser(userId: string, id: string): Promise<MediaEntry> {
-  return updateMediaProgressForUser(userId, id, { status: 'completed' });
-}
-
 export async function deleteMediaEntryForUser(
   userId: string,
   id: string,
-): Promise<{ success: boolean; groupId?: string | null }> {
-  const existing = await assertCanWriteMedia(id, userId);
-  if (existing.groupId) {
-    await domainDb().delete(mediaEntries).where(eq(mediaEntries.id, id));
-    return { success: true, groupId: existing.groupId };
-  } else {
-    await domainDb()
-      .delete(mediaEntries)
-      .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)));
-    return { success: true, groupId: null };
-  }
+): Promise<{ success: boolean }> {
+  await assertCanWriteMedia(id, userId);
+  await domainDb()
+    .delete(mediaEntries)
+    .where(and(eq(mediaEntries.id, id), eq(mediaEntries.userId, userId)));
+  return { success: true };
 }
 
 export interface BulkImportResult {
@@ -875,9 +793,8 @@ export async function bulkImportMediaEntriesForUser(
   const existingRows = await domainDb()
     .select()
     .from(mediaEntries)
-    .where(and(eq(mediaEntries.userId, userId), isNull(mediaEntries.groupId)));
-  const listed = Array.isArray(existingRows) ? existingRows : [];
-  const existing = listed.filter((e) => e && !e.groupId);
+    .where(eq(mediaEntries.userId, userId));
+  const existing = Array.isArray(existingRows) ? existingRows : [];
 
   const existingBySourceOrTitle = new Map<string, Pick<MediaRow, 'id'>>();
   existing.forEach((e) => {
@@ -939,13 +856,7 @@ export async function bulkImportMediaEntriesForUser(
         await domainDb()
           .update(mediaEntries)
           .set({ ...payload, isPrivate })
-          .where(
-            and(
-              eq(mediaEntries.id, match.id),
-              eq(mediaEntries.userId, userId),
-              isNull(mediaEntries.groupId),
-            ),
-          );
+          .where(and(eq(mediaEntries.id, match.id), eq(mediaEntries.userId, userId)));
         if (sourceKey) existingBySourceOrTitle.set(sourceKey, match);
         existingBySourceOrTitle.set(titleKey, match);
         updated++;
@@ -1140,13 +1051,7 @@ export async function reorderPriorityQueueForUser(
     const queued = await tx
       .select({ id: mediaEntries.id })
       .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.userId, userId),
-          isNotNull(mediaEntries.priorityIndex),
-          isNull(mediaEntries.groupId),
-        ),
-      );
+      .where(and(eq(mediaEntries.userId, userId), isNotNull(mediaEntries.priorityIndex)));
 
     const queuedIds = new Set(queued.map((row) => row.id));
     const seen = new Set<string>();
@@ -1233,195 +1138,4 @@ export async function deleteMediaQuoteForUser(
     existingQuotes.filter((quote) => quote.id !== quoteId),
   );
   return serializeEntry(updated) as MediaEntry;
-}
-
-export interface MediaLiteEntry {
-  id: string;
-  title: string;
-  status: string;
-  category: MediaRow['category'];
-  rating: number | null;
-  primaryUnitCurrent: number;
-  primaryUnitTotal: number | null;
-  secondaryUnitCurrent: number;
-  secondaryUnitTotal: number | null;
-  sourceId: string | null;
-  isPrivate: boolean;
-  notes: string | null;
-  tags: string[] | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  updatedAt: string;
-}
-
-export interface ListPersonalLibraryLiteOptions {
-  status?: string;
-  category?: string;
-  query?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * Lightweight personal library query designed for Discord bot (/now, /library, autocomplete).
- * Excludes heavy coverImage base64 payloads to keep query latency and memory minimal.
- */
-export async function listPersonalLibraryLite(
-  userId: string,
-  opts: ListPersonalLibraryLiteOptions = {},
-): Promise<MediaLiteEntry[]> {
-  const conditions = [eq(mediaEntries.userId, userId), isNull(mediaEntries.groupId)];
-
-  if (opts.status && opts.status !== 'any') {
-    conditions.push(eq(mediaEntries.status, opts.status));
-  }
-  if (opts.category && opts.category !== 'any') {
-    conditions.push(eq(mediaEntries.category, opts.category as MediaRow['category']));
-  }
-  if (opts.query && opts.query.trim()) {
-    conditions.push(ilike(mediaEntries.title, ilikeContainsPattern(opts.query.trim())));
-  }
-
-  const queryBuilder = domainDb()
-    .select({
-      id: mediaEntries.id,
-      title: mediaEntries.title,
-      status: mediaEntries.status,
-      category: mediaEntries.category,
-      rating: mediaEntries.rating,
-      primaryUnitCurrent: mediaEntries.primaryUnitCurrent,
-      primaryUnitTotal: mediaEntries.primaryUnitTotal,
-      secondaryUnitCurrent: mediaEntries.secondaryUnitCurrent,
-      secondaryUnitTotal: mediaEntries.secondaryUnitTotal,
-      sourceId: mediaEntries.sourceId,
-      isPrivate: mediaEntries.isPrivate,
-      notes: mediaEntries.notes,
-      tags: mediaEntries.tags,
-      startedAt: mediaEntries.startedAt,
-      completedAt: mediaEntries.completedAt,
-      updatedAt: mediaEntries.updatedAt,
-    })
-    .from(mediaEntries)
-    .where(and(...conditions))
-    .orderBy(
-      // Sort in_progress first when querying broadly
-      sql`CASE WHEN ${mediaEntries.status} = 'in_progress' THEN 0 ELSE 1 END`,
-      desc(mediaEntries.updatedAt),
-    );
-
-  if (opts.limit) {
-    queryBuilder.limit(opts.limit);
-  }
-  if (opts.offset) {
-    queryBuilder.offset(opts.offset);
-  }
-
-  const rows = await queryBuilder;
-
-  return rows.map((r) => ({
-    ...r,
-    tags: (r.tags as string[] | null) ?? [],
-    startedAt: r.startedAt ? r.startedAt.toISOString() : null,
-    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
-    updatedAt: r.updatedAt ? r.updatedAt.toISOString() : new Date().toISOString(),
-  }));
-}
-
-export async function findPersonalEntryBySourceId(
-  userId: string,
-  sourceId: string,
-): Promise<{ id: string; title: string } | null> {
-  const rows = await domainDb()
-    .select({ id: mediaEntries.id, title: mediaEntries.title })
-    .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
-        eq(mediaEntries.sourceId, sourceId),
-      ),
-    )
-    .limit(1);
-  return rows[0] ?? null;
-}
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export interface TitleResolutionResult {
-  entry?: MediaRow;
-  ambiguous?: MediaRow[];
-  notFound?: boolean;
-}
-
-/**
- * Resolves a title option from a slash command or component interaction.
- * Supports exact UUIDs (from autocomplete) or fuzzy title matching.
- */
-export async function resolvePersonalTitle(
-  userId: string,
-  queryOrId: string,
-): Promise<TitleResolutionResult> {
-  const trimmed = queryOrId.trim();
-  if (!trimmed) {
-    return { notFound: true };
-  }
-
-  // 1. Direct UUID lookup (standard autocomplete selection)
-  if (UUID_REGEX.test(trimmed)) {
-    const [entry] = await domainDb()
-      .select()
-      .from(mediaEntries)
-      .where(
-        and(
-          eq(mediaEntries.id, trimmed),
-          eq(mediaEntries.userId, userId),
-          isNull(mediaEntries.groupId),
-        ),
-      )
-      .limit(1);
-
-    if (entry) {
-      return { entry };
-    }
-  }
-
-  // 2. Exact match (case-insensitive)
-  const exactMatches = await domainDb()
-    .select()
-    .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
-        ilike(mediaEntries.title, escapeIlikePattern(trimmed)),
-      ),
-    )
-    .limit(2);
-
-  if (exactMatches.length === 1) {
-    return { entry: exactMatches[0] };
-  }
-
-  // 3. Substring match
-  const substringMatches = await domainDb()
-    .select()
-    .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        isNull(mediaEntries.groupId),
-        ilike(mediaEntries.title, ilikeContainsPattern(trimmed)),
-      ),
-    )
-    .limit(25);
-
-  if (substringMatches.length === 1) {
-    return { entry: substringMatches[0] };
-  }
-
-  if (substringMatches.length > 1) {
-    return { ambiguous: substringMatches };
-  }
-
-  return { notFound: true };
 }

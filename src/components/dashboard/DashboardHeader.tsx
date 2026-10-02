@@ -1,20 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Layers,
-  Tv,
-  Film,
-  BookOpen,
-  LogOut,
-  Palette,
-  Settings,
-  Users,
-  MessageSquare,
-  Library,
-  Sparkles,
-} from 'lucide-react';
-import SyncIndicator from '@/components/ui/SyncIndicator';
+import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings, Sparkles } from 'lucide-react';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -78,33 +65,6 @@ export default function DashboardHeader({
             </button>
           ))}
           <Link
-            href="/friends"
-            className="za-button za-button--tertiary"
-            title="Friends"
-            aria-label="Friends"
-          >
-            <Users size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Friends</span>
-          </Link>
-          <Link
-            href="/groups"
-            className="za-button za-button--tertiary"
-            title="Groups"
-            aria-label="Groups"
-          >
-            <MessageSquare size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Groups</span>
-          </Link>
-          <Link
-            href="/stacks"
-            className="za-button za-button--tertiary"
-            title="Stacks"
-            aria-label="Stacks"
-          >
-            <Library size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Stacks</span>
-          </Link>
-          <Link
             href="/wrapped"
             className="za-button za-button--tertiary"
             title="Wrapped"
@@ -116,7 +76,6 @@ export default function DashboardHeader({
         </nav>
 
         <div className="za-site-header__account">
-          <SyncIndicator />
           <button
             type="button"
             className="za-button za-button--tertiary"

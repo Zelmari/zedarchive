@@ -5,13 +5,11 @@ import { getYearlyActivityHeatmapForUser } from '@/server/queries/activity';
 import { calculateArchiveStats, calculateReadingGoalProgress } from '@/lib/stats';
 import { getInitials, getTileInitials, formatMonthYear } from '@/lib/format';
 import { getSessionUser } from '@/server/internal';
-import { Star, Sparkles, Layers } from 'lucide-react';
+import { Star, Layers } from 'lucide-react';
 import ProfileComments from './ProfileComments';
 import ShareArchiveButton from './ShareArchiveButton';
 import ActivityHeatmap from '@/components/ui/ActivityHeatmap';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
-import FriendButton from './FriendButton';
-import { getFriendshipStatus } from '@/server/queries/friends';
 
 import { THEME_LABELS } from '@/lib/constants';
 import { getCanonicalProfileUrl } from '@/lib/site-url';
@@ -66,9 +64,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
   const data = await getPublicUserProfile(username);
 
   if (!data?.user) {
-    return (
-      <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />
-    );
+    return <ArchiveUnavailable ctaLabel="Go to ZedArchive Home" />;
   }
 
   const { user, entries = [] } = data;
@@ -94,24 +90,6 @@ export default async function PublicProfilePage({ params }: PageParams) {
         image: meRow.image,
         isPublic: meRow.isPublic,
       };
-    }
-  }
-
-  // Friendship status for Add Friend button
-  let friendshipStatus: {
-    status: string | null;
-    isSender: boolean | null;
-    friendshipId: string | null;
-  } = {
-    status: null,
-    isSender: null,
-    friendshipId: null,
-  };
-  if (viewer.isLoggedIn && viewer.id && viewer.id !== user.id) {
-    try {
-      friendshipStatus = await getFriendshipStatus(viewer.id, user.id);
-    } catch {
-      // ignore
     }
   }
 
@@ -259,40 +237,12 @@ export default async function PublicProfilePage({ params }: PageParams) {
               {/* Quick Action Bar */}
               <div className="flex w-full flex-none flex-wrap items-center gap-2 border-t border-decorative pt-4 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
                 <ShareArchiveButton url={profileUrl} />
-                {viewer.isLoggedIn && viewer.username && viewer.id !== user.id && (
-                  <Link
-                    href={`/u/${viewer.username}/compare/${user.username}`}
-                    className="za-button za-button--secondary inline-flex items-center gap-1.5"
-                    title={`Compare your archive with @${user.username}`}
-                  >
-                    <Sparkles size={13} className="shrink-0 text-accent" />
-                    <span>Taste Match</span>
-                  </Link>
-                )}
-                {!viewer.isLoggedIn && (
-                  <Link
-                    href={`/login?callbackUrl=/u/${user.username}`}
-                    className="za-button za-button--secondary inline-flex items-center gap-1.5"
-                    title="Log in to compare taste with this archive"
-                  >
-                    <Sparkles size={13} className="shrink-0 text-ink-muted" />
-                    <span>Taste Match</span>
-                  </Link>
-                )}
                 <Link
                   href={`/u/${user.username}/wrapped/${currentYear}`}
                   className="za-button za-button--secondary inline-flex items-center"
                 >
                   View Annual Wrapped
                 </Link>
-                {viewer.isLoggedIn && viewer.id && viewer.id !== user.id && (
-                  <FriendButton
-                    targetUserId={user.id}
-                    initialStatus={friendshipStatus.status}
-                    initialIsSender={friendshipStatus.isSender}
-                    initialRequestId={friendshipStatus.friendshipId}
-                  />
-                )}
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"

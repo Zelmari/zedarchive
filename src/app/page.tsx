@@ -139,8 +139,8 @@ export default async function HomePage() {
                   <span>Absolute Data Sovereignty</span>
                 </h3>
                 <p>
-                  Your entries belong to you. Work with the archive offline, and use its backup
-                  tools when you need a portable copy. A shelf should never feel held hostage.
+                  Your entries belong to you. Use the archive’s backup tools whenever you need a
+                  portable copy. A shelf should never feel held hostage.
                 </p>
               </article>
             </div>
@@ -206,16 +206,6 @@ export default async function HomePage() {
       <footer className="za-site-footer">
         <div className="za-container za-container--wide za-site-footer__inner">
           <small>episodes · chapters · volumes</small>
-          <small>
-            <a
-              className="za-site-footer__link"
-              href="https://discord.gg/q6U9m4WZUh"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Updates posted regularly on Discord
-            </a>
-          </small>
           <small>no feeds · no noise</small>
         </div>
       </footer>

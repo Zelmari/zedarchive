@@ -42,7 +42,6 @@ interface MediaDetailModalProps {
   onClose: () => void;
   item: MediaEntry | null;
   onUpdate: (id: string, updates: Record<string, unknown>) => Promise<void>;
-  isGroup?: boolean; // hide privacy when true
 }
 
 interface ProviderChipsProps {
@@ -422,7 +421,6 @@ export default function MediaDetailModal({
   onClose,
   item,
   onUpdate,
-  isGroup = false,
 }: MediaDetailModalProps) {
   const [activeSeason, setActiveSeason] = useState(1);
   const [newTagInput, setNewTagInput] = useState('');
@@ -1197,25 +1195,23 @@ export default function MediaDetailModal({
                 </form>
               </div>
 
-              {/* Privacy Plate (personal archives only) */}
-              {!isGroup && (
-                <div className="mt-[var(--za-space-4)] rounded-control border border-decorative bg-surface p-3">
-                  <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
-                    <span>Private Title (Hide from public profile & RSS)</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(item.isPrivate)}
-                      disabled={isUpdating}
-                      onChange={(e) => void runUpdate({ isPrivate: e.target.checked })}
-                      className="h-4 w-4 rounded accent-accent"
-                    />
-                  </label>
-                  <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
-                    When checked, this entry is only visible to you on your private dashboard and
-                    excluded from public showcases.
-                  </p>
-                </div>
-              )}
+              {/* Privacy Plate */}
+              <div className="mt-[var(--za-space-4)] rounded-control border border-decorative bg-surface p-3">
+                <label className="flex cursor-pointer items-center justify-between gap-2 text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink">
+                  <span>Private Title (Hide from public profile & RSS)</span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(item.isPrivate)}
+                    disabled={isUpdating}
+                    onChange={(e) => void runUpdate({ isPrivate: e.target.checked })}
+                    className="h-4 w-4 rounded accent-accent"
+                  />
+                </label>
+                <p className="mt-1 text-[length:var(--za-text-fine)] text-ink-muted">
+                  When checked, this entry is only visible to you on your private dashboard and
+                  excluded from public showcases.
+                </p>
+              </div>
             </aside>
 
             {/* Right Column */}

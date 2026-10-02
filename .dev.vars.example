@@ -2,8 +2,14 @@
 DATABASE_URL="postgres://postgres:[PASSWORD]@[HOST]:5432/postgres"
 BETTER_AUTH_SECRET="generate-a-32-character-random-secret-key"
 BETTER_AUTH_URL="https://zedarchive.your-subdomain.workers.dev"
+BETTER_AUTH_TRUSTED_ORIGINS=""
 NEXT_PUBLIC_APP_URL="https://zedarchive.your-subdomain.workers.dev"
 
 # Optional Integrations
 RESEND_API_KEY=""
 EMAIL_FROM="ZedArchive <noreply@zedarchive.com>"
+
+# TMDB Movie Search & Metadata (Free API token from themoviedb.org) - Optional
+TMDB_API_READ_TOKEN=""
+# Or legacy v3 API key:
+# TMDB_API_KEY=""

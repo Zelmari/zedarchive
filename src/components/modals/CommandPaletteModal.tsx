@@ -9,14 +9,11 @@ import {
   Palette,
   Settings,
   Sparkles,
-  Layers,
   ArrowRight,
   Tv,
   Film,
   BookOpen,
   Library,
-  Users,
-  MessageSquare,
   X,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
@@ -113,18 +110,6 @@ export default function CommandPaletteModal({
         },
       },
       {
-        id: 'cmd-stacks',
-        type: 'action',
-        section: 'commands',
-        title: 'Curated Stacks & Anthologies',
-        subtitle: 'Manage thematic editorial collections',
-        Icon: Layers,
-        onSelect: () => {
-          onClose();
-          router.push('/stacks');
-        },
-      },
-      {
         id: 'cmd-wrapped',
         type: 'action',
         section: 'commands',
@@ -146,30 +131,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           router.push('/settings');
-        },
-      },
-      {
-        id: 'cmd-friends',
-        type: 'action',
-        section: 'commands',
-        title: 'Friends & Requests',
-        subtitle: 'Manage friendships and requests',
-        Icon: Users,
-        onSelect: () => {
-          onClose();
-          router.push('/friends');
-        },
-      },
-      {
-        id: 'cmd-groups',
-        type: 'action',
-        section: 'commands',
-        title: 'Groups & Group Chats',
-        subtitle: 'Collaborate in shared archives and 7-day chats',
-        Icon: MessageSquare,
-        onSelect: () => {
-          onClose();
-          router.push('/groups');
         },
       },
     ],

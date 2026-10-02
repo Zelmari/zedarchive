@@ -17,35 +17,30 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import type { YearlyStats } from '@/lib/stats';
+import type { WrappedStats } from '@/lib/stats';
+import type { WrappedPeriod } from '@/lib/wrapped-period';
+import { DEFAULT_WRAPPED_PERIOD } from '@/lib/wrapped-period';
 import { RatingBadge } from '@/components/ui/Badge';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import SegmentButton from '@/components/ui/SegmentButton';
 import EmptyLedger from '@/components/ui/EmptyLedger';
+import WrappedPeriodSelect from '@/components/ui/WrappedPeriodSelect';
 import { adjacentWrappedYears } from '@/lib/wrapped-year';
 
 interface WrappedClientProps {
-  stats: YearlyStats;
+  stats: WrappedStats;
   userName: string;
   userHandle?: string | null;
   isPublicView?: boolean;
   basePath: string; // e.g. "/wrapped" or "/u/johnsmith/wrapped"
+  period: WrappedPeriod;
 }
 
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+/** The default period stays on the bare edition URL, so shared links keep working. */
+function editionHref(basePath: string, year: number, period: WrappedPeriod): string {
+  const path = `${basePath}/${year}`;
+  return period === DEFAULT_WRAPPED_PERIOD ? path : `${path}?range=${period}`;
+}
 
 export default function WrappedClient({
   stats,
@@ -53,12 +48,14 @@ export default function WrappedClient({
   userHandle,
   isPublicView,
   basePath,
+  period,
 }: WrappedClientProps) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
   const { older, newer } = adjacentWrappedYears(stats.availableYears, stats.year);
-  const maxMonthCompletions = Math.max(1, ...stats.completionsByMonth);
+  const buckets = stats.buckets;
+  const maxBucketCount = Math.max(1, ...buckets.values);
   const categoryBreakdown = [
     { label: 'Shows', count: stats.completedShows, Icon: Tv, tone: 'bg-success' },
     { label: 'Movies', count: stats.completedMovies, Icon: Film, tone: 'bg-accent' },
@@ -67,6 +64,7 @@ export default function WrappedClient({
     { label: 'Manga', count: stats.completedManga, Icon: BookOpen, tone: 'bg-accent' },
   ];
   const maxCategoryCount = Math.max(1, ...categoryBreakdown.map((category) => category.count));
+  const isDefaultPeriod = period === DEFAULT_WRAPPED_PERIOD;
 
   const handleShare = async () => {
     try {
@@ -79,8 +77,8 @@ export default function WrappedClient({
     }
   };
 
-  const handleYearChange = (newYear: number) => {
-    router.push(`${basePath}/${newYear}`);
+  const handlePeriodChange = (next: WrappedPeriod) => {
+    router.push(editionHref(basePath, stats.year, next));
   };
 
   return (
@@ -130,7 +128,7 @@ export default function WrappedClient({
           >
             {older !== null ? (
               <Link
-                href={`${basePath}/${older}`}
+                href={editionHref(basePath, older, period)}
                 className="za-button za-button--secondary shrink-0 gap-1 px-2.5"
                 aria-label={`Previous edition, ${older}`}
               >
@@ -148,7 +146,7 @@ export default function WrappedClient({
                 <SegmentButton
                   key={yr}
                   active={yr === stats.year}
-                  onClick={() => handleYearChange(yr)}
+                  onClick={() => router.push(editionHref(basePath, yr, period))}
                 >
                   {yr}
                 </SegmentButton>
@@ -156,7 +154,7 @@ export default function WrappedClient({
             </div>
             {newer !== null ? (
               <Link
-                href={`${basePath}/${newer}`}
+                href={editionHref(basePath, newer, period)}
                 className="za-button za-button--secondary shrink-0 gap-1 px-2.5"
                 aria-label={`Next edition, ${newer}`}
               >
@@ -167,6 +165,20 @@ export default function WrappedClient({
               <span aria-hidden="true" className="w-[4.5rem] shrink-0" />
             )}
           </nav>
+
+          {/* Period window within the selected edition */}
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <WrappedPeriodSelect
+              value={period}
+              onChange={handlePeriodChange}
+              className="w-full sm:w-56"
+            />
+            <p className="za-kicker min-w-0 text-ink-faint">
+              {stats.periodLabel}
+              <span aria-hidden="true"> · </span>
+              <span className="normal-case tracking-[0.04em]">{stats.rangeLabel}</span>
+            </p>
+          </div>
 
           {/* Illuminated annual masthead */}
           <section className="za-bookplate za-ribbon-clip relative mb-8 p-6 text-center sm:p-10">
@@ -188,8 +200,9 @@ export default function WrappedClient({
             </h1>
             {stats.totalCompleted > 0 && (
               <p className="relative mx-auto mt-3 max-w-[36rem] font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] italic leading-[var(--za-leading-body)] text-ink-muted">
-                You completed {stats.totalCompleted} titles across shows, anime, and reading lists
-                in {stats.year}.
+                {isDefaultPeriod
+                  ? `You completed ${stats.totalCompleted} titles across shows, anime, and reading lists in ${stats.year}.`
+                  : `You completed ${stats.totalCompleted} titles across shows, anime, and reading lists ${stats.periodLabel.toLowerCase()}, between ${stats.rangeLabel}.`}
               </p>
             )}
           </section>
@@ -197,8 +210,8 @@ export default function WrappedClient({
           {stats.totalCompleted === 0 ? (
             <EmptyLedger
               icon={<Sparkles size={32} strokeWidth={1.5} />}
-              title={`Nothing completed in ${stats.year}`}
-              description="Finished shows, films, and books will be tallied here when the year has something to report."
+              title={`Nothing completed ${isDefaultPeriod ? `in ${stats.year}` : stats.periodLabel.toLowerCase()}`}
+              description="Finished shows, films, and books will be tallied here when the period has something to report."
             />
           ) : (
             <>
@@ -282,34 +295,43 @@ export default function WrappedClient({
                 </div>
               </section>
 
-              {/* Month Activity Bar Chart */}
+              {/* Activity across the period */}
               <section className="za-bookplate mb-8 p-6 sm:p-7">
                 <div className="mb-5 flex items-center gap-2 border-b border-decorative pb-3">
                   <Calendar size={16} className="text-accent" aria-hidden="true" />
                   <h2 className="font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-md)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink">
-                    Completions by Month ({stats.year})
+                    {buckets.chartTitle}
                   </h2>
                 </div>
 
-                <div className="flex h-44 items-end gap-1.5 pt-4 sm:gap-3">
-                  {stats.completionsByMonth.map((count, idx) => {
+                <div
+                  className={`flex h-44 items-end gap-1.5 pt-4 ${
+                    buckets.values.length > 14 ? 'gap-0.5 sm:gap-1' : 'sm:gap-3'
+                  }`}
+                >
+                  {buckets.values.map((count, idx) => {
                     const heightPct =
-                      maxMonthCompletions > 0 ? Math.round((count / maxMonthCompletions) * 100) : 0;
+                      maxBucketCount > 0 ? Math.round((count / maxBucketCount) * 100) : 0;
+                    const label = buckets.labels[idx] ?? '';
                     return (
-                      <div key={idx} className="flex flex-1 flex-col items-center gap-2">
+                      <div
+                        key={idx}
+                        className="flex flex-1 flex-col items-center gap-2"
+                        title={`${label}: ${count}`}
+                      >
                         <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] text-ink-muted">
-                          {count > 0 ? count : ''}
+                          {count > 0 && buckets.values.length <= 16 ? count : ''}
                         </span>
                         <div className="h-24 w-full rounded-xs bg-surface-sunken">
                           <div
                             className={`w-full rounded-xs transition-[height] duration-300 ${
-                              count === maxMonthCompletions && count > 0 ? 'bg-gold' : 'bg-accent'
+                              count === maxBucketCount && count > 0 ? 'bg-gold' : 'bg-accent'
                             }`}
                             style={{ height: `${Math.max(count > 0 ? 15 : 0, heightPct)}%` }}
                           />
                         </div>
                         <span className="font-[family-name:var(--za-font-mono)] text-[length:var(--za-text-fine)] uppercase text-ink-muted">
-                          {MONTH_NAMES[idx]}
+                          {idx % buckets.labelStep === 0 ? label : ''}
                         </span>
                       </div>
                     );
@@ -328,7 +350,8 @@ export default function WrappedClient({
                       </h2>
                     </div>
                     <span className="font-[family-name:var(--za-font-serif-body)] text-sm italic text-ink-muted">
-                      Highest rated of {stats.year}
+                      Highest rated{' '}
+                      {isDefaultPeriod ? `of ${stats.year}` : stats.periodLabel.toLowerCase()}
                     </span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">

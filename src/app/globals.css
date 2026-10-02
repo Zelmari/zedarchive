@@ -1100,12 +1100,6 @@ select.za-field {
   text-transform: uppercase;
 }
 
-.za-page-intro {
-  margin-block-end: var(--za-space-8);
-  border-block-end: var(--za-border-width) solid var(--za-color-border-decorative);
-  padding-block-end: var(--za-space-6);
-}
-
 .za-segment {
   min-block-size: var(--za-control-min-block-size);
   display: inline-flex;

@@ -2,17 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Layers, Users, MessageSquare, Library, Sparkles } from 'lucide-react';
+import { Layers, Sparkles } from 'lucide-react';
 
 const TABS = [
   { href: '/dashboard', label: 'Archive', icon: Layers },
-  { href: '/friends', label: 'Friends', icon: Users },
-  { href: '/groups', label: 'Groups', icon: MessageSquare },
-  { href: '/stacks', label: 'Stacks', icon: Library },
   { href: '/wrapped', label: 'Wrapped', icon: Sparkles },
 ] as const;
 
-const HIDDEN_ON = ['/login', '/signup', '/reset-password', '/verified', '/offline'];
+const HIDDEN_ON = ['/login', '/signup', '/reset-password', '/verified'];
 
 export default function MobileTabBar() {
   const pathname = usePathname() || '/';

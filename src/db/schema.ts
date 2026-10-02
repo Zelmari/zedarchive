@@ -7,7 +7,6 @@ import {
   jsonb,
   pgEnum,
   index,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import type { StructureItem, MediaCycle, MediaQuote } from '@/types/media';
 import type { ThemeId, ReadingGoalConfig, CustomThemePalette } from '@/types/user';
@@ -80,96 +79,6 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// ─── Friends & Groups ─────────────────────────────────────────────────────────
-
-export const friendshipStatusEnum = pgEnum('friendship_status', [
-  'pending',
-  'accepted',
-  'rejected',
-]);
-
-export const friendships = pgTable(
-  'friendships',
-  {
-    id: text('id').primaryKey(),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    receiverId: text('receiver_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    status: friendshipStatusEnum('status').notNull().default('pending'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('friendships_sender_idx').on(table.senderId),
-    index('friendships_receiver_idx').on(table.receiverId),
-    index('friendships_sender_status_idx').on(table.senderId, table.status),
-    index('friendships_receiver_status_idx').on(table.receiverId, table.status),
-    uniqueIndex('friendships_pair_uidx').on(table.senderId, table.receiverId),
-  ],
-);
-
-export const groupRoleEnum = pgEnum('group_role', ['owner', 'member']);
-
-export const groups = pgTable(
-  'groups',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    description: text('description'),
-    image: text('image'),
-    ownerId: text('owner_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [index('groups_owner_idx').on(table.ownerId)],
-);
-
-export const groupMembers = pgTable(
-  'group_members',
-  {
-    id: text('id').primaryKey(),
-    groupId: text('group_id')
-      .notNull()
-      .references(() => groups.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    role: groupRoleEnum('role').notNull().default('member'),
-    joinedAt: timestamp('joined_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('group_members_group_idx').on(table.groupId),
-    index('group_members_user_idx').on(table.userId),
-    uniqueIndex('group_members_group_user_uidx').on(table.groupId, table.userId),
-  ],
-);
-
-export const groupMessages = pgTable(
-  'group_messages',
-  {
-    id: text('id').primaryKey(),
-    groupId: text('group_id')
-      .notNull()
-      .references(() => groups.id, { onDelete: 'cascade' }),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    body: text('body').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-  },
-  (table) => [
-    index('group_messages_group_created_idx').on(table.groupId, table.createdAt.desc()),
-    index('group_messages_expires_idx').on(table.expiresAt),
-    index('group_messages_group_expires_idx').on(table.groupId, table.expiresAt),
-  ],
-);
-
 // MEDIA TRACKER TABLES
 
 export const mediaCategoryEnum = pgEnum('media_category', [
@@ -223,7 +132,6 @@ export const mediaEntries = pgTable(
     priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
     /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
     isPrivate: boolean('is_private').notNull().default(false),
-    groupId: text('group_id').references(() => groups.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -238,8 +146,6 @@ export const mediaEntries = pgTable(
       table.isPrivate,
       table.updatedAt.desc(),
     ),
-    index('media_entries_group_id_idx').on(table.groupId),
-    index('media_entries_group_updated_idx').on(table.groupId, table.updatedAt.desc()),
   ],
 );
 
@@ -283,211 +189,5 @@ export const profileComments = pgTable(
     index('comments_expires_idx').on(table.expiresAt),
     index('comments_profile_expires_idx').on(table.profileUserId, table.expiresAt),
     index('comments_author_created_idx').on(table.authorUserId, table.createdAt.desc()),
-  ],
-);
-
-// ─── Phase 2: Normalized Relational Tables ────────────────────────────────────
-
-/**
- * Normalized tag registry per user. Deduplicates tags across media entries.
- * The JSONB `tags` array on `media_entries` remains the primary source for
- * single-entry reads; these tables power cross-archive analytics and tag search.
- */
-export const mediaTags = pgTable(
-  'media_tags',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    normalizedName: text('normalized_name').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('media_tags_user_idx').on(table.userId),
-    index('media_tags_user_name_idx').on(table.userId, table.normalizedName),
-  ],
-);
-
-export const mediaEntryTags = pgTable(
-  'media_entry_tags',
-  {
-    mediaId: text('media_id')
-      .notNull()
-      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
-    tagId: text('tag_id')
-      .notNull()
-      .references(() => mediaTags.id, { onDelete: 'cascade' }),
-  },
-  (table) => [
-    index('entry_tags_media_idx').on(table.mediaId),
-    index('entry_tags_tag_idx').on(table.tagId),
-  ],
-);
-
-/**
- * Normalized rewatch / reread cycles. The JSONB `cycles` on `media_entries`
- * remains for fast single-entry reads; this table powers historical analytics.
- */
-export const mediaCycles = pgTable(
-  'media_cycles',
-  {
-    id: text('id').primaryKey(),
-    mediaId: text('media_id')
-      .notNull()
-      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    cycleNumber: integer('cycle_number').notNull().default(1),
-    startedAt: timestamp('started_at'),
-    completedAt: timestamp('completed_at'),
-    rating: integer('rating'),
-    notes: text('notes'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('cycles_media_id_idx').on(table.mediaId),
-    index('cycles_user_completed_idx').on(table.userId, table.completedAt.desc()),
-  ],
-);
-
-/**
- * Normalized quotes repository. The JSONB `quotes` on `media_entries` remains
- * for fast single-entry reads; this table powers the favorites feed.
- */
-export const mediaQuotes = pgTable(
-  'media_quotes',
-  {
-    id: text('id').primaryKey(),
-    mediaId: text('media_id')
-      .notNull()
-      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    text: text('text').notNull(),
-    speaker: text('speaker'),
-    citation: text('citation'),
-    isFavorite: boolean('is_favorite').notNull().default(false),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('quotes_media_id_idx').on(table.mediaId),
-    index('quotes_user_favorite_idx').on(table.userId, table.isFavorite),
-  ],
-);
-
-/**
- * User reading / watching goals by period (year or year-month).
- */
-export const userGoals = pgTable(
-  'user_goals',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    period: text('period').notNull(), // '2026' or '2026-08'
-    target: integer('target').notNull(),
-    category: mediaCategoryEnum('category').notNull().default('book'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [index('goals_user_period_idx').on(table.userId, table.period)],
-);
-
-// ─── Phase 6: External API Cache ─────────────────────────────────────────────
-
-/**
- * PostgreSQL-backed cache for external API responses (TMDB, TVMaze, etc.).
- * Used when Cloudflare KV is unavailable or for fallback persistence.
- */
-export const externalApiCache = pgTable(
-  'external_api_cache',
-  {
-    key: text('key').primaryKey(),
-    payload: jsonb('payload').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-  },
-  (table) => [index('api_cache_expires_at_idx').on(table.expiresAt)],
-);
-
-// ─── Phase 8.2: Curated Stacks & Anthologies ─────────────────────────────────
-
-export const stacks = pgTable(
-  'stacks',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    title: text('title').notNull(),
-    slug: text('slug').notNull(),
-    description: text('description'),
-    isPublic: boolean('is_public').notNull().default(true),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [index('stacks_user_slug_idx').on(table.userId, table.slug)],
-);
-
-export const stackItems = pgTable(
-  'stack_items',
-  {
-    id: text('id').primaryKey(),
-    stackId: text('stack_id')
-      .notNull()
-      .references(() => stacks.id, { onDelete: 'cascade' }),
-    mediaId: text('media_id')
-      .notNull()
-      .references(() => mediaEntries.id, { onDelete: 'cascade' }),
-    orderIndex: integer('order_index').notNull().default(0),
-    annotation: text('annotation'), // User essay/note on why this item belongs in the stack
-  },
-  (table) => [
-    index('stack_items_stack_id_idx').on(table.stackId),
-    index('stack_items_media_id_idx').on(table.mediaId),
-    uniqueIndex('stack_items_stack_media_unique').on(table.stackId, table.mediaId),
-  ],
-);
-
-// ─── Phase 10: Discord Bot Integration ────────────────────────────────────────
-
-export const discordLinks = pgTable(
-  'discord_links',
-  {
-    discordUserId: text('discord_user_id').primaryKey(), // snowflake
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    discordUsername: text('discord_username'), // display cache, may go stale
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex('discord_links_user_uidx').on(table.userId),
-    index('discord_links_user_idx').on(table.userId),
-  ],
-);
-
-export const discordLinkCodes = pgTable(
-  'discord_link_codes',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    codeHash: text('code_hash').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    consumedAt: timestamp('consumed_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('discord_link_codes_user_idx').on(table.userId),
-    index('discord_link_codes_hash_idx').on(table.codeHash),
-    index('discord_link_codes_expires_idx').on(table.expiresAt),
   ],
 );

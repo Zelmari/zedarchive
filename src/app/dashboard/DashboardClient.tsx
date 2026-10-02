@@ -38,7 +38,6 @@ import {
   updateMediaProgress,
   deleteMediaEntry,
 } from '@/server/media';
-import { offlineAwareMutation } from '@/lib/offline/offlineAwareMutation';
 
 interface ConfirmState {
   isOpen: boolean;
@@ -50,17 +49,10 @@ interface ConfirmState {
   onConfirm: (() => Promise<void>) | null;
 }
 
-type MutationAction =
-  'UPDATE_PROGRESS' | 'UPDATE_STATUS' | 'CREATE_ENTRY' | 'UPDATE_NOTES' | 'DELETE_ENTRY';
-
 interface MutateOptions<T> {
-  actionType: MutationAction;
-  id: string;
   payload: Record<string, unknown>;
   mutation: (payload: Record<string, unknown>) => Promise<T>;
-  originalUpdatedAt?: string;
   successMessage?: string | ((result: T) => string);
-  offlineMessage?: string;
   errorMessage: string;
   onSuccess?: (result: T) => void;
   rollback?: () => void;
@@ -92,19 +84,9 @@ interface DashboardClientProps {
     verificationDismissedAt?: string | null;
   } | null;
   initialEntries?: MediaEntry[];
-  /** Group mode: when set, archive is scoped to groupId and title shows groupName */
-  groupId?: string | null;
-  groupName?: string | null;
-  isGroup?: boolean;
 }
 
-export default function DashboardClient({
-  user,
-  initialEntries = [],
-  groupId = null,
-  groupName = null,
-  isGroup = false,
-}: DashboardClientProps) {
+export default function DashboardClient({ user, initialEntries = [] }: DashboardClientProps) {
   const router = useRouter();
   const [entries, setEntries] = useState<MediaEntry[]>(initialEntries);
   const [activeTab, setActiveTab] = useState<DashboardTab>('total');
@@ -241,37 +223,17 @@ export default function DashboardClient({
     });
   };
 
-  // Optimistic UI updates — inject groupId when in group mode
-  const withGroup = (payload: Record<string, unknown>) =>
-    isGroup && groupId ? { ...payload, groupId } : payload;
-
+  // Optimistic UI updates
   const mutate = async <T,>({
-    actionType,
-    id,
     payload,
     mutation,
-    originalUpdatedAt,
     successMessage,
-    offlineMessage,
     errorMessage,
     onSuccess,
     rollback,
   }: MutateOptions<T>): Promise<T | null> => {
-    const groupedPayload = withGroup(payload);
-
     try {
-      const result = await offlineAwareMutation(
-        actionType,
-        id,
-        groupedPayload,
-        () => mutation(groupedPayload),
-        originalUpdatedAt,
-      );
-
-      if (result === null) {
-        if (offlineMessage) addToast(offlineMessage, 'info');
-        return null;
-      }
+      const result = await mutation(payload);
 
       onSuccess?.(result);
       if (successMessage) {
@@ -291,7 +253,6 @@ export default function DashboardClient({
 
   const handleUpdate = async (id: string, updates: Record<string, unknown>) => {
     const previousEntries = [...entries];
-    const existingItem = entries.find((e) => e.id === id);
 
     // Optimistic update: map only the matching entry and stamp its local update time.
     setEntries((prev) =>
@@ -302,12 +263,8 @@ export default function DashboardClient({
 
     try {
       await mutate({
-        actionType: 'UPDATE_PROGRESS',
-        id,
         payload: updates,
         mutation: (payload) => updateMediaProgress(id, payload),
-        originalUpdatedAt: existingItem?.updatedAt,
-        offlineMessage: 'Offline: progress update queued for sync',
         errorMessage: 'Failed to update progress',
         onSuccess: (updated) => {
           setEntries((prev) =>
@@ -323,15 +280,10 @@ export default function DashboardClient({
 
   const handleCreate = async (data: Record<string, unknown>) => {
     const newEntry = await mutate({
-      actionType: 'CREATE_ENTRY',
-      id: (data.id as string) || crypto.randomUUID(),
       payload: data,
       mutation: (payload) => createMediaEntry(payload),
-      successMessage: (result) =>
-        `Added "${result.title}" to ${isGroup ? 'group archive' : 'archive'}`,
-      offlineMessage: 'Offline: new title queued for creation',
+      successMessage: (result) => `Added "${result.title}" to archive`,
       errorMessage: 'Failed to create entry',
-      // Optimistic create waits for the server entry; offline creates remain queued only.
       onSuccess: (result) => setEntries((prev) => [result, ...prev]),
     });
     return newEntry;
@@ -355,12 +307,9 @@ export default function DashboardClient({
 
         try {
           await mutate({
-            actionType: 'DELETE_ENTRY',
-            id,
             payload: {},
             mutation: () => deleteMediaEntry(id),
             successMessage: `Removed "${itemTitle}" from archive`,
-            offlineMessage: 'Offline: removal queued for sync',
             errorMessage: 'Failed to delete entry',
             rollback: () => setEntries(previousEntries),
           });
@@ -439,30 +388,25 @@ export default function DashboardClient({
   };
 
   return (
-    <div className={isGroup ? 'flex flex-col' : 'flex min-h-screen flex-col bg-canvas text-ink'}>
-      {!isGroup && (
-        <DashboardHeader
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          total={entries.length}
-          shows={filters.showEntries.length}
-          movies={filters.movieEntries.length}
-          books={filters.bookEntries.length}
-          userName={user?.name ?? ''}
-          username={user?.username ?? null}
-          onOpenTheme={() => modals.open('theme')}
-          onSignOut={handleSignOut}
-          isSigningOut={isSigningOut}
-        />
-      )}
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
+      <DashboardHeader
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        total={entries.length}
+        shows={filters.showEntries.length}
+        movies={filters.movieEntries.length}
+        books={filters.bookEntries.length}
+        userName={user?.name ?? ''}
+        username={user?.username ?? null}
+        onOpenTheme={() => modals.open('theme')}
+        onSignOut={handleSignOut}
+        isSigningOut={isSigningOut}
+      />
 
-      <main
-        id="main-content"
-        className={isGroup ? 'flex-1' : 'flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]'}
-      >
-        <div className={isGroup ? undefined : 'za-container'}>
-          {/* Email verification nudge — hidden in group mode */}
-          {!isGroup && user?.emailVerified === false && !verificationDismissed && (
+      <main id="main-content" className="flex-1 pb-[var(--za-space-12)] pt-[var(--za-space-6)]">
+        <div className="za-container">
+          {/* Email verification nudge */}
+          {user?.emailVerified === false && !verificationDismissed && (
             <div className="za-notice za-notice--warning mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 text-[length:var(--za-text-supporting)]">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={16} />
@@ -492,104 +436,82 @@ export default function DashboardClient({
             </div>
           )}
 
-          {isGroup ? (
-            <div className="mb-[var(--za-space-4)] flex flex-wrap items-center justify-between gap-3 border-b border-decorative pb-4">
-              <p className="za-kicker">Shared archive · {entries.length} titles</p>
-              <button
-                type="button"
-                className="za-button za-button--primary"
-                onClick={() => modals.open('add')}
-                title="Add media"
-                aria-label="Add Media"
-              >
-                <Plus size={16} strokeWidth={2.2} />
-                <span>Add Media</span>
-              </button>
-            </div>
-          ) : (
-            <div className="mb-[var(--za-space-6)] border-b-4 border-double border-required pb-[var(--za-space-5)]">
-              <div className="flex flex-wrap items-end justify-between gap-[var(--za-space-5)]">
-                <div className="flex min-w-0 flex-col gap-[var(--za-space-1)]">
-                  <p className="font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-sm)] italic leading-[var(--za-leading-body)] text-ink-muted">
-                    {isGroup && groupName
-                      ? `The shared collection of ${groupName}`
-                      : `The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
-                  </p>
-                  <h1 className="min-w-0 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
-                    {isGroup && groupName
-                      ? groupName
-                      : activeTab === 'total'
-                        ? 'Your Media Archive'
-                        : activeTab === 'shows'
-                          ? 'Shows & Anime'
-                          : activeTab === 'movies'
-                            ? 'Movies & Films'
-                            : 'Books & Manga'}
-                  </h1>
-                  <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
-                    {isGroup && groupName
-                      ? `Shared archive · ${entries.length} titles · collaborative`
-                      : activeTab === 'total'
-                        ? `Tracking ${entries.length} items across shows, movies, and books`
-                        : `Tracking ${tabNoun} in your collection`}
-                  </p>
-                </div>
+          <div className="mb-[var(--za-space-6)] border-b-4 border-double border-required pb-[var(--za-space-5)]">
+            <div className="flex flex-wrap items-end justify-between gap-[var(--za-space-5)]">
+              <div className="flex min-w-0 flex-col gap-[var(--za-space-1)]">
+                <p className="font-[family-name:var(--za-font-editorial)] text-[length:var(--za-text-heading-sm)] italic leading-[var(--za-leading-body)] text-ink-muted">
+                  {`The private collection of ${user?.username ? `@${user.username}` : user?.name || 'you'}`}
+                </p>
+                <h1 className="min-w-0 break-words font-[family-name:var(--za-font-display)] text-[length:var(--za-text-heading-xl)] font-[var(--za-weight-heading)] uppercase leading-[var(--za-leading-compact)] tracking-[0.04em] text-ink">
+                  {activeTab === 'total'
+                    ? 'Your Media Archive'
+                    : activeTab === 'shows'
+                      ? 'Shows & Anime'
+                      : activeTab === 'movies'
+                        ? 'Movies & Films'
+                        : 'Books & Manga'}
+                </h1>
+                <p className="font-[family-name:var(--za-font-serif-body)] text-[length:var(--za-text-supporting)] leading-[var(--za-leading-body)] text-ink-muted">
+                  {activeTab === 'total'
+                    ? `Tracking ${entries.length} items across shows, movies, and books`
+                    : `Tracking ${tabNoun} in your collection`}
+                </p>
+              </div>
 
-                <div className="flex flex-wrap items-end gap-[var(--za-space-4)]">
-                  <dl className="flex items-end gap-[var(--za-space-4)] font-[family-name:var(--za-font-mono)]">
-                    <div className="flex flex-col items-end gap-0.5">
-                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                        {entries.length}
-                      </dd>
-                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                        Total
-                      </dt>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                        {filters.showEntries.length}
-                      </dd>
-                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                        Shows
-                      </dt>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                        {filters.movieEntries.length}
-                      </dd>
-                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                        Films
-                      </dt>
-                    </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
-                        {filters.bookEntries.length}
-                      </dd>
-                      <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
-                        Books
-                      </dt>
-                    </div>
-                  </dl>
+              <div className="flex flex-wrap items-end gap-[var(--za-space-4)]">
+                <dl className="flex items-end gap-[var(--za-space-4)] font-[family-name:var(--za-font-mono)]">
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {entries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Total
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.showEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Shows
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.movieEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Films
+                    </dt>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <dd className="text-[length:var(--za-text-heading-sm)] font-[var(--za-weight-heading)] text-ink">
+                      {filters.bookEntries.length}
+                    </dd>
+                    <dt className="text-[length:var(--za-text-fine)] uppercase tracking-[0.1em] text-ink-faint">
+                      Books
+                    </dt>
+                  </div>
+                </dl>
 
-                  {entries.length > 0 && (
-                    <button
-                      type="button"
-                      className="za-button za-button--primary"
-                      onClick={() => modals.open('add')}
-                      title="Add media"
-                      aria-label={`Add ${activeTab === 'books' ? 'Book' : 'Media'}`}
-                    >
-                      <Plus size={16} strokeWidth={2.2} />
-                      <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
-                    </button>
-                  )}
-                </div>
+                {entries.length > 0 && (
+                  <button
+                    type="button"
+                    className="za-button za-button--primary"
+                    onClick={() => modals.open('add')}
+                    title="Add media"
+                    aria-label={`Add ${activeTab === 'books' ? 'Book' : 'Media'}`}
+                  >
+                    <Plus size={16} strokeWidth={2.2} />
+                    <span>Add {activeTab === 'books' ? 'Book' : 'Media'}</span>
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Reading Goal Banner (shown when on Books tab or when goal exists) */}
-          {!isGroup && (activeTab === 'books' || goalProgress) && (
+          {(activeTab === 'books' || goalProgress) && (
             <section
               aria-label="Reading goal"
               className="mb-[var(--za-space-4)] rounded-small border border-decorative bg-surface-sunken p-[var(--za-space-4)] shadow-raised"
@@ -740,7 +662,6 @@ export default function DashboardClient({
         item={activeDetailItem}
         onClose={() => setDetailItem(null)}
         onUpdate={handleUpdate}
-        isGroup={isGroup}
       />
 
       <ThemeModal
@@ -756,11 +677,7 @@ export default function DashboardClient({
         }}
       />
 
-      <ActivityTimelineModal
-        isOpen={modals.isOpen('activity')}
-        onClose={modals.close}
-        isGroup={isGroup}
-      />
+      <ActivityTimelineModal isOpen={modals.isOpen('activity')} onClose={modals.close} />
 
       <ShareProfileModal
         isOpen={modals.isOpen('share')}
