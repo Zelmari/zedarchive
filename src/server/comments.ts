@@ -12,7 +12,7 @@ import {
 } from '@/lib/constants';
 import type { ProfileComment } from '@/types/comments';
 import { createCommentSchema } from '@/lib/validations/comment';
-import { getAuthUser, getSessionUser } from './internal';
+import { getAuthUser } from './internal';
 
 type CommentRow = typeof profileComments.$inferSelect;
 
@@ -35,13 +35,6 @@ function serializeCommentFlat(row: CommentRow, author: AuthorInfo): ProfileComme
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     expiresAt: row.expiresAt instanceof Date ? row.expiresAt.toISOString() : String(row.expiresAt),
   };
-}
-
-import { getCommentsByProfileUserId } from './queries/comments';
-
-export async function getProfileComments(profileUserId: unknown): Promise<ProfileComment[]> {
-  const viewer = await getSessionUser();
-  return getCommentsByProfileUserId(profileUserId, viewer?.id);
 }
 
 export async function createProfileComment(

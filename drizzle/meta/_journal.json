@@ -134,6 +134,13 @@
       "when": 1788663451109,
       "tag": "0018_little_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790915803646,
+      "tag": "0019_doomdeletion",
+      "breakpoints": true
     }
   ]
 }

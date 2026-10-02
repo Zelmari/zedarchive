@@ -144,14 +144,6 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
   };
 }
 
-export function extractEntryYear(entry: MediaEntry): number | null {
-  const dateStr = entry.completedAt;
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  const y = d.getFullYear();
-  return isNaN(y) ? null : y;
-}
-
 function yearsForEntry(entry: MediaEntry): Set<number> {
   const years = new Set<number>();
   const add = (value: string | null | undefined) => {
