@@ -22,7 +22,7 @@ export async function getActivityLogsByUserId(
   }));
 }
 
-export { getActiveDaysForUser, getUserStreakForUser } from '@/domain/activity-log';
+export { getUserStreakForUser } from '@/domain/activity-log';
 
 /**
  * Returns a day → count map of activity for the trailing year.
@@ -43,9 +43,9 @@ export async function getYearlyActivityHeatmapForUser(
   const dayExpr: SQL = sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`;
   const countExpr: SQL = sql`COUNT(*)::int`;
 
-  // Phase 3: when the viewer is not the owner, join against media_entries and
-  // filter out logs that originate from private entries.
-  const isPublicView = viewerUserId !== undefined && viewerUserId !== userId;
+  // When the viewer is not the owner (including anonymous visitors), join
+  // against media_entries and filter out logs that originate from private entries.
+  const isPublicView = viewerUserId !== userId;
 
   let rows: Array<{ day: unknown; count: unknown }>;
 
