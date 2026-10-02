@@ -16,7 +16,7 @@ import {
 
 /**
  * Tag schema: trims, lowercases, validates character set.
- * Cap is 50 to match the sanitizeTags() runtime cap in server/media.ts.
+ * Cap is 50 to match the sanitizeTags() runtime cap in domain/media.ts.
  */
 export const mediaTagSchema = z
   .string()

@@ -1,5 +1,5 @@
 import { mediaEntries } from '@/db/schema';
-import { eq, and, desc, isNotNull, ne, asc, ilike, sql } from 'drizzle-orm';
+import { eq, and, desc, isNotNull, ne, asc } from 'drizzle-orm';
 import {
   VALID_CATEGORIES,
   VALID_STATUSES,
@@ -23,7 +23,6 @@ import { serializeEntry, stableMediaChildDate, stableMediaChildId } from '@/lib/
 import { logActivity } from '@/domain/activity-log';
 import { domainDb, type DbClient } from '@/domain/db-context';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
-import { escapeIlikePattern, ilikeContainsPattern } from '@/lib/ilike';
 
 export type MediaRow = typeof mediaEntries.$inferSelect;
 export type MediaPayload = Omit<
@@ -762,15 +761,6 @@ export async function updateMediaProgressForUser(
   return serializeEntry(updated) as MediaEntry;
 }
 
-/**
- * Status-only completion helper.
- * Changes shelf status to 'completed' without filling in remaining episodes,
- * chapters, or runtime minutes.
- */
-export async function completeMediaEntryForUser(userId: string, id: string): Promise<MediaEntry> {
-  return updateMediaProgressForUser(userId, id, { status: 'completed' });
-}
-
 export async function deleteMediaEntryForUser(
   userId: string,
   id: string,
@@ -1148,178 +1138,4 @@ export async function deleteMediaQuoteForUser(
     existingQuotes.filter((quote) => quote.id !== quoteId),
   );
   return serializeEntry(updated) as MediaEntry;
-}
-
-export interface MediaLiteEntry {
-  id: string;
-  title: string;
-  status: string;
-  category: MediaRow['category'];
-  rating: number | null;
-  primaryUnitCurrent: number;
-  primaryUnitTotal: number | null;
-  secondaryUnitCurrent: number;
-  secondaryUnitTotal: number | null;
-  sourceId: string | null;
-  isPrivate: boolean;
-  notes: string | null;
-  tags: string[] | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  updatedAt: string;
-}
-
-export interface ListPersonalLibraryLiteOptions {
-  status?: string;
-  category?: string;
-  query?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * Lightweight personal library query.
- * Excludes heavy coverImage base64 payloads to keep query latency and memory minimal.
- */
-export async function listPersonalLibraryLite(
-  userId: string,
-  opts: ListPersonalLibraryLiteOptions = {},
-): Promise<MediaLiteEntry[]> {
-  const conditions = [eq(mediaEntries.userId, userId)];
-
-  if (opts.status && opts.status !== 'any') {
-    conditions.push(eq(mediaEntries.status, opts.status));
-  }
-  if (opts.category && opts.category !== 'any') {
-    conditions.push(eq(mediaEntries.category, opts.category as MediaRow['category']));
-  }
-  if (opts.query && opts.query.trim()) {
-    conditions.push(ilike(mediaEntries.title, ilikeContainsPattern(opts.query.trim())));
-  }
-
-  const queryBuilder = domainDb()
-    .select({
-      id: mediaEntries.id,
-      title: mediaEntries.title,
-      status: mediaEntries.status,
-      category: mediaEntries.category,
-      rating: mediaEntries.rating,
-      primaryUnitCurrent: mediaEntries.primaryUnitCurrent,
-      primaryUnitTotal: mediaEntries.primaryUnitTotal,
-      secondaryUnitCurrent: mediaEntries.secondaryUnitCurrent,
-      secondaryUnitTotal: mediaEntries.secondaryUnitTotal,
-      sourceId: mediaEntries.sourceId,
-      isPrivate: mediaEntries.isPrivate,
-      notes: mediaEntries.notes,
-      tags: mediaEntries.tags,
-      startedAt: mediaEntries.startedAt,
-      completedAt: mediaEntries.completedAt,
-      updatedAt: mediaEntries.updatedAt,
-    })
-    .from(mediaEntries)
-    .where(and(...conditions))
-    .orderBy(
-      // Sort in_progress first when querying broadly
-      sql`CASE WHEN ${mediaEntries.status} = 'in_progress' THEN 0 ELSE 1 END`,
-      desc(mediaEntries.updatedAt),
-    );
-
-  if (opts.limit) {
-    queryBuilder.limit(opts.limit);
-  }
-  if (opts.offset) {
-    queryBuilder.offset(opts.offset);
-  }
-
-  const rows = await queryBuilder;
-
-  return rows.map((r) => ({
-    ...r,
-    tags: (r.tags as string[] | null) ?? [],
-    startedAt: r.startedAt ? r.startedAt.toISOString() : null,
-    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
-    updatedAt: r.updatedAt ? r.updatedAt.toISOString() : new Date().toISOString(),
-  }));
-}
-
-export async function findPersonalEntryBySourceId(
-  userId: string,
-  sourceId: string,
-): Promise<{ id: string; title: string } | null> {
-  const rows = await domainDb()
-    .select({ id: mediaEntries.id, title: mediaEntries.title })
-    .from(mediaEntries)
-    .where(and(eq(mediaEntries.userId, userId), eq(mediaEntries.sourceId, sourceId)))
-    .limit(1);
-  return rows[0] ?? null;
-}
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export interface TitleResolutionResult {
-  entry?: MediaRow;
-  ambiguous?: MediaRow[];
-  notFound?: boolean;
-}
-
-/**
- * Resolves a title option from a slash command or component interaction.
- * Supports exact UUIDs (from autocomplete) or fuzzy title matching.
- */
-export async function resolvePersonalTitle(
-  userId: string,
-  queryOrId: string,
-): Promise<TitleResolutionResult> {
-  const trimmed = queryOrId.trim();
-  if (!trimmed) {
-    return { notFound: true };
-  }
-
-  // 1. Direct UUID lookup (standard autocomplete selection)
-  if (UUID_REGEX.test(trimmed)) {
-    const [entry] = await domainDb()
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, trimmed), eq(mediaEntries.userId, userId)))
-      .limit(1);
-
-    if (entry) {
-      return { entry };
-    }
-  }
-
-  // 2. Exact match (case-insensitive)
-  const exactMatches = await domainDb()
-    .select()
-    .from(mediaEntries)
-    .where(
-      and(eq(mediaEntries.userId, userId), ilike(mediaEntries.title, escapeIlikePattern(trimmed))),
-    )
-    .limit(2);
-
-  if (exactMatches.length === 1) {
-    return { entry: exactMatches[0] };
-  }
-
-  // 3. Substring match
-  const substringMatches = await domainDb()
-    .select()
-    .from(mediaEntries)
-    .where(
-      and(
-        eq(mediaEntries.userId, userId),
-        ilike(mediaEntries.title, ilikeContainsPattern(trimmed)),
-      ),
-    )
-    .limit(25);
-
-  if (substringMatches.length === 1) {
-    return { entry: substringMatches[0] };
-  }
-
-  if (substringMatches.length > 1) {
-    return { ambiguous: substringMatches };
-  }
-
-  return { notFound: true };
 }

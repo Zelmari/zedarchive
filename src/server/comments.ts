@@ -2,14 +2,9 @@
 
 import { db } from '@/lib/db';
 import { user as userTable, profileComments } from '@/db/schema';
-import { eq, and, asc, gt, lte, count } from 'drizzle-orm';
+import { eq, and, gt, count } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import {
-  MAX_COMMENT_LENGTH,
-  COMMENT_TTL_MS,
-  COMMENT_RATE_LIMIT,
-  COMMENT_RATE_WINDOW_MS,
-} from '@/lib/constants';
+import { COMMENT_TTL_MS, COMMENT_RATE_LIMIT, COMMENT_RATE_WINDOW_MS } from '@/lib/constants';
 import type { ProfileComment } from '@/types/comments';
 import { createCommentSchema } from '@/lib/validations/comment';
 import { getAuthUser } from './internal';
