@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
 import { getSessionChrome } from '@/server/queries/user';
-import MobileTabBar from '@/components/navigation/MobileTabBar';
 import NavigationHistory from '@/components/navigation/NavigationHistory';
 
 const cinzel = Cinzel({
@@ -83,7 +82,7 @@ const THEME_BOOTSTRAP_SCRIPT =
   "try{var t=localStorage.getItem('za-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { theme, signedIn } = await getSessionChrome();
+  const { theme } = await getSessionChrome();
 
   return (
     <html
@@ -100,7 +99,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to main content
         </a>
         {children}
-        {signedIn && <MobileTabBar />}
         <NavigationHistory />
       </body>
     </html>

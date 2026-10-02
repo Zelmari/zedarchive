@@ -8,7 +8,6 @@ import {
   BarChart2,
   Palette,
   Settings,
-  Sparkles,
   ArrowRight,
   Tv,
   Film,
@@ -107,18 +106,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           onOpenThemeModal?.();
-        },
-      },
-      {
-        id: 'cmd-wrapped',
-        type: 'action',
-        section: 'commands',
-        title: 'View Yearly Wrapped',
-        subtitle: 'Your year-in-review zine report',
-        Icon: Sparkles,
-        onSelect: () => {
-          onClose();
-          router.push('/wrapped');
         },
       },
       {

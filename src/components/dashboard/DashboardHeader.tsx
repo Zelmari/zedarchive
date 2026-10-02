@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings, Sparkles } from 'lucide-react';
+import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -64,15 +64,6 @@ export default function DashboardHeader({
               <span className="sm:hidden">{counts[id]}</span>
             </button>
           ))}
-          <Link
-            href="/wrapped"
-            className="za-button za-button--tertiary"
-            title="Wrapped"
-            aria-label="Wrapped"
-          >
-            <Sparkles size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Wrapped</span>
-          </Link>
         </nav>
 
         <div className="za-site-header__account">

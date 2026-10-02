@@ -130,7 +130,7 @@ export const mediaEntries = pgTable(
     notes: text('notes'),
     quotes: jsonb('quotes').$type<MediaQuote[]>().default([]),
     priorityIndex: integer('priority_index'), // null = not queued; 1, 2, 3... = priority rank in Up Next queue
-    /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
+    /** Whether the entry is hidden from the public profile and RSS feeds */
     isPrivate: boolean('is_private').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

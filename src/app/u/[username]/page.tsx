@@ -237,12 +237,6 @@ export default async function PublicProfilePage({ params }: PageParams) {
               {/* Quick Action Bar */}
               <div className="flex w-full flex-none flex-wrap items-center gap-2 border-t border-decorative pt-4 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
                 <ShareArchiveButton url={profileUrl} />
-                <Link
-                  href={`/u/${user.username}/wrapped/${currentYear}`}
-                  className="za-button za-button--secondary inline-flex items-center"
-                >
-                  View Annual Wrapped
-                </Link>
                 {viewer.isLoggedIn && viewer.id === user.id && (
                   <Link
                     href="/settings"
