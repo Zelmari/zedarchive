@@ -26,8 +26,6 @@ DROP TABLE "media_tags" CASCADE;--> statement-breakpoint
 DROP TABLE "stack_items" CASCADE;--> statement-breakpoint
 DROP TABLE "stacks" CASCADE;--> statement-breakpoint
 DROP TABLE "user_goals" CASCADE;--> statement-breakpoint
-ALTER TABLE "media_entries" DROP CONSTRAINT "media_entries_group_id_groups_id_fk";
---> statement-breakpoint
 DROP INDEX "media_entries_group_id_idx";--> statement-breakpoint
 DROP INDEX "media_entries_group_updated_idx";--> statement-breakpoint
 ALTER TABLE "media_entries" DROP COLUMN "group_id";--> statement-breakpoint
