@@ -12,7 +12,7 @@ const TABS = [
   { href: '/wrapped', label: 'Wrapped', icon: Sparkles },
 ] as const;
 
-const HIDDEN_ON = ['/login', '/signup', '/reset-password', '/verified', '/offline'];
+const HIDDEN_ON = ['/login', '/signup', '/reset-password', '/verified'];
 
 export default function MobileTabBar() {
   const pathname = usePathname() || '/';

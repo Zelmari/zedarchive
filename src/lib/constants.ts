@@ -72,7 +72,6 @@ export const RESERVED_HANDLES = [
   'api',
   'admin',
   'u',
-  'offline',
   'verified',
   'reset-password',
   'friends',

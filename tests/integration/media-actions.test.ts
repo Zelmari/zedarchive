@@ -180,17 +180,6 @@ describe('updateMediaProgress', () => {
     );
   });
 
-  it('rejects stale offline updates when entry has been updated since', async () => {
-    const entry = await seedEntry();
-    const staleDate = new Date(Date.now() - 60000).toISOString();
-    await expect(
-      updateMediaProgress(entry.id, {
-        rating: 9,
-        _offlineUpdatedAt: staleDate,
-      }),
-    ).rejects.toThrow('Entry was modified since offline mutation was created');
-  });
-
   it('prevents associating personal entry with a group via update', async () => {
     const entry = await seedEntry();
     await expect(

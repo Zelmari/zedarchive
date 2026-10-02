@@ -139,8 +139,8 @@ export default async function HomePage() {
                   <span>Absolute Data Sovereignty</span>
                 </h3>
                 <p>
-                  Your entries belong to you. Work with the archive offline, and use its backup
-                  tools when you need a portable copy. A shelf should never feel held hostage.
+                  Your entries belong to you. Use the archive’s backup tools whenever you need a
+                  portable copy. A shelf should never feel held hostage.
                 </p>
               </article>
             </div>

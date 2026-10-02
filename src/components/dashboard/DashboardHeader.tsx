@@ -14,7 +14,6 @@ import {
   Library,
   Sparkles,
 } from 'lucide-react';
-import SyncIndicator from '@/components/ui/SyncIndicator';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -116,7 +115,6 @@ export default function DashboardHeader({
         </nav>
 
         <div className="za-site-header__account">
-          <SyncIndicator />
           <button
             type="button"
             className="za-button za-button--tertiary"

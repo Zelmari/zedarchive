@@ -38,7 +38,6 @@ import {
   updateMediaProgress,
   deleteMediaEntry,
 } from '@/server/media';
-import { offlineAwareMutation } from '@/lib/offline/offlineAwareMutation';
 
 interface ConfirmState {
   isOpen: boolean;
@@ -50,17 +49,10 @@ interface ConfirmState {
   onConfirm: (() => Promise<void>) | null;
 }
 
-type MutationAction =
-  'UPDATE_PROGRESS' | 'UPDATE_STATUS' | 'CREATE_ENTRY' | 'UPDATE_NOTES' | 'DELETE_ENTRY';
-
 interface MutateOptions<T> {
-  actionType: MutationAction;
-  id: string;
   payload: Record<string, unknown>;
   mutation: (payload: Record<string, unknown>) => Promise<T>;
-  originalUpdatedAt?: string;
   successMessage?: string | ((result: T) => string);
-  offlineMessage?: string;
   errorMessage: string;
   onSuccess?: (result: T) => void;
   rollback?: () => void;
@@ -246,13 +238,9 @@ export default function DashboardClient({
     isGroup && groupId ? { ...payload, groupId } : payload;
 
   const mutate = async <T,>({
-    actionType,
-    id,
     payload,
     mutation,
-    originalUpdatedAt,
     successMessage,
-    offlineMessage,
     errorMessage,
     onSuccess,
     rollback,
@@ -260,18 +248,7 @@ export default function DashboardClient({
     const groupedPayload = withGroup(payload);
 
     try {
-      const result = await offlineAwareMutation(
-        actionType,
-        id,
-        groupedPayload,
-        () => mutation(groupedPayload),
-        originalUpdatedAt,
-      );
-
-      if (result === null) {
-        if (offlineMessage) addToast(offlineMessage, 'info');
-        return null;
-      }
+      const result = await mutation(groupedPayload);
 
       onSuccess?.(result);
       if (successMessage) {
@@ -291,7 +268,6 @@ export default function DashboardClient({
 
   const handleUpdate = async (id: string, updates: Record<string, unknown>) => {
     const previousEntries = [...entries];
-    const existingItem = entries.find((e) => e.id === id);
 
     // Optimistic update: map only the matching entry and stamp its local update time.
     setEntries((prev) =>
@@ -302,12 +278,8 @@ export default function DashboardClient({
 
     try {
       await mutate({
-        actionType: 'UPDATE_PROGRESS',
-        id,
         payload: updates,
         mutation: (payload) => updateMediaProgress(id, payload),
-        originalUpdatedAt: existingItem?.updatedAt,
-        offlineMessage: 'Offline: progress update queued for sync',
         errorMessage: 'Failed to update progress',
         onSuccess: (updated) => {
           setEntries((prev) =>
@@ -323,15 +295,11 @@ export default function DashboardClient({
 
   const handleCreate = async (data: Record<string, unknown>) => {
     const newEntry = await mutate({
-      actionType: 'CREATE_ENTRY',
-      id: (data.id as string) || crypto.randomUUID(),
       payload: data,
       mutation: (payload) => createMediaEntry(payload),
       successMessage: (result) =>
         `Added "${result.title}" to ${isGroup ? 'group archive' : 'archive'}`,
-      offlineMessage: 'Offline: new title queued for creation',
       errorMessage: 'Failed to create entry',
-      // Optimistic create waits for the server entry; offline creates remain queued only.
       onSuccess: (result) => setEntries((prev) => [result, ...prev]),
     });
     return newEntry;
@@ -355,12 +323,9 @@ export default function DashboardClient({
 
         try {
           await mutate({
-            actionType: 'DELETE_ENTRY',
-            id,
             payload: {},
             mutation: () => deleteMediaEntry(id),
             successMessage: `Removed "${itemTitle}" from archive`,
-            offlineMessage: 'Offline: removal queued for sync',
             errorMessage: 'Failed to delete entry',
             rollback: () => setEntries(previousEntries),
           });

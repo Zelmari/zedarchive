@@ -24,7 +24,6 @@ import { logActivity } from '@/domain/activity-log';
 import { domainDb, type DbClient } from '@/domain/db-context';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
 import { escapeIlikePattern, ilikeContainsPattern } from '@/lib/ilike';
-import { OFFLINE_CONFLICT_MESSAGE } from '@/lib/offline/conflict';
 
 export type MediaRow = typeof mediaEntries.$inferSelect;
 export type MediaPayload = Omit<
@@ -654,12 +653,6 @@ export async function updateMediaProgressForUser(
       updateFields.primaryUnitCurrent < 1
     ) {
       updateFields.primaryUnitCurrent = 1;
-    }
-
-    if (validatedUpdates._offlineUpdatedAt) {
-      if (new Date(existing.updatedAt) > new Date(validatedUpdates._offlineUpdatedAt)) {
-        throw new Error(OFFLINE_CONFLICT_MESSAGE);
-      }
     }
 
     const isGroupEntry = Boolean(existing.groupId);
