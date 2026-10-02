@@ -7,7 +7,7 @@ import { renderInlineMarkdown } from '@/lib/markdown';
 const toHtml = (nodes: ReactNode) => renderToStaticMarkup(createElement(Fragment, null, nodes));
 
 describe('parseSpoilers', () => {
-  it('parses Discord/Telegram-style ||spoiler|| syntax', () => {
+  it('parses ||spoiler|| syntax', () => {
     const parsed = parseSpoilers('Luke is ||Vader’s son||!');
     expect(parsed).not.toBe('Luke is ||Vader’s son||!');
   });

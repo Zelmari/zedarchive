@@ -8,7 +8,7 @@ export interface AirdateItem {
 }
 
 /**
- * Next-free airdate resolution helper shared between the API route and Discord bot.
+ * Next-free airdate resolution helper used by the airdate API route.
  */
 export async function getUpcomingAirdates(
   items: AirdateItem[],

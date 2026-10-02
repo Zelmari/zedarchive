@@ -11,8 +11,6 @@ import {
   mediaEntries,
   mediaActivityLogs,
   profileComments,
-  discordLinks,
-  discordLinkCodes,
   groups,
 } from '@/db/schema';
 import { getAuthUser } from './internal';
@@ -84,14 +82,10 @@ export async function deleteAccount(
     // 3. Delete media entries
     await tx.delete(mediaEntries).where(eq(mediaEntries.userId, user.id));
 
-    // 4. Delete Discord links and pairing codes
-    await tx.delete(discordLinks).where(eq(discordLinks.userId, user.id));
-    await tx.delete(discordLinkCodes).where(eq(discordLinkCodes.userId, user.id));
-
-    // 5. Delete account records
+    // 4. Delete account records
     await tx.delete(accountTable).where(eq(accountTable.userId, user.id));
 
-    // 6. Delete active sessions
+    // 5. Delete active sessions
     await tx.delete(sessionTable).where(eq(sessionTable.userId, user.id));
 
     // 6. Delete Better Auth verification tokens. The verification table is a

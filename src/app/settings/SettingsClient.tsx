@@ -5,7 +5,6 @@ import SubPageHeader from '@/components/navigation/SubPageHeader';
 import ProfileSection from './components/ProfileSection';
 import ThemeSection from './components/ThemeSection';
 import SecuritySection from './components/SecuritySection';
-import DiscordSection from './components/DiscordSection';
 import DangerSection from './components/DangerSection';
 
 interface SettingsClientProps {
@@ -28,7 +27,6 @@ export default function SettingsClient({ profile }: SettingsClientProps) {
           <ProfileSection profile={profile} />
           <ThemeSection initialTheme={profile.theme} customTheme={profile.customTheme} />
           <SecuritySection profile={profile} />
-          <DiscordSection />
           <DangerSection email={profile.email} />
         </div>
       </main>

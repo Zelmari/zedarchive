@@ -1263,7 +1263,7 @@ export interface ListPersonalLibraryLiteOptions {
 }
 
 /**
- * Lightweight personal library query designed for Discord bot (/now, /library, autocomplete).
+ * Lightweight personal library query.
  * Excludes heavy coverImage base64 payloads to keep query latency and memory minimal.
  */
 export async function listPersonalLibraryLite(
