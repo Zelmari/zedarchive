@@ -10,7 +10,6 @@ import {
   Palette,
   Settings,
   MessageSquare,
-  Library,
   Sparkles,
 } from 'lucide-react';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
@@ -83,15 +82,6 @@ export default function DashboardHeader({
           >
             <MessageSquare size={16} strokeWidth={1.75} />
             <span className="hidden md:inline">Groups</span>
-          </Link>
-          <Link
-            href="/stacks"
-            className="za-button za-button--tertiary"
-            title="Stacks"
-            aria-label="Stacks"
-          >
-            <Library size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">Stacks</span>
           </Link>
           <Link
             href="/wrapped"

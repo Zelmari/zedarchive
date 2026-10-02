@@ -73,7 +73,6 @@ export const RESERVED_HANDLES = [
   'verified',
   'reset-password',
   'groups',
-  'stacks',
   'rss',
   'atom',
   'me',

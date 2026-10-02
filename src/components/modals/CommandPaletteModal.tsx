@@ -9,7 +9,6 @@ import {
   Palette,
   Settings,
   Sparkles,
-  Layers,
   ArrowRight,
   Tv,
   Film,
@@ -109,18 +108,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           onOpenThemeModal?.();
-        },
-      },
-      {
-        id: 'cmd-stacks',
-        type: 'action',
-        section: 'commands',
-        title: 'Curated Stacks & Anthologies',
-        subtitle: 'Manage thematic editorial collections',
-        Icon: Layers,
-        onSelect: () => {
-          onClose();
-          router.push('/stacks');
         },
       },
       {

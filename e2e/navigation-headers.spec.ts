@@ -25,13 +25,6 @@ test.describe('unified site header navigation', () => {
       dashboardLink: true,
     },
     {
-      name: 'stacks',
-      path: '/stacks',
-      heading: 'Curated Stacks',
-      headingMatch: 'contains',
-      dashboardLink: false,
-    },
-    {
       name: 'settings',
       path: '/settings',
       heading: 'Settings & Account',

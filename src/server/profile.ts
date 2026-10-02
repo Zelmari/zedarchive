@@ -197,7 +197,6 @@ export async function updateUserProfile(updates: Record<string, unknown>) {
   revalidatePath('/settings');
   if (existing?.username && existing.username !== updated?.username) {
     revalidatePath(`/u/${existing.username}`);
-    revalidatePath(`/u/${existing.username}/stacks`);
   }
   if (updated?.username) {
     revalidatePath(`/u/${updated.username}`);

@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Layers, MessageSquare, Library, Sparkles } from 'lucide-react';
+import { Layers, MessageSquare, Sparkles } from 'lucide-react';
 
 const TABS = [
   { href: '/dashboard', label: 'Archive', icon: Layers },
   { href: '/groups', label: 'Groups', icon: MessageSquare },
-  { href: '/stacks', label: 'Stacks', icon: Library },
   { href: '/wrapped', label: 'Wrapped', icon: Sparkles },
 ] as const;
 
