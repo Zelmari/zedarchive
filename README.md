@@ -9,7 +9,6 @@ A quiet, self-hosted archive for the shows, films, books, anime, and manga you m
 - **Media detail modal** — status, rating, progress, markdown notes, tags, quotes, rewatch/reread cycles, privacy toggle, season structures, filler guide, and streaming providers.
 - **Metadata search** — TVMaze (shows), TMDB (movies, optional token), AniList (anime/manga), and OpenLibrary + Google Books (books).
 - **Activity & stats** — timeline, 52-week heatmap, streak, and a weekly airdate calendar (`/api/shows/airdate`).
-- **Wrapped** — year-in-review with year/quarter/month/week periods; private by default, optionally public per user.
 - **Public profiles** — `/u/[username]` catalog, stats, heatmap, and guestbook (7-day TTL, rate-limited).
 - **Feeds** — RSS 2.0 and Atom 1.0 at `/u/[username]/rss.xml` and `/u/[username]/atom.xml`.
 - **Backup & import** — export JSON/CSV; import ZedArchive, AniList, Simkl, Goodreads, Letterboxd, and MAL (`.xml.gz`).
@@ -36,7 +35,7 @@ Cloudflare Worker — Next.js 16 via OpenNext
    ├── Server Components, Server Actions, route handlers
    │   (/api/search/*, /api/shows/airdate, /api/media/providers,
    │    /api/anime/filler, /api/assets/upload)
-   └── Public profiles, RSS/Atom feeds, Wrapped
+   └── Public profiles and RSS/Atom feeds
    │ Drizzle ORM
    ▼
 PostgreSQL — user · session · account · verification
@@ -98,7 +97,7 @@ Local development uses `.env.local`; local Worker previews use `.dev.vars`.
 
 ```
 src/
-├── app/          App Router routes: (auth), dashboard, settings, search, u/[username], wrapped, api/*
+├── app/          App Router routes: (auth), dashboard, settings, search, u/[username], api/*
 ├── components/   cards, dashboard, modals, navigation, search, theme, ui
 ├── db/           Drizzle schema and seed
 ├── domain/       Media sanitizers, priority queue, activity helpers

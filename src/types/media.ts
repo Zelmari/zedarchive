@@ -70,7 +70,7 @@ export interface MediaEntry extends Omit<
   droppedProgressSecondary: number | null;
   createdAt: string;
   updatedAt: string;
-  /** Whether the entry is hidden from public profile, RSS, and Wrapped views */
+  /** Whether the entry is hidden from the public profile and RSS feeds */
   isPrivate: boolean;
 }
 

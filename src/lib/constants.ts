@@ -59,7 +59,6 @@ export const RESERVED_HANDLES = [
   'explore',
   'dashboard',
   'settings',
-  'wrapped',
   'login',
   'signup',
   'api',
