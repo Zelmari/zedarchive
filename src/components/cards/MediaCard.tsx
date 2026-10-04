@@ -98,8 +98,7 @@ export default function MediaCard({
   const sortedStructure = sortedSeasonStructure(structure);
   const nextSeason = (current: number) =>
     getNextSeason(current, sortedStructure, primaryUnitTotalRaw);
-  const prevSeason = (current: number) =>
-    getPrevSeason(current, sortedStructure, primaryUnitTotalRaw);
+  const prevSeason = (current: number) => getPrevSeason(current, sortedStructure);
   // Stepper label total: reflect the highest real season number so a
   // non-contiguous structure never renders "Season 3 of 2".
   const seasonDisplayTotal =

@@ -46,11 +46,7 @@ export function getNextSeason(
 /**
  * Previous season/volume number strictly below `current`, or null when none.
  */
-export function getPrevSeason(
-  current: number,
-  structure: SeasonRef[],
-  total: number | null,
-): number | null {
+export function getPrevSeason(current: number, structure: SeasonRef[]): number | null {
   if (structure.length > 0) {
     const prev = [...structure].reverse().find((s) => s.number < current);
     return prev ? prev.number : null;

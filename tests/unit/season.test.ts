@@ -53,13 +53,13 @@ describe('getNextSeason', () => {
 
 describe('getPrevSeason', () => {
   it('steps linearly down to season 1 when no structure exists', () => {
-    expect(getPrevSeason(3, [], 5)).toBe(2);
-    expect(getPrevSeason(1, [], 5)).toBeNull();
+    expect(getPrevSeason(3, [])).toBe(2);
+    expect(getPrevSeason(1, [])).toBeNull();
   });
 
   it('steps back to the previous real season across a gap', () => {
     const structure = sortedSeasonStructure([{ number: 1 }, { number: 3 }]);
-    expect(getPrevSeason(3, structure, 2)).toBe(1);
-    expect(getPrevSeason(1, structure, 2)).toBeNull();
+    expect(getPrevSeason(3, structure)).toBe(1);
+    expect(getPrevSeason(1, structure)).toBeNull();
   });
 });
