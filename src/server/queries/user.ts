@@ -1,7 +1,7 @@
 import { eq, desc, asc, and, or, ilike, isNotNull, ne, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { user as userTable, mediaEntries } from '@/db/schema';
-import { serializeEntry } from '@/lib/serialize';
+import { mediaEntryListSelection, toMediaEntryListItem } from './media';
 import { getSessionUser } from '@/server/internal';
 import { ilikeContainsPattern } from '@/lib/ilike';
 import type { MediaEntry } from '@/types/media';
@@ -114,7 +114,7 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
   }
 
   const entries = await db
-    .select()
+    .select(mediaEntryListSelection)
     .from(mediaEntries)
     .where(and(eq(mediaEntries.userId, foundUser.id), eq(mediaEntries.isPrivate, false)))
     .orderBy(desc(mediaEntries.updatedAt));
@@ -126,7 +126,9 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
         Object.entries(foundUser.readingGoals || {}).filter(([, goal]) => goal?.isPublic),
       ),
     },
-    entries: entries.map(serializeEntry).filter((entry): entry is MediaEntry => entry !== null),
+    entries: entries
+      .map(toMediaEntryListItem)
+      .filter((entry): entry is MediaEntry => entry !== null),
   };
 }
 

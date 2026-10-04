@@ -53,7 +53,7 @@ export function toClientEntry(entry: MediaEntry): MediaEntry {
 
 export interface ParsedDataUrl {
   mimeType: string;
-  bytes: Uint8Array;
+  bytes: Uint8Array<ArrayBuffer>;
 }
 
 export function parseDataUrl(value: string): ParsedDataUrl | null {
