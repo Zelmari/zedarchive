@@ -6,7 +6,7 @@ A quiet, self-hosted archive for the shows, films, books, anime, and manga you m
 
 - **Archive dashboard** — Total / Shows / Movies / Books tabs; search, status filters, eight sort orders, and a saved row-or-poster layout.
 - **Progress tracking** — season/episode, volume/chapter, and page/runtime steppers, an Up Next queue, and an annual books-and-manga reading goal.
-- **Media detail modal** — status, rating, progress, markdown notes, tags, quotes, rewatch/reread cycles, privacy toggle, season structures, filler guide, streaming providers, and cover-art upload (client-side WebP compression).
+- **Media detail modal** — status, rating, progress, markdown notes, tags, quotes, rewatch/reread cycles, privacy toggle, season structures, filler guide, streaming providers, and cover-art upload (client-side WebP compression; stored in PostgreSQL and served on demand via `/api/covers/[id]`).
 - **Metadata search** — TVMaze (shows), TMDB (movies, optional token), AniList (anime/manga), and OpenLibrary + Google Books (books).
 - **Activity & stats** — timeline, 52-week heatmap, streak, and a weekly airdate calendar (`/api/shows/airdate`).
 - **Public profiles** — `/u/[username]` catalog, stats, heatmap, and guestbook (7-day TTL, rate-limited).
@@ -34,7 +34,7 @@ Browser (React 19 / Tailwind v4)
 Cloudflare Worker — Next.js 16 via OpenNext
    ├── Server Components, Server Actions, route handlers
    │   (/api/auth/[...all], /api/search/*, /api/shows/airdate,
-   │    /api/media/providers, /api/anime/filler)
+   │    /api/media/providers, /api/anime/filler, /api/covers/[id])
    └── Public profiles and RSS/Atom feeds
    │ Drizzle ORM
    ▼
