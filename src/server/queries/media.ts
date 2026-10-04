@@ -14,10 +14,7 @@ void _coverImage;
  */
 export const mediaEntryListSelection = {
   ...entryColumns,
-  hasCover:
-    sql<boolean>`(${mediaEntries.coverImage} is not null and ${mediaEntries.coverImage} <> '')`.as(
-      'has_cover',
-    ),
+  hasCover: sql<boolean>`(${mediaEntries.coverImage} is not null)`.as('has_cover'),
 };
 
 export function toMediaEntryListItem(row: Record<string, unknown>): MediaEntry | null {

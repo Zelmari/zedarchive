@@ -336,6 +336,7 @@ function buildMediaPayload(
     structure: sanitizeStructure(input.structure),
     coverImage:
       typeof input.coverImage === 'string' &&
+      input.coverImage.length > 0 &&
       (mode === 'create' || input.coverImage.length <= MAX_COVER_IMAGE_LENGTH)
         ? input.coverImage
         : null,
@@ -528,8 +529,7 @@ export async function updateMediaProgressForUser(
     updateFields.structure = sanitizeStructure(validatedUpdates.structure);
   }
   if (validatedUpdates.coverImage !== undefined) {
-    updateFields.coverImage =
-      validatedUpdates.coverImage === null ? null : validatedUpdates.coverImage;
+    updateFields.coverImage = validatedUpdates.coverImage || null;
   }
   if (validatedUpdates.sourceId !== undefined) {
     updateFields.sourceId =

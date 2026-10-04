@@ -78,6 +78,11 @@ describe('createMediaEntry', () => {
     expect(wip.completedAt).toBeNull();
   });
 
+  it('normalizes blank covers to null', async () => {
+    const entry = await createMediaEntry({ title: 'Dune', coverImage: '' });
+    expect(entry.coverImage).toBeNull();
+  });
+
   it('writes an activity log alongside the entry', async () => {
     await createMediaEntry({ title: 'Steins;Gate' });
     expect(logActivityMock).toHaveBeenCalledTimes(1);
@@ -160,6 +165,12 @@ describe('updateMediaProgress', () => {
     });
     expect(updated.primaryUnitCurrent).toBe(3);
     expect(updated.primaryUnitTotal).toBe(3);
+  });
+
+  it('clears the cover when a blank value is saved', async () => {
+    await seedEntry();
+    const updated = await updateMediaProgress('whatever', { coverImage: '' });
+    expect(updated.coverImage).toBeNull();
   });
 
   it('rejects updates with validation errors', async () => {
