@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export type ModalName =
+type ModalName =
   'add' | 'theme' | 'activity' | 'share' | 'stats' | 'data' | 'calendar' | 'palette' | 'goal';
 
 /**

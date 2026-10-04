@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
 const CARD_LAYOUTS = ['poster', 'row'] as const;
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
 
-export const CARD_LAYOUT_STORAGE_KEY = 'za-card-layout';
+const CARD_LAYOUT_STORAGE_KEY = 'za-card-layout';
 export const DEFAULT_CARD_LAYOUT: CardLayout = 'row';
 
 export function isCardLayout(value: string | null | undefined): value is CardLayout {

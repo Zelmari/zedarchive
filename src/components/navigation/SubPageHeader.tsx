@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import BackButton from './BackButton';
 import BrandWordmark from './BrandWordmark';
 
-export interface NavActionItem {
+interface NavActionItem {
   label: string;
   href: string;
   icon?: LucideIcon;
@@ -13,7 +13,7 @@ export interface NavActionItem {
   title?: string;
 }
 
-export interface SubPageHeaderProps {
+interface SubPageHeaderProps {
   backLink?: {
     href: string;
     label: string;

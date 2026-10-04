@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import type { UserProfile } from '@/types/user';
 
-export interface SessionUser {
+interface SessionUser {
   id: string;
   name?: string | null;
   email?: string | null;

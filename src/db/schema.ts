@@ -81,7 +81,7 @@ export const verification = pgTable('verification', {
 
 // MEDIA TRACKER TABLES
 
-export const mediaCategoryEnum = pgEnum('media_category', [
+const mediaCategoryEnum = pgEnum('media_category', [
   'show', // TV Shows, Series
   'movie', // Movies, Films
   'book', // Novels, Physical Books

@@ -12,7 +12,7 @@ const EMAIL_SUFFIX = '@zedarchive.test';
 
 // Must mirror playwright.config.ts and stay inside Better Auth's trusted
 // local origins (see src/lib/auth.ts).
-export const E2E_BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8787';
+const E2E_BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8787';
 
 export function uniqueUser(label?: string): E2EUser {
   const id = `${label ? `${label}-` : ''}${Date.now().toString(36)}${Math.random()
