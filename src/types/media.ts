@@ -18,13 +18,6 @@ export interface MediaCycle {
   notes?: string | null; // Optional notes specific to this rewatch
 }
 
-export interface MediaCycleInput {
-  startedAt?: string | null;
-  completedAt?: string | null;
-  rating?: number | null;
-  notes?: string | null;
-}
-
 export interface MediaQuote {
   id: string;
   text: string;
