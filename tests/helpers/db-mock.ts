@@ -1,8 +1,8 @@
 import { getTableName } from 'drizzle-orm';
 
-export type MockRow = Record<string, unknown>;
+type MockRow = Record<string, unknown>;
 
-export function createAwaitable<T>(value: T) {
+function createAwaitable<T>(value: T) {
   const p = Promise.resolve(value) as Promise<T> & Record<string, unknown>;
   p.where = () => p;
   p.orderBy = () => p;
@@ -20,16 +20,8 @@ export function createMockDb(state: {
   inserted?: MockRow[];
   deletedTables?: string[];
   accounts?: MockRow[];
-  updates?: Array<{ table: string; fields: MockRow }>;
 }) {
   const getRows = () => state.rows ?? [];
-  const getTableNameSafe = (table: unknown) => {
-    try {
-      return getTableName(table as never);
-    } catch {
-      return '';
-    }
-  };
 
   const makeTx = () => ({
     select: () => ({
@@ -50,12 +42,9 @@ export function createMockDb(state: {
         return createAwaitable([row]);
       },
     }),
-    update: (_table?: unknown) => ({
+    update: () => ({
       set: (fields: MockRow) => ({
         where: () => {
-          if (state.updates) {
-            state.updates.push({ table: getTableNameSafe(_table), fields });
-          }
           const target = getRows()[0];
           if (target) Object.assign(target, fields);
           return createAwaitable([target]);
@@ -92,7 +81,7 @@ export function createMockDb(state: {
       },
     }),
     insert: (_table?: unknown) => makeTx().insert(),
-    update: (_table?: unknown) => makeTx().update(_table),
+    update: () => makeTx().update(),
     delete: (table: any) => makeTx().delete(table),
     transaction: async <T>(fn: (tx: ReturnType<typeof makeTx>) => Promise<T>) => fn(makeTx()),
   };

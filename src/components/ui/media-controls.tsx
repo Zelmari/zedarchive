@@ -22,7 +22,7 @@ export function pillClass(active: boolean): string {
   return cn('za-segment', active && 'za-segment--active');
 }
 
-export interface DropReasonPickerProps {
+interface DropReasonPickerProps {
   value?: string | null;
   onChange: (value: string) => void;
   inputId: string;
@@ -31,8 +31,6 @@ export interface DropReasonPickerProps {
   quickLabel?: string;
   placeholder?: string;
   className?: string;
-  labelClassName?: string;
-  counterClassName?: string;
   presetClassName?: string;
   activePresetClassName?: string;
   inputClassName?: string;
@@ -56,8 +54,6 @@ export function DropReasonPicker({
   quickLabel,
   placeholder = 'e.g. Lost interest after season 2...',
   className,
-  labelClassName,
-  counterClassName,
   presetClassName,
   activePresetClassName,
   inputClassName,
@@ -68,17 +64,11 @@ export function DropReasonPicker({
     <div className="mb-1 flex items-center justify-between">
       <label
         htmlFor={inputId}
-        className={cn(
-          'text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted',
-          labelClassName,
-        )}
+        className="text-[length:var(--za-text-fine)] font-[var(--za-weight-emphasis)] text-ink-muted"
       >
         {label}
       </label>
-      <span
-        id={`${inputId}-count`}
-        className={cn('text-[length:var(--za-text-fine)] text-ink-muted', counterClassName)}
-      >
+      <span id={`${inputId}-count`} className="text-[length:var(--za-text-fine)] text-ink-muted">
         {currentValue.length}/{MAX_DROP_REASON_LENGTH}
       </span>
     </div>

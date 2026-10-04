@@ -8,14 +8,13 @@ import { hasInAppHistory } from './NavigationHistory';
 interface BackButtonProps {
   href: string;
   label: string;
-  className?: string;
 }
 
 /**
  * Returns to the previous in-app page when there is one, otherwise navigates
  * to `href` (labelled by `label` in the tooltip) so it never leaves the app.
  */
-export default function BackButton({ href, label, className = '' }: BackButtonProps) {
+export default function BackButton({ href, label }: BackButtonProps) {
   const router = useRouter();
 
   return (
@@ -27,7 +26,7 @@ export default function BackButton({ href, label, className = '' }: BackButtonPr
         event.preventDefault();
         router.back();
       }}
-      className={`za-button za-button--secondary shrink-0 gap-1 px-2.5 ${className}`.trim()}
+      className="za-button za-button--secondary shrink-0 gap-1 px-2.5"
       title={`Back (${label})`}
     >
       <ArrowLeft size={14} aria-hidden="true" />

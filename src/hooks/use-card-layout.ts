@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 
-export const CARD_LAYOUTS = ['poster', 'row'] as const;
+const CARD_LAYOUTS = ['poster', 'row'] as const;
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
 
 export const CARD_LAYOUT_STORAGE_KEY = 'za-card-layout';

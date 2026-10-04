@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { uniqueUser, registerAndAuthenticate, signUp, cleanupUsers, type E2EUser } from './helpers';
+import { uniqueUser, registerAndAuthenticate, cleanupUsers, type E2EUser } from './helpers';
 
 async function makeProfilePublic(page: import('@playwright/test').Page, handle: string) {
   await page.getByTitle('Public Share Profile').click();

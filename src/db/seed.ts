@@ -5,13 +5,17 @@
  *
  * Usage: npm run db:seed (requires DATABASE_URL; idempotent per email).
  */
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { eq } from 'drizzle-orm';
 import { hashPassword } from 'better-auth/crypto';
 import { user, account, mediaEntries, mediaActivityLogs } from './schema';
 import type { MediaCategory, MediaStatus, StructureItem } from '@/types/media';
+
+// Load local env files (shell/CI env vars still take precedence).
+config({ path: '.env', quiet: true });
+config({ path: '.env.local', quiet: true });
 
 // NOTE: These credentials are strictly for local development and demonstration environments.
 // DO NOT run this seed script against production databases.
@@ -302,8 +306,9 @@ async function main() {
 
   await db.insert(account).values({
     id: crypto.randomUUID(),
-    accountId: DEMO_EMAIL,
+    accountId: userId,
     providerId: 'credential',
+    issuer: 'local:credential',
     userId,
     password: passwordHash,
     createdAt: new Date(),

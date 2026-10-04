@@ -12,7 +12,7 @@ export default defineConfig({
     env: {
       BETTER_AUTH_SECRET: 'test_secret_0123456789abcdef0123456789abcdef',
       BETTER_AUTH_URL: 'http://localhost:3000',
-      DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/zedarchive',
+      DATABASE_URL: 'postgres://postgres:postgrespassword@localhost:5432/zedarchive',
     },
   },
 });

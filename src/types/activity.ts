@@ -1,4 +1,4 @@
-export type ActivityActionType =
+type ActivityActionType =
   'progress_update' | 'status_change' | 'created' | 'completed' | 'rating' | 'rewatch';
 
 export interface ActivityLog {

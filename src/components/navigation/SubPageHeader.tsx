@@ -4,11 +4,6 @@ import type { LucideIcon } from 'lucide-react';
 import BackButton from './BackButton';
 import BrandWordmark from './BrandWordmark';
 
-export interface BreadcrumbItem {
-  label: string;
-  href?: string;
-}
-
 export interface NavActionItem {
   label: string;
   href: string;
@@ -19,8 +14,6 @@ export interface NavActionItem {
 }
 
 export interface SubPageHeaderProps {
-  brandHref?: string;
-  breadcrumbs?: BreadcrumbItem[];
   backLink?: {
     href: string;
     label: string;
@@ -28,73 +21,29 @@ export interface SubPageHeaderProps {
   navItems?: NavActionItem[];
   actions?: React.ReactNode;
   variant?: 'standard' | 'sticky';
-  containerWidth?: 'narrow' | 'wide' | '4xl' | '5xl' | 'full';
   children?: React.ReactNode;
 }
 
 export default function SubPageHeader({
-  brandHref = '/',
-  breadcrumbs,
   backLink,
   navItems,
   actions,
   variant = 'standard',
-  containerWidth = 'wide',
   children,
 }: SubPageHeaderProps) {
-  const getContainerClass = () => {
-    switch (containerWidth) {
-      case 'narrow':
-        return 'za-container za-container--narrow';
-      case '4xl':
-        return 'za-container max-w-4xl';
-      case '5xl':
-        return 'za-container max-w-5xl';
-      case 'full':
-        return 'za-container w-full';
-      case 'wide':
-      default:
-        return 'za-container za-container--wide';
-    }
-  };
-
   const isSticky = variant === 'sticky';
   const headerClass = isSticky ? 'za-site-header za-site-header--sticky' : 'za-site-header';
-  const innerClass = `${getContainerClass()} za-site-header__inner`;
+  const innerClass = 'za-container za-container--wide za-site-header__inner';
   const leadingClass = 'flex min-w-0 flex-1 flex-wrap items-center gap-3';
-  const breadcrumbClass =
-    'flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-ink-muted';
   const navigationClass = 'za-site-header__nav';
 
   return (
     <header className={headerClass}>
       <div className={innerClass}>
         <div className={leadingClass}>
-          <BrandWordmark href={brandHref} className={isSticky ? 'max-sm:hidden' : ''} />
+          <BrandWordmark href="/" className={isSticky ? 'max-sm:hidden' : ''} />
 
           {backLink && <BackButton href={backLink.href} label={backLink.label} />}
-
-          {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav aria-label="Breadcrumb" className={breadcrumbClass}>
-              {breadcrumbs.map((item, index) => (
-                <React.Fragment key={index}>
-                  <span className="text-decorative select-none">/</span>
-                  {item.href ? (
-                    <Link href={item.href} className="truncate hover:text-ink transition-colors">
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <span
-                      className="truncate font-[family-name:var(--za-font-display)] text-xs font-semibold uppercase tracking-[0.06em] text-ink"
-                      aria-current="page"
-                    >
-                      {item.label}
-                    </span>
-                  )}
-                </React.Fragment>
-              ))}
-            </nav>
-          )}
 
           {children ? (
             <div className="min-w-0 flex-1 basis-full sm:basis-auto">{children}</div>

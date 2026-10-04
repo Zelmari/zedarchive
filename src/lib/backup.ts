@@ -2,7 +2,7 @@ import { XMLParser } from 'fast-xml-parser';
 import type { MediaCycle } from '@/types/media';
 import { MAX_GUNZIP_BYTES, MAX_IMPORT_FILE_BYTES } from '@/lib/constants';
 
-export interface ImportDraft {
+interface ImportDraft {
   title: string;
   category?: string;
   status?: string;
@@ -22,7 +22,7 @@ export interface ImportDraft {
   [key: string]: unknown;
 }
 
-export function mapListStatus(status: unknown): string {
+function mapListStatus(status: unknown): string {
   const s = String(status ?? '')
     .toLowerCase()
     .trim();
@@ -52,7 +52,7 @@ export function mapListStatus(status: unknown): string {
   return 'in_progress';
 }
 
-export function parseMalXml(xmlText: string): ImportDraft[] {
+function parseMalXml(xmlText: string): ImportDraft[] {
   const parser = new XMLParser({
     trimValues: true,
   });
@@ -204,7 +204,7 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function parseZedArchiveCsv(text: string): ImportDraft[] {
+function parseZedArchiveCsv(text: string): ImportDraft[] {
   const lines = text.split(/\r?\n/).filter(Boolean);
   if (lines.length <= 1) return [];
 
@@ -303,7 +303,7 @@ function parseGoodreadsCsv(text: string): ImportDraft[] {
   return items;
 }
 
-export function looksLikeLetterboxdHeader(header: string): boolean {
+function looksLikeLetterboxdHeader(header: string): boolean {
   const h = header.toLowerCase();
   return (
     h.includes('letterboxd uri') ||
@@ -354,7 +354,7 @@ function parseCsvCells(line: string): string[] {
   return parseCsvRows(line)[0] ?? [];
 }
 
-export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft[] {
+function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft[] {
   const lines = text.split(/\r?\n/).filter(Boolean);
   if (lines.length <= 1) return [];
 
@@ -431,7 +431,7 @@ export function parseLetterboxdCsv(text: string, fileName?: string): ImportDraft
  *
  * @throws {Error} With a user-facing message when nothing can be parsed.
  */
-export function parseSimklJson(json: unknown): ImportDraft[] | null {
+function parseSimklJson(json: unknown): ImportDraft[] | null {
   if (!json || typeof json !== 'object') return null;
 
   const data = json as Record<string, unknown>;
@@ -542,7 +542,7 @@ export function parseImportFile(fileName: string, text: string): ImportDraft[] {
 /**
  * Check if a buffer begins with the gzip magic bytes (0x1f, 0x8b).
  */
-export function isGzip(buffer: ArrayBuffer | Uint8Array): boolean {
+function isGzip(buffer: ArrayBuffer | Uint8Array): boolean {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 }

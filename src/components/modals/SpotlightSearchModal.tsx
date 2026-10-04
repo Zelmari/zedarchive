@@ -66,7 +66,6 @@ export default function SpotlightSearchModal({
   }
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const resultsContainerRef = useRef<HTMLDivElement>(null);
   const dropdownItemsRef = useRef<Array<HTMLDivElement | null>>([]);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -298,11 +297,7 @@ export default function SpotlightSearchModal({
 
       {/* Results List */}
       {searchResults.length > 0 && (
-        <div
-          ref={resultsContainerRef}
-          className="max-h-[22rem] overflow-y-auto py-2"
-          data-testid="spotlight-results"
-        >
+        <div className="max-h-[22rem] overflow-y-auto py-2" data-testid="spotlight-results">
           {searchResults.map((item, idx) => {
             const isSelected = idx === highlightedIndex;
             const metaParts: string[] = [];

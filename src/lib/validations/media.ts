@@ -18,7 +18,7 @@ import {
  * Tag schema: trims, lowercases, validates character set.
  * Cap is 50 to match the sanitizeTags() runtime cap in domain/media.ts.
  */
-export const mediaTagSchema = z
+const mediaTagSchema = z
   .string()
   .trim()
   .toLowerCase()
@@ -26,13 +26,13 @@ export const mediaTagSchema = z
   .max(50)
   .regex(/^[a-z0-9_\-#]+$/, 'Tags may only contain letters, numbers, hyphens, and underscores');
 
-export const structureItemSchema = z.object({
+const structureItemSchema = z.object({
   number: z.number().int().min(1),
   name: z.string().trim().max(100),
   total: z.number().int().min(1).nullable().optional(),
 });
 
-export const mediaCycleSchema = z.object({
+const mediaCycleSchema = z.object({
   /** UUID — generated server-side if missing */
   id: z.string().uuid().optional(),
   cycleNumber: z.number().int().min(1).optional(),
@@ -46,7 +46,7 @@ export const mediaCycleSchema = z.object({
   notes: z.string().max(MAX_NOTES_LENGTH).nullable().optional(),
 });
 
-export const mediaQuoteSchema = z.object({
+const mediaQuoteSchema = z.object({
   id: z.string().uuid().optional(),
   text: z.string().min(1).max(2000),
   speaker: z.string().max(100).nullable().optional(),
@@ -55,20 +55,20 @@ export const mediaQuoteSchema = z.object({
   createdAt: z.string().optional(),
 });
 
-export const mediaRatingSchema = z.preprocess((val) => {
+const mediaRatingSchema = z.preprocess((val) => {
   if (val === null || val === undefined || val === '') return null;
   const parsed = parseInt(String(val), 10);
   if (isNaN(parsed)) return null;
   return Math.min(MAX_RATING, Math.max(1, parsed));
 }, z.number().int().min(1).max(MAX_RATING).nullable().optional());
 
-export const optionalInt = z.preprocess((val) => {
+const optionalInt = z.preprocess((val) => {
   if (val === null || val === undefined || val === '') return null;
   const num = Number(val);
   return isNaN(num) ? null : Math.floor(num);
 }, z.number().int().nullable().optional());
 
-export const nonNegativeInt = (defaultValue = 0) =>
+const nonNegativeInt = (defaultValue = 0) =>
   z.preprocess((val) => {
     if (val === null || val === undefined || val === '') return defaultValue;
     const num = Number(val);
@@ -77,7 +77,7 @@ export const nonNegativeInt = (defaultValue = 0) =>
 
 // ─── Base Field Schemas (without creation defaults) ───────────────────────────
 
-export const mediaFieldsSchema = z.object({
+const mediaFieldsSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(MAX_TITLE_LENGTH),
   category: z.enum(VALID_CATEGORIES),
   status: z.enum(VALID_STATUSES),

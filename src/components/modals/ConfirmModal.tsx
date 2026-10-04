@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { AlertTriangle, Info } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 
-export type ConfirmVariant = 'primary' | 'destructive' | 'danger' | 'secondary';
+type ConfirmVariant = 'primary' | 'destructive' | 'secondary';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -32,7 +32,7 @@ export default function ConfirmModal({
 
   if (!isOpen) return null;
 
-  const isDanger = variant === 'destructive' || variant === 'danger';
+  const isDanger = variant === 'destructive';
 
   return (
     <Modal

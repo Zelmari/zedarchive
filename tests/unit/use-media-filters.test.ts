@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { useMediaFilters, STATUS_KEYS } from '@/hooks/use-media-filters';
+import { useMediaFilters } from '@/hooks/use-media-filters';
 import type { MediaEntry } from '@/types/media';
 
 const makeEntry = (
@@ -53,10 +53,6 @@ function runHook(entries: MediaEntry[], tab: any = 'total') {
 }
 
 describe('useMediaFilters', () => {
-  it('exports expected status keys', () => {
-    expect(STATUS_KEYS).toEqual(['in_progress', 'completed', 'planning', 'on_hold', 'dropped']);
-  });
-
   it('filters entries by tab correctly', () => {
     const entries: MediaEntry[] = [
       makeEntry('1', 'Show 1', '2026-08-01T00:00:00.000Z', 'show'),

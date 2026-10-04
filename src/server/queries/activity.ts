@@ -22,8 +22,6 @@ export async function getActivityLogsByUserId(
   }));
 }
 
-export { getUserStreakForUser } from '@/domain/activity-log';
-
 /**
  * Returns a day → count map of activity for the trailing year.
  *

@@ -1,4 +1,4 @@
-export interface SeasonRef {
+interface SeasonRef {
   number: number;
   total?: number | null;
 }

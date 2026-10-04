@@ -3,17 +3,15 @@
 import { useState, useRef, useCallback, useMemo, type RefObject, type ChangeEvent } from 'react';
 import { compressImageFile } from '@/lib/client/image-utils';
 
-export interface UseCoverUploadOptions {
+interface UseCoverUploadOptions {
   onCoverChange: (coverImage: string | null) => void | Promise<void>;
 }
 
 export interface UseCoverUploadReturn {
-  fileInputRef: RefObject<HTMLInputElement | null>;
   isCompressing: boolean;
   error: string;
   clearError: () => void;
   openFilePicker: () => void;
-  handleImageUpload: (e: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleImageRemove: () => Promise<void>;
   fileInputProps: {
     ref: RefObject<HTMLInputElement | null>;
@@ -91,12 +89,10 @@ export function useCoverUpload(options: UseCoverUploadOptions): UseCoverUploadRe
   );
 
   return {
-    fileInputRef,
     isCompressing,
     error,
     clearError,
     openFilePicker,
-    handleImageUpload,
     handleImageRemove,
     fileInputProps,
   };

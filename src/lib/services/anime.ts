@@ -190,10 +190,7 @@ function toAnimeResult(
   };
 }
 
-export async function searchAniList(
-  query: string,
-  isManga: boolean,
-): Promise<SearchResult[] | null> {
+async function searchAniList(query: string, isManga: boolean): Promise<SearchResult[] | null> {
   const data = await anilistGraphql<{ Page?: { media?: AniListMedia[] } }>(
     ANILIST_QUERY,
     {
@@ -317,7 +314,7 @@ function toNextAir(node: AniListRelationNode, season: number): NextAirInfo | nul
 /**
  * Traverses AniList relations graph following SEQUEL edges to find an active airing season.
  */
-export async function resolveAniListAiringSequel(
+async function resolveAniListAiringSequel(
   id: number | null,
   idMal: number | null,
 ): Promise<NextAirInfo | null> {
@@ -424,7 +421,7 @@ export async function fetchAnimeScheduleAirdates(
   });
 }
 
-export type EpisodeCanonType = 'canon' | 'filler' | 'recap' | 'mixed';
+type EpisodeCanonType = 'canon' | 'filler' | 'recap' | 'mixed';
 
 export interface AnimeFillerMap {
   malId: number;

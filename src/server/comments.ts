@@ -47,7 +47,7 @@ export async function createProfileComment(
     throw new Error('This archive is not available for comments');
   }
 
-  // Reciprocity gate: only members of the public archive community may comment.
+  // Public archives must have a handle to link back to before commenting.
   const [meRow] = await db
     .select({
       id: userTable.id,

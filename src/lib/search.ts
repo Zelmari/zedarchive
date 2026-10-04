@@ -2,12 +2,12 @@ import { MAX_QUERY_LENGTH } from '@/lib/constants';
 import type { MediaCategory } from '@/types/media';
 import { checkRateLimit, clientKeyFromRequest } from '@/lib/rate-limit';
 
-export interface ParsedSearchQuery {
+interface ParsedSearchQuery {
   query: string;
   searchParams: URLSearchParams;
 }
 
-export function jsonSearchError(message: string, status: number): Response {
+function jsonSearchError(message: string, status: number): Response {
   return Response.json({ results: [], error: message }, { status });
 }
 

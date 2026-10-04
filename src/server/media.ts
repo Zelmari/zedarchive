@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { setDomainDb } from '@/domain/db-context';
 
 setDomainDb(db);
-import type { MediaEntry, MediaCycleInput, MediaQuote } from '@/types/media';
+import type { MediaEntry, MediaQuote } from '@/types/media';
 import { getAuthUser } from './internal';
 import { getMediaEntriesByUserId } from './queries/media';
 import {
@@ -13,11 +13,7 @@ import {
   updateMediaProgressForUser,
   deleteMediaEntryForUser,
   bulkImportMediaEntriesForUser,
-  addMediaCycleForUser,
-  updateMediaCycleForUser,
-  deleteMediaCycleForUser,
   togglePriorityQueueForUser,
-  reorderPriorityQueueForUser,
   addMediaQuoteForUser,
   updateMediaQuoteForUser,
   deleteMediaQuoteForUser,
@@ -56,42 +52,11 @@ export async function bulkImportMediaEntries(
   return result;
 }
 
-export async function addMediaCycle(mediaId: string, input: MediaCycleInput): Promise<MediaEntry> {
-  const user = await getAuthUser();
-  const entry = await addMediaCycleForUser(user.id, mediaId, input);
-  revalidatePath('/dashboard');
-  return entry;
-}
-
-export async function updateMediaCycle(
-  mediaId: string,
-  cycleId: string,
-  updates: MediaCycleInput,
-): Promise<MediaEntry> {
-  const user = await getAuthUser();
-  const entry = await updateMediaCycleForUser(user.id, mediaId, cycleId, updates);
-  revalidatePath('/dashboard');
-  return entry;
-}
-
-export async function deleteMediaCycle(mediaId: string, cycleId: string): Promise<MediaEntry> {
-  const user = await getAuthUser();
-  const entry = await deleteMediaCycleForUser(user.id, mediaId, cycleId);
-  revalidatePath('/dashboard');
-  return entry;
-}
-
 export async function togglePriorityQueue(id: string): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await togglePriorityQueueForUser(user.id, id);
   revalidatePath('/dashboard');
   return entry;
-}
-
-export async function reorderPriorityQueue(orderedIds: string[]): Promise<void> {
-  const user = await getAuthUser();
-  await reorderPriorityQueueForUser(user.id, orderedIds);
-  revalidatePath('/dashboard');
 }
 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {

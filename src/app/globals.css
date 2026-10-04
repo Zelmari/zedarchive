@@ -45,7 +45,6 @@
 
   --radius-control: var(--za-radius-control);
   --radius-small: var(--za-radius-small);
-  --radius-layered: var(--za-radius-layered);
 
   --shadow-layered: var(--za-shadow-layered);
   --shadow-raised: var(--za-shadow-raised);
@@ -196,7 +195,6 @@
      ========================================================================== */
   --za-radius-small: 3px; /* Title tiles, active route pills */
   --za-radius-control: 6px; /* Controls, fields, notices */
-  --za-radius-layered: 10px; /* Modals, dialogs, elevated containers */
   --za-border-width: 1px;
   --za-control-min-block-size: 2.5rem; /* 40px - Strict touch/click target min-height */
 
@@ -221,7 +219,6 @@
      Motion & Transitions
      ========================================================================== */
   --za-motion-fast: 150ms;
-  --za-motion-reduced: 0.01ms;
   --za-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -1048,16 +1045,7 @@ select.za-field {
   color: var(--za-color-warning);
 }
 
-/* 7b. Editorial kickers, page intros, and segment tabs */
-.za-kicker {
-  color: var(--za-color-accent);
-  font-family: var(--za-font-mono);
-  font-size: var(--za-text-fine);
-  font-weight: var(--za-weight-heading);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
+/* 7b. Segment tabs */
 .za-segment {
   min-block-size: var(--za-control-min-block-size);
   display: inline-flex;
@@ -1101,22 +1089,6 @@ select.za-field {
 }
 
 /* 8. Cards & Surfaces */
-.za-card {
-  min-inline-size: 0;
-  border: var(--za-border-width) solid var(--za-color-border-decorative);
-  border-radius: var(--za-radius-small);
-  background: var(--za-color-surface);
-  padding: var(--za-space-4);
-  outline: 1px solid color-mix(in srgb, var(--za-color-border-required) 25%, transparent);
-  outline-offset: -5px;
-  box-shadow: var(--za-shadow-raised);
-  overflow-wrap: break-word;
-}
-
-.za-card--raised {
-  box-shadow: var(--za-shadow-raised);
-}
-
 .za-title-tile {
   display: grid;
   aspect-ratio: 2 / 3;
@@ -1673,21 +1645,6 @@ select.za-field {
   color: var(--za-color-text-muted);
 }
 
-.za-site-footer__link {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--za-color-border-decorative);
-  text-underline-offset: 0.2em;
-  transition:
-    color var(--za-motion-fast) var(--za-ease-standard),
-    text-decoration-color var(--za-motion-fast) var(--za-ease-standard);
-}
-
-.za-site-footer__link:hover {
-  color: var(--za-color-text);
-  text-decoration-color: var(--za-color-text);
-}
-
 /* Landing-page overrides — keep account actions compact in the masthead. */
 .za-landing .za-button {
   border-radius: var(--za-radius-small);
@@ -1719,10 +1676,6 @@ select.za-field {
 
 .za-landing .za-site-footer__inner {
   padding-block: 1.5rem;
-}
-
-.za-landing .za-site-footer__link {
-  color: var(--za-color-accent);
 }
 
 @media (max-width: 48rem) {
@@ -1777,12 +1730,6 @@ select.za-field {
     color: LinkText;
   }
 
-  .za-wordmark.za-current-page {
-    text-decoration-line: underline;
-    text-decoration-style: double;
-    text-underline-offset: 0.15em;
-  }
-
   .za-button--selected {
     border-color: Highlight;
   }
@@ -1829,7 +1776,7 @@ select.za-field {
 
   .za-skip-link,
   .za-modal-backdrop,
-  [class*='ToastContainer'],
+  .za-toast-container,
   .za-site-header {
     display: none !important;
   }

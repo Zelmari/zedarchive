@@ -4,13 +4,9 @@ import GoBackButton from '@/components/navigation/GoBackButton';
 
 interface ArchiveUnavailableProps {
   ctaLabel: string;
-  ctaClassName?: string;
 }
 
-export default function ArchiveUnavailable({
-  ctaLabel,
-  ctaClassName = '',
-}: ArchiveUnavailableProps) {
+export default function ArchiveUnavailable({ ctaLabel }: ArchiveUnavailableProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4 text-ink">
       <div
@@ -35,7 +31,7 @@ export default function ArchiveUnavailable({
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <GoBackButton />
-          <Link href="/" className={`za-button za-button--primary ${ctaClassName}`.trim()}>
+          <Link href="/" className="za-button za-button--primary">
             {ctaLabel}
           </Link>
         </div>

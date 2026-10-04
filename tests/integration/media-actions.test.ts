@@ -22,7 +22,6 @@ const { getAuthUserMock, logActivityMock, revalidatePathMock } = vi.hoisted(() =
 vi.mock('@/server/internal', () => ({
   getAuthUser: getAuthUserMock,
   getSessionUser: vi.fn(),
-  logActivity: logActivityMock,
 }));
 
 vi.mock('@/domain/activity-log', () => ({
@@ -41,11 +40,7 @@ import {
   createMediaEntry,
   updateMediaProgress,
   bulkImportMediaEntries,
-  addMediaCycle,
-  updateMediaCycle,
-  deleteMediaCycle,
   togglePriorityQueue,
-  reorderPriorityQueue,
 } from '@/server/media';
 
 describe('createMediaEntry', () => {
@@ -490,7 +485,7 @@ describe('bulkImportMediaEntries', () => {
     expect((dbState.rows[0]?.droppedAt as Date).toISOString()).toBe('2026-05-01T00:00:00.000Z');
   });
 
-  it('initializes cycle 1 on entry creation and supports rewatch cycles and CRUD', async () => {
+  it('initializes cycle 1 on entry creation and tracks rewatch cycles', async () => {
     // 1. Creation automatically creates Cycle 1
     const entry = await createMediaEntry({
       title: 'Steins;Gate',
@@ -527,33 +522,6 @@ describe('bulkImportMediaEntries', () => {
     });
 
     expect(completedRewatch.cycles[1]?.completedAt).toBe('2026-08-01T00:00:00.000Z');
-
-    // 4. Add a past cycle manually
-    const withLoggedCycle = await addMediaCycle(entry.id, {
-      startedAt: '2024-05-01T00:00:00.000Z',
-      completedAt: '2024-05-15T00:00:00.000Z',
-      rating: 9,
-      notes: 'Summer rewatch',
-    });
-
-    expect(withLoggedCycle.cycles).toHaveLength(3);
-    expect(withLoggedCycle.rewatchCount).toBe(2);
-    expect(withLoggedCycle.cycles[2]?.notes).toBe('Summer rewatch');
-
-    // 5. Update a cycle
-    const cycleToUpdate = withLoggedCycle.cycles[2]!;
-    const updatedCycle = await updateMediaCycle(entry.id, cycleToUpdate.id, {
-      notes: 'Updated notes',
-      rating: 10,
-    });
-
-    expect(updatedCycle.cycles[2]?.notes).toBe('Updated notes');
-    expect(updatedCycle.cycles[2]?.rating).toBe(10);
-
-    // 6. Delete a cycle
-    const afterDelete = await deleteMediaCycle(entry.id, cycleToUpdate.id);
-    expect(afterDelete.cycles).toHaveLength(2);
-    expect(afterDelete.rewatchCount).toBe(1);
   });
 
   it('increments movie times-watched on rewatch without resetting runtime', async () => {
@@ -574,7 +542,7 @@ describe('bulkImportMediaEntries', () => {
     expect(movieRewatch.cycles[1]?.completedAt).toBeTruthy();
   });
 
-  it('supports priority queue toggling, reordering, and retirement on completion', async () => {
+  it('supports priority queue toggling and retirement on completion', async () => {
     // 1. Create an entry not in queue
     const entry1 = await createMediaEntry({
       title: 'Chainsaw Man',
@@ -587,21 +555,17 @@ describe('bulkImportMediaEntries', () => {
     const queued1 = await togglePriorityQueue(entry1.id);
     expect(queued1.priorityIndex).toBe(1);
 
-    // 3. Reorder queue
-    await reorderPriorityQueue([entry1.id]);
-    expect(dbState.rows[0]?.priorityIndex).toBe(1);
-
-    // 4. Marking completed removes item from priority queue
+    // 3. Marking completed removes item from priority queue
     const completed = await updateMediaProgress(entry1.id, {
       status: 'completed',
     });
     expect(completed.priorityIndex).toBeNull();
 
-    // 5. Toggle back into queue
+    // 4. Toggle back into queue
     const requeued = await togglePriorityQueue(entry1.id);
     expect(requeued.priorityIndex).toBe(1);
 
-    // 6. Toggle out of queue
+    // 5. Toggle out of queue
     const unqueued = await togglePriorityQueue(entry1.id);
     expect(unqueued.priorityIndex).toBeNull();
   });

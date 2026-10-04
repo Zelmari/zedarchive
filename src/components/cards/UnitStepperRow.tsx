@@ -12,8 +12,6 @@ interface UnitStepperRowProps {
   canNext?: boolean;
   disabled?: boolean;
   onChange: (delta: number) => void;
-  prevTitle?: string;
-  nextTitle?: string;
   compact?: boolean;
 }
 
@@ -29,8 +27,6 @@ export default function UnitStepperRow({
   canNext,
   disabled = false,
   onChange,
-  prevTitle,
-  nextTitle,
   compact = false,
 }: UnitStepperRowProps) {
   const miniBtn =
@@ -55,8 +51,8 @@ export default function UnitStepperRow({
           className={`${miniBtn} font-[family-name:var(--za-font-mono)]`}
           onClick={() => onChange(-1)}
           disabled={prevDisabled}
-          title={prevTitle ?? `Previous ${unitLabel.toLowerCase()}`}
-          aria-label={prevTitle ?? `Previous ${unitLabel.toLowerCase()}`}
+          title={`Previous ${unitLabel.toLowerCase()}`}
+          aria-label={`Previous ${unitLabel.toLowerCase()}`}
         >
           <ChevronLeft size={13} strokeWidth={2} />
         </button>
@@ -65,8 +61,8 @@ export default function UnitStepperRow({
           className={miniBtn}
           onClick={() => onChange(1)}
           disabled={nextDisabled}
-          title={nextTitle ?? `Next ${unitLabel.toLowerCase()}`}
-          aria-label={nextTitle ?? `Next ${unitLabel.toLowerCase()}`}
+          title={`Next ${unitLabel.toLowerCase()}`}
+          aria-label={`Next ${unitLabel.toLowerCase()}`}
         >
           <ChevronRight size={13} strokeWidth={2} />
         </button>

@@ -16,7 +16,7 @@ import BookStepper from './BookStepper';
 import MovieStepper from './MovieStepper';
 import UnitStepperRow from './UnitStepperRow';
 
-export interface MediaCardHandlers {
+interface MediaCardHandlers {
   onUpdate: (id: string, updates: UpdateMediaInput) => Promise<void>;
   onDelete?: (id: string) => void;
   onOpenDetail?: (item: MediaEntry) => void;

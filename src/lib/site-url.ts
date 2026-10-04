@@ -8,7 +8,7 @@ function isDevRuntime(): boolean {
  * Canonical browsing origin for share links and public feeds.
  * Never derived from the request Host header.
  */
-export function getCanonicalOrigin(): string {
+function getCanonicalOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.BETTER_AUTH_URL;
   if (configured) {
     try {

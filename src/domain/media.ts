@@ -12,42 +12,36 @@ import {
   MAX_STRUCTURE_LENGTH,
   MAX_RATING,
 } from '@/lib/constants';
-import type {
-  MediaEntry,
-  StructureItem,
-  MediaCycle,
-  MediaCycleInput,
-  MediaQuote,
-} from '@/types/media';
+import type { MediaEntry, StructureItem, MediaCycle, MediaQuote } from '@/types/media';
 import { serializeEntry, stableMediaChildDate, stableMediaChildId } from '@/lib/serialize';
 import { logActivity } from '@/domain/activity-log';
 import { domainDb, type DbClient } from '@/domain/db-context';
 import { createMediaSchema, updateMediaSchema } from '@/lib/validations/media';
 
-export type MediaRow = typeof mediaEntries.$inferSelect;
-export type MediaPayload = Omit<
+type MediaRow = typeof mediaEntries.$inferSelect;
+type MediaPayload = Omit<
   typeof mediaEntries.$inferInsert,
   'id' | 'userId' | 'createdAt' | 'isPrivate'
 >;
 
-export function toInt(value: unknown, fallback: number): number;
-export function toInt(value: unknown, fallback: null): number | null;
-export function toInt(value: unknown, fallback: number | null): number | null {
+function toInt(value: unknown, fallback: number): number;
+function toInt(value: unknown, fallback: null): number | null;
+function toInt(value: unknown, fallback: number | null): number | null {
   const parsed = parseInt(String(value), 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function isInList(list: readonly string[], value: unknown): value is string {
+function isInList(list: readonly string[], value: unknown): value is string {
   return typeof value === 'string' && list.includes(value);
 }
 
-export function toDateOrNull(value: unknown): Date | null {
+function toDateOrNull(value: unknown): Date | null {
   if (!value) return null;
   const date = new Date(value as string);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function sanitizeStructure(structure: unknown): StructureItem[] {
+function sanitizeStructure(structure: unknown): StructureItem[] {
   if (!Array.isArray(structure)) return [];
   const seen = new Set<number>();
   return (structure as Record<string, unknown>[])
@@ -70,7 +64,7 @@ export function sanitizeStructure(structure: unknown): StructureItem[] {
     });
 }
 
-export function sanitizeTags(tags: unknown): string[] {
+function sanitizeTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
   return tags
     .slice(0, 50)
@@ -83,19 +77,19 @@ export function sanitizeTags(tags: unknown): string[] {
     .filter(Boolean);
 }
 
-export function sanitizeRating(rating: unknown): number | null {
+function sanitizeRating(rating: unknown): number | null {
   if (rating === null || rating === undefined || rating === '') return null;
   const parsed = parseInt(String(rating), 10);
   if (isNaN(parsed)) return null;
   return Math.min(MAX_RATING, Math.max(1, parsed));
 }
 
-export function sanitizeStatus(status: unknown): string {
+function sanitizeStatus(status: unknown): string {
   const normalized = typeof status === 'string' ? status.trim().toLowerCase() : '';
   return isInList(VALID_STATUSES, normalized) ? normalized : 'in_progress';
 }
 
-export function sanitizeCycles(
+function sanitizeCycles(
   cycles: unknown,
   fallbackStart?: Date | string | null,
   fallbackEnd?: Date | string | null,
@@ -151,7 +145,7 @@ export function sanitizeCycles(
   ];
 }
 
-export function sanitizeQuotes(quotes: unknown, mediaId: string): MediaQuote[] {
+function sanitizeQuotes(quotes: unknown, mediaId: string): MediaQuote[] {
   if (!Array.isArray(quotes)) return [];
 
   return quotes.map((rawQuote, index) => {
@@ -171,7 +165,7 @@ export function sanitizeQuotes(quotes: unknown, mediaId: string): MediaQuote[] {
   });
 }
 
-export async function assertCanWriteMedia(
+async function assertCanWriteMedia(
   mediaId: string,
   userId: string,
   tx?: DbClient,
@@ -190,7 +184,7 @@ export async function assertCanWriteMedia(
   return entry;
 }
 
-export async function compactPriorityQueue(
+async function compactPriorityQueue(
   tx: DbClient,
   userId: string,
   excludeId: string,
@@ -218,7 +212,7 @@ export async function compactPriorityQueue(
   }
 }
 
-export async function mutateQuotes(
+async function mutateQuotes(
   mediaId: string,
   userId: string,
   fn: (quotes: MediaQuote[]) => MediaQuote[],
@@ -242,55 +236,7 @@ export async function mutateQuotes(
   });
 }
 
-export interface CycleMutationOptions {
-  recalculateRewatchCount?: boolean;
-  getAdditionalFields?: () => Partial<MediaRow>;
-}
-
-export async function mutateCycles(
-  mediaId: string,
-  userId: string,
-  fn: (cycles: MediaCycle[], existing: MediaRow) => MediaCycle[],
-  options: CycleMutationOptions = {},
-): Promise<MediaRow> {
-  return await domainDb().transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
-      .limit(1);
-
-    if (!existing || existing.userId !== userId) {
-      throw new Error('Entry not found');
-    }
-
-    const cycles = fn(
-      sanitizeCycles(existing.cycles, existing.startedAt, existing.completedAt, existing.id),
-      existing,
-    );
-    const setFields: Partial<MediaRow> = {
-      cycles,
-      updatedAt: new Date(),
-      ...(options.getAdditionalFields?.() ?? {}),
-    };
-    if (options.recalculateRewatchCount) {
-      setFields.rewatchCount = Math.max(0, cycles.length - 1);
-    }
-
-    const [row] = await tx
-      .update(mediaEntries)
-      .set(setFields)
-      .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)))
-      .returning();
-
-    if (!row) {
-      throw new Error('Entry not found');
-    }
-    return row;
-  });
-}
-
-export function buildMediaPayload(
+function buildMediaPayload(
   input: Record<string, unknown>,
   {
     category,
@@ -883,121 +829,6 @@ export async function bulkImportMediaEntriesForUser(
   return { added, updated, skipped };
 }
 
-export async function addMediaCycleForUser(
-  userId: string,
-  mediaId: string,
-  input: MediaCycleInput,
-): Promise<MediaEntry> {
-  const updated = await mutateCycles(
-    mediaId,
-    userId,
-    (existingCycles) => {
-      const cycleNumber = existingCycles.length + 1;
-      const startedAt = input.startedAt ? toDateOrNull(input.startedAt) : new Date();
-      const completedAt = input.completedAt ? toDateOrNull(input.completedAt) : null;
-      const rating = sanitizeRating(input.rating);
-      const notes = input.notes ? String(input.notes).trim().slice(0, MAX_NOTES_LENGTH) : null;
-
-      const newCycle: MediaCycle = {
-        id: crypto.randomUUID(),
-        cycleNumber,
-        startedAt: startedAt ? startedAt.toISOString() : null,
-        completedAt: completedAt ? completedAt.toISOString() : null,
-        rating,
-        notes,
-      };
-
-      return [...existingCycles, newCycle];
-    },
-    { recalculateRewatchCount: true },
-  );
-  return serializeEntry(updated) as MediaEntry;
-}
-
-export async function updateMediaCycleForUser(
-  userId: string,
-  mediaId: string,
-  cycleId: string,
-  updates: MediaCycleInput,
-): Promise<MediaEntry> {
-  const additionalFields: Partial<MediaRow> = {};
-  const updated = await mutateCycles(
-    mediaId,
-    userId,
-    (existingCycles) => {
-      const cycleIndex = existingCycles.findIndex((c) => c.id === cycleId);
-      if (cycleIndex === -1) {
-        throw new Error('Cycle not found');
-      }
-
-      const targetCycle = existingCycles[cycleIndex]!;
-      if (updates.startedAt !== undefined) {
-        const parsed = toDateOrNull(updates.startedAt);
-        targetCycle.startedAt = parsed ? parsed.toISOString() : null;
-      }
-      if (updates.completedAt !== undefined) {
-        const parsed = toDateOrNull(updates.completedAt);
-        targetCycle.completedAt = parsed ? parsed.toISOString() : null;
-      }
-      if (updates.rating !== undefined) {
-        targetCycle.rating = sanitizeRating(updates.rating);
-      }
-      if (updates.notes !== undefined) {
-        targetCycle.notes =
-          updates.notes == null ? null : String(updates.notes).trim().slice(0, MAX_NOTES_LENGTH);
-      }
-
-      if (cycleIndex === 0 && targetCycle.startedAt) {
-        additionalFields.startedAt = new Date(targetCycle.startedAt);
-      }
-      if (cycleIndex === existingCycles.length - 1 && targetCycle.completedAt) {
-        additionalFields.completedAt = new Date(targetCycle.completedAt);
-      }
-
-      return existingCycles;
-    },
-    { getAdditionalFields: () => additionalFields },
-  );
-  return serializeEntry(updated) as MediaEntry;
-}
-
-export async function deleteMediaCycleForUser(
-  userId: string,
-  mediaId: string,
-  cycleId: string,
-): Promise<MediaEntry> {
-  const updated = await mutateCycles(
-    mediaId,
-    userId,
-    (existingCycles, existing) => {
-      const filteredCycles = existingCycles.filter((c) => c.id !== cycleId);
-      const renumberedCycles = (
-        filteredCycles.length > 0
-          ? filteredCycles
-          : [
-              {
-                id: crypto.randomUUID(),
-                cycleNumber: 1,
-                startedAt: existing.startedAt
-                  ? existing.startedAt.toISOString()
-                  : new Date().toISOString(),
-                completedAt: existing.completedAt ? existing.completedAt.toISOString() : null,
-                rating: null,
-                notes: null,
-              },
-            ]
-      ).map((c, i) => ({
-        ...c,
-        cycleNumber: i + 1,
-      }));
-
-      return renumberedCycles;
-    },
-    { recalculateRewatchCount: true },
-  );
-  return serializeEntry(updated) as MediaEntry;
-}
-
 export async function togglePriorityQueueForUser(userId: string, id: string): Promise<MediaEntry> {
   const updated = await domainDb().transaction(async (tx) => {
     const [existing] = await tx
@@ -1039,40 +870,6 @@ export async function togglePriorityQueueForUser(userId: string, id: string): Pr
   });
 
   return serializeEntry(updated) as MediaEntry;
-}
-
-export async function reorderPriorityQueueForUser(
-  userId: string,
-  orderedIds: string[],
-): Promise<void> {
-  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return;
-
-  await domainDb().transaction(async (tx) => {
-    const queued = await tx
-      .select({ id: mediaEntries.id })
-      .from(mediaEntries)
-      .where(and(eq(mediaEntries.userId, userId), isNotNull(mediaEntries.priorityIndex)));
-
-    const queuedIds = new Set(queued.map((row) => row.id));
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const id of orderedIds) {
-      if (!queuedIds.has(id) || seen.has(id)) continue;
-      seen.add(id);
-      ordered.push(id);
-    }
-    for (const row of queued) {
-      if (!seen.has(row.id)) ordered.push(row.id);
-    }
-
-    for (let i = 0; i < ordered.length; i++) {
-      const mediaId = ordered[i]!;
-      await tx
-        .update(mediaEntries)
-        .set({ priorityIndex: i + 1, updatedAt: new Date() })
-        .where(and(eq(mediaEntries.id, mediaId), eq(mediaEntries.userId, userId)));
-    }
-  });
 }
 
 export async function addMediaQuoteForUser(

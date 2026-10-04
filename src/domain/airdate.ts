@@ -2,7 +2,7 @@ import type { NextAirInfo } from '@/types/media';
 import { fetchTvmazeAirdates } from '@/lib/services/tvmaze';
 import { fetchAnimeScheduleAirdates } from '@/lib/services/anime';
 
-export interface AirdateItem {
+interface AirdateItem {
   sourceId: string;
   title: string;
 }

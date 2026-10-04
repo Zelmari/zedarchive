@@ -15,13 +15,7 @@ import {
 } from '@/lib/validations/profile';
 import type { CustomThemePalette } from '@/types/user';
 import { checkRateLimit } from '@/lib/rate-limit';
-import {
-  getUserProfileById,
-  getPublicUserProfile,
-  searchPublicProfiles,
-  type PublicProfileResult,
-  type PublicUserSearchResult,
-} from './queries/user';
+import { getUserProfileById } from './queries/user';
 
 export async function resendVerificationEmailAction(): Promise<{ ok: boolean; error?: string }> {
   const user = await getAuthUser();
@@ -250,6 +244,3 @@ export async function deleteReadingGoal(year: number): Promise<{ ok: boolean; er
   revalidatePath('/dashboard');
   return { ok: true };
 }
-
-export { getPublicUserProfile, searchPublicProfiles };
-export type { PublicProfileResult, PublicUserSearchResult };

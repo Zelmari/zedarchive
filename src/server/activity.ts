@@ -1,11 +1,8 @@
 'use server';
 
 import { getAuthUser } from './internal';
-import {
-  getActivityLogsByUserId,
-  getUserStreakForUser,
-  getYearlyActivityHeatmapForUser,
-} from './queries/activity';
+import { getUserStreakForUser } from '@/domain/activity-log';
+import { getActivityLogsByUserId, getYearlyActivityHeatmapForUser } from './queries/activity';
 import type { ActivityLog } from '@/types/activity';
 
 const MAX_ACTIVITY_PAGE = 100;

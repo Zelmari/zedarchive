@@ -43,19 +43,16 @@ interface TvmazeSearchOptions {
   emptyAsNull: boolean;
 }
 
-export function searchTvmaze(
+function searchTvmaze(
   query: string,
   options: { category: 'show'; emptyAsNull: false },
 ): Promise<SearchResult[]>;
-export function searchTvmaze(
+function searchTvmaze(
   query: string,
   options: { category: 'anime'; emptyAsNull: true },
 ): Promise<SearchResult[] | null>;
-export function searchTvmaze(
-  query: string,
-  options: TvmazeSearchOptions,
-): Promise<SearchResult[] | null>;
-export async function searchTvmaze(
+function searchTvmaze(query: string, options: TvmazeSearchOptions): Promise<SearchResult[] | null>;
+async function searchTvmaze(
   query: string,
   { category, emptyAsNull }: TvmazeSearchOptions,
 ): Promise<SearchResult[] | null> {

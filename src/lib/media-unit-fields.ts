@@ -7,7 +7,7 @@ export interface UnitFieldContext {
   primaryUnitCurrent: string | number;
 }
 
-export interface UnitField {
+interface UnitField {
   field: UnitFieldName;
   label: string | ((ctx: UnitFieldContext) => string);
   min: number;

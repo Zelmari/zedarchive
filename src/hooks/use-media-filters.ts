@@ -6,8 +6,6 @@ import type { DashboardTab, SortKey } from '@/types/dashboard';
 
 export type { DashboardTab, SortKey };
 
-export { VALID_STATUSES as STATUS_KEYS } from '@/lib/constants';
-
 /**
  * Search / filter / sort state and derived views for the dashboard grid.
  * Features stable session-snapshot sorting to prevent cards from jumping

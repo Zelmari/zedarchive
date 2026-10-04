@@ -16,7 +16,6 @@ export interface CustomThemePalette {
 export interface ReadingGoalConfig {
   year: number;
   annualTarget: number;
-  monthlyTarget?: number | null;
   isPublic?: boolean;
 }
 
@@ -42,7 +41,6 @@ export interface PublicUserSearchResult {
   username: string;
   bio: string | null;
   image: string | null;
-  theme: string;
   createdAt: Date;
   totalEntries: number;
 }

@@ -14,9 +14,6 @@ export interface SessionUser {
   emailVerified?: boolean;
 }
 
-import type { DbClient } from '@/domain/db-context';
-export type { DbClient };
-
 export async function getAuthUser(): Promise<SessionUser> {
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) {
@@ -88,5 +85,3 @@ export function toDashboardUser(
     verificationDismissedAt: dbUser?.verificationDismissedAt || null,
   };
 }
-
-export { logActivity, type ActivityLogInput } from '@/domain/activity-log';

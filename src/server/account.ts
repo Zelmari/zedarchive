@@ -15,7 +15,7 @@ import {
 import { getAuthUser } from './internal';
 import { deleteAccountSchema } from '@/lib/validations/auth';
 
-export interface DeleteAccountInput {
+interface DeleteAccountInput {
   password?: string;
 }
 

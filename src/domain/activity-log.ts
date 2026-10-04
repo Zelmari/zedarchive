@@ -1,7 +1,7 @@
 import { mediaActivityLogs } from '@/db/schema';
 import { domainDb, type DbClient } from './db-context';
 
-export interface ActivityLogInput {
+interface ActivityLogInput {
   userId: string;
   mediaId: string;
   actionType: 'progress_update' | 'status_change' | 'created' | 'completed' | 'rating' | 'rewatch';
@@ -34,7 +34,7 @@ export async function logActivity(
 
 import { eq, sql, type SQL } from 'drizzle-orm';
 
-export async function getActiveDaysForUser(userId: string, tx?: DbClient): Promise<string[]> {
+async function getActiveDaysForUser(userId: string, tx?: DbClient): Promise<string[]> {
   const client = tx ?? domainDb();
   const activeDayExpr: SQL = sql`DATE(${mediaActivityLogs.createdAt} AT TIME ZONE 'UTC')`;
   const rows = await client

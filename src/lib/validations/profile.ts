@@ -73,7 +73,7 @@ const hexColor = z
   .trim()
   .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Invalid hex color');
 
-export const customThemePaletteSchema = z
+const customThemePaletteSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     canvas: hexColor,

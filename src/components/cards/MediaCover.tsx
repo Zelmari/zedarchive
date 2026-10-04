@@ -5,7 +5,7 @@ interface MediaCoverProps {
   title: string;
   coverImage?: string | null;
   category?: string;
-  variant?: 'compact' | 'card' | 'row';
+  variant: 'card' | 'row';
   onOpenDetail?: () => void;
   openDetailProps?: Record<string, unknown>;
 }
@@ -13,7 +13,6 @@ interface MediaCoverProps {
 const coverWrapperBase =
   'relative block overflow-hidden rounded-small border border-decorative bg-surface-sunken [aspect-ratio:2/3]';
 
-const compactCoverClass = 'w-28 min-w-28 flex-none basis-28';
 const cardCoverClass = 'w-full min-w-0';
 const rowCoverClass = 'w-28 min-w-28 flex-none basis-28 self-start';
 
@@ -21,7 +20,7 @@ export default function MediaCover({
   title,
   coverImage,
   category = 'show',
-  variant = 'compact',
+  variant,
   onOpenDetail,
   openDetailProps = {},
 }: MediaCoverProps) {
@@ -43,9 +42,9 @@ export default function MediaCover({
     <div
       className={cn(
         coverWrapperBase,
-        isCard ? cardCoverClass : isRow ? rowCoverClass : compactCoverClass,
+        isCard ? cardCoverClass : rowCoverClass,
         onOpenDetail && 'cursor-pointer',
-        (isCard || isRow) && 'group/cover',
+        'group/cover',
       )}
       {...openDetailProps}
       title={onOpenDetail ? `Open details for ${title}` : undefined}

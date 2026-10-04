@@ -12,15 +12,12 @@ const STATUS_BADGE_CLASSES: Record<MediaStatus, string> = {
 
 interface BadgeProps {
   children: ReactNode;
-  className?: string;
 }
 
 /** Neutral meta badge (season/tag/meta chips). */
-export function Badge({ children, className = '' }: BadgeProps) {
+export function Badge({ children }: BadgeProps) {
   return (
-    <span
-      className={`inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] text-ink-muted ${className}`.trim()}
-    >
+    <span className="inline-block rounded-small border border-decorative bg-surface-subtle px-[0.45rem] py-[0.15rem] font-[family-name:var(--za-font-display)] text-[length:var(--za-text-fine)] font-[var(--za-weight-heading)] uppercase leading-[1.2] tracking-[0.04em] text-ink-muted">
       {children}
     </span>
   );

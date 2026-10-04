@@ -11,7 +11,7 @@ import { cn } from '@/lib/cn';
 
 type PaletteField = Exclude<keyof CustomThemePalette, 'name'>;
 
-export const PALETTE_FIELDS: Array<{ key: PaletteField; label: string }> = [
+const PALETTE_FIELDS: Array<{ key: PaletteField; label: string }> = [
   { key: 'canvas', label: 'Canvas / Background' },
   { key: 'surface', label: 'Card Surface' },
   { key: 'surfaceSubtle', label: 'Subtle Surface' },

@@ -118,7 +118,7 @@ function createRetryingPostgresClient(
 
 // Disable prefetch as it is not supported for Supabase "Transaction" pooler mode.
 // Tuned for serverless: bounded pool, short idle lifetime so isolates release connections.
-export const client = createRetryingPostgresClient(connectionString, {
+const client = createRetryingPostgresClient(connectionString, {
   prepare: false,
   max: 5,
   idle_timeout: 20,

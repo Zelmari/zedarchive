@@ -1,7 +1,7 @@
 import type { MediaEntry } from '@/types/media';
 import type { ReadingGoalConfig } from '@/types/user';
 
-export interface ArchiveStats {
+interface ArchiveStats {
   totalEntries: number;
   completedCount: number;
   inProgressCount: number;
@@ -91,7 +91,7 @@ export function calculateArchiveStats(entries: MediaEntry[]): ArchiveStats {
   };
 }
 
-export interface ReadingGoalProgress {
+interface ReadingGoalProgress {
   year: number;
   annualTarget: number;
   completedCount: number;

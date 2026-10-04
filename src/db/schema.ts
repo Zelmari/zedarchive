@@ -140,7 +140,6 @@ export const mediaEntries = pgTable(
     index('media_entries_user_updated_idx').on(table.userId, table.updatedAt.desc()),
     index('media_entries_user_status_idx').on(table.userId, table.status),
     index('media_entries_user_priority_idx').on(table.userId, table.priorityIndex),
-    // Phase 3: composite index for public-profile filtering
     index('media_entries_user_public_idx').on(
       table.userId,
       table.isPrivate,

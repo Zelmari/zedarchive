@@ -2,7 +2,7 @@ import { getPublicUserProfile, type PublicProfileResult } from '@/server/queries
 import type { MediaEntry } from '@/types/media';
 import { getCanonicalProfileUrl } from '@/lib/site-url';
 
-export interface PublicFeedItem {
+interface PublicFeedItem {
   id: string;
   title: string;
   category: MediaEntry['category'];
@@ -12,7 +12,7 @@ export interface PublicFeedItem {
   updatedAt: MediaEntry['updatedAt'];
 }
 
-export interface PublicFeedData {
+interface PublicFeedData {
   user: PublicProfileResult['user'];
   recentEntries: PublicFeedItem[];
   profileUrl: string;

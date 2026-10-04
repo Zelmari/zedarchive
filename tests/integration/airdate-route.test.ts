@@ -211,7 +211,7 @@ describe('GET /api/shows/airdate', () => {
   });
 
   it('resolves ongoing anime sequels via AniList GraphQL traversal when earlier season is finished', async () => {
-    fetchMock.mockImplementation(async (input: unknown, init?: RequestInit) => {
+    fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
       if (url.startsWith('https://animeschedule.net/api/v3/anime')) {
         return animeScheduleResponse([scheduleAnime({ status: 'Finished' })]);

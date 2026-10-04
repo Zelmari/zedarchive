@@ -9,7 +9,6 @@ const { getAuthUserMock, revalidatePathMock } = vi.hoisted(() => ({
 vi.mock('@/server/internal', () => ({
   getAuthUser: getAuthUserMock,
   getSessionUser: vi.fn(),
-  logActivity: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));

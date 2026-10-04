@@ -16,10 +16,8 @@ interface ModalProps {
   initialFocusRef?: RefObject<HTMLElement | null>;
   title?: string;
   icon?: ReactNode;
-  header?: ReactNode;
   /** Extra classes MERGED onto the default panel (widths etc.); conflicts resolve in favor of these. */
   contentClassName?: string;
-  contentStyle?: React.CSSProperties;
   closeLabel?: string;
   layer?: 'modal' | 'nested';
   /**
@@ -47,9 +45,7 @@ export default function Modal({
   initialFocusRef,
   title,
   icon = null,
-  header = null,
   contentClassName,
-  contentStyle,
   closeLabel = 'Close modal',
   layer = 'modal',
   hideClose = false,
@@ -64,7 +60,7 @@ export default function Modal({
     console.warn('Modal is missing an accessible name (labelledBy, ariaLabel, or title)');
   }
 
-  const showHeader = Boolean(title || header);
+  const showHeader = Boolean(title);
 
   return (
     <div
@@ -78,7 +74,6 @@ export default function Modal({
       <div
         ref={modalRef}
         className={cn(DEFAULT_PANEL, contentClassName)}
-        style={contentStyle}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -88,17 +83,15 @@ export default function Modal({
       >
         {showHeader && (
           <div className="flex items-start justify-between gap-3 border-b border-decorative px-[var(--za-space-6)] py-[var(--za-space-4)]">
-            {header ?? (
-              <div className="flex min-w-0 flex-1 items-start gap-2">
-                {icon}
-                <h2
-                  id={labelledBy}
-                  className="min-w-0 break-words text-[length:var(--za-text-heading-md)] font-[family-name:var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
-                >
-                  {title}
-                </h2>
-              </div>
-            )}
+            <div className="flex min-w-0 flex-1 items-start gap-2">
+              {icon}
+              <h2
+                id={labelledBy}
+                className="min-w-0 break-words text-[length:var(--za-text-heading-md)] font-[family-name:var(--za-font-display)] font-[var(--za-weight-heading)] uppercase tracking-[0.04em] text-ink"
+              >
+                {title}
+              </h2>
+            </div>
             {!hideClose && (
               <button
                 type="button"

@@ -3,7 +3,7 @@ import type { MediaEntry, NextAirInfo } from '@/types/media';
 export type DayOfWeek =
   'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
-export interface CalendarEpisodeItem {
+interface CalendarEpisodeItem {
   media: MediaEntry;
   airInfo: NextAirInfo;
   airDateObj: Date;
@@ -12,7 +12,7 @@ export interface CalendarEpisodeItem {
   timeString: string;
 }
 
-export type WeeklyCalendarSchedule = Record<DayOfWeek, CalendarEpisodeItem[]>;
+type WeeklyCalendarSchedule = Record<DayOfWeek, CalendarEpisodeItem[]>;
 
 export const ORDERED_DAYS: DayOfWeek[] = [
   'Monday',

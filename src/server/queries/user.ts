@@ -130,8 +130,6 @@ export async function getPublicUserProfile(username: unknown): Promise<PublicPro
   };
 }
 
-export type { PublicUserSearchResult };
-
 export async function searchPublicProfiles(
   query: unknown,
   options?: { limit?: number; offset?: number },
@@ -150,7 +148,6 @@ export async function searchPublicProfiles(
       username: userTable.username,
       bio: userTable.bio,
       image: userTable.image,
-      theme: userTable.theme,
       createdAt: userTable.createdAt,
       totalEntries: count(mediaEntries.id),
     })
@@ -176,7 +173,6 @@ export async function searchPublicProfiles(
       userTable.username,
       userTable.bio,
       userTable.image,
-      userTable.theme,
       userTable.createdAt,
     )
     .orderBy(asc(userTable.username))
@@ -189,7 +185,6 @@ export async function searchPublicProfiles(
     username: r.username!,
     bio: r.bio,
     image: r.image,
-    theme: r.theme,
     createdAt: r.createdAt,
     totalEntries: Number(r.totalEntries || 0),
   }));

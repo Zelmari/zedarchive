@@ -9,7 +9,6 @@ const { getAuthUserMock, revalidatePathMock } = vi.hoisted(() => ({
 vi.mock('@/server/internal', () => ({
   getAuthUser: getAuthUserMock,
   getSessionUser: vi.fn(),
-  logActivity: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }));
@@ -22,7 +21,8 @@ vi.mock('@/lib/db', () => ({
   db: createMockDb(dbState),
 }));
 
-import { updateUserProfile, getPublicUserProfile } from '@/server/profile';
+import { updateUserProfile } from '@/server/profile';
+import { getPublicUserProfile } from '@/server/queries/user';
 
 describe('updateUserProfile display name', () => {
   beforeEach(() => {
