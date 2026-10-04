@@ -16,34 +16,13 @@ test.describe('unified site header navigation', () => {
     await registerAndAuthenticate(page, user);
   });
 
-  const navigationCases = [
-    {
-      name: 'settings',
-      path: '/settings',
-      heading: 'Settings & Account',
-      headingMatch: 'exact',
-      dashboardLink: false,
-    },
-  ] as const;
+  test('settings page renders the shared header', async ({ page }) => {
+    await page.goto('/settings');
 
-  for (const navigationCase of navigationCases) {
-    test(`${navigationCase.name} page renders the shared header`, async ({ page }) => {
-      await page.goto(navigationCase.path);
+    await expect(page.locator('h1')).toHaveText('Settings & Account');
 
-      if (navigationCase.headingMatch === 'exact') {
-        await expect(page.locator('h1')).toHaveText(navigationCase.heading);
-      } else {
-        await expect(page.locator('h1')).toContainText(navigationCase.heading);
-      }
-
-      const brandLink = page.locator('header a.za-wordmark');
-      await expect(brandLink).toBeVisible();
-      await expect(brandLink).toHaveAttribute('href', '/');
-
-      if (navigationCase.dashboardLink) {
-        const dashboardLink = page.locator('header nav a[href="/dashboard"]');
-        await expect(dashboardLink).toBeVisible();
-      }
-    });
-  }
+    const brandLink = page.locator('header a.za-wordmark');
+    await expect(brandLink).toBeVisible();
+    await expect(brandLink).toHaveAttribute('href', '/');
+  });
 });
