@@ -22,8 +22,6 @@ vi.stubGlobal('fetch', fetchMock);
 
 import { GET } from '@/app/api/shows/airdate/route';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
 function makeRequest(ids: string, titles?: string[]): Request {
   const url = new URL('http://localhost/api/shows/airdate');
   url.searchParams.set('ids', ids);
