@@ -11,6 +11,7 @@ function createAwaitable<T>(value: T) {
   p.returning = () => p;
   p.groupBy = () => p;
   p.leftJoin = () => p;
+  p.innerJoin = () => p;
   return p;
 }
 
