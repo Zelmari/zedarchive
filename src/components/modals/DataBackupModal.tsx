@@ -11,7 +11,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
-import { bulkImportMediaEntries } from '@/server/media';
+import { bulkImportMediaEntries, getMediaEntriesForExport } from '@/server/media';
 import { parseImportBuffer } from '@/lib/backup';
 import { MAX_IMPORT_FILE_BYTES } from '@/lib/constants';
 import type { MediaEntry } from '@/types/media';
@@ -50,6 +50,8 @@ export default function DataBackupModal({
   onImportSuccess,
 }: DataBackupModalProps) {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'overwrite'>('skip');
   const [importStatus, setImportStatus] = useState<{
     state: ImportState;
@@ -60,11 +62,22 @@ export default function DataBackupModal({
   if (!isOpen) return null;
 
   // EXPORT JSON
-  const handleExportJSON = () => {
-    const blob = new Blob([JSON.stringify(entries, null, 2)], {
-      type: 'application/json;charset=utf-8',
-    });
-    downloadBlob(blob, `zedarchive-backup-${new Date().toISOString().split('T')[0]}.json`);
+  const handleExportJSON = async () => {
+    setExportError('');
+    setIsExporting(true);
+    try {
+      // Full entries (covers included) are fetched on demand so the archive
+      // list can stay lean; the backup keeps its 1-click restore fidelity.
+      const fullEntries = await getMediaEntriesForExport();
+      const blob = new Blob([JSON.stringify(fullEntries, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      downloadBlob(blob, `zedarchive-backup-${new Date().toISOString().split('T')[0]}.json`);
+    } catch {
+      setExportError('Failed to prepare the export file. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // EXPORT CSV
@@ -187,8 +200,9 @@ export default function DataBackupModal({
             <div className="flex flex-col gap-[var(--za-space-3)]">
               <button
                 type="button"
-                className="za-bookplate flex w-full cursor-pointer items-center justify-start gap-2 p-[var(--za-space-3)] text-left transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-required"
+                className="za-bookplate flex w-full cursor-pointer items-center justify-start gap-2 p-[var(--za-space-3)] text-left transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-required disabled:cursor-wait disabled:opacity-60"
                 onClick={handleExportJSON}
+                disabled={isExporting}
               >
                 <FileJson size={18} className="shrink-0 text-accent" aria-hidden="true" />
                 <div className="text-left">
@@ -196,7 +210,9 @@ export default function DataBackupModal({
                     Export as JSON Backup
                   </div>
                   <div className="mt-0.5 font-[family-name:var(--za-font-serif-body)] text-xs text-ink-muted">
-                    Full complete archive structure for 1-click restore
+                    {isExporting
+                      ? 'Preparing export…'
+                      : 'Full complete archive structure for 1-click restore'}
                   </div>
                 </div>
               </button>
@@ -217,6 +233,13 @@ export default function DataBackupModal({
                 </div>
               </button>
             </div>
+
+            {exportError && (
+              <div className="mt-[var(--za-space-3)] flex items-center gap-2 rounded-small border border-danger bg-danger-surface p-[var(--za-space-3)] text-[length:var(--za-text-fine)] text-danger">
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>{exportError}</span>
+              </div>
+            )}
           </div>
         ) : (
           <div>
