@@ -34,7 +34,6 @@ describe('searchPublicProfiles', () => {
       username: 'zelmari',
       bio: 'Reading sci-fi',
       image: 'https://example.com/avatar.png',
-      theme: 'parchment',
       createdAt: new Date('2026-01-01'),
       totalEntries: 12,
     };
@@ -55,7 +54,6 @@ describe('searchPublicProfiles', () => {
       username: 'alex',
       bio: null,
       image: null,
-      theme: 'midnight',
       createdAt: new Date('2026-02-01'),
       totalEntries: 5,
     };
@@ -74,7 +72,6 @@ describe('searchPublicProfiles', () => {
       username: 'archive_reader',
       bio: null,
       image: null,
-      theme: 'parchment',
       createdAt: new Date('2026-04-01'),
       // The query's left join excludes private entries.
       totalEntries: 1,
@@ -118,7 +115,6 @@ describe('GET /api/search/users', () => {
       username: 'sam_reads',
       bio: 'Novel enthusiast',
       image: null,
-      theme: 'sepia',
       createdAt: new Date('2026-03-01'),
       totalEntries: 20,
     };
