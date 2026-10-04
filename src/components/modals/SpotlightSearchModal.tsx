@@ -297,7 +297,7 @@ export default function SpotlightSearchModal({
 
       {/* Results List */}
       {searchResults.length > 0 && (
-        <div className="max-h-[22rem] overflow-y-auto py-2" data-testid="spotlight-results">
+        <div className="max-h-[22rem] overflow-y-auto py-2">
           {searchResults.map((item, idx) => {
             const isSelected = idx === highlightedIndex;
             const metaParts: string[] = [];
