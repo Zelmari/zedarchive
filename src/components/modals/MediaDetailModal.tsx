@@ -743,7 +743,6 @@ export default function MediaDetailModal({
         ];
 
   const primaryCurrent = item.primaryUnitCurrent ?? (isMovie ? 0 : 1);
-  const primaryTotal = item.primaryUnitTotal ?? 1;
   const secondaryCurrent = item.secondaryUnitCurrent ?? 0;
   const secondaryTotal = item.secondaryUnitTotal ?? null;
   const structure = Array.isArray(item.structure) ? item.structure : [];
