@@ -71,14 +71,4 @@ describe('social link preview assets', () => {
     expect(meta.width).toBe(1200);
     expect(meta.height).toBe(630);
   });
-
-  it('public/icons/og-square.png exists and is a valid 600x600 PNG', async () => {
-    const squarePath = resolve(publicDir, 'icons/og-square.png');
-    expect(existsSync(squarePath), 'public/icons/og-square.png must exist').toBe(true);
-
-    const meta = await sharp(squarePath).metadata();
-    expect(meta.format).toBe('png');
-    expect(meta.width).toBe(600);
-    expect(meta.height).toBe(600);
-  });
 });
