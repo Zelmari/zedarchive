@@ -6,8 +6,9 @@ import { setDomainDb } from '@/domain/db-context';
 
 setDomainDb(db);
 import type { MediaEntry, MediaQuote } from '@/types/media';
+import { toClientEntry } from '@/lib/covers';
 import { getAuthUser } from './internal';
-import { getMediaEntriesByUserId } from './queries/media';
+import { getMediaEntriesByUserId, getRawMediaEntriesByUserId } from './queries/media';
 import {
   createMediaEntryForUser,
   updateMediaProgressForUser,
@@ -25,11 +26,20 @@ export async function getMediaEntries(): Promise<MediaEntry[]> {
   return getMediaEntriesByUserId(user.id);
 }
 
+/**
+ * Full entries including stored cover blobs, used by the JSON backup export.
+ * Everything else receives display cover URLs from the lean list query.
+ */
+export async function getMediaEntriesForExport(): Promise<MediaEntry[]> {
+  const user = await getAuthUser();
+  return getRawMediaEntriesByUserId(user.id);
+}
+
 export async function createMediaEntry(data: Record<string, unknown>): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await createMediaEntryForUser(user.id, data);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
 
 export async function updateMediaProgress(
@@ -39,7 +49,7 @@ export async function updateMediaProgress(
   const user = await getAuthUser();
   const entry = await updateMediaProgressForUser(user.id, id, updates);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
 
 export async function bulkImportMediaEntries(
@@ -56,7 +66,7 @@ export async function togglePriorityQueue(id: string): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await togglePriorityQueueForUser(user.id, id);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
 
 export async function deleteMediaEntry(id: string): Promise<{ success: boolean }> {
@@ -73,7 +83,7 @@ export async function addMediaQuote(
   const user = await getAuthUser();
   const entry = await addMediaQuoteForUser(user.id, mediaId, quote);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
 
 export async function updateMediaQuote(
@@ -84,12 +94,12 @@ export async function updateMediaQuote(
   const user = await getAuthUser();
   const entry = await updateMediaQuoteForUser(user.id, mediaId, quoteId, updates);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
 
 export async function deleteMediaQuote(mediaId: string, quoteId: string): Promise<MediaEntry> {
   const user = await getAuthUser();
   const entry = await deleteMediaQuoteForUser(user.id, mediaId, quoteId);
   revalidatePath('/dashboard');
-  return entry;
+  return toClientEntry(entry);
 }
