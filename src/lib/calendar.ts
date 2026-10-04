@@ -49,7 +49,6 @@ export function buildWeeklySchedule(
     Sunday: [],
   };
 
-  const todayStr = now.toDateString();
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
   const mondayOffset = (weekStart.getDay() + 6) % 7;
