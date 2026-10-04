@@ -70,15 +70,11 @@ const CONFIRM_CLOSED: ConfirmState = {
 
 interface DashboardClientProps {
   user: {
-    id?: string;
     name?: string | null;
     email?: string | null;
-    image?: string | null;
     theme?: string | null;
     customTheme?: CustomThemePalette | null;
     username?: string | null;
-    isPublic?: boolean;
-    bio?: string | null;
     readingGoals?: Record<string, ReadingGoalConfig> | null;
     emailVerified?: boolean;
     verificationDismissedAt?: string | null;

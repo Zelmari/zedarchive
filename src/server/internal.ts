@@ -56,29 +56,21 @@ export function toDashboardUser(
   session: SessionUser,
   dbUser: UserProfile | null,
 ): {
-  id: string;
   name?: string | null;
   email?: string | null;
-  image?: string | null;
   theme: string;
   customTheme: UserProfile['customTheme'];
   username?: string | null;
-  isPublic: boolean;
-  bio?: string | null;
   emailVerified: boolean;
   readingGoals: UserProfile['readingGoals'];
   verificationDismissedAt?: string | null;
 } {
   return {
-    id: session.id,
     name: dbUser?.name || session.name,
     email: dbUser?.email || session.email,
-    image: dbUser?.image || session.image,
     theme: dbUser?.theme || 'parchment',
     customTheme: dbUser?.customTheme || null,
     username: dbUser?.username || null,
-    isPublic: Boolean(dbUser?.isPublic),
-    bio: dbUser?.bio || null,
     emailVerified: dbUser?.emailVerified ?? session.emailVerified ?? false,
     readingGoals: dbUser?.readingGoals || {},
     verificationDismissedAt: dbUser?.verificationDismissedAt || null,
