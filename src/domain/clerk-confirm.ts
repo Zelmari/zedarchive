@@ -30,11 +30,18 @@ export const CLERK_EMPTY = 'Tell me what happened.';
 
 const STATUSES = new Set(['in_progress', 'completed', 'planning', 'on_hold', 'dropped']);
 
+export interface QueueRank {
+  id: string;
+  priorityIndex: number;
+}
+
 export interface StoredBeforeImage {
   entries: Record<string, BeforeFields>;
   lines: ClerkDiffLine[];
   createdIds: string[];
   addedQuoteIds: { entryId: string; quoteId: string }[];
+  /** Every queued title's rank at confirm, including titles the plan did not name. */
+  queueRanks: QueueRank[];
 }
 
 export interface StoredProposal {
@@ -56,7 +63,35 @@ export type ProposalDecision =
   | { kind: 'apply' };
 
 export function emptyBeforeImage(): StoredBeforeImage {
-  return { entries: {}, lines: [], createdIds: [], addedQuoteIds: [] };
+  return { entries: {}, lines: [], createdIds: [], addedQuoteIds: [], queueRanks: [] };
+}
+
+function cycleList(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => !!item && typeof item === 'object' && !Array.isArray(item));
+}
+
+/**
+ * Attach the locked cycles to the entries this plan will change, and remember
+ * every queued rank so undo can undo a queue compact.
+ */
+export function confirmSnapshot(
+  before: Record<string, BeforeFields>,
+  locked: readonly { id: string; cycles: unknown; priorityIndex: number | null }[],
+): { entries: Record<string, BeforeFields>; queueRanks: QueueRank[] } {
+  const byId = new Map(locked.map((row) => [row.id, row]));
+  const entries: Record<string, BeforeFields> = {};
+  for (const [id, fields] of Object.entries(before)) {
+    entries[id] = { ...fields, cycles: cycleList(byId.get(id)?.cycles) };
+  }
+  const queueRanks = locked
+    .filter(
+      (row): row is { id: string; cycles: unknown; priorityIndex: number } =>
+        typeof row.priorityIndex === 'number',
+    )
+    .map((row) => ({ id: row.id, priorityIndex: row.priorityIndex }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return { entries, queueRanks };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -146,6 +181,11 @@ function readBeforeFields(value: unknown): BeforeFields | null {
   }
   if (!isStringOrNull(raw.dropReason) || !isStringOrNull(raw.startedAt)) return null;
   if (!isStringOrNull(raw.completedAt)) return null;
+  let cycles: unknown[] | undefined;
+  if (raw.cycles !== undefined) {
+    if (!Array.isArray(raw.cycles) || raw.cycles.some((item) => !asRecord(item))) return null;
+    cycles = raw.cycles;
+  }
   return {
     status: raw.status,
     rating: raw.rating,
@@ -161,6 +201,7 @@ function readBeforeFields(value: unknown): BeforeFields | null {
     dropReason: raw.dropReason,
     startedAt: raw.startedAt,
     completedAt: raw.completedAt,
+    ...(cycles !== undefined ? { cycles } : {}),
   };
 }
 
@@ -188,11 +229,24 @@ export function readBeforeImage(value: unknown): StoredBeforeImage | null {
     addedQuoteIds.push({ entryId: pair.entryId, quoteId: pair.quoteId });
   }
 
+  const queueRanks: QueueRank[] = [];
+  if (record.queueRanks !== undefined) {
+    if (!Array.isArray(record.queueRanks)) return null;
+    for (const item of record.queueRanks) {
+      const pair = asRecord(item);
+      if (!pair || typeof pair.id !== 'string') return null;
+      if (typeof pair.priorityIndex !== 'number' || !Number.isInteger(pair.priorityIndex))
+        return null;
+      queueRanks.push({ id: pair.id, priorityIndex: pair.priorityIndex });
+    }
+  }
+
   return {
     entries,
     lines: record.lines as ClerkDiffLine[],
     createdIds: record.createdIds as string[],
     addedQuoteIds,
+    queueRanks,
   };
 }
 
@@ -212,6 +266,7 @@ export function undoUpdates(fields: BeforeFields): Record<string, unknown> {
     dropReason: fields.dropReason,
     startedAt: fields.startedAt,
     completedAt: fields.completedAt,
+    ...(fields.cycles !== undefined ? { cycles: fields.cycles } : {}),
   };
 }
 

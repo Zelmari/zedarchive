@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { logActivity } from '@/domain/activity-log';
-import { domainDb, setDomainDb, type DbClient } from '@/domain/db-context';
+import { runWithDomainDb, type DbClient } from '@/domain/db-context';
 import {
   addMediaQuoteForUser,
   createMediaEntryForUser,
@@ -31,6 +31,7 @@ import {
   chipsFor,
   classifyProposal,
   cleanEdits,
+  confirmSnapshot,
   emptyBeforeImage,
   isPendingActions,
   prepareConfirm,
@@ -46,6 +47,7 @@ import {
   crossedFleetAlert,
   pageBudget,
   reconcileUsage,
+  settleCallsDelta,
   utcUsageDay,
 } from '@/domain/clerk-quota';
 import { callWasBilled, parseResponsesOutput, readUsage } from '@/domain/clerk-response';
@@ -263,6 +265,43 @@ function toCatalog(entry: ApplyEntry): ClerkCatalogRow {
   };
 }
 
+async function lockConfirmRows(userId: string, tx: DbClient, planIds: string[]) {
+  const queuedOrPlan = [isNotNull(mediaEntries.priorityIndex)];
+  if (planIds.length > 0) queuedOrPlan.push(inArray(mediaEntries.id, planIds));
+  return tx
+    .select({ ...entrySelection, cycles: mediaEntries.cycles })
+    .from(mediaEntries)
+    .where(and(eq(mediaEntries.userId, userId), or(...queuedOrPlan)))
+    .orderBy(asc(mediaEntries.id))
+    .for('update');
+}
+
+async function lockMediaIds(tx: DbClient, userId: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await tx
+    .select({ id: mediaEntries.id })
+    .from(mediaEntries)
+    .where(and(eq(mediaEntries.userId, userId), inArray(mediaEntries.id, ids)))
+    .orderBy(asc(mediaEntries.id))
+    .for('update');
+}
+
+function newestApplied(tx: DbClient, userId: string) {
+  return tx
+    .select()
+    .from(assistantProposals)
+    .where(
+      and(
+        eq(assistantProposals.userId, userId),
+        isNotNull(assistantProposals.appliedAt),
+        isNull(assistantProposals.undoneAt),
+      ),
+    )
+    .orderBy(sql`${assistantProposals.appliedAt} desc`, sql`${assistantProposals.createdAt} desc`)
+    .limit(1)
+    .for('update');
+}
+
 async function loadEntries(userId: string, tx?: DbClient, ids?: string[]): Promise<ApplyEntry[]> {
   const client = tx ?? db;
   const filters = [eq(mediaEntries.userId, userId)];
@@ -473,9 +512,14 @@ async function reserveCall(userId: string, estimate: number, now: Date): Promise
       .update(assistantUsage)
       .set({ reservedMicros: sql`${assistantUsage.reservedMicros} + ${estimate}` })
       .where(eq(assistantUsage.id, fleet.id));
+    // Count the call while the row is locked. A parallel submit then sees it.
+    // settleCallsDelta gives the slot back when the provider does not bill it.
     await tx
       .update(assistantUsage)
-      .set({ reservedMicros: sql`${assistantUsage.reservedMicros} + ${estimate}` })
+      .set({
+        reservedMicros: sql`${assistantUsage.reservedMicros} + ${estimate}`,
+        calls: sql`${assistantUsage.calls} + 1`,
+      })
       .where(eq(assistantUsage.id, user.id));
     return true;
   });
@@ -510,6 +554,7 @@ async function settleCall(input: {
         .for('update');
       if (!fleet || !user) return 0;
       const afterSpent = fleet.spentMicros + delta.spentDelta;
+      const callsDelta = settleCallsDelta(delta.callsDelta);
       await tx
         .update(assistantUsage)
         .set({
@@ -522,7 +567,7 @@ async function settleCall(input: {
         .set({
           reservedMicros: sql`greatest(${assistantUsage.reservedMicros} + ${delta.reservedDelta}, 0)`,
           spentMicros: sql`${assistantUsage.spentMicros} + ${delta.spentDelta}`,
-          calls: sql`${assistantUsage.calls} + ${delta.callsDelta}`,
+          calls: sql`greatest(${assistantUsage.calls} + ${callsDelta}, 0)`,
         })
         .where(eq(assistantUsage.id, user.id));
       const alert = crossedFleetAlert(fleet.spentMicros, afterSpent);
@@ -530,7 +575,7 @@ async function settleCall(input: {
         console.warn(`Clerk fleet spend reached ${alert} microdollars on ${usageDay}.`);
       }
       return pageBudget({
-        calls: user.calls + delta.callsDelta,
+        calls: user.calls + callsDelta,
         fleetSpentMicros: afterSpent,
         fleetReservedMicros: Math.max(0, fleet.reservedMicros + delta.reservedDelta),
       }).remaining;
@@ -699,6 +744,7 @@ async function finishLocalPlan(input: {
       lines: applied.lines,
       createdIds: [],
       addedQuoteIds: [],
+      queueRanks: [],
     },
     summary: input.summary,
     lines: applied.lines,
@@ -806,38 +852,46 @@ async function askModel(input: {
   });
   const remaining = await finish(accepted, usage);
 
-  const interpreted = await interpretModel({
-    json: provider.json,
-    networkError: provider.networkError,
-    accepted,
-    entries: input.entries,
-    candidateIds,
-  });
-  await recordEvent({
-    userId: input.userId,
-    latencyMs: Date.now() - started,
-    inputTokens: usage?.inputTokens ?? null,
-    outputTokens: usage?.outputTokens ?? null,
-    outcome: interpreted.outcome,
-  });
+  try {
+    const interpreted = await interpretModel({
+      json: provider.json,
+      networkError: provider.networkError,
+      accepted,
+      entries: input.entries,
+      candidateIds,
+    });
+    await recordEvent({
+      userId: input.userId,
+      latencyMs: Date.now() - started,
+      inputTokens: usage?.inputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      outcome: interpreted.outcome,
+    });
 
-  await db
-    .update(assistantProposals)
-    .set({
-      actions: interpreted.actions,
-      beforeImage: interpreted.beforeImage,
-      summary: interpreted.summary,
-    })
-    .where(and(eq(assistantProposals.id, pendingId), eq(assistantProposals.userId, input.userId)));
+    await db
+      .update(assistantProposals)
+      .set({
+        actions: interpreted.actions,
+        beforeImage: interpreted.beforeImage,
+        summary: interpreted.summary,
+      })
+      .where(
+        and(eq(assistantProposals.id, pendingId), eq(assistantProposals.userId, input.userId)),
+      );
 
-  if (interpreted.lines) {
-    return {
-      kind: 'proposal',
-      proposal: { id: pendingId, summary: interpreted.summary, lines: interpreted.lines },
-      remaining,
-    };
+    if (interpreted.lines) {
+      return {
+        kind: 'proposal',
+        proposal: { id: pendingId, summary: interpreted.summary, lines: interpreted.lines },
+        remaining,
+      };
+    }
+    return message(interpreted.summary, remaining);
+  } catch {
+    // The call is already settled. Leave the pending row so this message id cannot spend again.
+    console.warn('Clerk proposal could not be stored');
+    return message(CLERK_READ_ERROR, remaining);
   }
-  return message(interpreted.summary, remaining);
 }
 
 async function interpretModel(input: {
@@ -882,6 +936,7 @@ async function interpretModel(input: {
       lines: applied.lines,
       createdIds: [],
       addedQuoteIds: [],
+      queueRanks: [],
     },
     summary: summarizePlan(checked.plan.actions, titles),
     lines: applied.lines,
@@ -972,17 +1027,9 @@ export async function submitClerk(
 }
 
 async function withDomainTransaction<T>(fn: (tx: DbClient) => Promise<T>): Promise<T> {
-  // Media writes open a transaction on the process-wide domain client. Point that
-  // client at this transaction so completion timestamps commit with applied_at.
-  return db.transaction(async (tx) => {
-    const previous = domainDb();
-    setDomainDb(tx);
-    try {
-      return await fn(tx);
-    } finally {
-      setDomainDb(previous);
-    }
-  });
+  // Media writes open a transaction on the domain client. Bind that client to this
+  // transaction for the current async context so completion timestamps commit with applied_at.
+  return db.transaction(async (tx) => runWithDomainDb(tx, () => fn(tx)));
 }
 
 async function missingQuoteIds(
@@ -1036,7 +1083,13 @@ export async function confirmClerk(
       if (fresh.expiresAt.getTime() <= Date.now()) throw new ClerkTurnError(CLERK_EXPIRED);
 
       const ids = entryIdsIn(fresh.actions);
-      const entries = await loadEntries(userId, tx, ids);
+      const locked = await lockConfirmRows(userId, tx, ids);
+      const planIds = new Set(ids);
+      const entries = locked.flatMap((row) => {
+        if (!planIds.has(row.id)) return [];
+        const mapped = mapEntry(row);
+        return mapped ? [mapped] : [];
+      });
       const prepared = prepareConfirm({
         actions: fresh.actions,
         entries,
@@ -1121,14 +1174,16 @@ export async function confirmClerk(
       }
 
       const previous = readBeforeImage(fresh.beforeImage) ?? emptyBeforeImage();
+      const snapshot = confirmSnapshot(prepared.applied.beforeImage, locked);
       await tx
         .update(assistantProposals)
         .set({
           beforeImage: {
-            entries: prepared.applied.beforeImage,
+            entries: snapshot.entries,
             lines: previous.lines,
             createdIds,
             addedQuoteIds,
+            queueRanks: snapshot.queueRanks,
           },
         })
         .where(eq(assistantProposals.id, fresh.id));
@@ -1158,63 +1213,75 @@ export async function cancelClerk(userId: string, proposalId: unknown): Promise<
 export async function undoClerk(userId: string): Promise<ClerkServiceTurn> {
   const now = new Date();
   const remaining = () => remainingFor(userId, now);
-  const [row] = await db
-    .select()
-    .from(assistantProposals)
-    .where(
-      and(
-        eq(assistantProposals.userId, userId),
-        isNotNull(assistantProposals.appliedAt),
-        isNull(assistantProposals.undoneAt),
-      ),
-    )
-    .orderBy(sql`${assistantProposals.appliedAt} desc`, sql`${assistantProposals.createdAt} desc`)
-    .limit(1);
-  if (!row) return message(CLERK_NOTHING, await remaining());
-  const image = readBeforeImage(row.beforeImage);
-  if (!image) return message(CLERK_MISSING, await remaining());
 
   try {
-    await withDomainTransaction(async (tx) => {
-      const [claimed] = await tx
-        .update(assistantProposals)
-        .set({ undoneAt: new Date() })
-        .where(and(eq(assistantProposals.id, row.id), isNull(assistantProposals.undoneAt)))
-        .returning({ id: assistantProposals.id });
-      if (!claimed) throw new ClerkTurnError(CLERK_NOTHING);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const outcome = await withDomainTransaction(async (tx) => {
+        const [row] = await newestApplied(tx, userId);
+        if (!row) throw new ClerkTurnError(CLERK_NOTHING);
+        const image = readBeforeImage(row.beforeImage);
+        if (!image) throw new ClerkTurnError(CLERK_MISSING);
 
-      const created = new Set(image.createdIds);
-      const restoreIds = Object.keys(image.entries)
-        .filter((id) => !created.has(id))
-        .sort();
-      if (restoreIds.length > 0) {
-        await loadEntries(userId, tx, restoreIds);
-      }
-      for (const entryId of restoreIds) {
-        const fields = image.entries[entryId];
-        if (!fields) continue;
-        await updateMediaProgressForUser(userId, entryId, undoUpdates(fields), { via: 'clerk' });
-      }
-      for (const quote of image.addedQuoteIds) {
-        if (created.has(quote.entryId)) continue;
-        try {
-          await deleteMediaQuoteForUser(userId, quote.entryId, quote.quoteId);
-        } catch (err) {
-          if (!(err instanceof Error) || err.message !== 'Entry not found') throw err;
+        const created = new Set(image.createdIds);
+        const lockIds = [
+          ...new Set([
+            ...Object.keys(image.entries),
+            ...image.queueRanks.map((rank) => rank.id),
+            ...image.createdIds,
+          ]),
+        ].sort();
+        await lockMediaIds(tx, userId, lockIds);
+
+        // A confirm that committed after this row was chosen is the one to undo.
+        const [fresh] = await newestApplied(tx, userId);
+        if (!fresh || fresh.id !== row.id) return 'retry' as const;
+
+        const [claimed] = await tx
+          .update(assistantProposals)
+          .set({ undoneAt: new Date() })
+          .where(and(eq(assistantProposals.id, fresh.id), isNull(assistantProposals.undoneAt)))
+          .returning({ id: assistantProposals.id });
+        if (!claimed) throw new ClerkTurnError(CLERK_NOTHING);
+
+        const restoreIds = Object.keys(image.entries)
+          .filter((id) => !created.has(id))
+          .sort();
+        for (const entryId of restoreIds) {
+          const fields = image.entries[entryId];
+          if (!fields) continue;
+          await updateMediaProgressForUser(userId, entryId, undoUpdates(fields), { via: 'clerk' });
         }
-      }
-      for (const createdId of image.createdIds) {
-        try {
-          await deleteMediaEntryForUser(userId, createdId);
-        } catch (err) {
-          if (!(err instanceof Error) || err.message !== 'Entry not found') throw err;
+        // Write ranks after the entry restore. Clearing Up Next compacts other titles.
+        for (const rank of image.queueRanks) {
+          if (created.has(rank.id)) continue;
+          await tx
+            .update(mediaEntries)
+            .set({ priorityIndex: rank.priorityIndex, updatedAt: new Date() })
+            .where(and(eq(mediaEntries.id, rank.id), eq(mediaEntries.userId, userId)));
         }
-      }
-    });
+        for (const quote of image.addedQuoteIds) {
+          if (created.has(quote.entryId)) continue;
+          try {
+            await deleteMediaQuoteForUser(userId, quote.entryId, quote.quoteId);
+          } catch (err) {
+            if (!(err instanceof Error) || err.message !== 'Entry not found') throw err;
+          }
+        }
+        for (const createdId of image.createdIds) {
+          try {
+            await deleteMediaEntryForUser(userId, createdId);
+          } catch (err) {
+            if (!(err instanceof Error) || err.message !== 'Entry not found') throw err;
+          }
+        }
+        return 'done' as const;
+      });
+      if (outcome === 'done') return message(CLERK_UNDONE, await remaining());
+    }
   } catch (err) {
     if (err instanceof ClerkTurnError) return message(err.text, await remaining());
     console.warn('Clerk undo failed');
     return message(CLERK_UNDO_FAILED, await remaining());
   }
-  return message(CLERK_UNDONE, await remaining());
+  return message(CLERK_UNDO_FAILED, await remaining());
 }

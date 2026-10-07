@@ -38,6 +38,8 @@ export interface BeforeFields {
   dropReason: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  /** Cycles copied from the locked row at confirm. Absent on a proposal that was never saved. */
+  cycles?: unknown[];
 }
 
 export interface ClerkDiffLine {

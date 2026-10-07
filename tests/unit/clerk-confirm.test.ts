@@ -8,8 +8,10 @@ import {
   CLERK_NOT_IN_ARCHIVE,
   candidatesForModel,
   classifyProposal,
+  confirmSnapshot,
   prepareConfirm,
   readBeforeImage,
+  undoUpdates,
   type StoredProposal,
 } from '@/domain/clerk-confirm';
 import type { ApplyEntry } from '@/lib/clerk/apply';
@@ -194,6 +196,98 @@ describe('readBeforeImage', () => {
     });
     expect(image?.createdIds).toEqual(['created-1']);
     expect(image?.entries.lh?.secondaryUnitCurrent).toBe(40);
+    expect(image?.queueRanks).toEqual([]);
+    expect(image?.entries.lh?.cycles).toBeUndefined();
+  });
+
+  it('keeps cycles and queued ranks from a saved plan', () => {
+    const cycle = { id: 'cycle-1', cycleNumber: 1, completedAt: null };
+    const image = readBeforeImage({
+      entries: {
+        lh: {
+          status: 'in_progress',
+          rating: null,
+          notes: null,
+          tags: [],
+          queued: true,
+          priorityIndex: 1,
+          primaryUnitCurrent: 1,
+          primaryUnitTotal: 1,
+          secondaryUnitCurrent: 40,
+          secondaryUnitTotal: 200,
+          secondaryUnitKind: 'chapter',
+          dropReason: null,
+          startedAt: null,
+          completedAt: null,
+          cycles: [cycle],
+        },
+      },
+      lines: [],
+      createdIds: [],
+      addedQuoteIds: [],
+      queueRanks: [
+        { id: 'other', priorityIndex: 2 },
+        { id: 'lh', priorityIndex: 1 },
+      ],
+    });
+    expect(image?.queueRanks).toEqual([
+      { id: 'other', priorityIndex: 2 },
+      { id: 'lh', priorityIndex: 1 },
+    ]);
+    const fields = image?.entries.lh;
+    expect(fields?.cycles).toEqual([cycle]);
+    if (!fields) return;
+    expect(undoUpdates(fields).cycles).toEqual([cycle]);
+  });
+
+  it('rejects a queue rank that is not a whole number', () => {
+    expect(
+      readBeforeImage({
+        entries: {},
+        lines: [],
+        createdIds: [],
+        addedQuoteIds: [],
+        queueRanks: [{ id: 'lh', priorityIndex: 1.5 }],
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('confirmSnapshot', () => {
+  it('stores cycles for the touched title and every queued rank', () => {
+    const before = {
+      lh: {
+        status: 'in_progress',
+        rating: null,
+        notes: null,
+        tags: [],
+        queued: true,
+        priorityIndex: 2,
+        primaryUnitCurrent: 1,
+        primaryUnitTotal: null,
+        secondaryUnitCurrent: 1,
+        secondaryUnitTotal: null,
+        secondaryUnitKind: 'chapter' as const,
+        dropReason: null,
+        startedAt: null,
+        completedAt: null,
+      },
+    };
+    const snapshot = confirmSnapshot(before, [
+      { id: 'zz', cycles: [], priorityIndex: 1 },
+      {
+        id: 'lh',
+        cycles: [{ id: 'cycle-1', completedAt: null }],
+        priorityIndex: 2,
+      },
+      { id: 'idle', cycles: [{ id: 'nope' }], priorityIndex: null },
+    ]);
+    expect(snapshot.entries.lh?.cycles).toEqual([{ id: 'cycle-1', completedAt: null }]);
+    expect(snapshot.entries.zz).toBeUndefined();
+    expect(snapshot.queueRanks).toEqual([
+      { id: 'lh', priorityIndex: 2 },
+      { id: 'zz', priorityIndex: 1 },
+    ]);
   });
 });
 
