@@ -31,10 +31,12 @@ import {
   chipsFor,
   classifyProposal,
   cleanEdits,
+  changedQueueRanks,
   confirmSnapshot,
   emptyBeforeImage,
   isPendingActions,
   prepareConfirm,
+  queueRestoreWrites,
   readBeforeImage,
   readChips,
   readClarification,
@@ -284,6 +286,11 @@ async function lockMediaIds(tx: DbClient, userId: string, ids: string[]): Promis
     .where(and(eq(mediaEntries.userId, userId), inArray(mediaEntries.id, ids)))
     .orderBy(asc(mediaEntries.id))
     .for('update');
+}
+
+/** One transaction lock per archive so confirm and undo cannot pass each other. */
+async function lockClerkUser(tx: DbClient, userId: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${userId}, 4217))`);
 }
 
 function newestApplied(tx: DbClient, userId: string) {
@@ -1073,6 +1080,7 @@ export async function confirmClerk(
 
   try {
     await withDomainTransaction(async (tx) => {
+      await lockClerkUser(tx, userId);
       const [fresh] = await tx
         .select()
         .from(assistantProposals)
@@ -1175,6 +1183,18 @@ export async function confirmClerk(
 
       const previous = readBeforeImage(fresh.beforeImage) ?? emptyBeforeImage();
       const snapshot = confirmSnapshot(prepared.applied.beforeImage, locked);
+      const beforeIds = snapshot.queueRanks.map((rank) => rank.id);
+      const afterQueue = await tx
+        .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
+        .from(mediaEntries)
+        .where(
+          and(
+            eq(mediaEntries.userId, userId),
+            beforeIds.length > 0
+              ? or(isNotNull(mediaEntries.priorityIndex), inArray(mediaEntries.id, beforeIds))
+              : isNotNull(mediaEntries.priorityIndex),
+          ),
+        );
       await tx
         .update(assistantProposals)
         .set({
@@ -1183,7 +1203,7 @@ export async function confirmClerk(
             lines: previous.lines,
             createdIds,
             addedQuoteIds,
-            queueRanks: snapshot.queueRanks,
+            queueRanks: changedQueueRanks(snapshot.queueRanks, afterQueue),
           },
         })
         .where(eq(assistantProposals.id, fresh.id));
@@ -1217,17 +1237,23 @@ export async function undoClerk(userId: string): Promise<ClerkServiceTurn> {
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const outcome = await withDomainTransaction(async (tx) => {
+        await lockClerkUser(tx, userId);
         const [row] = await newestApplied(tx, userId);
         if (!row) throw new ClerkTurnError(CLERK_NOTHING);
         const image = readBeforeImage(row.beforeImage);
         if (!image) throw new ClerkTurnError(CLERK_MISSING);
 
         const created = new Set(image.createdIds);
+        const liveQueued = await tx
+          .select({ id: mediaEntries.id })
+          .from(mediaEntries)
+          .where(and(eq(mediaEntries.userId, userId), isNotNull(mediaEntries.priorityIndex)));
         const lockIds = [
           ...new Set([
             ...Object.keys(image.entries),
             ...image.queueRanks.map((rank) => rank.id),
             ...image.createdIds,
+            ...liveQueued.map((rank) => rank.id),
           ]),
         ].sort();
         await lockMediaIds(tx, userId, lockIds);
@@ -1251,12 +1277,24 @@ export async function undoClerk(userId: string): Promise<ClerkServiceTurn> {
           if (!fields) continue;
           await updateMediaProgressForUser(userId, entryId, undoUpdates(fields), { via: 'clerk' });
         }
-        // Write ranks after the entry restore. Clearing Up Next compacts other titles.
-        for (const rank of image.queueRanks) {
-          if (created.has(rank.id)) continue;
+        // Clearing Up Next compacts other titles. Put back only ranks this plan changed,
+        // and move a title queued later off a rank that restore needs. Leave updatedAt alone.
+        const currentQueue = await tx
+          .select({ id: mediaEntries.id, priorityIndex: mediaEntries.priorityIndex })
+          .from(mediaEntries)
+          .where(and(eq(mediaEntries.userId, userId), isNotNull(mediaEntries.priorityIndex)));
+        const writes = queueRestoreWrites({
+          changed: image.queueRanks.filter((rank) => !created.has(rank.id)),
+          current: currentQueue.flatMap((rank) =>
+            typeof rank.priorityIndex === 'number'
+              ? [{ id: rank.id, priorityIndex: rank.priorityIndex }]
+              : [],
+          ),
+        });
+        for (const rank of writes) {
           await tx
             .update(mediaEntries)
-            .set({ priorityIndex: rank.priorityIndex, updatedAt: new Date() })
+            .set({ priorityIndex: rank.priorityIndex })
             .where(and(eq(mediaEntries.id, rank.id), eq(mediaEntries.userId, userId)));
         }
         for (const quote of image.addedQuoteIds) {

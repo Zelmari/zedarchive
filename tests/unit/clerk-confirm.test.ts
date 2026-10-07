@@ -8,8 +8,10 @@ import {
   CLERK_NOT_IN_ARCHIVE,
   candidatesForModel,
   classifyProposal,
+  changedQueueRanks,
   confirmSnapshot,
   prepareConfirm,
+  queueRestoreWrites,
   readBeforeImage,
   undoUpdates,
   type StoredProposal,
@@ -288,6 +290,59 @@ describe('confirmSnapshot', () => {
       { id: 'lh', priorityIndex: 2 },
       { id: 'zz', priorityIndex: 1 },
     ]);
+  });
+});
+
+describe('changedQueueRanks', () => {
+  it('keeps the before-rank only when this confirm changed it', () => {
+    expect(
+      changedQueueRanks(
+        [
+          { id: 'a', priorityIndex: 1 },
+          { id: 'b', priorityIndex: 2 },
+        ],
+        [
+          { id: 'a', priorityIndex: null },
+          { id: 'b', priorityIndex: 1 },
+        ],
+      ),
+    ).toEqual([
+      { id: 'a', priorityIndex: 1 },
+      { id: 'b', priorityIndex: 2 },
+    ]);
+    expect(
+      changedQueueRanks([{ id: 'b', priorityIndex: 2 }], [{ id: 'b', priorityIndex: 2 }]),
+    ).toEqual([]);
+  });
+});
+
+describe('queueRestoreWrites', () => {
+  it('restores a compacted title and gives a newer title a free rank', () => {
+    expect(
+      queueRestoreWrites({
+        changed: [{ id: 'b', priorityIndex: 2 }],
+        current: [
+          { id: 'a', priorityIndex: 1 },
+          { id: 'b', priorityIndex: 1 },
+          { id: 'c', priorityIndex: 2 },
+        ],
+      }),
+    ).toEqual([
+      { id: 'b', priorityIndex: 2 },
+      { id: 'c', priorityIndex: 3 },
+    ]);
+  });
+
+  it('writes nothing when every rank is already free and correct', () => {
+    expect(
+      queueRestoreWrites({
+        changed: [{ id: 'b', priorityIndex: 2 }],
+        current: [
+          { id: 'b', priorityIndex: 2 },
+          { id: 'c', priorityIndex: 4 },
+        ],
+      }),
+    ).toEqual([]);
   });
 });
 

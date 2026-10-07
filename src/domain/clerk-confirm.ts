@@ -72,8 +72,8 @@ function cycleList(value: unknown): unknown[] {
 }
 
 /**
- * Attach the locked cycles to the entries this plan will change, and remember
- * every queued rank so undo can undo a queue compact.
+ * Attach the locked cycles to the entries this plan will change, and list
+ * every rank that was queued before the write.
  */
 export function confirmSnapshot(
   before: Record<string, BeforeFields>,
@@ -92,6 +92,53 @@ export function confirmSnapshot(
     .map((row) => ({ id: row.id, priorityIndex: row.priorityIndex }))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { entries, queueRanks };
+}
+
+/** Ranks this confirm changed. The stored number is the rank from before the write. */
+export function changedQueueRanks(
+  before: readonly { id: string; priorityIndex: number | null }[],
+  after: readonly { id: string; priorityIndex: number | null }[],
+): QueueRank[] {
+  const afterById = new Map(after.map((row) => [row.id, row.priorityIndex]));
+  const ranks: QueueRank[] = [];
+  for (const row of before) {
+    if (typeof row.priorityIndex !== 'number') continue;
+    if ((afterById.get(row.id) ?? null) === row.priorityIndex) continue;
+    ranks.push({ id: row.id, priorityIndex: row.priorityIndex });
+  }
+  return ranks.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/**
+ * Ranks to write after undo. Changed titles go back to the stored rank.
+ * A title queued later keeps its rank when that number is free, and otherwise
+ * takes the next free one. Titles that already have the right rank are omitted.
+ */
+export function queueRestoreWrites(input: {
+  changed: readonly QueueRank[];
+  current: readonly QueueRank[];
+}): QueueRank[] {
+  const changedIds = new Set(input.changed.map((rank) => rank.id));
+  const desired = new Map(input.changed.map((rank) => [rank.id, rank.priorityIndex]));
+  const taken = new Set(input.changed.map((rank) => rank.priorityIndex));
+  const extras = input.current
+    .filter((rank) => !changedIds.has(rank.id))
+    .sort((a, b) => a.priorityIndex - b.priorityIndex || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const extra of extras) {
+    if (!taken.has(extra.priorityIndex)) {
+      taken.add(extra.priorityIndex);
+      continue;
+    }
+    let free = 1;
+    while (taken.has(free)) free += 1;
+    taken.add(free);
+    desired.set(extra.id, free);
+  }
+  const currentById = new Map(input.current.map((rank) => [rank.id, rank.priorityIndex]));
+  return [...desired.entries()]
+    .filter(([id, priorityIndex]) => currentById.get(id) !== priorityIndex)
+    .map(([id, priorityIndex]) => ({ id, priorityIndex }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
