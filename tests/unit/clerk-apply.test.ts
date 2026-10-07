@@ -88,7 +88,18 @@ describe('applyPlan', () => {
     const kept = applyPlan([entry()], [done, { type: 'set_queued', entryId: 'lh', queued: true }]);
     expect(kept.ok).toBe(true);
     if (kept.ok) {
-      expect(kept.patches.some((patch) => patch.updates.priorityIndex === null)).toBe(false);
+      expect(kept.patches[0]?.updates.priorityIndex).toBe(2);
+      expect(kept.queueOn).toEqual([]);
+    }
+
+    const added = applyPlan(
+      [entry({ queued: false, priorityIndex: null })],
+      [done, { type: 'set_queued', entryId: 'lh', queued: true }],
+    );
+    expect(added.ok).toBe(true);
+    if (added.ok) {
+      expect(added.patches[0]?.updates.priorityIndex).toBeUndefined();
+      expect(added.queueOn).toEqual(['lh']);
     }
   });
 

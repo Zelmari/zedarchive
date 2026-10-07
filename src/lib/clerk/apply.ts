@@ -302,6 +302,10 @@ export function applyPlan(
         current.queued = false;
         current.priorityIndex = null;
         updates.priorityIndex = null;
+      } else if (action.status === 'completed' && entry.priorityIndex != null) {
+        // The domain clears Up Next when a completion omits priorityIndex.
+        // Repeating the current rank keeps it when this plan also queues the title.
+        updates.priorityIndex = entry.priorityIndex;
       }
       remember(current.id, updates);
       lines.push({
