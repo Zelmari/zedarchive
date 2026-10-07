@@ -62,6 +62,8 @@ export default function ClerkClient({ state }: ClerkClientProps) {
   const inFlight = useRef(false);
   // One id per submit. A second click while that request is open reuses it.
   const clientMessageId = useRef<string | null>(null);
+  // The sentence that produced the chips. A chip sends that sentence plus the row id.
+  const pendingSentence = useRef('');
 
   if (!state.enabled) {
     return (
@@ -133,6 +135,7 @@ export default function ClerkClient({ state }: ClerkClientProps) {
   async function send(raw: string, entryId?: string) {
     const message = raw.trim();
     if (!message || resting) return;
+    pendingSentence.current = message;
     const id = clientMessageId.current ?? crypto.randomUUID();
     clientMessageId.current = id;
     await run(async () => {
@@ -339,7 +342,7 @@ export default function ClerkClient({ state }: ClerkClientProps) {
                   type="button"
                   className="za-button za-button--secondary h-auto w-full whitespace-normal sm:w-auto"
                   disabled={fieldDisabled}
-                  onClick={() => void send(chip.title, chip.id)}
+                  onClick={() => void send(pendingSentence.current, chip.id)}
                 >
                   {chip.title} · {formatToken(chip.category)} · {formatToken(chip.status)}
                 </button>
