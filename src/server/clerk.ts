@@ -1,5 +1,7 @@
 'use server';
 
+import { clerkPageBudget, cancelClerk, confirmClerk, submitClerk, undoClerk } from '@/domain/clerk';
+import { CLERK_UNAVAILABLE } from '@/domain/clerk-confirm';
 import { requireSession } from '@/server/internal';
 
 export type ClerkPageState = { enabled: boolean; remaining: number; resting: boolean };
@@ -31,13 +33,17 @@ function allowlisted(userId: string): boolean {
   return ids.length > 0 && ids.includes(userId);
 }
 
+function clerkOpen(userId: string): boolean {
+  return process.env.LLM_ASSISTANT_ENABLED === 'true' && allowlisted(userId);
+}
+
 export async function getClerkPageState(): Promise<ClerkPageState> {
   const session = await requireSession();
-  if (process.env.LLM_ASSISTANT_ENABLED !== 'true' || !allowlisted(session.id)) {
+  if (!clerkOpen(session.id)) {
     return { enabled: false, remaining: 0, resting: false };
   }
-  // remaining is filled by the usage ledger
-  return { enabled: true, remaining: 15, resting: false };
+  const budget = await clerkPageBudget(session.id);
+  return { enabled: true, remaining: budget.remaining, resting: budget.resting };
 }
 
 /**
@@ -51,26 +57,34 @@ export async function submitClerkSentence(
   clientMessageId: string,
   entryId?: string,
 ): Promise<ClerkTurn> {
-  void message;
-  void clientMessageId;
-  void entryId;
-  throw new Error('Clerk server is not wired');
+  const session = await requireSession();
+  if (!clerkOpen(session.id)) {
+    return { kind: 'message', text: CLERK_UNAVAILABLE, remaining: 0 };
+  }
+  return submitClerk(session.id, message, clientMessageId, entryId);
 }
 
 export async function confirmClerkProposal(
   proposalId: string,
   edits: { lineIndex: number; value: number }[],
 ): Promise<ClerkTurn> {
-  void proposalId;
-  void edits;
-  throw new Error('Clerk server is not wired');
+  const session = await requireSession();
+  if (!clerkOpen(session.id)) {
+    return { kind: 'message', text: CLERK_UNAVAILABLE, remaining: 0 };
+  }
+  return confirmClerk(session.id, proposalId, edits);
 }
 
 export async function cancelClerkProposal(proposalId: string): Promise<{ ok: true }> {
-  void proposalId;
-  throw new Error('Clerk server is not wired');
+  const session = await requireSession();
+  if (clerkOpen(session.id)) await cancelClerk(session.id, proposalId);
+  return { ok: true };
 }
 
 export async function undoLastClerkPlan(): Promise<ClerkTurn> {
-  throw new Error('Clerk server is not wired');
+  const session = await requireSession();
+  if (!clerkOpen(session.id)) {
+    return { kind: 'message', text: CLERK_UNAVAILABLE, remaining: 0 };
+  }
+  return undoClerk(session.id);
 }
