@@ -12,6 +12,9 @@ import {
 const READ_ERROR = 'The clerk could not read that. Try again.';
 const RESTING_TEXT = 'The clerk is resting until 00:00 UTC.';
 const UNAVAILABLE_TEXT = 'The clerk is not available.';
+const SAVED_TEXT = 'Saved.';
+const UNDONE_TEXT = 'Undid the last saved plan.';
+const NOTHING_TEXT = 'There is nothing to undo.';
 
 type TranscriptLine = { role: 'you' | 'clerk'; text: string };
 
@@ -123,8 +126,8 @@ export default function ClerkClient({ state }: ClerkClientProps) {
     setError('');
     try {
       await task();
-    } catch (err) {
-      console.error('Clerk request failed:', err);
+    } catch {
+      console.error('Clerk request failed');
       setError(READ_ERROR);
     } finally {
       inFlight.current = false;
@@ -164,7 +167,7 @@ export default function ClerkClient({ state }: ClerkClientProps) {
     void run(async () => {
       const turn = await confirmClerkProposal(current.id, payload);
       applyTurn(turn);
-      setCanUndo(true);
+      if (turn.kind === 'message' && turn.text === SAVED_TEXT) setCanUndo(true);
     });
   }
 
@@ -182,8 +185,10 @@ export default function ClerkClient({ state }: ClerkClientProps) {
     if (!canUndo) return;
     void run(async () => {
       const turn = await undoLastClerkPlan();
-      setCanUndo(false);
       applyTurn(turn);
+      if (turn.kind === 'message' && (turn.text === UNDONE_TEXT || turn.text === NOTHING_TEXT)) {
+        setCanUndo(false);
+      }
     });
   }
 
