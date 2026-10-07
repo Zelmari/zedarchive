@@ -1,6 +1,6 @@
 'use server';
 
-import { eq, or, and } from 'drizzle-orm';
+import { eq, or, and, ne } from 'drizzle-orm';
 import { verifyPassword } from 'better-auth/crypto';
 import { db } from '@/lib/db';
 import {
@@ -11,6 +11,8 @@ import {
   mediaEntries,
   mediaActivityLogs,
   profileComments,
+  assistantUsage,
+  ASSISTANT_FLEET_USER_ID,
 } from '@/db/schema';
 import { getAuthUser } from './internal';
 import { deleteAccountSchema } from '@/lib/validations/auth';
@@ -65,13 +67,21 @@ export async function deleteAccount(
     // 3. Delete media entries
     await tx.delete(mediaEntries).where(eq(mediaEntries.userId, user.id));
 
-    // 4. Delete account records
+    // 4. Usage has no user FK, so the user-row cascade cannot reach it.
+    //    Skip the global "__fleet__" row. Proposals and events cascade below.
+    await tx
+      .delete(assistantUsage)
+      .where(
+        and(eq(assistantUsage.userId, user.id), ne(assistantUsage.userId, ASSISTANT_FLEET_USER_ID)),
+      );
+
+    // 5. Delete account records
     await tx.delete(accountTable).where(eq(accountTable.userId, user.id));
 
-    // 5. Delete active sessions
+    // 6. Delete active sessions
     await tx.delete(sessionTable).where(eq(sessionTable.userId, user.id));
 
-    // 6. Delete Better Auth verification tokens. The verification table is a
+    // 7. Delete Better Auth verification tokens. The verification table is a
     // polymorphic key-value store without a foreign key to `user`, so the
     // user-row cascade can never reach it. Password-reset tokens store
     // user.id in `value`; legacy flows may store the email in either column.
@@ -87,7 +97,7 @@ export async function deleteAccount(
     }
     await tx.delete(verificationTable).where(or(...verificationConditions));
 
-    // 7. Delete user record
+    // 8. Delete user record. Proposals and events cascade with this row.
     await tx.delete(userTable).where(eq(userTable.id, user.id));
   });
 
