@@ -4,6 +4,7 @@ import {
   crossedFleetAlert,
   pageBudget,
   reconcileUsage,
+  settleCallsDelta,
   utcUsageDay,
 } from '@/domain/clerk-quota';
 import { FLEET_DAY_MICROS, estimateCallMicros } from '@/lib/clerk/limits';
@@ -71,6 +72,13 @@ describe('reconcileUsage', () => {
     expect(
       reconcileUsage({ estimate: 256, accepted: true, inputTokens: null, outputTokens: 20 }),
     ).toEqual({ callsDelta: 1, spentDelta: 256, reservedDelta: -256 });
+  });
+});
+
+describe('settleCallsDelta', () => {
+  it('keeps a billed call and returns a slot the provider did not bill', () => {
+    expect(settleCallsDelta(1)).toBe(0);
+    expect(settleCallsDelta(0)).toBe(-1);
   });
 });
 

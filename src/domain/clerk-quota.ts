@@ -31,6 +31,14 @@ export interface UsageReconciliation {
 }
 
 /**
+ * `reserveCall` already counted one call. An accepted call keeps that slot.
+ * A rejected or unpaid call gives the slot back.
+ */
+export function settleCallsDelta(callsDelta: number): number {
+  return callsDelta - 1;
+}
+
+/**
  * Accepted calls (HTTP 200, or any body that carried usage) count.
  * A network failure or a non-200 without usage releases the reserve and does not count.
  * When the provider accepts the call but omits usage, the estimate stays spent.
