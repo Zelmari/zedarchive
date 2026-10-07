@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Layers, Tv, Film, BookOpen, LogOut, Palette, Settings } from 'lucide-react';
+import { Layers, Tv, Film, BookOpen, LogOut, NotebookPen, Palette, Settings } from 'lucide-react';
 import BrandWordmark from '@/components/navigation/BrandWordmark';
 import type { DashboardTab } from '@/hooks/use-media-filters';
 
@@ -77,6 +77,16 @@ export default function DashboardHeader({
             <Palette size={16} strokeWidth={1.75} />
             <span className="hidden lg:inline">Theme</span>
           </button>
+
+          <Link
+            href="/clerk"
+            className="za-button za-button--tertiary"
+            title="Clerk"
+            aria-label="Clerk"
+          >
+            <NotebookPen size={16} strokeWidth={1.75} />
+            <span className="hidden lg:inline">Clerk</span>
+          </Link>
 
           <Link
             href="/settings"
