@@ -132,4 +132,42 @@ describe('applyNumberEdits', () => {
     expect(applyNumberEdits(actions, [{ lineIndex: 0, value: 51 }]).ok).toBe(false);
     expect(applyNumberEdits(actions, [{ lineIndex: 0, value: 0 }]).ok).toBe(false);
   });
+
+  it('rejects an absolute position edit past 100000', () => {
+    const progress: ClerkAction[] = [
+      { type: 'set_progress', entryId: 'lh', primary: null, secondary: 14, unit: 'chapter' },
+    ];
+    expect(applyNumberEdits(progress, [{ lineIndex: 0, value: 999999999 }]).ok).toBe(false);
+  });
+});
+
+describe('applyPlan progress', () => {
+  it('shows both units when a position sets the volume and the chapter', () => {
+    const result = applyPlan(
+      [entry({ primaryUnitTotal: 5 })],
+      [
+        {
+          type: 'set_progress',
+          entryId: 'lh',
+          primary: 2,
+          secondary: 3,
+          unit: 'chapter',
+        },
+      ],
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.lines[0]?.label).toContain('season or volume 1 → 2');
+    expect(result.lines[0]?.label).toContain('40 → 3');
+    expect(result.patches[0]?.updates.primaryUnitCurrent).toBe(2);
+    expect(result.patches[0]?.updates.secondaryUnitCurrent).toBe(3);
+  });
+
+  it('does not add episodes to a chapter count', () => {
+    const result = applyPlan(
+      [entry()],
+      [{ type: 'increment_secondary', entryId: 'lh', amount: 3, unit: 'episode' }],
+    );
+    expect(result.ok).toBe(false);
+  });
 });

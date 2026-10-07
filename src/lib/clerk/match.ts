@@ -40,15 +40,14 @@ export function rankTitles<T extends { id: string; title: string }>(
     const titleTokens = title.split(' ').filter((token) => token.length > 0);
     const exact = title === normalizedQuery;
     const titleContainsQuery = title.includes(normalizedQuery);
-    const queryContainsTitle = normalizedQuery.includes(title) && title.length >= 4;
-    const overlap = queryTokens.filter((token) => titleTokens.includes(token)).length;
-    if (!exact && !titleContainsQuery && !queryContainsTitle && overlap === 0) continue;
+    const allTokens = queryTokens.every((token) => titleTokens.includes(token));
+    // A longer query must not select a shorter title just because one word overlaps.
+    if (!exact && !titleContainsQuery && !allTokens) continue;
 
-    let score = overlap * 10;
+    let score = 0;
     if (exact) score += 100;
     else if (titleContainsQuery) score += 50;
-    else if (queryContainsTitle) score += 30;
-    if (overlap === queryTokens.length) score += 15;
+    if (allTokens) score += 15;
     scored.push({ entry, score, exact, titleContainsQuery });
   }
 

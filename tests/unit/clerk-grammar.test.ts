@@ -119,6 +119,35 @@ describe('parseGrammar', () => {
     }
   });
 
+  it('does not count episodes against a book stored in chapters', () => {
+    const result = parseGrammar('I read 3 more episodes of The Left Hand of Darkness', [leftHand]);
+    expect(result.kind).toBe('clarify');
+  });
+
+  it('does not finish the short title when only the longer name was said', () => {
+    const result = parseGrammar('I finished Dune Messiah', [row({ id: 'd1', title: 'Dune' })]);
+    expect(result.kind).toBe('miss');
+  });
+
+  it('updates a title even when the title contains a refusal word', () => {
+    const result = parseGrammar('I finished The Plot Against America', [
+      row({ id: 'plot', title: 'The Plot Against America' }),
+    ]);
+    expect(result.kind).toBe('plan');
+  });
+
+  it('does not apply a negated sentence', () => {
+    const result = parseGrammar('I did not read 3 more chapters of The Left Hand of Darkness', [
+      leftHand,
+    ]);
+    expect(result.kind).toBe('clarify');
+  });
+
+  it('rejects an absolute chapter past the clerk range', () => {
+    const result = parseGrammar('I am on chapter 100001 of The Left Hand of Darkness', [leftHand]);
+    expect(result.kind).toBe('clarify');
+  });
+
   it('asks to narrow when more than eight titles match', () => {
     const entries = Array.from({ length: 9 }, (_, index) =>
       row({ id: `b${index}`, title: `Notes volume ${index}` }),

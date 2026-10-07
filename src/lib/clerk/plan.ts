@@ -6,6 +6,7 @@ import {
   MAX_TITLE_LENGTH,
 } from '@/lib/constants';
 import { INCREMENT_PRIMARY_MAX, INCREMENT_SECONDARY_MAX, MAX_ACTIONS } from './limits';
+import { normalizeTitle } from './match';
 import type { ClerkAction, ClerkPlan } from './types';
 
 const categories = ['show', 'movie', 'book', 'anime', 'manga'] as const;
@@ -343,7 +344,7 @@ export function planSchemaForCandidates(candidateIds: readonly string[]): Record
   };
 }
 
-const REFUSALS: { pattern: RegExp; text: string }[] = [
+const HARD_REFUSALS: { pattern: RegExp; text: string }[] = [
   {
     pattern: /\b(?:delete|remove|close)\s+(?:my\s+)?account\b/,
     text: 'Account changes stay in settings.',
@@ -352,6 +353,9 @@ const REFUSALS: { pattern: RegExp; text: string }[] = [
     pattern: /\b(?:rewatch(?:ed)?|re-watch(?:ed)?|reread|re-read)\b/,
     text: 'Rewatch and reread stay on the title editor.',
   },
+];
+
+const SOFT_REFUSALS: { pattern: RegExp; text: string }[] = [
   {
     pattern: /\b(?:recommend(?:ation)?s?|what should i)\b/,
     text: 'The clerk does not recommend titles.',
@@ -366,10 +370,23 @@ const REFUSALS: { pattern: RegExp; text: string }[] = [
   },
 ];
 
-/** One refusal sentence for requests the clerk does not do. Null when the sentence can proceed. */
-export function refuseLocally(message: string): string | null {
+/**
+ * Account changes and rewatch always stop.
+ * Plot, stats, and recommendation words do not stop a sentence that names a library title,
+ * so "The Plot Against America" can still be updated.
+ */
+export function refuseLocally(message: string, titles: readonly string[] = []): string | null {
   const text = message.toLowerCase();
-  for (const refusal of REFUSALS) {
+  for (const refusal of HARD_REFUSALS) {
+    if (refusal.pattern.test(text)) return refusal.text;
+  }
+  const sentence = normalizeTitle(message);
+  const mentionsTitle = titles.some((title) => {
+    const normalized = normalizeTitle(title);
+    return normalized.length >= 3 && sentence.includes(normalized);
+  });
+  if (mentionsTitle) return null;
+  for (const refusal of SOFT_REFUSALS) {
     if (refusal.pattern.test(text)) return refusal.text;
   }
   return null;

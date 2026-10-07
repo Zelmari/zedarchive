@@ -105,6 +105,14 @@ function noun(unit: SecondaryUnit | 'episode' | null, amount: number): string {
 }
 
 function gateUnit(entry: ApplyEntry, unit: SecondaryUnit | 'episode' | null): ApplyResult | null {
+  if (unit === 'episode' && (entry.category === 'book' || entry.category === 'manga')) {
+    return {
+      ok: false,
+      reason: 'unit',
+      entryId: entry.id,
+      text: `${entry.title} is not counted in episodes.`,
+    };
+  }
   if (unit !== 'chapter' && unit !== 'page') {
     if (
       (entry.category === 'book' || entry.category === 'manga') &&
@@ -244,6 +252,22 @@ export function applyPlan(
     }
 
     if (action.type === 'set_progress') {
+      if (action.secondary != null && action.secondary > 100000) {
+        return {
+          ok: false,
+          reason: 'bounds',
+          entryId: current.id,
+          text: 'That number is outside the range the clerk can apply.',
+        };
+      }
+      if (action.primary != null && action.primary > 10000) {
+        return {
+          ok: false,
+          reason: 'bounds',
+          entryId: current.id,
+          text: 'That number is outside the range the clerk can apply.',
+        };
+      }
       const blocked = gateUnit(current, action.unit);
       if (blocked && action.secondary != null) return blocked;
       if (action.secondary != null) {
@@ -273,16 +297,22 @@ export function applyPlan(
       const value = action.secondary ?? action.primary ?? 0;
       const max =
         action.secondary != null
-          ? (current.secondaryUnitTotal ?? 100000)
-          : (current.primaryUnitTotal ?? 10000);
+          ? Math.min(current.secondaryUnitTotal ?? 100000, 100000)
+          : Math.min(current.primaryUnitTotal ?? 10000, 10000);
+      const parts: string[] = [];
+      if (action.primary != null) {
+        parts.push(`season or volume ${entry.primaryUnitCurrent} → ${action.primary}`);
+      }
+      if (action.secondary != null) {
+        parts.push(
+          `${noun(action.unit ?? current.secondaryUnitKind, 2)} ${entry.secondaryUnitCurrent} → ${action.secondary}`,
+        );
+      }
       lines.push({
         title: current.title,
         category: current.category,
         status: current.status,
-        label:
-          action.secondary != null
-            ? `${noun(action.unit ?? current.secondaryUnitKind, 2)} ${entry.secondaryUnitCurrent} → ${action.secondary}`
-            : `season or volume ${entry.primaryUnitCurrent} → ${action.primary}`,
+        label: parts.join(', '),
         editable: editable(value, 0, max),
       });
       continue;
@@ -483,7 +513,10 @@ export function applyNumberEdits(
       continue;
     }
     if (action.type === 'set_progress') {
-      if (edit.value < 0) return { ok: false, text: 'That number cannot be negative.' };
+      const cap = action.secondary != null ? 100000 : 10000;
+      if (edit.value < 0 || edit.value > cap) {
+        return { ok: false, text: `Use a number from 0 to ${cap}.` };
+      }
       if (action.secondary != null) action.secondary = edit.value;
       else action.primary = edit.value;
       continue;

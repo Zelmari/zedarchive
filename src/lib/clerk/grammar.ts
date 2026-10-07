@@ -59,6 +59,14 @@ function spokenUnitGate(
   entry: ClerkCatalogRow,
   unit: SpokenSecondary | null,
 ): GrammarResult | null {
+  if (unit === 'episode' && (entry.category === 'book' || entry.category === 'manga')) {
+    return {
+      kind: 'clarify',
+      text: entry.secondaryUnitKind
+        ? `${entry.title} is stored in ${entry.secondaryUnitKind}s, not episodes.`
+        : `Are those chapters or pages of ${entry.title}?`,
+    };
+  }
   if (unit !== 'chapter' && unit !== 'page') {
     if (
       (entry.category === 'book' || entry.category === 'manga') &&
@@ -86,6 +94,9 @@ function parseIntent(text: string): Intent | 'narrow' | GrammarResult | null {
     )
   ) {
     return 'narrow';
+  }
+  if (/\b(?:not|never|didn't|didnt|did not|don't|dont)\b/.test(text)) {
+    return { kind: 'clarify', text: 'Tell me what did happen.' };
   }
 
   let match = text.match(
@@ -125,7 +136,9 @@ function parseIntent(text: string): Intent | 'narrow' | GrammarResult | null {
     return {
       title,
       build(entry) {
+        if (value > 100000) return { kind: 'clarify', text: RANGE_TEXT };
         if (word === 'season' || word === 'volume') {
+          if (value > 10000) return { kind: 'clarify', text: RANGE_TEXT };
           return {
             type: 'set_progress',
             entryId: entry.id,
@@ -295,7 +308,10 @@ function summaryFor(action: ClerkAction, entry: ClerkCatalogRow): string {
 export function parseGrammar(message: string, entries: readonly ClerkCatalogRow[]): GrammarResult {
   const stripped = stripHiddenCharacters(message).replace(/\s+/g, ' ').trim();
   if (!stripped) return { kind: 'miss' };
-  const refusal = refuseLocally(stripped);
+  const refusal = refuseLocally(
+    stripped,
+    entries.map((entry) => entry.title),
+  );
   if (refusal) return { kind: 'refuse', text: refusal };
   if (stripped.length > 1000) return { kind: 'miss' };
 

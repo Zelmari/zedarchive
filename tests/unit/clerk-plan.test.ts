@@ -145,4 +145,11 @@ describe('refuseLocally', () => {
     expect(refuseLocally('I read 3 more chapters of Dune')).toBeNull();
     expect(refuseLocally('I watched Dune')).toBeNull();
   });
+
+  it('does not refuse a library title that contains a soft refusal word', () => {
+    expect(
+      refuseLocally('I finished The Plot Against America', ['The Plot Against America']),
+    ).toBeNull();
+    expect(refuseLocally('what happens in the last chapter')).toMatch(/plot/i);
+  });
 });
