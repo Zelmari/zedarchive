@@ -1,5 +1,6 @@
 import { getInitials } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import RetryingCoverImage from '@/components/cards/RetryingCoverImage';
 
 interface MediaCoverProps {
   title: string;
@@ -50,8 +51,7 @@ export default function MediaCover({
       title={onOpenDetail ? `Open details for ${title}` : undefined}
     >
       {coverImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
-        <img
+        <RetryingCoverImage
           src={coverImage}
           alt={title}
           className="block h-full w-full object-cover transition-transform duration-300 group-hover/cover:scale-[1.03]"

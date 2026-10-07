@@ -2,6 +2,7 @@
 
 import { getTileInitials } from '@/lib/format';
 import type { UseCoverUploadReturn } from '@/hooks/use-cover-upload';
+import RetryingCoverImage from '@/components/cards/RetryingCoverImage';
 
 interface FolioCoverProps {
   coverImage: string | null;
@@ -31,11 +32,12 @@ export default function FolioCover({
       <div className="group relative aspect-[2/3] overflow-hidden border border-decorative bg-surface-subtle">
         {isCompressing ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-surface p-4 text-center">
-            <span className="font-[family-name:var(--za-font-mono)] text-xs text-ink-muted">Compressing…</span>
+            <span className="font-[family-name:var(--za-font-mono)] text-xs text-ink-muted">
+              Compressing…
+            </span>
           </div>
         ) : coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- data URLs / remote covers, unoptimized by design
-          <img src={coverImage} alt={title} className="h-full w-full object-cover" />
+          <RetryingCoverImage src={coverImage} alt={title} className="h-full w-full object-cover" />
         ) : (
           <button
             type="button"

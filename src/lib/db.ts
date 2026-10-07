@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
@@ -127,5 +128,69 @@ const client = createRetryingPostgresClient(connectionString, {
 
 import { setDomainDb } from '@/domain/db-context';
 
-export const db: PostgresJsDatabase<typeof schema> = drizzle(client, { schema });
+// Cover grids fire many parallel requests. A pooled socket opened by another
+// Workers request is rejected, so a request can pin its own single connection.
+const requestDbStorage = new AsyncLocalStorage<postgres.Sql<any>>();
+const drizzleBySql = new WeakMap<object, PostgresJsDatabase<typeof schema>>();
+let sharedDb: PostgresJsDatabase<typeof schema> | undefined;
+
+function drizzleFor(sql: postgres.Sql<any>): PostgresJsDatabase<typeof schema> {
+  const cached = drizzleBySql.get(sql);
+  if (cached) return cached;
+  const instance = drizzle(sql, { schema });
+  drizzleBySql.set(sql, instance);
+  return instance;
+}
+
+function activeDb(): PostgresJsDatabase<typeof schema> {
+  const requestSql = requestDbStorage.getStore();
+  if (requestSql) return drizzleFor(requestSql);
+  sharedDb ??= drizzle(client, { schema });
+  return sharedDb;
+}
+
+export const db: PostgresJsDatabase<typeof schema> = new Proxy(
+  {} as PostgresJsDatabase<typeof schema>,
+  {
+    get(_target, prop) {
+      const real = activeDb();
+      const value = Reflect.get(real, prop, real);
+      if (typeof value === 'function') return value.bind(real);
+      return value;
+    },
+  },
+);
 setDomainDb(db);
+
+export async function withRequestDb<T>(fn: () => Promise<T>): Promise<T> {
+  if (process.env.NODE_ENV === 'test') return fn();
+
+  const sql = postgres(connectionString, {
+    prepare: false,
+    max: 1,
+    idle_timeout: 0,
+    connect_timeout: 5,
+    fetch_types: false,
+  });
+
+  let result!: T;
+  let fnError: unknown;
+  let threw = false;
+  try {
+    result = await requestDbStorage.run(sql, fn);
+  } catch (error) {
+    fnError = error;
+    threw = true;
+  } finally {
+    try {
+      await sql.end({ timeout: 1 });
+    } catch (endError) {
+      if (!threw) {
+        fnError = endError;
+        threw = true;
+      }
+    }
+  }
+  if (threw) throw fnError;
+  return result;
+}

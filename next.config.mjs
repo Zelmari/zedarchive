@@ -1,3 +1,5 @@
+import { HTML_CACHE_CONTROL_SOURCE, HTML_CACHE_CONTROL_VALUE } from './src/lib/cache-headers.mjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Keep postgres.js unbundled so its package exports resolve the `workerd`
@@ -17,8 +19,8 @@ const nextConfig = {
       {
         // Never let browsers or the CDN serve stale HTML for any page.
         // Hashed _next/static assets keep their immutable caching.
-        source: '/:path*',
-        headers: [{ key: 'Cache-Control', value: 'no-cache, must-revalidate' }],
+        source: HTML_CACHE_CONTROL_SOURCE,
+        headers: [{ key: 'Cache-Control', value: HTML_CACHE_CONTROL_VALUE }],
       },
     ];
   },

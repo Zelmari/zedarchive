@@ -8,6 +8,7 @@ import { createMockDb } from '../helpers/db-mock';
 
 vi.mock('@/lib/db', () => ({
   db: createMockDb(dbState),
+  withRequestDb: (fn: () => unknown) => fn(),
 }));
 
 const { getSessionUserMock } = vi.hoisted(() => ({

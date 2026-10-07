@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal';
 import { buildWeeklySchedule, ORDERED_DAYS, type DayOfWeek } from '@/lib/calendar';
 import type { MediaEntry, NextAirMap, UpdateMediaInput } from '@/types/media';
 import { cn } from '@/lib/cn';
+import RetryingCoverImage from '@/components/cards/RetryingCoverImage';
 
 interface WeeklyCalendarModalProps {
   isOpen: boolean;
@@ -220,8 +221,7 @@ export default function WeeklyCalendarModal({
                         >
                           <div className="flex items-start gap-2">
                             {media.coverImage ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
+                              <RetryingCoverImage
                                 src={media.coverImage}
                                 alt=""
                                 className="h-10 w-7 flex-none rounded-xs object-cover"

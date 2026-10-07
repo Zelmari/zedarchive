@@ -16,6 +16,7 @@ import { getCanonicalProfileUrl } from '@/lib/site-url';
 import { MarkdownNotes } from '@/lib/markdown';
 import ArchiveUnavailable from '@/components/ui/ArchiveUnavailable';
 import { Badge, RatingBadge, StatusBadge } from '@/components/ui/Badge';
+import RetryingCoverImage from '@/components/cards/RetryingCoverImage';
 
 type PageParams = { params: Promise<{ username: string }> };
 
@@ -347,8 +348,7 @@ export default async function PublicProfilePage({ params }: PageParams) {
                       <div className="flex items-start gap-[var(--za-space-3)]">
                         <div className="relative block w-20 min-w-20 flex-none overflow-hidden rounded-small border border-decorative bg-[var(--za-color-title-tile)] [aspect-ratio:2/3] sm:w-28 sm:min-w-28">
                           {item.coverImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- data URL / remote covers, unoptimized by design
-                            <img
+                            <RetryingCoverImage
                               src={item.coverImage}
                               alt={item.title}
                               className="block h-full w-full object-cover"
