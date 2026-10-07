@@ -148,6 +148,13 @@
       "when": 1791394864788,
       "tag": "0020_typical_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791394947951,
+      "tag": "0021_natural_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

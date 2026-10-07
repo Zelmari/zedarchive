@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   text,
@@ -8,8 +9,9 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
-import type { StructureItem, MediaCycle, MediaQuote } from '@/types/media';
+import type { StructureItem, MediaCycle, MediaQuote, SecondaryUnitKind } from '@/types/media';
 import type { ThemeId, ReadingGoalConfig, CustomThemePalette } from '@/types/user';
 
 // AUTH TABLES (Better Auth)
@@ -107,6 +109,8 @@ export const mediaEntries = pgTable(
     // Secondary Units (Episodes, Chapters)
     secondaryUnitCurrent: integer('secondary_unit_current').notNull().default(0),
     secondaryUnitTotal: integer('secondary_unit_total'), // Max units for CURRENT primary unit
+    // Book or manga only: chapter, page, or null. Null is not a guess.
+    secondaryUnitKind: text('secondary_unit_kind').$type<SecondaryUnitKind>(),
 
     // Universal structure breakdown
     // Example: [{ "number": 1, "name": "Season 1", "total": 12 }, { "number": 2, "name": "Season 2", "total": 24 }]
@@ -145,6 +149,10 @@ export const mediaEntries = pgTable(
       table.userId,
       table.isPrivate,
       table.updatedAt.desc(),
+    ),
+    check(
+      'media_entries_secondary_unit_kind_check',
+      sql`${table.secondaryUnitKind} IS NULL OR ${table.secondaryUnitKind} IN ('chapter', 'page')`,
     ),
   ],
 );

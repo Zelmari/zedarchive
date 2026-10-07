@@ -15,6 +15,7 @@ type SerializedEntryInput = {
   dropReason?: string | null;
   droppedProgressPrimary?: number | null;
   droppedProgressSecondary?: number | null;
+  secondaryUnitKind?: unknown;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
 } & Record<string, unknown>;
@@ -96,6 +97,10 @@ export function serializeEntry(entry: SerializedEntryInput | null | undefined): 
     ...(entry as unknown as MediaEntry),
     status: (entry.status || 'in_progress') as MediaEntry['status'],
     rating: entry.rating != null ? entry.rating : null,
+    secondaryUnitKind:
+      entry.secondaryUnitKind === 'chapter' || entry.secondaryUnitKind === 'page'
+        ? entry.secondaryUnitKind
+        : null,
     tags: Array.isArray(entry.tags) ? entry.tags : [],
     genres: Array.isArray(entry.genres) ? entry.genres : [],
     rewatchCount: entry.rewatchCount || 0,

@@ -1,0 +1,2 @@
+ALTER TABLE "media_entries" ADD COLUMN "secondary_unit_kind" text;--> statement-breakpoint
+ALTER TABLE "media_entries" ADD CONSTRAINT "media_entries_secondary_unit_kind_check" CHECK ("media_entries"."secondary_unit_kind" IS NULL OR "media_entries"."secondary_unit_kind" IN ('chapter', 'page'));

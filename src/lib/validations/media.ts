@@ -92,6 +92,11 @@ const mediaFieldsSchema = z.object({
   primaryUnitTotal: optionalInt,
   secondaryUnitCurrent: optionalInt,
   secondaryUnitTotal: optionalInt,
+  /** Book or manga only. Blank clears it. Omitted leaves it unchanged on update. */
+  secondaryUnitKind: z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.enum(['chapter', 'page']).nullable().optional(),
+  ),
   structure: z.array(structureItemSchema).max(MAX_STRUCTURE_LENGTH),
   cycles: z.array(mediaCycleSchema),
   quotes: z.array(mediaQuoteSchema),

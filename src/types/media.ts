@@ -2,6 +2,8 @@ import type { mediaEntries } from '@/db/schema';
 
 export type MediaCategory = 'show' | 'movie' | 'book' | 'anime' | 'manga';
 export type MediaStatus = 'in_progress' | 'completed' | 'planning' | 'on_hold' | 'dropped';
+/** Shared secondary column for a book or manga. Null means it has not been stored. */
+export type SecondaryUnitKind = 'chapter' | 'page';
 
 export interface StructureItem {
   number: number;
@@ -65,6 +67,8 @@ export interface MediaEntry extends Omit<
   updatedAt: string;
   /** Whether the entry is hidden from the public profile and RSS feeds */
   isPrivate: boolean;
+  /** Book or manga only. Null until chapters or pages is stored. Never guessed. */
+  secondaryUnitKind: SecondaryUnitKind | null;
 }
 
 export type UpdateMediaInput = Partial<
