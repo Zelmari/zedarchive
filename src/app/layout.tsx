@@ -28,7 +28,6 @@ const newsreader = Newsreader({
 
 const jetBrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-jetbrains-mono',
