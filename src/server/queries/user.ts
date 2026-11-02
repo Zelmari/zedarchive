@@ -16,22 +16,6 @@ export async function isAuthenticated(): Promise<boolean> {
   }
 }
 
-export async function getSessionChrome(): Promise<{ theme: string }> {
-  try {
-    const sessionUser = await getSessionUser();
-    if (!sessionUser?.id) {
-      return { theme: 'parchment' };
-    }
-    const [row] = await db
-      .select({ theme: userTable.theme })
-      .from(userTable)
-      .where(eq(userTable.id, sessionUser.id));
-    return { theme: row?.theme || 'parchment' };
-  } catch {
-    return { theme: 'parchment' };
-  }
-}
-
 export async function getUserProfileById(id: string): Promise<UserProfile | null> {
   const [row] = await db
     .select({
