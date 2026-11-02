@@ -1,5 +1,5 @@
-import { redirectIfAuthenticated } from '@/server/internal';
 import { Suspense } from 'react';
+import { AuthCardSkeleton } from '@/components/auth/AuthCardSkeleton';
 import LoginForm from './LoginForm';
 
 export const metadata = {
@@ -7,10 +7,9 @@ export const metadata = {
   description: 'Sign in to your ZedArchive account.',
 };
 
-export default async function LoginPage() {
-  await redirectIfAuthenticated();
+export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<AuthCardSkeleton />}>
       <LoginForm />
     </Suspense>
   );

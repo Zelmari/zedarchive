@@ -19,7 +19,7 @@ export default function BrandWordmark({
         aria-hidden="true"
         className="za-wordmark__mark"
         height={36}
-        src="/transparentlogo.png"
+        src="/wordmark-logo.webp"
         width={36}
         unoptimized
       />

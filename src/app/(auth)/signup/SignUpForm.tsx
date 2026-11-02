@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp, signIn } from '@/lib/client/auth-client';
+import { signUp, signIn, authClient } from '@/lib/client/auth-client';
 import { AuthCard, AuthField } from '@/components/auth/AuthCard';
 
 export default function SignUpForm() {
@@ -14,6 +14,23 @@ export default function SignUpForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    authClient
+      .getSession({ fetchOptions: { cache: 'no-store' } })
+      .then((res) => {
+        if (!cancelled && res?.data?.user?.id) {
+          router.replace('/dashboard');
+        }
+      })
+      .catch(() => {
+        // Non-fatal: keep the sign-up form interactive if session check fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { withRequestDb } from '@/lib/db';
 import { getUserProfileById } from '@/server/queries/user';
 import { requireSession } from '@/server/internal';
 import SettingsClient from './SettingsClient';
@@ -10,28 +11,30 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const session = await requireSession();
+  return withRequestDb(async () => {
+    const session = await requireSession();
 
-  const profile = await getUserProfileById(session.id);
+    const profile = await getUserProfileById(session.id);
 
-  if (!profile) {
-    redirect('/login');
-  }
+    if (!profile) {
+      redirect('/login');
+    }
 
-  const userProfile: UserProfile = {
-    id: profile.id,
-    name: profile.name,
-    email: profile.email,
-    image: profile.image || null,
-    theme: profile.theme,
-    customTheme: profile.customTheme || null,
-    username: profile.username,
-    isPublic: profile.isPublic,
-    bio: profile.bio,
-    countryCode: profile.countryCode || 'US',
-    emailVerified: profile.emailVerified,
-    verificationDismissedAt: profile.verificationDismissedAt || null,
-  };
+    const userProfile: UserProfile = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      image: profile.image || null,
+      theme: profile.theme,
+      customTheme: profile.customTheme || null,
+      username: profile.username,
+      isPublic: profile.isPublic,
+      bio: profile.bio,
+      countryCode: profile.countryCode || 'US',
+      emailVerified: profile.emailVerified,
+      verificationDismissedAt: profile.verificationDismissedAt || null,
+    };
 
-  return <SettingsClient profile={userProfile} />;
+    return <SettingsClient profile={userProfile} />;
+  });
 }

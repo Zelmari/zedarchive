@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { UserProfile } from '@/types/user';
+import { applyTheme } from '@/lib/theme';
 import SubPageHeader from '@/components/navigation/SubPageHeader';
 import ProfileSection from './components/ProfileSection';
 import ThemeSection from './components/ThemeSection';
@@ -12,6 +14,10 @@ interface SettingsClientProps {
 }
 
 export default function SettingsClient({ profile }: SettingsClientProps) {
+  useEffect(() => {
+    applyTheme(profile.theme, profile.theme === 'custom' ? (profile.customTheme ?? null) : null);
+  }, [profile.theme, profile.customTheme]);
+
   return (
     <div className="min-h-screen bg-canvas text-ink">
       {/* Header */}

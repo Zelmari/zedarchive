@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import ErrorFallback from '@/components/ui/ErrorFallback';
+import { isNavigationAbortError } from '@/components/navigation/AuthNavLink';
 
 export default function Error({
   error,
@@ -9,6 +11,15 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const retriedRef = useRef(false);
+
+  useEffect(() => {
+    if (!retriedRef.current && isNavigationAbortError(error)) {
+      retriedRef.current = true;
+      reset();
+    }
+  }, [error, reset]);
+
   return (
     <ErrorFallback
       title="The archive was interrupted"

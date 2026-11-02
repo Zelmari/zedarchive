@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Cinzel, JetBrains_Mono, Newsreader, Playfair_Display } from 'next/font/google';
-import { getSessionChrome } from '@/server/queries/user';
 import NavigationHistory from '@/components/navigation/NavigationHistory';
 
 const cinzel = Cinzel({
@@ -29,6 +28,7 @@ const newsreader = Newsreader({
 
 const jetBrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-jetbrains-mono',
@@ -80,13 +80,12 @@ export const metadata: Metadata = {
 const THEME_BOOTSTRAP_SCRIPT =
   "try{var t=localStorage.getItem('za-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}";
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { theme } = await getSessionChrome();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      data-theme={theme}
+      data-theme="parchment"
+      suppressHydrationWarning
       className={`${cinzel.variable} ${playfairDisplay.variable} ${newsreader.variable} ${jetBrainsMono.variable}`}
     >
       <head>

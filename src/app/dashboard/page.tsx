@@ -1,3 +1,4 @@
+import { withRequestDb } from '@/lib/db';
 import { getUserProfileById } from '@/server/queries/user';
 import { getMediaEntriesByUserId } from '@/server/queries/media';
 import { requireSession, toDashboardUser } from '@/server/internal';
@@ -9,12 +10,16 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const session = await requireSession();
+  return withRequestDb(async () => {
+    const session = await requireSession();
 
-  // Fetch user profile and initial media entries via DAL queries
-  const dbUser = await getUserProfileById(session.id);
-  const initialEntries = await getMediaEntriesByUserId(session.id);
-  const user = toDashboardUser(session, dbUser);
+    // Fetch user profile and initial media entries via DAL queries
+    const [dbUser, initialEntries] = await Promise.all([
+      getUserProfileById(session.id),
+      getMediaEntriesByUserId(session.id),
+    ]);
+    const user = toDashboardUser(session, dbUser);
 
-  return <DashboardClient user={user} initialEntries={initialEntries} />;
+    return <DashboardClient user={user} initialEntries={initialEntries} />;
+  });
 }
