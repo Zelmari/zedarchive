@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -13,6 +14,28 @@ interface SessionUser {
   emailVerified?: boolean;
 }
 
+async function lookupSessionUser(): Promise<SessionUser | null> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  return (session?.user as SessionUser | undefined) ?? null;
+}
+
+const cachedLookupSessionUser = cache(lookupSessionUser);
+
+/**
+ * Non-throwing session lookup for endpoints that serve anonymous visitors
+ * (e.g. public profile pages). Returns null when nobody is signed in.
+ * In non-test environments, deduplicated per-request via React cache().
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  if (process.env.NODE_ENV === 'test') {
+    return lookupSessionUser();
+  }
+  return cachedLookupSessionUser();
+}
+
 export async function getAuthUser(): Promise<SessionUser> {
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) {
@@ -20,18 +43,6 @@ export async function getAuthUser(): Promise<SessionUser> {
   }
 
   return sessionUser;
-}
-
-/**
- * Non-throwing session lookup for endpoints that serve anonymous visitors
- * (e.g. public profile pages). Returns null when nobody is signed in.
- */
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  return (session?.user as SessionUser | undefined) ?? null;
 }
 
 export async function requireSession(loginPath = '/login'): Promise<SessionUser> {
@@ -45,7 +56,12 @@ export async function requireSession(loginPath = '/login'): Promise<SessionUser>
 }
 
 export async function redirectIfAuthenticated(): Promise<void> {
-  const sessionUser = await getSessionUser();
+  let sessionUser: SessionUser | null = null;
+  try {
+    sessionUser = await getSessionUser();
+  } catch {
+    return;
+  }
 
   if (sessionUser?.id) {
     redirect('/dashboard');
