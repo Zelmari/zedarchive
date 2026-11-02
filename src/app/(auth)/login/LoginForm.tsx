@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, authClient } from '@/lib/client/auth-client';
@@ -17,6 +17,23 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    authClient
+      .getSession({ fetchOptions: { cache: 'no-store' } })
+      .then((res) => {
+        if (!cancelled && res?.data?.user?.id) {
+          router.replace(safeCallbackUrl(callbackUrl));
+        }
+      })
+      .catch(() => {
+        // Non-fatal: keep the sign-in form interactive if session check fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [callbackUrl, router]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
