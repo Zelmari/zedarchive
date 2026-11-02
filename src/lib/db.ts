@@ -24,17 +24,24 @@ const connectionString =
 // relational queries, raw queries, transactions, and Better Auth adapter calls) automatically
 // retries on stale socket errors.
 const STALE_IO_MARKER = 'different request';
+const CONNECT_TIMEOUT_MARKER = 'CONNECT_TIMEOUT';
 const MAX_RETRIES = 3;
 
-interface ErrorLike {
+export interface ErrorLike {
   message?: unknown;
+  code?: unknown;
   cause?: unknown;
 }
 
-function isStaleIoError(error: unknown): boolean {
+export function isStaleIoError(error: unknown): boolean {
   let current = error as ErrorLike | null | undefined;
-  for (let depth = 0; current && depth < 5; depth++) {
-    if (typeof current?.message === 'string' && current.message.includes(STALE_IO_MARKER)) {
+  for (let depth = 0; current && depth <= 5; depth++) {
+    if (
+      (typeof current.message === 'string' &&
+        (current.message.includes(STALE_IO_MARKER) ||
+          current.message.includes(CONNECT_TIMEOUT_MARKER))) ||
+      current.code === CONNECT_TIMEOUT_MARKER
+    ) {
       return true;
     }
     current = current.cause as ErrorLike | null | undefined;
@@ -42,13 +49,31 @@ function isStaleIoError(error: unknown): boolean {
   return false;
 }
 
-type PostgresOptions = postgres.Options<Record<string, postgres.PostgresType<any>>>;
+export type PostgresOptions = postgres.Options<Record<string, postgres.PostgresType<any>>>;
 
-function createRetryingPostgresClient(
+export const SHARED_POSTGRES_OPTIONS: PostgresOptions = {
+  prepare: false,
+  max: 2,
+  idle_timeout: 5,
+  max_lifetime: 60,
+  connect_timeout: 5,
+  fetch_types: false,
+};
+
+export const REQUEST_POSTGRES_OPTIONS: PostgresOptions = {
+  prepare: false,
+  max: 1,
+  idle_timeout: 0,
+  connect_timeout: 5,
+  fetch_types: false,
+};
+
+export function createRetryingPostgresClient(
   connStr: string,
   options: PostgresOptions,
+  postgresImpl: (connStr: string, options: PostgresOptions) => any = postgres as any,
 ): postgres.Sql<any> {
-  const rawClient = postgres(connStr, options);
+  const rawClient = postgresImpl(connStr, options);
 
   function wrapQueryFn(originalFn: any, ctx: any = rawClient) {
     return function retryingQuery(this: unknown, ...args: any[]) {
@@ -111,6 +136,10 @@ function createRetryingPostgresClient(
             return runBegin();
           };
         }
+        if (prop === 'end') {
+          return val.bind(target);
+        }
+        return val.bind(target);
       }
       return val;
     },
@@ -119,12 +148,7 @@ function createRetryingPostgresClient(
 
 // Disable prefetch as it is not supported for Supabase "Transaction" pooler mode.
 // Tuned for serverless: bounded pool, short idle lifetime so isolates release connections.
-const client = createRetryingPostgresClient(connectionString, {
-  prepare: false,
-  max: 5,
-  idle_timeout: 20,
-  max_lifetime: 60 * 5,
-});
+const client = createRetryingPostgresClient(connectionString, SHARED_POSTGRES_OPTIONS);
 
 import { setDomainDb } from '@/domain/db-context';
 
@@ -162,16 +186,15 @@ export const db: PostgresJsDatabase<typeof schema> = new Proxy(
 );
 setDomainDb(db);
 
-export async function withRequestDb<T>(fn: () => Promise<T>): Promise<T> {
-  if (process.env.NODE_ENV === 'test') return fn();
+export async function withRequestDb<T>(
+  fn: () => Promise<T>,
+  clientFactory?: () => postgres.Sql<any>,
+): Promise<T> {
+  if (process.env.NODE_ENV === 'test' && !clientFactory) return fn();
 
-  const sql = postgres(connectionString, {
-    prepare: false,
-    max: 1,
-    idle_timeout: 0,
-    connect_timeout: 5,
-    fetch_types: false,
-  });
+  const sql = clientFactory
+    ? clientFactory()
+    : createRetryingPostgresClient(connectionString, REQUEST_POSTGRES_OPTIONS);
 
   let result!: T;
   let fnError: unknown;
