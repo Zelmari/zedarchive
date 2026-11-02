@@ -1,4 +1,3 @@
-import { redirectIfAuthenticated } from '@/server/internal';
 import SignUpForm from './SignUpForm';
 
 export const metadata = {
@@ -6,7 +5,6 @@ export const metadata = {
   description: 'Create a quiet, personal media archive.',
 };
 
-export default async function SignUpPage() {
-  await redirectIfAuthenticated();
+export default function SignUpPage() {
   return <SignUpForm />;
 }
