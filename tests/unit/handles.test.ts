@@ -25,14 +25,14 @@ describe('isReservedHandle', () => {
     expect(isReservedHandle('Search')).toBe(true);
     expect(isReservedHandle('  DASHBOARD  ')).toBe(true);
     expect(isReservedHandle('settings')).toBe(true);
-    expect(isReservedHandle('clerk')).toBe(true);
-    expect(isReservedHandle('Clerk')).toBe(true);
     expect(isReservedHandle('u')).toBe(true);
   });
 
   it('allows normal handles', () => {
     expect(isReservedHandle('zelmari')).toBe(false);
     expect(isReservedHandle('alex_reads')).toBe(false);
+    expect(isReservedHandle('clerk')).toBe(false);
+    expect(isReservedHandle('Clerk')).toBe(false);
   });
 });
 

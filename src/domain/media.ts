@@ -84,14 +84,6 @@ function sanitizeRating(rating: unknown): number | null {
   return Math.min(MAX_RATING, Math.max(1, parsed));
 }
 
-function sanitizeSecondaryUnitKind(
-  value: unknown,
-  category: MediaRow['category'],
-): 'chapter' | 'page' | null {
-  if (category !== 'book' && category !== 'manga') return null;
-  return value === 'chapter' || value === 'page' ? value : null;
-}
-
 function sanitizeStatus(status: unknown): string {
   const normalized = typeof status === 'string' ? status.trim().toLowerCase() : '';
   return isInList(VALID_STATUSES, normalized) ? normalized : 'in_progress';
@@ -341,7 +333,6 @@ function buildMediaPayload(
         ? Math.min(secondaryUnitCurrent, secondaryUnitTotal)
         : secondaryUnitCurrent,
     secondaryUnitTotal,
-    secondaryUnitKind: sanitizeSecondaryUnitKind(input.secondaryUnitKind, category),
     structure: sanitizeStructure(input.structure),
     coverImage:
       typeof input.coverImage === 'string' &&
@@ -366,7 +357,6 @@ function buildMediaPayload(
 export async function createMediaEntryForUser(
   userId: string,
   data: Record<string, unknown>,
-  options?: { via?: 'clerk' },
 ): Promise<MediaEntry> {
   const parsed = createMediaSchema.safeParse(data);
   if (!parsed.success) {
@@ -414,7 +404,6 @@ export async function createMediaEntryForUser(
           ...(payload.status === 'dropped'
             ? { dropReason: payload.dropReason, droppedAt: payload.droppedAt }
             : {}),
-          ...(options?.via ? { via: options.via } : {}),
         },
       },
       tx,
@@ -430,7 +419,6 @@ export async function updateMediaProgressForUser(
   userId: string,
   id: string,
   updates: Record<string, unknown>,
-  options?: { via?: 'clerk' },
 ): Promise<MediaEntry> {
   const parsed = updateMediaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -560,21 +548,6 @@ export async function updateMediaProgressForUser(
 
   const updated = await domainDb().transaction(async (tx) => {
     const existing = await assertCanWriteMedia(id, userId, tx);
-
-    const effectiveCategory = updateFields.category ?? existing.category;
-    if (effectiveCategory === 'book' || effectiveCategory === 'manga') {
-      if (validatedUpdates.secondaryUnitKind !== undefined) {
-        updateFields.secondaryUnitKind = sanitizeSecondaryUnitKind(
-          validatedUpdates.secondaryUnitKind,
-          effectiveCategory,
-        );
-      }
-    } else if (
-      validatedUpdates.secondaryUnitKind !== undefined ||
-      existing.secondaryUnitKind != null
-    ) {
-      updateFields.secondaryUnitKind = null;
-    }
 
     if (
       updateFields.primaryUnitCurrent !== undefined &&
@@ -723,7 +696,6 @@ export async function updateMediaProgressForUser(
           rating: row.rating,
           dropReason: row.dropReason,
           droppedAt: row.droppedAt,
-          ...(options?.via ? { via: options.via } : {}),
         },
       },
       tx,
