@@ -366,7 +366,6 @@ function buildMediaPayload(
 export async function createMediaEntryForUser(
   userId: string,
   data: Record<string, unknown>,
-  options?: { via?: 'clerk' },
 ): Promise<MediaEntry> {
   const parsed = createMediaSchema.safeParse(data);
   if (!parsed.success) {
@@ -414,7 +413,6 @@ export async function createMediaEntryForUser(
           ...(payload.status === 'dropped'
             ? { dropReason: payload.dropReason, droppedAt: payload.droppedAt }
             : {}),
-          ...(options?.via ? { via: options.via } : {}),
         },
       },
       tx,
@@ -430,7 +428,6 @@ export async function updateMediaProgressForUser(
   userId: string,
   id: string,
   updates: Record<string, unknown>,
-  options?: { via?: 'clerk' },
 ): Promise<MediaEntry> {
   const parsed = updateMediaSchema.safeParse(updates);
   if (!parsed.success) {
@@ -723,7 +720,6 @@ export async function updateMediaProgressForUser(
           rating: row.rating,
           dropReason: row.dropReason,
           droppedAt: row.droppedAt,
-          ...(options?.via ? { via: options.via } : {}),
         },
       },
       tx,
