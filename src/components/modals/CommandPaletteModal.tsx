@@ -7,7 +7,6 @@ import {
   Plus,
   BarChart2,
   Palette,
-  NotebookPen,
   Settings,
   ArrowRight,
   Tv,
@@ -107,18 +106,6 @@ export default function CommandPaletteModal({
         onSelect: () => {
           onClose();
           onOpenThemeModal?.();
-        },
-      },
-      {
-        id: 'cmd-clerk',
-        type: 'action',
-        section: 'commands',
-        title: 'Clerk',
-        subtitle: 'Tell the archive what happened',
-        Icon: NotebookPen,
-        onSelect: () => {
-          onClose();
-          router.push('/clerk');
         },
       },
       {
