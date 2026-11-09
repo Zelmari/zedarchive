@@ -8,7 +8,6 @@ import {
   jsonb,
   pgEnum,
   index,
-  uniqueIndex,
   check,
 } from 'drizzle-orm/pg-core';
 import type { StructureItem, MediaCycle, MediaQuote, SecondaryUnitKind } from '@/types/media';
@@ -198,62 +197,4 @@ export const profileComments = pgTable(
     index('comments_profile_expires_idx').on(table.profileUserId, table.expiresAt),
     index('comments_author_created_idx').on(table.authorUserId, table.createdAt.desc()),
   ],
-);
-
-/** Global assistant_usage row. Not a user id, so that table has no user foreign key. */
-export const ASSISTANT_FLEET_USER_ID = '__fleet__';
-
-export const assistantUsage = pgTable(
-  'assistant_usage',
-  {
-    id: text('id').primaryKey(),
-    // Real user id, or ASSISTANT_FLEET_USER_ID. No FK, so the sentinel is valid.
-    userId: text('user_id').notNull(),
-    // UTC day as YYYY-MM-DD.
-    usageDay: text('usage_day').notNull(),
-    calls: integer('calls').notNull().default(0),
-    reservedMicros: integer('reserved_micros').notNull().default(0),
-    spentMicros: integer('spent_micros').notNull().default(0),
-  },
-  (table) => [uniqueIndex('assistant_usage_user_day_uidx').on(table.userId, table.usageDay)],
-);
-
-export const assistantProposals = pgTable(
-  'assistant_proposals',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    clientMessageId: text('client_message_id').notNull(),
-    actions: jsonb('actions').notNull(),
-    beforeImage: jsonb('before_image').notNull(),
-    // One plain-text confirm-card sentence, not the raw prompt.
-    summary: text('summary').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    appliedAt: timestamp('applied_at'),
-    undoneAt: timestamp('undone_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex('assistant_proposals_user_message_uidx').on(table.userId, table.clientMessageId),
-    index('assistant_proposals_user_created_idx').on(table.userId, table.createdAt.desc()),
-  ],
-);
-
-export const assistantEvents = pgTable(
-  'assistant_events',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    modelId: text('model_id'),
-    latencyMs: integer('latency_ms'),
-    inputTokens: integer('input_tokens'),
-    outputTokens: integer('output_tokens'),
-    outcome: text('outcome').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [index('assistant_events_user_created_idx').on(table.userId, table.createdAt.desc())],
 );
